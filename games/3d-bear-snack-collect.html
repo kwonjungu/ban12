@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>곰돌이의 건강 간식 모으기 3D</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Gamja+Flower&family=Pretendard:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Three.js 3D Engine -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Pretendard', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        .font-cute {
+            font-family: 'Gamja Flower', cursive;
+        }
+
+        /* Kitchen background pattern */
+        .kitchen-bg {
+            background-color: #dcfce7;
+            background-image: 
+                radial-gradient(#bbf7d0 2px, transparent 2px),
+                radial-gradient(#bbf7d0 2px, #dcfce7 2px);
+            background-size: 32px 32px;
+            background-position: 0 0, 16px 16px;
+        }
+
+        /* Tablecloth stripe header */
+        .tablecloth-pattern {
+            background: repeating-linear-gradient(
+                45deg,
+                #86efac,
+                #86efac 15px,
+                #bbf7d0 15px,
+                #bbf7d0 30px
+            );
+        }
+
+        @keyframes gentle-bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .animate-gentle-bounce {
+            animation: gentle-bounce 3s ease-in-out infinite;
+        }
+
+        /* Floating catch text animation */
+        @keyframes float-pop {
+            0% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -45px) scale(1.25); }
+        }
+
+        .pop-text {
+            position: absolute;
+            pointer-events: none;
+            font-weight: 800;
+            z-index: 40;
+            animation: float-pop 0.75s ease-out forwards;
+        }
+
+        /* Screen Shake Animation */
+        @keyframes shake {
+            0% { transform: translate(0, 0); }
+            20% { transform: translate(-8px, 5px); }
+            40% { transform: translate(8px, -5px); }
+            60% { transform: translate(-6px, 3px); }
+            80% { transform: translate(6px, -3px); }
+            100% { transform: translate(0, 0); }
+        }
+
+        .animate-shake {
+            animation: shake 0.35s ease-in-out;
+        }
+    </style>
+</head>
+<body class="kitchen-bg min-h-screen flex flex-col items-center justify-between p-2 sm:p-4 overflow-hidden select-none">
+
+    <!-- 상단 점수판 & HUD (반응형 패딩 및 글자 크기) -->
+    <header class="w-full max-w-md md:max-w-lg bg-white/90 backdrop-blur-md rounded-2xl p-2.5 sm:p-3.5 shadow-lg border-2 border-emerald-200 mt-1 z-10 flex flex-col gap-1.5 sm:gap-2">
+        <div class="flex items-center justify-between flex-wrap gap-y-1.5">
+            <h1 class="font-cute text-2xl sm:text-3xl text-emerald-800 tracking-wide flex items-center gap-1.5">
+                <span>🐻</span> 3D 간식 모으기
+            </h1>
+            <div class="flex items-center gap-1.5">
+                <!-- 하트 +20 획득 보너스 A 버튼 -->
+                <button id="btn-cheat-a" class="bg-rose-100 hover:bg-rose-200 active:scale-95 text-rose-700 text-[10px] sm:text-xs font-black px-2.5 py-1 rounded-full border border-rose-300 shadow-sm transition-transform cursor-pointer flex items-center gap-1">
+                    🎁 A (하트+20)
+                </button>
+                <div class="flex items-center gap-1 bg-amber-100 px-2.5 py-1 rounded-full border border-amber-300 shadow-sm">
+                    <span class="text-[10px] sm:text-xs font-black text-amber-700">👑 BEST</span>
+                    <span id="high-score" class="text-xs sm:text-sm font-black text-amber-900">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 점수, 기회(하트), 레벨 디스플레이 -->
+        <div class="grid grid-cols-3 gap-1.5 sm:gap-2 text-center mt-0.5">
+            <div class="bg-emerald-100/80 p-1.5 sm:p-2 rounded-xl border-2 border-emerald-300 shadow-sm flex flex-col justify-center">
+                <div class="text-[10px] sm:text-[11px] text-emerald-700 font-bold">점수</div>
+                <div id="score-display" class="text-xl sm:text-2xl font-black text-emerald-900 inline-block transition-transform">0</div>
+            </div>
+            
+            <div class="bg-rose-50 p-1.5 sm:p-2 rounded-xl border border-rose-200 flex flex-col justify-center items-center">
+                <div class="text-[10px] sm:text-[11px] text-rose-600 font-bold">남은 기회</div>
+                <div id="lives-container" class="text-sm sm:text-base tracking-wider mt-0.5">
+                    ❤️❤️❤️
+                </div>
+            </div>
+
+            <div class="bg-amber-50 p-1.5 sm:p-2 rounded-xl border border-amber-200 flex flex-col justify-center items-center">
+                <div class="text-[10px] sm:text-[11px] text-amber-600 font-bold">현재 스테이지</div>
+                <div id="speed-level-display" class="text-[10px] sm:text-[11px] font-extrabold text-amber-800 mt-0.5 bg-amber-200/80 px-1.5 sm:px-2 py-0.5 rounded-md truncate max-w-full">
+                    LV 1. 주방
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 3D 플레이 영구 영역 (반응형 높이 및 너비) -->
+    <main id="game-container" class="relative w-full max-w-md md:max-w-lg h-[55vh] max-h-[500px] min-h-[350px] my-2 sm:my-3 flex flex-col justify-between border-2 border-emerald-300/80 bg-emerald-900/10 backdrop-blur-[2px] rounded-2xl overflow-hidden shadow-xl">
+        <!-- 화면 피드백 오버레이 -->
+        <div id="dark-overlay" class="absolute inset-0 bg-red-950/30 pointer-events-none opacity-0 transition-opacity duration-200 z-30"></div>
+
+        <!-- 3D 캔버스가 들어갈 컨테이너 -->
+        <div id="canvas-container" class="absolute inset-0 w-full h-full z-0"></div>
+
+        <!-- 시작 화면 모달 -->
+        <div id="start-screen-modal" class="absolute inset-0 bg-emerald-950/85 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 sm:p-6 text-center text-white overflow-y-auto">
+            <div class="my-auto flex flex-col items-center max-w-xs sm:max-w-sm w-full">
+                <div class="text-5xl sm:text-7xl mb-1 sm:mb-2 animate-bounce">🐻</div>
+                <h2 class="font-cute text-3xl sm:text-4xl font-bold text-amber-300 mb-1">건강 간식을 모아라! (3D)</h2>
+                <p class="text-[11px] sm:text-xs font-semibold text-emerald-100 mb-3 sm:mb-4">입을 쩍 벌린 3D 곰돌이에게 맛있는 간식을!</p>
+                
+                <div class="bg-white/10 border border-white/20 rounded-2xl p-3 sm:p-3.5 w-full text-left text-[11px] sm:text-xs space-y-1.5 sm:space-y-2 mb-4 sm:mb-5">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm sm:text-base">🍎🥦🥛</span>
+                        <span><b class="text-emerald-300">건강 간식:</b> 놓쳐도 OK! (-5점)</span>
+                    </div>
+                    <div class="flex items-center gap-2 border-t border-white/10 pt-1.5">
+                        <span class="text-sm sm:text-base">🍩🍟🍬</span>
+                        <span><b class="text-rose-300">정크 푸드:</b> 먹으면 <b class="text-rose-400">하트 -1</b>!</span>
+                    </div>
+                    <div class="flex items-center gap-2 border-t border-white/10 pt-1.5">
+                        <span class="text-sm sm:text-base">🍎✨</span>
+                        <span><b class="text-amber-300">황금 사과:</b> +50점 & 하트 1개 회복!</span>
+                    </div>
+                    <div class="flex items-center gap-2 border-t border-white/10 pt-1.5">
+                        <span class="text-sm sm:text-base">⌨️📱</span>
+                        <span><b>조작:</b> 방향키 <b>[←] [→]</b> / <b>[A]</b> 키: 하트 +20!</span>
+                    </div>
+                </div>
+
+                <button id="start-btn" class="w-full py-3 sm:py-3.5 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-bold text-base sm:text-lg rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer">
+                    🚀 게임 시작하기
+                </button>
+                <p class="text-[11px] sm:text-xs text-emerald-200/90 flex items-center gap-1 mt-2.5">
+                    <kbd class="px-2 py-0.5 bg-white/20 border border-white/30 rounded text-[10px] font-mono">Space</kbd> 키를 눌러 바로 시작
+                </p>
+            </div>
+        </div>
+
+        <!-- 게임 오버 모달 -->
+        <div id="game-over-modal" class="absolute inset-0 bg-emerald-950/85 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 sm:p-6 text-center text-white hidden overflow-y-auto">
+            <div class="text-5xl sm:text-6xl mb-2 sm:mb-3 animate-bounce">💔</div>
+            <h2 class="font-cute text-3xl sm:text-4xl font-bold text-rose-400 mb-1">게임 오버!</h2>
+            <p class="text-xs sm:text-sm font-semibold text-emerald-100 mb-4 sm:mb-5">정크푸드를 너무 많이 먹었어요!</p>
+            
+            <div class="bg-white/10 border border-white/20 rounded-2xl p-3.5 sm:p-4 w-full max-w-[260px] mb-4 sm:mb-6 space-y-2">
+                <div class="flex justify-between items-center text-xs sm:text-sm">
+                    <span class="text-emerald-200">획득 점수</span>
+                    <span id="final-score" class="text-xl sm:text-2xl font-black text-amber-300">0</span>
+                </div>
+                <div class="flex justify-between items-center text-xs sm:text-sm border-t border-white/10 pt-2">
+                    <span class="text-emerald-200">최고 점수</span>
+                    <span id="final-high-score" class="text-xl sm:text-2xl font-black text-emerald-300">0</span>
+                </div>
+            </div>
+
+            <button id="restart-btn" class="w-full max-w-[260px] py-3 sm:py-3.5 bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white font-bold text-base sm:text-lg rounded-xl shadow-lg transition-all active:scale-95 mb-2 flex items-center justify-center gap-2 cursor-pointer">
+                🔄 다시 시작하기
+            </button>
+            <p class="text-[11px] sm:text-xs text-emerald-200/80 flex items-center gap-1 mt-1">
+                <kbd class="px-2 py-0.5 bg-white/20 border border-white/30 rounded text-[10px] font-mono">Space</kbd> 키를 눌러 다시 시작
+            </p>
+        </div>
+
+        <!-- 상단 장식 바 -->
+        <div class="w-full bg-amber-100/80 border-b-2 border-amber-300 py-1 sm:py-1.5 px-3 flex justify-around items-center text-lg sm:text-xl shadow-sm z-10 pointer-events-none">
+            <span>🍎</span>
+            <span>🥦</span>
+            <span>🍎✨</span>
+            <span>🥛</span>
+            <span>🍌</span>
+        </div>
+
+        <div id="play-guide-text" class="absolute top-10 sm:top-12 left-1/2 -translate-x-1/2 bg-white/80 border border-emerald-300 rounded-xl px-2.5 py-1 text-[11px] sm:text-xs text-emerald-800 shadow-sm pointer-events-none transition-opacity duration-300 z-10 whitespace-nowrap">
+            방향키(←, →) 또는 화면 하단 버튼으로 움직이세요!
+        </div>
+
+        <!-- 하단 식탁 테두리 패턴 -->
+        <div class="w-full h-5 sm:h-6 tablecloth-pattern border-t-2 border-emerald-400 shadow-md z-10 pointer-events-none"></div>
+    </main>
+
+    <!-- 모바일 및 터치 컨트롤 버튼 (반응형 여백 및 크기) -->
+    <div class="w-full max-w-md md:max-w-lg flex justify-between gap-2 sm:gap-3 mb-1">
+        <button id="btn-left" class="flex-1 py-3 sm:py-3.5 bg-emerald-500 active:bg-emerald-600 text-white font-bold text-base sm:text-lg rounded-xl shadow-md active:scale-95 transition-all flex justify-center items-center gap-1 select-none touch-none cursor-pointer">
+            ◀ 왼쪽
+        </button>
+        <button id="btn-right" class="flex-1 py-3 sm:py-3.5 bg-emerald-500 active:bg-emerald-600 text-white font-bold text-lg rounded-xl shadow-md active:scale-95 transition-all flex justify-center items-center gap-1 select-none touch-none cursor-pointer">
+            오른쪽 ▶
+        </button>
+    </div>
+
+    <script>
+        // --- 게임 핵심 상태 변수 ---
+        let isStarted = false;
+        let isGameOver = false;
+        let score = 0;
+        let highScore = 0;
+        let lives = 3;
+        let currentLevel = 1;
+        let bearX = 0; // 3D 월드 coordinates (-3.2 ~ +3.2)
+        const moveSpeed = 0.12;
+
+        const keys = { left: false, right: false };
+        let snacks = [];
+        let lastSpawnTime = 0;
+
+        // 레벨 설정 (레벨별 점수 기준, 속도, 생성 간격, 이름, 배경색)
+        const LEVEL_CONFIGS = [
+            { level: 1, minScore: 0, speed: 0.055, interval: 1100, name: "LV 1. 평화로운 주방", bg: 0xdcfce7 },
+            { level: 2, minScore: 100, speed: 0.075, interval: 920, name: "LV 2. 햇살 피크닉", bg: 0xfef08a },
+            { level: 3, minScore: 200, speed: 0.090, interval: 800, name: "LV 3. 맑은 푸른 하늘 ☁️", bg: 0x7dd3fc },
+            { level: 4, minScore: 350, speed: 0.105, interval: 700, name: "LV 4. 석양 언덕", bg: 0xfed7aa },
+            { level: 5, minScore: 600, speed: 0.125, interval: 580, name: "LV 5. 마법의 숲", bg: 0xe9d5ff },
+            { level: 6, minScore: 1000, speed: 0.145, interval: 480, name: "LV 6. 간식 마스터", bg: 0xa7f3d0 }
+        ];
+
+        // --- DOM 요소 참조 ---
+        const gameContainer = document.getElementById('game-container');
+        const canvasContainer = document.getElementById('canvas-container');
+        const startModal = document.getElementById('start-screen-modal');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const scoreDisplay = document.getElementById('score-display');
+        const highScoreDisplay = document.getElementById('high-score');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const finalHighScoreDisplay = document.getElementById('final-high-score');
+        const livesContainer = document.getElementById('lives-container');
+        const speedLevelDisplay = document.getElementById('speed-level-display');
+        const darkOverlay = document.getElementById('dark-overlay');
+
+        // --- Web Audio 효과음 합성 시스템 ---
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // 일반 건강 간식 먹었을 때 "쏙!" 사운드
+        function playCatchSound() {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(320, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(780, audioCtx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.12);
+            } catch (e) {}
+        }
+
+        // 정크 푸드 먹었을 때 둔탁한 경고음
+        function playJunkSound() {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(80, audioCtx.currentTime + 0.22);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.22);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.22);
+            } catch (e) {}
+        }
+
+        // 간식 놓쳤을 때 가벼운 슈웅 소리
+        function playMissSound() {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(120, audioCtx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.15);
+            } catch (e) {}
+        }
+
+        // 황금 사과 획득 화려한 팡파르 사운드
+        function playGoldenFanfareSound() {
+            if (!audioCtx) return;
+            try {
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime + idx * 0.08);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + idx * 0.08 + 0.2);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(audioCtx.currentTime + idx * 0.08);
+                    osc.stop(audioCtx.currentTime + idx * 0.08 + 0.2);
+                });
+            } catch (e) {}
+        }
+
+        // --- Three.js 3D 엔진 초기화 ---
+        let scene, camera, renderer, bearGroup, cloudsGroup;
+
+        function initThree() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(LEVEL_CONFIGS[0].bg);
+
+            const width = canvasContainer.clientWidth || 380;
+            const height = canvasContainer.clientHeight || 460;
+
+            camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+            
+            // 화면 비율에 맞게 카메라 거리 조정 (세로가 길 경우 3D 영역이 잘리지 않도록)
+            updateCameraPosition(width, height);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            canvasContainer.appendChild(renderer.domElement);
+
+            // 조명 설정
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            dirLight.position.set(4, 8, 5);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+
+            // 3D 배경 구름 그룹 생성
+            createClouds();
+
+            // 3D 입체 곰돌이 만들기
+            createBearMesh();
+        }
+
+        // 3D 입체 구름 생성 함수
+        function createClouds() {
+            cloudsGroup = new THREE.Group();
+            const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
+
+            for (let i = 0; i < 5; i++) {
+                const cloud = new THREE.Group();
+                const p1 = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 12), cloudMat);
+                const p2 = new THREE.Mesh(new THREE.SphereGeometry(0.38, 12, 12), cloudMat);
+                const p3 = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 12), cloudMat);
+                
+                p2.position.set(-0.45, -0.08, 0);
+                p3.position.set(0.45, -0.08, 0);
+                cloud.add(p1, p2, p3);
+
+                cloud.position.set((Math.random() - 0.5) * 8, 1.2 + Math.random() * 2.8, -3.5);
+                cloudsGroup.add(cloud);
+            }
+            cloudsGroup.visible = false; // 기본 1~2레벨에서는 숨김 (200점 도달 시 표시)
+            scene.add(cloudsGroup);
+        }
+
+        function updateCameraPosition(width, height) {
+            const aspect = width / height;
+            if (aspect < 0.8) {
+                // 세로가 긴 스마트폰 화면인 경우 카메라를 뒤로 배치하여 플레이 영역 확보
+                camera.position.set(0, 0, 11);
+            } else if (aspect < 1.1) {
+                camera.position.set(0, 0, 9.8);
+            } else {
+                camera.position.set(0, 0, 9);
+            }
+            camera.lookAt(0, 0, 0);
+        }
+
+        // 3D 곰돌이 모델 생성 (머리, 귀, 크게 벌린 입, 눈, 코)
+        function createBearMesh() {
+            bearGroup = new THREE.Group();
+
+            // 곰돌이 얼굴 색상 (따뜻한 브라운)
+            const furMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.6 });
+            const innerEarMat = new THREE.MeshStandardMaterial({ color: 0xfde047 });
+            const darkMat = new THREE.MeshStandardMaterial({ color: 0x18181b });
+            const mouthInsideMat = new THREE.MeshStandardMaterial({ color: 0x9f1239 });
+
+            // 머리 (기본구)
+            const headGeo = new THREE.SphereGeometry(1.0, 32, 32);
+            const head = new THREE.Mesh(headGeo, furMat);
+            bearGroup.add(head);
+
+            // 귀 (좌/우)
+            const earGeo = new THREE.SphereGeometry(0.35, 16, 16);
+            const earL = new THREE.Mesh(earGeo, furMat);
+            earL.position.set(-0.75, 0.85, 0.1);
+            bearGroup.add(earL);
+
+            const earR = new THREE.Mesh(earGeo, furMat);
+            earR.position.set(0.75, 0.85, 0.1);
+            bearGroup.add(earR);
+
+            const innerEarGeo = new THREE.SphereGeometry(0.2, 16, 16);
+            const innerEarL = new THREE.Mesh(innerEarGeo, innerEarMat);
+            innerEarL.position.set(-0.75, 0.85, 0.22);
+            bearGroup.add(innerEarL);
+
+            const innerEarR = new THREE.Mesh(innerEarGeo, innerEarMat);
+            innerEarR.position.set(0.75, 0.85, 0.22);
+            bearGroup.add(innerEarR);
+
+            // 벌린 입 (음식을 골인시킬 입 내부 구조)
+            const mouthGeo = new THREE.CylinderGeometry(0.5, 0.45, 0.6, 24);
+            const mouth = new THREE.Mesh(mouthGeo, mouthInsideMat);
+            mouth.rotation.x = Math.PI / 2;
+            mouth.position.set(0, -0.2, 0.6);
+            bearGroup.add(mouth);
+
+            // 코 주둥이
+            const snoutGeo = new THREE.SphereGeometry(0.35, 16, 16);
+            const snoutMat = new THREE.MeshStandardMaterial({ color: 0xfef08a });
+            const snout = new THREE.Mesh(snoutGeo, snoutMat);
+            snout.position.set(0, 0.1, 0.75);
+            snout.scale.set(1.1, 0.7, 0.8);
+            bearGroup.add(snout);
+
+            // 까만 코
+            const noseGeo = new THREE.SphereGeometry(0.12, 12, 12);
+            const nose = new THREE.Mesh(noseGeo, darkMat);
+            nose.position.set(0, 0.22, 0.98);
+            bearGroup.add(nose);
+
+            // 까만 눈 (좌/우)
+            const eyeGeo = new THREE.SphereGeometry(0.1, 12, 12);
+            const eyeL = new THREE.Mesh(eyeGeo, darkMat);
+            eyeL.position.set(-0.38, 0.35, 0.82);
+            bearGroup.add(eyeL);
+
+            const eyeR = new THREE.Mesh(eyeGeo, darkMat);
+            eyeR.position.set(0.38, 0.35, 0.82);
+            bearGroup.add(eyeR);
+
+            bearGroup.position.set(0, -3.2, 0);
+            scene.add(bearGroup);
+        }
+
+        // 3D 낙하 음식 아이템 오브젝트 생성 함수
+        function createSnackMesh(type) {
+            const group = new THREE.Group();
+
+            if (type === 'golden') {
+                // 황금 사과 (🍎✨)
+                const appleGeo = new THREE.SphereGeometry(0.38, 24, 24);
+                const goldMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.8, roughness: 0.2 });
+                const apple = new THREE.Mesh(appleGeo, goldMat);
+                group.add(apple);
+
+                const leafGeo = new THREE.ConeGeometry(0.12, 0.3, 12);
+                const leafMat = new THREE.MeshStandardMaterial({ color: 0x22c55e });
+                const leaf = new THREE.Mesh(leafGeo, leafMat);
+                leaf.position.set(0.1, 0.4, 0);
+                leaf.rotation.z = -0.5;
+                group.add(leaf);
+
+            } else if (type === 'junk') {
+                // 정크 푸드 (도넛 🍩 / 감자튀김)
+                const donutGeo = new THREE.TorusGeometry(0.32, 0.15, 16, 24);
+                const donutMat = new THREE.MeshStandardMaterial({ color: 0xec4899, roughness: 0.4 });
+                const donut = new THREE.Mesh(donutGeo, donutMat);
+                group.add(donut);
+
+            } else {
+                // 일반 건강 간식 (사과/브로콜리)
+                const fruitGeo = new THREE.SphereGeometry(0.35, 20, 20);
+                const fruitMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.5 });
+                const fruit = new THREE.Mesh(fruitGeo, fruitMat);
+                group.add(fruit);
+
+                const leafGeo = new THREE.ConeGeometry(0.1, 0.25, 10);
+                const leafMat = new THREE.MeshStandardMaterial({ color: 0x15803d });
+                const leaf = new THREE.Mesh(leafGeo, leafMat);
+                leaf.position.set(0.08, 0.38, 0);
+                group.add(leaf);
+            }
+
+            return group;
+        }
+
+        // 현재 점수에 맞춰 레벨/난이도 계산 및 테마 변경
+        function updateDifficultyAndLevel() {
+            let newLevel = 1;
+            for (let i = LEVEL_CONFIGS.length - 1; i >= 0; i--) {
+                if (score >= LEVEL_CONFIGS[i].minScore) {
+                    newLevel = LEVEL_CONFIGS[i].level;
+                    break;
+                }
+            }
+
+            const config = LEVEL_CONFIGS[newLevel - 1];
+
+            if (newLevel !== currentLevel) {
+                const isLevelUp = newLevel > currentLevel;
+                currentLevel = newLevel;
+                if (scene) {
+                    scene.background.setHex(config.bg);
+                }
+                // 점수가 깎여서 레벨이 내려간 경우에는 LEVEL UP 안내를 띄우지 않음
+                if (isLevelUp) {
+                    triggerLevelUpToast(config.name);
+                }
+            }
+
+            // 200점 이상(하늘 배경 레벨) 도달 시 3D 구름 활성화
+            if (cloudsGroup) {
+                cloudsGroup.visible = score >= 200;
+            }
+
+            speedLevelDisplay.textContent = config.name;
+            return config;
+        }
+
+        function triggerLevelUpToast(levelName) {
+            const toast = document.createElement('div');
+            toast.className = 'absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 font-cute text-3xl font-black text-amber-300 bg-emerald-950/90 border-2 border-amber-300 px-6 py-3 rounded-2xl shadow-2xl z-40 animate-bounce pointer-events-none text-center';
+            toast.innerHTML = `🌟 LEVEL UP! 🌟<br><span class="text-lg text-white">${levelName}</span>`;
+            
+            playGoldenFanfareSound();
+            gameContainer.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 1400);
+        }
+
+        // 음식을 화면 위에서 랜덤 생성
+        function spawnItem() {
+            if (!isStarted || isGameOver) return;
+
+            const rand = Math.random();
+            let type = 'healthy'; // 70% 일반 건강 간식
+
+            if (rand < 0.08) {
+                type = 'golden'; // 8% 황금 사과
+            } else if (rand < 0.35) {
+                type = 'junk';   // 27% 정크 푸드
+            }
+
+            const snackMesh = createSnackMesh(type);
+            const startX = (Math.random() - 0.5) * 6.2; // -3.1 ~ +3.1
+            snackMesh.position.set(startX, 4.5, 0);
+
+            scene.add(snackMesh);
+
+            const config = updateDifficultyAndLevel();
+
+            snacks.push({
+                mesh: snackMesh,
+                type: type,
+                speed: config.speed + (Math.random() * 0.015)
+            });
+        }
+
+        // 떨어지는 간식 위치 갱신 및 충돌 판정
+        function updateSnacks() {
+            if (!isStarted || isGameOver) return;
+
+            const bearPos = bearGroup.position;
+
+            for (let i = snacks.length - 1; i >= 0; i--) {
+                const snack = snacks[i];
+                snack.mesh.position.y -= snack.speed;
+                snack.mesh.rotation.y += 0.04;
+
+                // 곰돌이 입(충돌)과 만났을 때
+                const dx = Math.abs(snack.mesh.position.x - bearPos.x);
+                const dy = Math.abs(snack.mesh.position.y - bearPos.y);
+
+                if (dx < 0.85 && dy < 0.65) {
+                    if (snack.type === 'golden') {
+                        // 황금 사과: +50점 & 하트 1개 회복
+                        score += 50;
+                        let msg = '✨ 황금사과! +50';
+                        if (lives < 3) {
+                            lives++;
+                            updateLivesDisplay();
+                            msg += ' ❤️+1';
+                        }
+                        playGoldenFanfareSound();
+                        showPopText(msg, 'text-amber-400 text-xl');
+
+                    } else if (snack.type === 'junk') {
+                        // 정크 푸드: 하트 -1 차감
+                        lives = Math.max(0, lives - 1);
+                        updateLivesDisplay();
+                        playJunkSound();
+                        triggerScreenShake();
+                        showPopText('으악! 하트 -1', 'text-rose-500 text-lg');
+
+                        if (lives <= 0) {
+                            triggerGameOver();
+                        }
+
+                    } else {
+                        // 일반 건강 간식: +10점
+                        score += 10;
+                        playCatchSound();
+                        showPopText('냠냠! +10', 'text-emerald-300 text-lg');
+                    }
+
+                    scoreDisplay.textContent = score;
+                    if (score > highScore) {
+                        highScore = score;
+                        highScoreDisplay.textContent = highScore;
+                    }
+
+                    scene.remove(snack.mesh);
+                    snacks.splice(i, 1);
+                    continue;
+                }
+
+                // 바닥으로 완전히 떨어진 경우
+                if (snack.mesh.position.y < -4.2) {
+                    // 건강 간식을 놓친 경우: 점수만 -5점 (하트는 차감 안 됨!)
+                    if (snack.type === 'healthy') {
+                        score = Math.max(0, score - 5);
+                        scoreDisplay.textContent = score;
+                        playMissSound();
+                        showPopText('놓침! -5점', 'text-amber-300 text-xs');
+                    }
+
+                    scene.remove(snack.mesh);
+                    snacks.splice(i, 1);
+                }
+            }
+        }
+
+        function showPopText(text, colorClasses) {
+            const el = document.createElement('div');
+            el.className = `pop-text left-1/2 bottom-20 ${colorClasses} drop-shadow-md`;
+            el.textContent = text;
+            gameContainer.appendChild(el);
+
+            setTimeout(() => {
+                el.remove();
+            }, 750);
+        }
+
+        function triggerScreenShake() {
+            gameContainer.classList.add('animate-shake');
+            darkOverlay.style.opacity = '1';
+            setTimeout(() => {
+                gameContainer.classList.remove('animate-shake');
+                darkOverlay.style.opacity = '0';
+            }, 350);
+        }
+
+        function updateLivesDisplay() {
+            if (lives <= 5) {
+                let heartsHtml = '';
+                for (let i = 0; i < Math.max(3, lives); i++) {
+                    heartsHtml += i < lives ? '❤️' : '🖤';
+                }
+                livesContainer.innerHTML = heartsHtml;
+            } else {
+                livesContainer.innerHTML = `<span class="font-black text-rose-600 text-xs sm:text-sm bg-rose-100 px-2 py-0.5 rounded-full border border-rose-300">❤️ x ${lives}</span>`;
+            }
+        }
+
+        // 게임 시작/재시작 핸들러
+        function startGame() {
+            initAudio();
+
+            // 필드 내 모든 남아있는 간식 제거
+            snacks.forEach(s => scene.remove(s.mesh));
+            snacks = [];
+
+            score = 0;
+            lives = 3;
+            bearX = 0;
+            bearGroup.position.x = 0;
+            currentLevel = 1;
+            keys.left = false;
+            keys.right = false;
+            lastSpawnTime = performance.now();
+
+            // 다시 시작할 때 배경색도 1레벨(주방)로 되돌리기
+            if (scene && scene.background) {
+                scene.background.setHex(LEVEL_CONFIGS[0].bg);
+            }
+
+            scoreDisplay.textContent = '0';
+            updateLivesDisplay();
+            updateDifficultyAndLevel();
+
+            isStarted = true;
+            isGameOver = false;
+
+            startModal.classList.add('hidden');
+            gameOverModal.classList.add('hidden');
+        }
+
+        function triggerGameOver() {
+            isStarted = false;
+            isGameOver = true;
+
+            finalScoreDisplay.textContent = score;
+            finalHighScoreDisplay.textContent = highScore;
+            gameOverModal.classList.remove('hidden');
+        }
+
+        // 메인 프레임 루프
+        function gameLoop(timestamp = 0) {
+            requestAnimationFrame(gameLoop);
+
+            if (isStarted && !isGameOver) {
+                // 곰돌이 좌우 이동
+                if (keys.left) bearX -= moveSpeed;
+                if (keys.right) bearX += moveSpeed;
+
+                // 화면 경계 제한 (-3.2 ~ +3.2)
+                bearX = Math.max(-3.2, Math.min(3.2, bearX));
+                bearGroup.position.x = bearX;
+
+                // 하늘 배경 시 3D 구름 천천히 흘러가는 효과
+                if (cloudsGroup && cloudsGroup.visible) {
+                    cloudsGroup.children.forEach(cloud => {
+                        cloud.position.x += 0.004;
+                        if (cloud.position.x > 5) cloud.position.x = -5;
+                    });
+                }
+
+                // 간식 무작위 생성
+                const config = LEVEL_CONFIGS[currentLevel - 1];
+                if (timestamp - lastSpawnTime > config.interval) {
+                    spawnItem();
+                    lastSpawnTime = timestamp;
+                }
+
+                updateSnacks();
+            }
+
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        // --- 이벤트 리스너 등록 ---
+        startBtn.addEventListener('click', startGame);
+        restartBtn.addEventListener('click', startGame);
+
+        // A 버튼 / A 키 하트 20개 추가 로직
+        function addHeartsBonus() {
+            if (isStarted && !isGameOver) {
+                lives += 20;
+                updateLivesDisplay();
+                playGoldenFanfareSound();
+                showPopText('❤️ +20 하트!', 'text-rose-500 text-xl font-black');
+            }
+        }
+
+        const btnCheatA = document.getElementById('btn-cheat-a');
+        if (btnCheatA) {
+            btnCheatA.addEventListener('click', addHeartsBonus);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'ArrowLeft') { keys.left = true; e.preventDefault(); }
+            if (e.code === 'ArrowRight') { keys.right = true; e.preventDefault(); }
+            if (e.code === 'KeyA' || e.key === 'a' || e.key === 'A') {
+                addHeartsBonus();
+            }
+            if (e.code === 'Space') {
+                e.preventDefault(); // 스페이스바로 페이지가 스크롤되거나 버튼이 눌리는 것 방지
+                if (!isStarted || isGameOver) {
+                    startGame();
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'ArrowLeft') keys.left = false;
+            if (e.code === 'ArrowRight') keys.right = false;
+        });
+
+        // 모바일 터치 버튼 대응
+        const btnLeft = document.getElementById('btn-left');
+        const btnRight = document.getElementById('btn-right');
+
+        btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); keys.left = true; });
+        btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); keys.left = false; });
+        btnLeft.addEventListener('mousedown', () => { keys.left = true; });
+        btnLeft.addEventListener('mouseup', () => { keys.left = false; });
+
+        btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); keys.right = true; });
+        btnRight.addEventListener('touchend', (e) => { e.preventDefault(); keys.right = false; });
+        btnRight.addEventListener('mousedown', () => { keys.right = true; });
+        btnRight.addEventListener('mouseup', () => { keys.right = false; });
+
+        // 창 크기 조절 대응
+        window.addEventListener('resize', () => {
+            if (!canvasContainer || !renderer || !camera) return;
+            const w = canvasContainer.clientWidth;
+            const h = canvasContainer.clientHeight;
+            camera.aspect = w / h;
+            updateCameraPosition(w, h);
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        });
+
+        // Window Onload 초기화
+        window.onload = function() {
+            initThree();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>

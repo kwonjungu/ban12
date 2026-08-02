@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>맛있는 음식을 잡아라! 3D</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
+        
+        * {
+            font-family: 'Jua', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            background: linear-gradient(135deg, #a8e6cf 0%, #dbede6 50%, #b8e994 100%);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Screen shaking on damage */
+        .shake-screen {
+            animation: shake 0.35s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+            40%, 60% { transform: translate3d(6px, 0, 0); }
+        }
+
+        .damage-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(239, 68, 68, 0.25);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.1s ease-out;
+            z-index: 20;
+        }
+
+        /* Floating Score Animation */
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -60px) scale(1.3); }
+        }
+
+        .floating-text {
+            position: absolute;
+            animation: floatUp 0.8s ease-out forwards;
+            font-weight: bold;
+            text-shadow: 2px 2px 0px #000;
+            pointer-events: none;
+            z-index: 30;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+    <!-- Main Game Wrapper Container -->
+    <div id="game-wrapper" class="relative w-full max-w-4xl h-[92vh] max-h-[850px] bg-green-100 rounded-3xl shadow-2xl border-4 border-green-500/30 overflow-hidden flex flex-col m-2">
+        
+        <!-- Top Status Bar (Score & Lives) -->
+        <div class="absolute top-0 left-0 w-full p-4 flex justify-between items-center z-10 pointer-events-none">
+            <!-- Score Card -->
+            <div class="bg-white/80 backdrop-blur-md px-5 py-2.5 rounded-2xl shadow-lg border-2 border-green-400 flex items-center space-x-2">
+                <span class="text-2xl">🏆</span>
+                <span id="score-text" class="text-2xl font-black text-green-700">0</span>
+                <span class="text-sm text-slate-500 whitespace-nowrap">최고 <span id="best-score-text">0</span></span>
+            </div>
+
+            <!-- Hearts Card -->
+            <div class="bg-white/80 backdrop-blur-md px-5 py-2.5 rounded-2xl shadow-lg border-2 border-red-300 flex items-center space-x-1.5">
+                <span id="hearts-container" class="text-2xl text-red-500 space-x-1">
+                    <i class="fa-solid fa-heart"></i>
+                    <i class="fa-solid fa-heart"></i>
+                    <i class="fa-solid fa-heart"></i>
+                </span>
+            </div>
+        </div>
+
+        <!-- 3D Canvas Area -->
+        <div id="canvas-container" class="w-full h-full relative overflow-hidden flex-1"></div>
+
+        <!-- Damage Visual Overlay -->
+        <div id="damage-flash" class="damage-overlay"></div>
+
+        <!-- Mobile Touch Control Zone Overlay -->
+        <div id="touch-layer" class="absolute bottom-0 left-0 w-full h-1/3 z-10 cursor-pointer"></div>
+
+        <!-- Start / Game Over Modal Screen -->
+        <div id="game-modal" class="absolute inset-0 bg-black/60 backdrop-blur-sm z-40 flex flex-col items-center justify-center text-white p-6 transition-all duration-300">
+            <div class="bg-white text-slate-800 rounded-3xl p-8 max-w-md w-full text-center shadow-2xl border-4 border-green-400 space-y-6">
+                <div class="text-5xl animate-bounce" id="modal-icon">🧺</div>
+                
+                <h1 id="modal-title" class="text-3xl font-extrabold text-green-600">맛있는 음식을 잡아라! 3D</h1>
+                <p id="modal-description" class="text-slate-600 text-lg leading-relaxed">
+                    하늘에서 떨어지는 맛있는 건강 간식을 바구니로 받아내세요!<br>
+                    <span class="text-red-500 font-bold">정크푸드(도넛, 감자튀김, 버거)</span>는 피해야 합니다.
+                </p>
+
+                <div class="bg-green-50 p-4 rounded-2xl border border-green-200 text-sm text-green-800 text-left space-y-1">
+                    <p>🎮 <b>조작 방법:</b></p>
+                    <p>• 키보드: <b>← / →</b> 방향키 또는 <b>A / D</b> 키</p>
+                    <p>• 마우스/터치: 화면 하단을 <b>드래그</b></p>
+                </div>
+
+                <button id="start-btn" class="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold text-xl rounded-2xl shadow-xl transform active:scale-95 transition-all">
+                    게임 시작 (Space)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let scene, camera, renderer;
+        let basketGroup, basketMesh;
+        let foods = [];
+        let particles = [];
+        let score = 0;
+        let lives = 3;
+        let isGameOver = true;
+        let animationFrameId;
+
+        // Basket movement physics
+        let basketX = 0;
+        const BASKET_BOUNDS = 4.2;
+        const BASKET_SPEED = 0.18;
+        let keysPressed = {};
+
+        // Best Score (localStorage) - 다른 게임과 겹치지 않는 전용 키
+        const BEST_SCORE_KEY = 'bangok-vibe-coding:3d-catch-food:best-score';
+        let bestScore = 0;
+
+        function updateBestScoreDisplay() {
+            const el = document.getElementById('best-score-text');
+            if (el) el.innerText = bestScore;
+        }
+
+        function loadBestScore() {
+            try {
+                const saved = parseInt(localStorage.getItem(BEST_SCORE_KEY), 10);
+                bestScore = isNaN(saved) ? 0 : saved;
+            } catch (e) {
+                bestScore = 0;
+            }
+            updateBestScoreDisplay();
+        }
+
+        // 신기록이면 저장하고 true 를 돌려준다
+        function saveBestScore() {
+            let isNewRecord = false;
+            if (score > bestScore) {
+                bestScore = score;
+                isNewRecord = true;
+                try {
+                    localStorage.setItem(BEST_SCORE_KEY, String(bestScore));
+                } catch (e) {}
+            }
+            updateBestScoreDisplay();
+            return isNewRecord;
+        }
+
+        // Audio System
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(freq, duration, type = 'sine') {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {}
+        }
+
+        function playCatchSound() {
+            initAudio();
+            playSound(523.25, 0.1); // C5
+            setTimeout(() => playSound(659.25, 0.15), 50); // E5
+        }
+
+        function playDamageSound() {
+            initAudio();
+            playSound(150, 0.25, 'sawtooth');
+        }
+
+        // Helper to build realistic 3D Apple
+        function createApple() {
+            const group = new THREE.Group();
+            const appleMat = new THREE.MeshStandardMaterial({ color: 0xe11d48, roughness: 0.15, metalness: 0.1 });
+            const appleMesh = new THREE.Mesh(new THREE.SphereGeometry(0.4, 24, 24), appleMat);
+            appleMesh.scale.set(1, 0.92, 1);
+            group.add(appleMesh);
+
+            // Stem
+            const stemMat = new THREE.MeshStandardMaterial({ color: 0x5c3d11, roughness: 0.8 });
+            const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.25), stemMat);
+            stem.position.set(0, 0.4, 0);
+            stem.rotation.z = -0.15;
+            group.add(stem);
+
+            // Leaf
+            const leafMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.4, side: THREE.DoubleSide });
+            const leaf = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.12), leafMat);
+            leaf.position.set(0.08, 0.42, 0);
+            leaf.rotation.z = -0.4;
+            group.add(leaf);
+
+            return group;
+        }
+
+        // Helper to build realistic 3D Broccoli
+        function createBroccoli() {
+            const group = new THREE.Group();
+            const stemMat = new THREE.MeshStandardMaterial({ color: 0x86efac, roughness: 0.6 });
+            const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.22, 0.5, 12), stemMat);
+            stem.position.y = -0.15;
+            group.add(stem);
+
+            const crownMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.9 });
+            const crownCenter = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 12), crownMat);
+            crownCenter.position.y = 0.18;
+            group.add(crownCenter);
+
+            const offsets = [
+                [0.18, 0.14, 0.1], [-0.18, 0.14, -0.1], 
+                [0.1, 0.22, -0.15], [-0.1, 0.22, 0.15]
+            ];
+            offsets.forEach(pos => {
+                const subMesh = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 10), crownMat);
+                subMesh.position.set(pos[0], pos[1], pos[2]);
+                group.add(subMesh);
+            });
+
+            return group;
+        }
+
+        // Helper to build realistic 3D Carrot
+        function createCarrot() {
+            const group = new THREE.Group();
+            
+            // Orange Body
+            const carrotMat = new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.35 });
+            const bodyGeo = new THREE.ConeGeometry(0.32, 1.1, 16);
+            bodyGeo.rotateX(Math.PI);
+            const bodyMesh = new THREE.Mesh(bodyGeo, carrotMat);
+            group.add(bodyMesh);
+
+            // Ring wrinkles
+            const ringMat = new THREE.MeshStandardMaterial({ color: 0xc2410c, roughness: 0.5 });
+            const ringY = [0.15, -0.05, -0.22];
+            const ringR = [0.24, 0.18, 0.12];
+            ringY.forEach((y, idx) => {
+                const ring = new THREE.Mesh(new THREE.TorusGeometry(ringR[idx], 0.02, 8, 16), ringMat);
+                ring.rotation.x = Math.PI / 2;
+                ring.position.y = y;
+                group.add(ring);
+            });
+
+            // Green Leaf Top
+            const leafMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.5, side: THREE.DoubleSide });
+            for (let i = 0; i < 4; i++) {
+                const angle = (i / 4) * Math.PI * 2;
+                const leafStem = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.025, 0.35, 8), leafMat);
+                leafStem.position.set(Math.cos(angle) * 0.06, 0.52, Math.sin(angle) * 0.06);
+                leafStem.rotation.z = Math.cos(angle) * 0.3;
+                leafStem.rotation.x = Math.sin(angle) * 0.3;
+                group.add(leafStem);
+            }
+
+            return group;
+        }
+
+        // Helper to build Milk Carton
+        function createMilk() {
+            const group = new THREE.Group();
+            const cartonMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2 });
+            const labelMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.3 });
+
+            const baseMesh = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.7, 0.48), cartonMat);
+            group.add(baseMesh);
+
+            const labelMesh = new THREE.Mesh(new THREE.BoxGeometry(0.49, 0.28, 0.49), labelMat);
+            labelMesh.position.y = -0.05;
+            group.add(labelMesh);
+
+            const topMesh = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.25, 4), cartonMat);
+            topMesh.position.y = 0.47;
+            topMesh.rotation.y = Math.PI / 4;
+            group.add(topMesh);
+
+            return group;
+        }
+
+        // Helper to build realistic curved 3D Banana
+        function createBanana() {
+            const group = new THREE.Group();
+            
+            // Smooth curve path for banana body
+            const curve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(-0.25, 0.38, 0),
+                new THREE.Vector3(-0.08, 0.1, 0),
+                new THREE.Vector3(0.12, -0.2, 0),
+                new THREE.Vector3(0.32, -0.1, 0)
+            ]);
+
+            const tubularSegments = 16;
+            const radialSegments = 5;
+            const radius = 0.15;
+
+            const tubeGeo = new THREE.TubeGeometry(curve, tubularSegments, radius, radialSegments, false);
+            
+            const pos = tubeGeo.attributes.position;
+            const curvePoints = curve.getPoints(tubularSegments);
+
+            for (let i = 0; i <= tubularSegments; i++) {
+                const center = curvePoints[i];
+                const t = i / tubularSegments;
+                const taper = Math.sin(t * Math.PI) * 0.72 + 0.28;
+
+                for (let j = 0; j <= radialSegments; j++) {
+                    const idx = i * (radialSegments + 1) + j;
+                    const vx = pos.getX(idx);
+                    const vy = pos.getY(idx);
+                    const vz = pos.getZ(idx);
+
+                    pos.setX(idx, center.x + (vx - center.x) * taper);
+                    pos.setY(idx, center.y + (vy - center.y) * taper);
+                    pos.setZ(idx, center.z + (vz - center.z) * taper);
+                }
+            }
+            pos.needsUpdate = true;
+            tubeGeo.computeVertexNormals();
+
+            const bananaMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3 });
+            const bananaMesh = new THREE.Mesh(tubeGeo, bananaMat);
+            group.add(bananaMesh);
+
+            // Greenish/Brown Stem at top end
+            const stemMat = new THREE.MeshStandardMaterial({ color: 0x65a30d, roughness: 0.6 });
+            const stemGeo = new THREE.CylinderGeometry(0.03, 0.04, 0.18, 6);
+            const stem = new THREE.Mesh(stemGeo, stemMat);
+            stem.position.set(-0.28, 0.45, 0);
+            stem.rotation.z = 0.4;
+            group.add(stem);
+
+            // Dark tip at bottom end
+            const tipMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.8 });
+            const tipGeo = new THREE.SphereGeometry(0.045, 8, 8);
+            const tip = new THREE.Mesh(tipGeo, tipMat);
+            tip.position.set(0.34, -0.08, 0);
+            group.add(tip);
+
+            return group;
+        }
+
+        // Helper to build Strawberry
+        function createStrawberry() {
+            const group = new THREE.Group();
+            const strawMat = new THREE.MeshStandardMaterial({ color: 0xe11d48, roughness: 0.3 });
+            const bodyGeo = new THREE.ConeGeometry(0.32, 0.7, 16);
+            bodyGeo.rotateX(Math.PI);
+            const body = new THREE.Mesh(bodyGeo, strawMat);
+            group.add(body);
+
+            // Green top leaves
+            const leafMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.5, side: THREE.DoubleSide });
+            for (let i = 0; i < 5; i++) {
+                const leaf = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.2), leafMat);
+                const angle = (i / 5) * Math.PI * 2;
+                leaf.position.set(Math.cos(angle) * 0.1, 0.36, Math.sin(angle) * 0.1);
+                leaf.rotation.x = Math.PI / 3;
+                leaf.rotation.y = angle;
+                group.add(leaf);
+            }
+            return group;
+        }
+
+        // Helper to build Donut (Junk)
+        function createDonut() {
+            const group = new THREE.Group();
+            const doughMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.6 });
+            const donutGeo = new THREE.TorusGeometry(0.35, 0.18, 16, 24);
+            const dough = new THREE.Mesh(donutGeo, doughMat);
+            group.add(dough);
+
+            // Icing / Frosting
+            const icingMat = new THREE.MeshStandardMaterial({ color: 0xec4899, roughness: 0.3 });
+            const icingGeo = new THREE.TorusGeometry(0.36, 0.13, 12, 20);
+            const icing = new THREE.Mesh(icingGeo, icingMat);
+            icing.position.z = 0.05;
+            group.add(icing);
+
+            return group;
+        }
+
+        // Helper to build French Fries (Junk)
+        function createFries() {
+            const group = new THREE.Group();
+            const boxMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.4 });
+            const boxGeo = new THREE.BoxGeometry(0.5, 0.6, 0.3);
+            const box = new THREE.Mesh(boxGeo, boxMat);
+            box.position.y = -0.15;
+            group.add(box);
+
+            const fryMat = new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.4 });
+            const fryPositions = [
+                [-0.15, 0.25, 0], [0, 0.3, 0], [0.15, 0.22, 0],
+                [-0.1, 0.2, 0.05], [0.1, 0.28, -0.05]
+            ];
+            fryPositions.forEach(pos => {
+                const fry = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.45, 0.08), fryMat);
+                fry.position.set(pos[0], pos[1], pos[2]);
+                fry.rotation.z = (Math.random() - 0.5) * 0.2;
+                group.add(fry);
+            });
+
+            return group;
+        }
+
+        // Helper to build Burger (Junk)
+        function createBurger() {
+            const group = new THREE.Group();
+            const bunMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.5 });
+            const pattyMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.8 });
+            const cheeseMat = new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.3 });
+            const lettuceMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.6 });
+
+            // Bottom Bun
+            const botBun = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.36, 0.12, 16), bunMat);
+            botBun.position.y = -0.2;
+            group.add(botBun);
+
+            // Patty
+            const patty = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16), pattyMat);
+            patty.position.y = -0.08;
+            group.add(patty);
+
+            // Cheese
+            const cheese = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.03, 0.42), cheeseMat);
+            cheese.position.y = -0.01;
+            cheese.rotation.y = Math.PI / 4;
+            group.add(cheese);
+
+            // Lettuce
+            const lettuce = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.44, 0.04, 12), lettuceMat);
+            lettuce.position.y = 0.05;
+            group.add(lettuce);
+
+            // Top Bun
+            const topBun = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), bunMat);
+            topBun.position.y = 0.07;
+            group.add(topBun);
+
+            return group;
+        }
+
+        // Main mesh generator dispatcher
+        function createFoodMesh(type) {
+            let mesh;
+            switch(type) {
+                case 'apple': mesh = createApple(); break;
+                case 'broccoli': mesh = createBroccoli(); break;
+                case 'carrot': mesh = createCarrot(); break;
+                case 'milk': mesh = createMilk(); break;
+                case 'banana': mesh = createBanana(); break;
+                case 'strawberry': mesh = createStrawberry(); break;
+                case 'donut': mesh = createDonut(); break;
+                case 'fries': mesh = createFries(); break;
+                case 'burger': mesh = createBurger(); break;
+                default: mesh = createApple();
+            }
+
+            // Shadow configuration
+            mesh.traverse(child => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+
+            return mesh;
+        }
+
+        function initScene() {
+            const container = document.getElementById('canvas-container');
+            const width = container.clientWidth || window.innerWidth;
+            const height = container.clientHeight || window.innerHeight;
+
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xdbeafe);
+            scene.fog = new THREE.FogExp2(0xdbeafe, 0.03);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+            camera.position.set(0, 3.5, 9.5);
+            camera.lookAt(0, 0.5, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(5, 12, 8);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 1024;
+            dirLight.shadow.mapSize.height = 1024;
+            dirLight.shadow.camera.near = 0.5;
+            dirLight.shadow.camera.far = 25;
+            dirLight.shadow.camera.left = -6;
+            dirLight.shadow.camera.right = 6;
+            dirLight.shadow.camera.top = 8;
+            dirLight.shadow.camera.bottom = -2;
+            scene.add(dirLight);
+
+            // Floor & Track
+            const floorGeo = new THREE.PlaneGeometry(30, 20);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x86efac, roughness: 0.4 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.y = -1;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // Table Mat / Track area
+            const trackGeo = new THREE.PlaneGeometry(10, 15);
+            const trackMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.6 });
+            const track = new THREE.Mesh(trackGeo, trackMat);
+            track.rotation.x = -Math.PI / 2;
+            track.position.set(0, -0.98, 0);
+            track.receiveShadow = true;
+            scene.add(track);
+
+            // Build 3D Woven Basket
+            buildBasket();
+
+            // Resize listener
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function buildBasket() {
+            basketGroup = new THREE.Group();
+            basketGroup.position.set(0, -0.2, 0);
+
+            // Outer Woven Basket Body
+            const basketGeo = new THREE.CylinderGeometry(1.05, 0.75, 0.7, 16, 1, true);
+            const basketMat = new THREE.MeshStandardMaterial({ 
+                color: 0xd97706, 
+                roughness: 0.8, 
+                side: THREE.DoubleSide 
+            });
+            basketMesh = new THREE.Mesh(basketGeo, basketMat);
+            basketMesh.castShadow = true;
+            basketGroup.add(basketMesh);
+
+            // Basket Rim
+            const rimGeo = new THREE.TorusGeometry(1.05, 0.08, 12, 24);
+            const rimMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.7 });
+            const rim = new THREE.Mesh(rimGeo, rimMat);
+            rim.rotation.x = Math.PI / 2;
+            rim.position.y = 0.35;
+            rim.castShadow = true;
+            basketGroup.add(rim);
+
+            // Basket Interior Bottom
+            const bottomGeo = new THREE.CylinderGeometry(0.75, 0.75, 0.05, 16);
+            const bottom = new THREE.Mesh(bottomGeo, rimMat);
+            bottom.position.y = -0.32;
+            basketGroup.add(bottom);
+
+            scene.add(basketGroup);
+        }
+
+        const HEALTHY_TYPES = ['apple', 'broccoli', 'carrot', 'milk', 'banana', 'strawberry'];
+        const JUNK_TYPES = ['donut', 'fries', 'burger'];
+
+        function spawnFood() {
+            if (isGameOver) return;
+
+            const isJunk = Math.random() < 0.3; // 30% junk chance
+            const pool = isJunk ? JUNK_TYPES : HEALTHY_TYPES;
+            const type = pool[Math.floor(Math.random() * pool.length)];
+
+            const mesh = createFoodMesh(type);
+            const spawnX = (Math.random() - 0.5) * (BASKET_BOUNDS * 1.8);
+            mesh.position.set(spawnX, 7, (Math.random() - 0.5) * 0.8);
+            
+            scene.add(mesh);
+
+            foods.push({
+                mesh: mesh,
+                type: type,
+                isJunk: isJunk,
+                speed: 0.06 + Math.random() * 0.045,
+                rotSpeed: (Math.random() - 0.5) * 0.04
+            });
+        }
+
+        function triggerBasketPop() {
+            let frame = 0;
+            const animatePop = () => {
+                frame++;
+                const scale = 1 + Math.sin((frame / 10) * Math.PI) * 0.2;
+                basketMesh.scale.set(scale, scale, scale);
+                if (frame < 10) {
+                    requestAnimationFrame(animatePop);
+                } else {
+                    basketMesh.scale.set(1, 1, 1);
+                }
+            };
+            animatePop();
+        }
+
+        function createCatchParticles(pos, isJunk) {
+            const count = 12;
+            const color = isJunk ? 0xef4444 : 0x22c55e;
+            for (let i = 0; i < count; i++) {
+                const pMat = new THREE.MeshBasicMaterial({ color: color });
+                const pMesh = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), pMat);
+                pMesh.position.copy(pos);
+                scene.add(pMesh);
+
+                particles.push({
+                    mesh: pMesh,
+                    vel: new THREE.Vector3(
+                        (Math.random() - 0.5) * 0.2,
+                        Math.random() * 0.2 + 0.1,
+                        (Math.random() - 0.5) * 0.2
+                    ),
+                    life: 1.0
+                });
+            }
+        }
+
+        function showFloatingText(text, colorClass) {
+            const container = document.getElementById('game-wrapper');
+            const el = document.createElement('div');
+            el.className = `floating-text text-2xl ${colorClass}`;
+            el.innerText = text;
+            
+            el.style.left = '50%';
+            el.style.bottom = '22%';
+            container.appendChild(el);
+
+            setTimeout(() => el.remove(), 800);
+        }
+
+        function triggerDamageEffect() {
+            const wrapper = document.getElementById('game-wrapper');
+            const flash = document.getElementById('damage-flash');
+            
+            wrapper.classList.remove('shake-screen');
+            void wrapper.offsetWidth; // trigger reflow
+            wrapper.classList.add('shake-screen');
+
+            flash.style.opacity = '1';
+            setTimeout(() => { flash.style.opacity = '0'; }, 200);
+            setTimeout(() => { wrapper.classList.remove('shake-screen'); }, 400);
+        }
+
+        function updateLivesDisplay() {
+            const container = document.getElementById('hearts-container');
+            let html = '';
+            for (let i = 0; i < 3; i++) {
+                if (i < lives) {
+                    html += '<i class="fa-solid fa-heart text-red-500"></i> ';
+                } else {
+                    html += '<i class="fa-regular fa-heart text-slate-300"></i> ';
+                }
+            }
+            container.innerHTML = html;
+        }
+
+        let lastSpawnTime = 0;
+
+        function animate(timestamp) {
+            animationFrameId = requestAnimationFrame(animate);
+
+            if (!isGameOver) {
+                // Keyboard Movement Update
+                if (keysPressed['ArrowLeft'] || keysPressed['a'] || keysPressed['A']) {
+                    basketX -= BASKET_SPEED;
+                }
+                if (keysPressed['ArrowRight'] || keysPressed['d'] || keysPressed['D']) {
+                    basketX += BASKET_SPEED;
+                }
+
+                // Clamp basket boundaries
+                basketX = Math.max(-BASKET_BOUNDS, Math.min(BASKET_BOUNDS, basketX));
+                basketGroup.position.x = basketX;
+
+                // Spawn Timer
+                if (timestamp - lastSpawnTime > 1100) {
+                    spawnFood();
+                    lastSpawnTime = timestamp;
+                }
+
+                // Foods Loop
+                for (let i = foods.length - 1; i >= 0; i--) {
+                    const item = foods[i];
+                    item.mesh.position.y -= item.speed;
+                    item.mesh.rotation.y += item.rotSpeed;
+                    item.mesh.rotation.x += item.rotSpeed * 0.5;
+
+                    // Collision Check with Basket
+                    const dist = item.mesh.position.distanceTo(basketGroup.position);
+                    if (dist < 1.15 && item.mesh.position.y < 0.3) {
+                        // Catch Event!
+                        if (item.isJunk) {
+                            score = Math.max(0, score - 10);
+                            playDamageSound();
+                            triggerDamageEffect();
+                            showFloatingText('-10 으악!', 'text-red-500');
+                        } else {
+                            score += 10;
+                            playCatchSound();
+                            triggerBasketPop();
+                            showFloatingText('+10 쏙!', 'text-green-500');
+                        }
+
+                        document.getElementById('score-text').innerText = score;
+                        createCatchParticles(item.mesh.position, item.isJunk);
+
+                        scene.remove(item.mesh);
+                        foods.splice(i, 1);
+                        continue;
+                    }
+
+                    // Missed Item (Reached Bottom)
+                    if (item.mesh.position.y < -1.2) {
+                        if (!item.isJunk && !isGameOver) {
+                            // Missed healthy food -> lose life!
+                            lives--;
+                            updateLivesDisplay();
+                            playDamageSound();
+                            triggerDamageEffect();
+
+                            if (lives <= 0) {
+                                gameOver();
+                            }
+                        }
+                        scene.remove(item.mesh);
+                        foods.splice(i, 1);
+                    }
+                }
+
+                // Particle update
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i];
+                    p.mesh.position.add(p.vel);
+                    p.life -= 0.04;
+                    p.mesh.scale.multiplyScalar(0.92);
+                    if (p.life <= 0) {
+                        scene.remove(p.mesh);
+                        particles.splice(i, 1);
+                    }
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            if (!container) return;
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        }
+
+        function startGame() {
+            initAudio();
+            
+            // Reset food meshes
+            foods.forEach(f => scene.remove(f.mesh));
+            foods = [];
+            particles.forEach(p => scene.remove(p.mesh));
+            particles = [];
+
+            score = 0;
+            lives = 3;
+            basketX = 0;
+            basketGroup.position.x = 0;
+            isGameOver = false;
+
+            document.getElementById('score-text').innerText = '0';
+            updateLivesDisplay();
+
+            document.getElementById('game-modal').classList.add('hidden');
+            // 시작 버튼에 포커스가 남아 있으면 게임 중 Enter/Space 로 다시 시작되어 점수가 초기화된다
+            document.getElementById('start-btn').blur();
+        }
+
+        function gameOver() {
+            isGameOver = true;
+
+            const isNewRecord = saveBestScore();
+
+            const modal = document.getElementById('game-modal');
+            const title = document.getElementById('modal-title');
+            const desc = document.getElementById('modal-description');
+            const icon = document.getElementById('modal-icon');
+            const btn = document.getElementById('start-btn');
+
+            icon.innerText = '😭';
+            title.innerText = '게임 오버!';
+            title.className = 'text-3xl font-extrabold text-red-600';
+            desc.innerHTML = `건강한 식습관 완성 실패!<br>최종 점수: <b class="text-2xl text-green-600">${score}점</b>` +
+                (isNewRecord
+                    ? `<br><b class="text-amber-500">🎉 신기록 달성!</b>`
+                    : `<br>최고 점수: <b class="text-amber-500">${bestScore}점</b>`);
+            btn.innerText = '다시 도전하기 (Space)';
+
+            modal.classList.remove('hidden');
+        }
+
+        window.addEventListener('keydown', (e) => {
+            keysPressed[e.key] = true;
+            if (e.code === 'Space') {
+                // 스페이스바가 페이지를 스크롤시키거나 포커스된 버튼을 한 번 더 누르는 것을 막는다
+                e.preventDefault();
+                if (isGameOver) {
+                    startGame();
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keysPressed[e.key] = false;
+        });
+
+        // Touch & Drag Controls
+        const touchLayer = document.getElementById('touch-layer');
+        let isDragging = false;
+
+        function handlePointerMove(clientX) {
+            if (isGameOver) return;
+            const rect = touchLayer.getBoundingClientRect();
+            const relX = (clientX - rect.left) / rect.width;
+            basketX = (relX - 0.5) * (BASKET_BOUNDS * 2.2);
+        }
+
+        touchLayer.addEventListener('pointerdown', (e) => {
+            isDragging = true;
+            handlePointerMove(e.clientX);
+        });
+
+        window.addEventListener('pointermove', (e) => {
+            if (isDragging) {
+                handlePointerMove(e.clientX);
+            }
+        });
+
+        window.addEventListener('pointerup', () => {
+            isDragging = false;
+        });
+
+        document.getElementById('start-btn').addEventListener('click', () => {
+            startGame();
+        });
+
+        // Initialize on load
+        window.onload = () => {
+            loadBestScore();
+            initScene();
+            animate(0);
+        };
+    </script>
+</body>
+</html>

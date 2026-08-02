@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>3D 건강 간식을 모아라! 🐻✨</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Three.js 3D Engine CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  
+  <!-- Google Fonts (Jua) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      font-family: 'Jua', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #d9f99d;
+    }
+
+    /* 3D Canvas element */
+    #game-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      display: block;
+    }
+
+    /* Floating UI Layer */
+    #ui-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .interactive {
+      pointer-events: auto;
+    }
+
+    /* Golden Sparkle Glow Effect */
+    @keyframes golden-glow {
+      0%, 100% { filter: drop-shadow(0 0 10px #f59e0b) brightness(1.2); }
+      50% { filter: drop-shadow(0 0 22px #fef08a) brightness(1.5); }
+    }
+
+    .gold-glow {
+      animation: golden-glow 1s infinite ease-in-out;
+    }
+
+    /* Retro Shadow Buttons */
+    .retro-btn {
+      box-shadow: 0 6px 0 #3f6212, 0 10px 15px rgba(0, 0, 0, 0.2);
+      transition: transform 0.05s ease, box-shadow 0.05s ease;
+    }
+    .retro-btn:active {
+      box-shadow: 0 2px 0 #3f6212, 0 4px 6px rgba(0, 0, 0, 0.1);
+      transform: translateY(4px);
+    }
+
+    /* Taco Invincible Pulse Animation */
+    @keyframes taco-rainbow {
+      0% { border-color: #ef4444; color: #ef4444; }
+      25% { border-color: #f59e0b; color: #f59e0b; }
+      50% { border-color: #10b981; color: #10b981; }
+      75% { border-color: #3b82f6; color: #3b82f6; }
+      100% { border-color: #ef4444; color: #ef4444; }
+    }
+
+    .taco-mode-active {
+      animation: taco-rainbow 0.6s infinite linear;
+    }
+  </style>
+</head>
+<body class="relative flex flex-col justify-between items-center select-none overflow-hidden">
+
+  <!-- 1. 3D WebGL Canvas Rendering Target -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- 2. UI Overlay Layer (Tailwind CSS) -->
+  <div id="ui-layer" class="flex flex-col justify-between items-center p-3 md:p-5">
+    
+    <!-- Top Header & Scoreboard -->
+    <header class="w-full max-w-lg bg-white/90 backdrop-blur-md rounded-2xl p-3 md:p-4 border-4 border-lime-500 shadow-2xl flex justify-between items-center interactive mt-1 transition-all" id="main-header">
+      <!-- Score & Best Score -->
+      <div class="flex items-center space-x-2">
+        <span class="text-3xl drop-shadow">🍎</span>
+        <div class="text-left">
+          <div class="flex items-center space-x-1">
+            <span class="text-[10px] md:text-xs bg-amber-200 text-amber-900 font-bold px-2 py-0.5 rounded-full">👑 최고 <span id="best-score">0</span></span>
+          </div>
+          <p class="text-xs text-lime-700 font-bold">점수</p>
+          <p id="score" class="text-2xl md:text-3xl font-black text-lime-900 leading-none">0</p>
+        </div>
+      </div>
+
+      <!-- Title & Level Badge -->
+      <div class="text-center flex flex-col items-center">
+        <h1 class="text-base md:text-xl text-lime-800 font-bold drop-shadow-sm">3D 건강 간식을 모아라! 🐻</h1>
+        <div class="flex items-center gap-1 mt-0.5">
+          <span id="level-badge" class="text-[11px] bg-lime-100 text-lime-800 px-2.5 py-0.5 rounded-full font-bold border border-lime-300">난이도 LV.1</span>
+          <span id="taco-status-badge" class="hidden text-[11px] bg-amber-400 text-amber-950 font-black px-2 py-0.5 rounded-full border border-amber-600 animate-pulse">🌮 무적 TACO TIME!</span>
+        </div>
+      </div>
+
+      <!-- Lives Display -->
+      <div class="flex items-center space-x-2">
+        <div class="text-right">
+          <p class="text-xs text-lime-700 font-bold">남은 기회</p>
+          <p id="lives" class="text-base md:text-xl font-black text-lime-900 leading-none tracking-widest">❤️ ❤️ ❤️</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- Floating Popups Layer for +10, -10, +50 point effects -->
+    <div id="popup-container" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+
+    <!-- Start Screen Modal Overlay -->
+    <div id="start-modal" class="absolute inset-0 bg-lime-950/80 backdrop-blur-md z-50 flex flex-col justify-center items-center text-center p-6 text-white interactive transition-opacity duration-300">
+      <div class="text-6xl md:text-7xl mb-3 animate-bounce">🐻😋🌮</div>
+      <h2 class="text-3xl md:text-4xl font-black text-amber-300 mb-1 drop-shadow-md">3D 건강 간식을 모아라!</h2>
+      <p class="text-sm text-lime-200 mb-5 font-bold">귀여운 곰돌이 셰프와 함께 3D 주방에서 건강한 간식을 캐치하세요!</p>
+      
+      <!-- Instructions Card -->
+      <div class="bg-white/10 border border-white/20 rounded-2xl p-4 max-w-sm w-full text-left text-xs md:text-sm mb-6 space-y-2 text-lime-100 shadow-inner">
+        <p class="flex items-center"><span class="text-lg mr-2">🍎🥦</span> <strong>건강 간식:</strong> +10점 (놓쳐도 체력 차감 없음!)</p>
+        <p class="flex items-center"><span class="text-lg mr-2">🍩🍟</span> <strong>정크 푸드:</strong> -10점 & 화면 진동 경고</p>
+        <p class="flex items-center"><span class="text-lg mr-2">🍎✨</span> <strong>황금 사과:</strong> +50점 & ❤️ 1개 회복!</p>
+        <p class="flex items-center"><span class="text-lg mr-2">🌮✨</span> <strong>[Y] 키 시크릿:</strong> 무적 & 3D 타코 비 내리기!</p>
+        <p class="flex items-center"><span class="text-lg mr-2">⌨️/👆</span> <strong>조작법:</strong> 키보드 방향키 (← → / A D) 또는 터치 버튼</p>
+      </div>
+
+      <button id="start-btn" class="bg-amber-400 hover:bg-amber-300 active:scale-95 text-amber-950 font-black px-8 py-4 rounded-full text-xl shadow-2xl animate-pulse transition-all">
+        [ Space ] 누르고 3D 게임 시작! 🚀
+      </button>
+    </div>
+
+    <!-- Game Over Modal Overlay -->
+    <div id="game-over-modal" class="hidden absolute inset-0 bg-black/85 backdrop-blur-md z-50 flex flex-col justify-center items-center text-center p-6 text-white interactive">
+      <div class="text-7xl mb-3 animate-bounce">💔🐻</div>
+      <h2 class="text-3xl md:text-4xl font-black text-red-400 mb-2">게임 오버!</h2>
+      <p class="text-base font-bold text-amber-200 mb-3">건강한 식습관 완성 실패!</p>
+      
+      <div class="bg-white/10 rounded-2xl px-6 py-3 mb-6 border border-white/20">
+        <p class="text-xs text-gray-300">최종 점수</p>
+        <p id="final-score" class="text-4xl font-black text-amber-300">0점</p>
+      </div>
+
+      <button id="restart-btn" class="bg-lime-500 hover:bg-lime-400 active:scale-95 text-lime-950 font-black px-8 py-4 rounded-full text-lg animate-pulse shadow-2xl transition-transform">
+        [ Space ] 눌러 다시 도전! 🔄
+      </button>
+    </div>
+
+    <!-- Mobile Touch Controls & Cheat Button -->
+    <div class="w-full max-w-md flex justify-between items-center px-2 mb-2 interactive">
+      <button id="btn-left" class="bg-lime-600 active:bg-lime-700 text-white font-bold text-3xl w-20 h-16 rounded-2xl border-2 border-lime-400 retro-btn flex items-center justify-center select-none touch-none">
+        ◀
+      </button>
+      
+      <!-- Mobile Taco Cheat Button -->
+      <button id="btn-taco" class="bg-amber-500 active:bg-amber-600 text-amber-950 font-black text-sm px-3 h-16 rounded-2xl border-2 border-amber-300 retro-btn flex flex-col items-center justify-center select-none touch-none">
+        <span class="text-xl">🌮</span>
+        <span>Y 무적!</span>
+      </button>
+
+      <button id="btn-right" class="bg-lime-600 active:bg-lime-700 text-white font-bold text-3xl w-20 h-16 rounded-2xl border-2 border-lime-400 retro-btn flex items-center justify-center select-none touch-none">
+        ▶
+      </button>
+    </div>
+
+  </div>
+
+  <!-- 3. JavaScript Engine & Game Logic -->
+  <script>
+    // --- UI HTML Elements ---
+    const canvas = document.getElementById('game-canvas');
+    const scoreEl = document.getElementById('score');
+    const bestScoreEl = document.getElementById('best-score');
+    const livesEl = document.getElementById('lives');
+    const levelBadge = document.getElementById('level-badge');
+    const tacoStatusBadge = document.getElementById('taco-status-badge');
+    const mainHeader = document.getElementById('main-header');
+    const startModal = document.getElementById('start-modal');
+    const gameOverModal = document.getElementById('game-over-modal');
+    const startBtn = document.getElementById('start-btn');
+    const restartBtn = document.getElementById('restart-btn');
+    const finalScoreEl = document.getElementById('final-score');
+    const popupContainer = document.getElementById('popup-container');
+    const btnLeft = document.getElementById('btn-left');
+    const btnRight = document.getElementById('btn-right');
+    const btnTaco = document.getElementById('btn-taco');
+
+    // --- Game State Variables ---
+    let score = 0;
+    let bestScore = parseInt(localStorage.getItem('3d_kitchen_game_best_score') || '0', 10);
+    let lives = 3;
+    let isGameStarted = false;
+    let isGameOver = false;
+    let level = 1;
+
+    // Invincible Taco Mode State
+    let isInvincible = false;
+    let tacoTimer = 0;
+    let invincibilityShieldMesh;
+
+    // Bear 3D Position & Physics
+    let bearX = 0;
+    let targetBearX = 0;
+    const BOUNDS_X = 4.2; // Table boundary limits
+    const BEAR_SPEED = 0.22;
+    const activeKeys = { left: false, right: false };
+
+    bestScoreEl.textContent = bestScore;
+
+    // --- Web Audio Synthesizer ---
+    let audioCtx = null;
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    // Sound 1: Healthy Food Catch Sound
+    function playCatchSound() {
+      try {
+        initAudio();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(950, audioCtx.currentTime + 0.1);
+
+        gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
+      } catch(e) {}
+    }
+
+    // Sound 2: Junk Food Penalty Sound
+    function playJunkSound() {
+      try {
+        initAudio();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.3);
+
+        gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+      } catch(e) {}
+    }
+
+    // Sound 3: Missed Food Sound
+    function playMissSound() {
+      try {
+        initAudio();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(320, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(110, audioCtx.currentTime + 0.22);
+
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.22);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.22);
+      } catch(e) {}
+    }
+
+    // Sound 4: Golden Apple & Game Start Fanfare Sound
+    function playFanfareSound() {
+      try {
+        initAudio();
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime + idx * 0.08);
+
+          gain.gain.setValueAtTime(0.3, audioCtx.currentTime + idx * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + idx * 0.08 + 0.25);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(audioCtx.currentTime + idx * 0.08);
+          osc.stop(audioCtx.currentTime + idx * 0.08 + 0.25);
+        });
+      } catch(e) {}
+    }
+
+    // Sound 5: Taco Rain Party Sound
+    function playTacoPowerSound() {
+      try {
+        initAudio();
+        const notes = [440, 554.37, 659.25, 880, 1108.73];
+        notes.forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime + idx * 0.05);
+
+          gain.gain.setValueAtTime(0.2, audioCtx.currentTime + idx * 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + idx * 0.05 + 0.2);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(audioCtx.currentTime + idx * 0.05);
+          osc.stop(audioCtx.currentTime + idx * 0.05 + 0.2);
+        });
+      } catch(e) {}
+    }
+
+    // --- Three.js Engine Setup ---
+    let scene, camera, renderer;
+    let bearGroup, bearMesh, chefHatGroup, bearFaceMesh;
+    const fallingItems = [];
+    const particleSystems = [];
+
+    function initThreeJS() {
+      // 1. Scene
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xd9f99d); // Soft lime backdrop
+      scene.fog = new THREE.FogExp2(0xd9f99d, 0.035);
+
+      // 2. Camera
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(0, 5.5, 9.5);
+      camera.lookAt(0, 1.2, 0);
+
+      // 3. WebGL Renderer
+      renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: "high-performance" });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+      // 4. Lighting Setup
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xfffbeb, 0.9);
+      dirLight.position.set(5, 12, 7);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 1024;
+      dirLight.shadow.mapSize.height = 1024;
+      dirLight.shadow.camera.near = 0.5;
+      dirLight.shadow.camera.far = 25;
+      dirLight.shadow.camera.left = -7;
+      dirLight.shadow.camera.right = 7;
+      dirLight.shadow.camera.top = 10;
+      dirLight.shadow.camera.bottom = -5;
+      scene.add(dirLight);
+
+      // Warm Point light for cute ambiance
+      const pointLight = new THREE.PointLight(0xfef08a, 0.6, 15);
+      pointLight.position.set(0, 4, 3);
+      scene.add(pointLight);
+
+      // 5. Kitchen Table Environment (Checkered Tablecloth Ground)
+      createTableEnvironment();
+
+      // 6. Cute 3D Bear Character Creation
+      create3DBearCharacter();
+    }
+
+    // Procedural Tablecloth Texture Generator
+    function generateTableclothTexture() {
+      const canvasTex = document.createElement('canvas');
+      canvasTex.width = 256;
+      canvasTex.height = 256;
+      const ctx = canvasTex.getContext('2d');
+
+      ctx.fillStyle = '#bef264'; // Light lime
+      ctx.fillRect(0, 0, 256, 256);
+
+      ctx.fillStyle = '#a3e635'; // Darker lime grid pattern
+      const size = 64;
+      for (let y = 0; y < 256; y += size) {
+        for (let x = 0; x < 256; x += size) {
+          if ((x / size + y / size) % 2 === 0) {
+            ctx.fillRect(x, y, size, size);
+          }
+        }
+      }
+
+      const texture = new THREE.CanvasTexture(canvasTex);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(4, 8);
+      return texture;
+    }
+
+    function createTableEnvironment() {
+      // 1. Table Top Surface
+      const tableGeo = new THREE.BoxGeometry(11, 0.5, 16);
+      const tableMat = new THREE.MeshStandardMaterial({
+        map: generateTableclothTexture(),
+        roughness: 0.6,
+        metalness: 0.05
+      });
+      const tableMesh = new THREE.Mesh(tableGeo, tableMat);
+      tableMesh.position.set(0, -0.25, -2);
+      tableMesh.receiveShadow = true;
+      scene.add(tableMesh);
+
+      // 2. Kitchen Wall Backdrop
+      const wallGeo = new THREE.PlaneGeometry(30, 20);
+      const wallMat = new THREE.MeshStandardMaterial({ color: 0xecfccb, roughness: 0.8 });
+      const wallMesh = new THREE.Mesh(wallGeo, wallMat);
+      wallMesh.position.set(0, 8, -8);
+      scene.add(wallMesh);
+
+      // 3. Cute Kitchen Window Backdrop Deco
+      const windowGeo = new THREE.BoxGeometry(4, 3.5, 0.1);
+      const windowMat = new THREE.MeshStandardMaterial({ color: 0xbae6fd, emissive: 0x7dd3fc, emissiveIntensity: 0.3 });
+      const windowMesh = new THREE.Mesh(windowGeo, windowMat);
+      windowMesh.position.set(0, 6.5, -7.9);
+      scene.add(windowMesh);
+
+      // Window Frame
+      const frameGeo = new THREE.BoxGeometry(4.3, 3.8, 0.15);
+      const frameMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+      const frameMesh = new THREE.Mesh(frameGeo, frameMat);
+      frameMesh.position.set(0, 6.5, -7.95);
+      scene.add(frameMesh);
+    }
+
+    // Cute 3D Bear Character Construction
+    function create3DBearCharacter() {
+      bearGroup = new THREE.Group();
+
+      const furMaterial = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.8 }); // Warm brown
+      const snoutMaterial = new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.7 }); // Beige
+      const blackMaterial = new THREE.MeshStandardMaterial({ color: 0x1c1917, roughness: 0.3 });
+      const whiteMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
+
+      // 1. Bear Head
+      const headGeo = new THREE.SphereGeometry(1.0, 32, 32);
+      bearFaceMesh = new THREE.Mesh(headGeo, furMaterial);
+      bearFaceMesh.scale.set(1.15, 0.95, 1.15);
+      bearFaceMesh.castShadow = true;
+      bearGroup.add(bearFaceMesh);
+
+      // 2. Bear Ears (Left & Right)
+      const earGeo = new THREE.SphereGeometry(0.38, 24, 24);
+      const leftEar = new THREE.Mesh(earGeo, furMaterial);
+      leftEar.position.set(-0.9, 0.75, 0);
+      leftEar.castShadow = true;
+      bearGroup.add(leftEar);
+
+      const rightEar = new THREE.Mesh(earGeo, furMaterial);
+      rightEar.position.set(0.9, 0.75, 0);
+      rightEar.castShadow = true;
+      bearGroup.add(rightEar);
+
+      // Inner Ear Accents
+      const innerEarGeo = new THREE.SphereGeometry(0.2, 16, 16);
+      const leftInnerEar = new THREE.Mesh(innerEarGeo, snoutMaterial);
+      leftInnerEar.position.set(-0.9, 0.75, 0.2);
+      bearGroup.add(leftInnerEar);
+
+      const rightInnerEar = new THREE.Mesh(innerEarGeo, snoutMaterial);
+      rightInnerEar.position.set(0.9, 0.75, 0.2);
+      bearGroup.add(rightInnerEar);
+
+      // 3. Bear Snout / Mouth Area
+      const snoutGeo = new THREE.SphereGeometry(0.48, 24, 24);
+      const snoutMesh = new THREE.Mesh(snoutGeo, snoutMaterial);
+      snoutMesh.position.set(0, -0.15, 0.8);
+      snoutMesh.scale.set(1.2, 0.8, 0.9);
+      bearGroup.add(snoutMesh);
+
+      // Nose
+      const noseGeo = new THREE.SphereGeometry(0.18, 16, 16);
+      const noseMesh = new THREE.Mesh(noseGeo, blackMaterial);
+      noseMesh.position.set(0, 0, 1.22);
+      bearGroup.add(noseMesh);
+
+      // Eyes
+      const eyeGeo = new THREE.SphereGeometry(0.12, 16, 16);
+      const leftEye = new THREE.Mesh(eyeGeo, blackMaterial);
+      leftEye.position.set(-0.4, 0.25, 0.98);
+      bearGroup.add(leftEye);
+
+      const rightEye = new THREE.Mesh(eyeGeo, blackMaterial);
+      rightEye.position.set(0.4, 0.25, 0.98);
+      bearGroup.add(rightEye);
+
+      // 4. Chef Hat 👨‍🍳
+      chefHatGroup = new THREE.Group();
+      const hatBaseGeo = new THREE.CylinderGeometry(0.55, 0.5, 0.35, 24);
+      const hatBase = new THREE.Mesh(hatBaseGeo, whiteMaterial);
+      hatBase.position.set(0, 0.95, 0);
+
+      const hatTopGeo = new THREE.SphereGeometry(0.7, 24, 24);
+      const hatTop = new THREE.Mesh(hatTopGeo, whiteMaterial);
+      hatTop.position.set(0, 1.4, 0);
+      hatTop.scale.set(1.1, 0.7, 1.1);
+
+      chefHatGroup.add(hatBase);
+      chefHatGroup.add(hatTop);
+      chefHatGroup.position.set(0, 0.1, 0);
+      chefHatGroup.rotation.z = -0.1;
+      bearGroup.add(chefHatGroup);
+
+      // 5. Catching Bowl / Basket Rim on top of Head (더 작아진 미니 바구니)
+      const bowlRimGeo = new THREE.TorusGeometry(0.45, 0.07, 16, 32);
+      const bowlRimMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.3 });
+      const bowlRim = new THREE.Mesh(bowlRimGeo, bowlRimMat);
+      bowlRim.rotation.x = Math.PI / 2;
+      bowlRim.position.set(0, 0.6, 0);
+      bearGroup.add(bowlRim);
+
+      // 6. Invincibility Rainbow Shield Bubble (Hidden by default)
+      const shieldGeo = new THREE.SphereGeometry(1.8, 32, 32);
+      const shieldMat = new THREE.MeshStandardMaterial({
+        color: 0xfacc15,
+        emissive: 0xf59e0b,
+        emissiveIntensity: 0.8,
+        transparent: true,
+        opacity: 0.45,
+        wireframe: true
+      });
+      invincibilityShieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
+      invincibilityShieldMesh.position.set(0, 0.2, 0);
+      invincibilityShieldMesh.visible = false;
+      bearGroup.add(invincibilityShieldMesh);
+
+      // Position Bear on Table Floor
+      bearGroup.position.set(0, 0.8, 2.5);
+      scene.add(bearGroup);
+    }
+
+    // --- 3D Procedural Food Creators ---
+
+    // 1. 🍎 Apple Mesh
+    function create3DApple(isGold = false) {
+      const appleGroup = new THREE.Group();
+      const matColor = isGold ? 0xfacc15 : 0xef4444;
+      const mat = new THREE.MeshStandardMaterial({
+        color: matColor,
+        roughness: isGold ? 0.2 : 0.4,
+        metalness: isGold ? 0.8 : 0.1,
+        emissive: isGold ? 0xeab308 : 0x000000,
+        emissiveIntensity: isGold ? 0.5 : 0
+      });
+
+      const bodyGeo = new THREE.SphereGeometry(0.45, 24, 24);
+      const body = new THREE.Mesh(bodyGeo, mat);
+      body.scale.set(1, 0.92, 1);
+      body.castShadow = true;
+      appleGroup.add(body);
+
+      // Stem & Leaf
+      const stemGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.25);
+      const stemMat = new THREE.MeshStandardMaterial({ color: 0x78350f });
+      const stem = new THREE.Mesh(stemGeo, stemMat);
+      stem.position.set(0, 0.45, 0);
+      appleGroup.add(stem);
+
+      const leafGeo = new THREE.ConeGeometry(0.12, 0.3, 12);
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x22c55e });
+      const leaf = new THREE.Mesh(leafGeo, leafMat);
+      leaf.rotation.z = -Math.PI / 3;
+      leaf.position.set(0.12, 0.45, 0);
+      appleGroup.add(leaf);
+
+      return appleGroup;
+    }
+
+    // 2. 🥦 Broccoli Mesh
+    function create3DBroccoli() {
+      const broccoli = new THREE.Group();
+      const stemMat = new THREE.MeshStandardMaterial({ color: 0x86efac, roughness: 0.6 });
+      const topMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.9 });
+
+      const stemGeo = new THREE.CylinderGeometry(0.15, 0.25, 0.5, 16);
+      const stem = new THREE.Mesh(stemGeo, stemMat);
+      stem.position.set(0, -0.1, 0);
+      broccoli.add(stem);
+
+      // Fluffy Green Tops
+      const topGeo = new THREE.SphereGeometry(0.32, 16, 16);
+      for (let i = 0; i < 5; i++) {
+        const topPart = new THREE.Mesh(topGeo, topMat);
+        const angle = (i / 5) * Math.PI * 2;
+        topPart.position.set(Math.cos(angle) * 0.18, 0.25, Math.sin(angle) * 0.18);
+        broccoli.add(topPart);
+      }
+      return broccoli;
+    }
+
+    // 3. 🥛 Milk Carton Mesh
+    function create3DMilk() {
+      const milkGroup = new THREE.Group();
+      const cartonMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+      const blueMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6 });
+
+      const bodyGeo = new THREE.BoxGeometry(0.5, 0.6, 0.5);
+      const body = new THREE.Mesh(bodyGeo, cartonMat);
+      milkGroup.add(body);
+
+      const stripeGeo = new THREE.BoxGeometry(0.52, 0.18, 0.52);
+      const stripe = new THREE.Mesh(stripeGeo, blueMat);
+      stripe.position.set(0, 0, 0);
+      milkGroup.add(stripe);
+
+      const topGeo = new THREE.ConeGeometry(0.38, 0.3, 4);
+      const topPart = new THREE.Mesh(topGeo, cartonMat);
+      topPart.rotation.y = Math.PI / 4;
+      topPart.position.set(0, 0.42, 0);
+      milkGroup.add(topPart);
+
+      return milkGroup;
+    }
+
+    // 4. 🍌 Banana Mesh
+    function create3DBanana() {
+      const bananaGroup = new THREE.Group();
+      const bananaMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.4 });
+
+      const torusGeo = new THREE.TorusGeometry(0.4, 0.12, 12, 24, Math.PI * 0.7);
+      const bananaBody = new THREE.Mesh(torusGeo, bananaMat);
+      bananaBody.rotation.z = Math.PI / 4;
+      bananaGroup.add(bananaBody);
+
+      return bananaGroup;
+    }
+
+    // 5. 🍩 Donut (Junk Food) Mesh
+    function create3DDonut() {
+      const donutGroup = new THREE.Group();
+      const doughMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.7 });
+      const icingMat = new THREE.MeshStandardMaterial({ color: 0xec4899, roughness: 0.2 });
+
+      const doughGeo = new THREE.TorusGeometry(0.35, 0.18, 16, 32);
+      const dough = new THREE.Mesh(doughGeo, doughMat);
+      donutGroup.add(dough);
+
+      const icingGeo = new THREE.TorusGeometry(0.36, 0.12, 16, 32);
+      const icing = new THREE.Mesh(icingGeo, icingMat);
+      icing.position.set(0, 0.04, 0);
+      donutGroup.add(icing);
+
+      return donutGroup;
+    }
+
+    // 6. 🍟 French Fries (Junk Food) Mesh
+    function create3DFries() {
+      const friesGroup = new THREE.Group();
+      const boxMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.4 });
+      const fryMat = new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.5 });
+
+      const boxGeo = new THREE.BoxGeometry(0.5, 0.5, 0.3);
+      const box = new THREE.Mesh(boxGeo, boxMat);
+      box.position.set(0, -0.1, 0);
+      friesGroup.add(box);
+
+      const fryGeo = new THREE.BoxGeometry(0.08, 0.45, 0.08);
+      for (let i = 0; i < 6; i++) {
+        const fry = new THREE.Mesh(fryGeo, fryMat);
+        fry.position.set((i - 2.5) * 0.08, 0.2, (Math.random() - 0.5) * 0.1);
+        fry.rotation.z = (Math.random() - 0.5) * 0.2;
+        friesGroup.add(fry);
+      }
+
+      return friesGroup;
+    }
+
+    // 7. 🌮 3D Taco Mesh (Special Rain Item)
+    function create3DTaco() {
+      const tacoGroup = new THREE.Group();
+
+      // Taco Shell (Crispy Yellow Cylinder Half)
+      const shellMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.5 });
+      const shellGeo = new THREE.CylinderGeometry(0.48, 0.48, 0.35, 24, 1, false, 0, Math.PI);
+      const shell = new THREE.Mesh(shellGeo, shellMat);
+      shell.rotation.z = Math.PI / 2;
+      shell.rotation.x = Math.PI / 2;
+      tacoGroup.add(shell);
+
+      // Taco Meat Filling (Brown Box)
+      const meatMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 });
+      const meatGeo = new THREE.BoxGeometry(0.7, 0.25, 0.25);
+      const meat = new THREE.Mesh(meatGeo, meatMat);
+      meat.position.set(0, 0.05, 0);
+      tacoGroup.add(meat);
+
+      // Taco Lettuce Filling (Green Accents)
+      const lettuceMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.7 });
+      const lettuceGeo = new THREE.BoxGeometry(0.75, 0.12, 0.28);
+      const lettuce = new THREE.Mesh(lettuceGeo, lettuceMat);
+      lettuce.position.set(0, 0.15, 0);
+      tacoGroup.add(lettuce);
+
+      return tacoGroup;
+    }
+
+    // Trigger Y-Key Invincible Taco Mode Cheat
+    function triggerTacoMode() {
+      if (!isGameStarted || isGameOver) return;
+
+      isInvincible = true;
+      tacoTimer = 300; // 5 Seconds (60fps * 5)
+      invincibilityShieldMesh.visible = true;
+
+      tacoStatusBadge.classList.remove('hidden');
+      mainHeader.classList.add('taco-mode-active');
+
+      playTacoPowerSound();
+      showScorePopup(bearX, 1.8, 2.5, '🌮 TACO TIME! 무적 발동!', 'text-amber-400 text-3xl font-black');
+    }
+
+    // Spawn 3D Falling Snack Item
+    function spawnFallingItem() {
+      const rand = Math.random();
+      let isJunk = false;
+      let isGold = false;
+      let isTaco = false;
+      let mesh;
+
+      if (isInvincible) {
+        // High Taco Spawn Probability during Taco Mode
+        if (rand < 0.65) {
+          isTaco = true;
+          mesh = create3DTaco();
+        } else {
+          const choices = [create3DApple, create3DBroccoli, create3DMilk, create3DBanana];
+          mesh = choices[Math.floor(Math.random() * choices.length)]();
+        }
+      } else {
+        if (rand < 0.06) {
+          // 6% Golden Apple
+          isGold = true;
+          mesh = create3DApple(true);
+        } else if (rand < 0.12) {
+          // 6% Taco (Rare spawn in normal play)
+          isTaco = true;
+          mesh = create3DTaco();
+        } else if (rand < 0.38) {
+          // 26% Junk Food (Donut or Fries)
+          isJunk = true;
+          mesh = Math.random() > 0.5 ? create3DDonut() : create3DFries();
+        } else {
+          // Healthy Food Options
+          const choices = [create3DApple, create3DBroccoli, create3DMilk, create3DBanana];
+          mesh = choices[Math.floor(Math.random() * choices.length)]();
+        }
+      }
+
+      // Random position along X axis
+      const spawnX = (Math.random() - 0.5) * 7.5;
+      const spawnY = 8.5;
+      const spawnZ = 2.5;
+
+      mesh.position.set(spawnX, spawnY, spawnZ);
+      scene.add(mesh);
+
+      // Speed increases with level/score
+      const fallSpeed = (isInvincible ? 0.09 : 0.07) + Math.min(score * 0.001, 0.08) + Math.random() * 0.02;
+
+      fallingItems.push({
+        mesh: mesh,
+        x: spawnX,
+        y: spawnY,
+        z: spawnZ,
+        speed: fallSpeed,
+        isJunk: isJunk,
+        isGold: isGold,
+        isTaco: isTaco,
+        rotSpeedX: (Math.random() - 0.5) * 0.06,
+        rotSpeedY: (Math.random() - 0.5) * 0.06
+      });
+    }
+
+    // Golden / Rainbow Particle Sparkles
+    function createSparkles(x, y, z, colorHex = 0xfde047) {
+      const particleCount = 20;
+      const geo = new THREE.BufferGeometry();
+      const positions = new Float32Array(particleCount * 3);
+      const velocities = [];
+
+      for (let i = 0; i < particleCount; i++) {
+        positions[i * 3] = x;
+        positions[i * 3 + 1] = y;
+        positions[i * 3 + 2] = z;
+
+        velocities.push({
+          x: (Math.random() - 0.5) * 0.18,
+          y: Math.random() * 0.18 + 0.05,
+          z: (Math.random() - 0.5) * 0.18
+        });
+      }
+
+      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const mat = new THREE.PointsMaterial({
+        color: colorHex,
+        size: 0.28,
+        transparent: true,
+        opacity: 1.0
+      });
+
+      const pSystem = new THREE.Points(geo, mat);
+      scene.add(pSystem);
+
+      particleSystems.push({
+        system: pSystem,
+        velocities: velocities,
+        life: 1.0
+      });
+    }
+
+    // World Position to 2D Screen Popup Effect
+    function showScorePopup(x, y, z, text, colorClass) {
+      const vec = new THREE.Vector3(x, y, z);
+      vec.project(camera);
+
+      const screenX = (vec.x * 0.5 + 0.5) * window.innerWidth;
+      const screenY = (-(vec.y * 0.5) + 0.5) * window.innerHeight;
+
+      const pop = document.createElement('div');
+      pop.className = `absolute text-xl md:text-2xl font-black ${colorClass} drop-shadow-lg select-none pointer-events-none transition-all duration-500 ease-out transform -translate-x-1/2`;
+      pop.textContent = text;
+      pop.style.left = `${screenX}px`;
+      pop.style.top = `${screenY}px`;
+
+      popupContainer.appendChild(pop);
+
+      requestAnimationFrame(() => {
+        pop.style.transform = 'translate(-50%, -45px) scale(1.3)';
+        pop.style.opacity = '0';
+      });
+
+      setTimeout(() => {
+        if (pop && pop.parentNode) {
+          pop.parentNode.removeChild(pop);
+        }
+      }, 500);
+    }
+
+    // Camera Shake on Junk Food Catch
+    let cameraShakeIntensity = 0;
+    function triggerCameraShake() {
+      cameraShakeIntensity = 0.35;
+    }
+
+    // Update UI Header
+    function updateLivesDisplay() {
+      if (!livesEl) return;
+      if (lives <= 0) {
+        livesEl.textContent = '💔';
+      } else {
+        livesEl.textContent = '❤️ '.repeat(lives).trim();
+      }
+    }
+
+    function loseLife() {
+      if (isGameOver || !isGameStarted || isInvincible) return; // Immune during taco mode
+      lives--;
+      updateLivesDisplay();
+      playMissSound();
+
+      if (lives <= 0) {
+        triggerGameOver();
+      }
+    }
+
+    function startGame() {
+      isGameStarted = true;
+      isGameOver = false;
+      score = 0;
+      lives = 3;
+      level = 1;
+      isInvincible = false;
+      tacoTimer = 0;
+
+      scoreEl.textContent = score;
+      levelBadge.textContent = '난이도 LV.1';
+      tacoStatusBadge.classList.add('hidden');
+      mainHeader.classList.remove('taco-mode-active');
+      invincibilityShieldMesh.visible = false;
+      updateLivesDisplay();
+
+      startModal.classList.add('hidden');
+      gameOverModal.classList.add('hidden');
+
+      playFanfareSound();
+    }
+
+    function triggerGameOver() {
+      isGameOver = true;
+      finalScoreEl.textContent = `${score}점`;
+
+      if (score > bestScore) {
+        bestScore = score;
+        localStorage.setItem('3d_kitchen_game_best_score', bestScore);
+        bestScoreEl.textContent = bestScore;
+      }
+
+      gameOverModal.classList.remove('hidden');
+    }
+
+    function resetGame() {
+      // Clear all items on table
+      for (let i = fallingItems.length - 1; i >= 0; i--) {
+        scene.remove(fallingItems[i].mesh);
+      }
+      fallingItems.length = 0;
+
+      targetBearX = 0;
+      bearX = 0;
+      bearGroup.position.x = 0;
+
+      startGame();
+    }
+
+    // Key Controls
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' || e.key === ' ') {
+        e.preventDefault();
+        if (!isGameStarted) {
+          startGame();
+          return;
+        }
+        if (isGameOver) {
+          resetGame();
+          return;
+        }
+      }
+
+      // Y-Key Cheat Code for Taco Rain & Invincibility
+      if (e.key === 'y' || e.key === 'Y' || e.key === 'ㅛ') {
+        triggerTacoMode();
+      }
+
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        activeKeys.left = true;
+      }
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        activeKeys.right = true;
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        activeKeys.left = false;
+      }
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        activeKeys.right = false;
+      }
+    });
+
+    // Touch Controls
+    btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); activeKeys.left = true; });
+    btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); activeKeys.left = false; });
+    btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); activeKeys.right = true; });
+    btnRight.addEventListener('touchend', (e) => { e.preventDefault(); activeKeys.right = false; });
+
+    btnLeft.addEventListener('touchcancel', () => { activeKeys.left = false; });
+    btnRight.addEventListener('touchcancel', () => { activeKeys.right = false; });
+
+    btnLeft.addEventListener('mousedown', () => { activeKeys.left = true; });
+    btnLeft.addEventListener('mouseup', () => { activeKeys.left = false; });
+    btnLeft.addEventListener('mouseleave', () => { activeKeys.left = false; });
+    btnRight.addEventListener('mousedown', () => { activeKeys.right = true; });
+    btnRight.addEventListener('mouseup', () => { activeKeys.right = false; });
+    btnRight.addEventListener('mouseleave', () => { activeKeys.right = false; });
+
+    btnTaco.addEventListener('click', triggerTacoMode);
+
+    startBtn.addEventListener('click', startGame);
+    restartBtn.addEventListener('click', resetGame);
+
+    // --- Main Game Loop ---
+    let frameCounter = 0;
+    let clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = clock.getDelta();
+      const elapsedTime = clock.getElapsedTime();
+
+      // 1. Bear Movement Logic
+      if (isGameStarted && !isGameOver) {
+        if (activeKeys.left) targetBearX -= BEAR_SPEED;
+        if (activeKeys.right) targetBearX += BEAR_SPEED;
+
+        targetBearX = Math.max(-BOUNDS_X, Math.min(targetBearX, BOUNDS_X));
+        bearX += (targetBearX - bearX) * 0.25;
+
+        bearGroup.position.x = bearX;
+
+        // Invincible Taco Mode Timer
+        if (isInvincible) {
+          tacoTimer--;
+          invincibilityShieldMesh.rotation.y += 0.08;
+          invincibilityShieldMesh.rotation.z += 0.03;
+
+          if (tacoTimer <= 0) {
+            isInvincible = false;
+            invincibilityShieldMesh.visible = false;
+            tacoStatusBadge.classList.add('hidden');
+            mainHeader.classList.remove('taco-mode-active');
+          }
+        }
+
+        // Bear bounce animation on movement
+        const moveTilt = (targetBearX - bearX) * 0.3;
+        bearGroup.rotation.z = -moveTilt;
+        bearGroup.position.y = 0.45 + Math.abs(Math.sin(elapsedTime * 12)) * 0.08;
+
+        // Chef Hat wobble
+        chefHatGroup.rotation.z = Math.sin(elapsedTime * 8) * 0.1 - moveTilt * 0.5;
+
+        // 2. Spawn Items (Faster during Taco rain)
+        frameCounter++;
+        const spawnInterval = isInvincible ? 12 : Math.max(22, 55 - Math.floor(score / 25));
+        if (frameCounter >= spawnInterval) {
+          spawnFallingItem();
+          frameCounter = 0;
+        }
+
+        // 3. Update Items & Collision Check
+        for (let i = fallingItems.length - 1; i >= 0; i--) {
+          const item = fallingItems[i];
+          item.y -= item.speed;
+          item.mesh.position.y = item.y;
+          item.mesh.rotation.x += item.rotSpeedX;
+          item.mesh.rotation.y += item.rotSpeedY;
+
+          // Catch Collision Check (축소된 곰돌이 크기에 맞춰 판정 범위를 더욱 아담하게 조정)
+          const distToBear = Math.abs(item.x - bearX);
+          if (item.y <= 1.0 && item.y >= 0.3 && distToBear <= 1.2) {
+            if (item.isTaco) {
+              // 🌮 Taco Catch (1000점 부여)
+              score += 1000;
+              playTacoPowerSound();
+              createSparkles(item.x, item.y, item.z, 0xf59e0b);
+              showScorePopup(item.x, item.y, item.z, '+1000 🌮 냠냠!', 'text-amber-500 text-2xl font-black');
+            } else if (item.isGold) {
+              // 🌟 Golden Apple
+              score += 50;
+              if (lives < 3) {
+                lives++;
+                updateLivesDisplay();
+              }
+              playFanfareSound();
+              createSparkles(item.x, item.y, item.z, 0xfde047);
+              showScorePopup(item.x, item.y, item.z, '+50점 & ❤️회복!', 'text-amber-500 text-2xl');
+            } else if (item.isJunk) {
+              if (isInvincible) {
+                // Shield Blocked Junk Food
+                score += 10;
+                playCatchSound();
+                showScorePopup(item.x, item.y, item.z, '무적 방어! +10', 'text-amber-400');
+              } else {
+                // 🚨 Junk Food Penalty
+                score = Math.max(0, score - 10);
+                playJunkSound();
+                triggerCameraShake();
+                showScorePopup(item.x, item.y, item.z, '-10 으악!', 'text-red-600');
+              }
+            } else {
+              // 🍎 Healthy Food
+              score += 10;
+              playCatchSound();
+              showScorePopup(item.x, item.y, item.z, '+10 쏙!', 'text-lime-600');
+            }
+
+            scoreEl.textContent = score;
+            level = Math.floor(score / 50) + 1;
+            levelBadge.textContent = `난이도 LV.${level}`;
+
+            scene.remove(item.mesh);
+            fallingItems.splice(i, 1);
+            continue;
+          }
+
+          // Missed item falling off table
+          if (item.y < -0.5) {
+            scene.remove(item.mesh);
+            fallingItems.splice(i, 1);
+          }
+        }
+
+        // 4. Update Sparkle Particle Systems
+        for (let i = particleSystems.length - 1; i >= 0; i--) {
+          const ps = particleSystems[i];
+          const positions = ps.system.geometry.attributes.position.array;
+          ps.life -= delta * 1.5;
+
+          for (let j = 0; j < ps.velocities.length; j++) {
+            positions[j * 3] += ps.velocities[j].x;
+            positions[j * 3 + 1] += ps.velocities[j].y;
+            positions[j * 3 + 2] += ps.velocities[j].z;
+          }
+          ps.system.geometry.attributes.position.needsUpdate = true;
+          ps.system.material.opacity = Math.max(0, ps.life);
+
+          if (ps.life <= 0) {
+            scene.remove(ps.system);
+            particleSystems.splice(i, 1);
+          }
+        }
+      }
+
+      // Camera Shake animation
+      if (cameraShakeIntensity > 0) {
+        camera.position.x = (Math.random() - 0.5) * cameraShakeIntensity;
+        camera.position.y = 5.5 + (Math.random() - 0.5) * cameraShakeIntensity;
+        cameraShakeIntensity -= delta * 0.8;
+      } else {
+        camera.position.x = 0;
+        camera.position.y = 5.5;
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // Responsive Canvas Resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Start Engine on Page Load
+    window.addEventListener('load', () => {
+      initThreeJS();
+      animate();
+    });
+  </script>
+</body>
+</html>

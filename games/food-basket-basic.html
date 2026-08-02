@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>음식 담기 게임</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #bbf7d0;
+            background-image: 
+                linear-gradient(90deg, rgba(255,255,255,0.4) 50%, transparent 50%),
+                linear-gradient(rgba(255,255,255,0.4) 50%, transparent 50%);
+            background-size: 60px 60px;
+        }
+        .basket {
+            font-size: 5rem;
+            user-select: none;
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
+            transition: transform 0.1s;
+            position: absolute;
+            bottom: 40px; /* 고정 위치 */
+            z-index: 10;
+            cursor: pointer;
+        }
+        .basket:active {
+            transform: scale(0.95);
+        }
+        .food {
+            font-size: 3rem;
+            user-select: none;
+            filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.15));
+            position: absolute;
+            z-index: 5;
+        }
+        .danger-flash {
+            background-color: #fca5a5 !important;
+            transition: background-color 0.1s;
+        }
+    </style>
+</head>
+<body id="gameBoard" class="w-screen h-screen relative touch-none transition-colors duration-300">
+
+    <div class="absolute top-0 w-full p-6 flex justify-between z-20 pointer-events-none">
+        <div id="scoreDisplay" class="text-2xl text-green-900 font-extrabold bg-white/70 px-4 py-2 rounded-2xl shadow-sm border-2 border-green-300 transition-all duration-200">
+            점수: 0
+        </div>
+        <!-- 생명(하트) 표시 추가 -->
+        <div id="livesDisplay" class="text-2xl bg-white/70 px-4 py-2 rounded-2xl shadow-sm border-2 border-green-300">
+            ❤️❤️❤️
+        </div>
+    </div>
+
+    <!-- 바구니 -->
+    <div id="basket" class="basket">
+        🧺
+    </div>
+
+    <!-- 게임 시작 안내 메시지 -->
+    <div id="startMessage" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/60 text-white px-6 py-4 rounded-xl text-center z-30 pointer-events-none transition-opacity duration-500">
+        화면을 클릭하거나 터치하면<br>바구니가 움직여요!
+    </div>
+
+    <!-- 게임 오버 화면 추가 -->
+    <div id="gameOverScreen" class="hidden absolute top-0 left-0 w-full h-full bg-black/80 flex flex-col items-center justify-center z-40">
+        <h1 class="text-4xl md:text-5xl text-white font-bold mb-4 text-center drop-shadow-lg">게임 오버!</h1>
+        <p class="text-xl md:text-2xl text-red-400 mb-8 font-semibold">건강한 식습관 완성 실패!</p>
+        <div id="restartBtn" class="text-white font-bold bg-green-500 hover:bg-green-600 px-6 py-3 rounded-full cursor-pointer transition-colors shadow-lg animate-bounce pointer-events-auto">
+            다시 시작하기 (스페이스바)
+        </div>
+    </div>
+
+    <script>
+        const basket = document.getElementById('basket');
+        const scoreDisplay = document.getElementById('scoreDisplay'); 
+        const gameBoard = document.getElementById('gameBoard');
+        const startMessage = document.getElementById('startMessage');
+        
+        let score = 0;
+        let basketX = 0; 
+        let basketSpeed = 12; // 이동 속도
+        
+        // 점프 관련 변수 추가
+        let basketBottom = 40;
+        let isJumping = false;
+        let jumpVelocity = 0;
+        let gravity = 1.5;
+        
+        // 목숨 및 게임 오버 관련 변수 추가
+        let lives = 3;
+        const MAX_LIVES = 5; // 하트는 최대 5개까지만
+        let isGameOver = false;
+        let foodSpawner; // 타이머를 멈추기 위한 변수
+        
+        const healthyFoods = ['🍎', '🥦', '🥛', '🍌'];
+        const junkFoods = ['🍩', '🍟', '🍬'];
+        let activeFoods = []; 
+
+        const keys = {
+            ArrowLeft: false,
+            ArrowRight: false
+        };
+
+        function initBasketPosition() {
+            const basketWidth = basket.offsetWidth || 80;
+            basketX = (window.innerWidth - basketWidth) / 2;
+            basket.style.left = `${basketX}px`;
+        }
+
+        // 키보드 이벤트
+        window.addEventListener('keydown', (e) => {
+            // 게임 오버 상태에서 스페이스바 누르면 재시작
+            if (e.code === 'Space' || e.key === ' ') e.preventDefault(); // 스페이스바로 화면이 스크롤되지 않게
+            if (isGameOver && (e.code === 'Space' || e.key === ' ')) {
+                restartGame();
+                return;
+            }
+            startMessage.style.opacity = '0'; // 키 누르면 안내 숨김
+            if (e.key === 'ArrowLeft' || e.key === 'Left') keys.ArrowLeft = true;
+            if (e.key === 'ArrowRight' || e.key === 'Right') keys.ArrowRight = true;
+            
+            // 아래 방향키로 치유(Heal) 스킬 사용
+            if (e.key === 'ArrowDown' || e.key === 'Down') {
+                heal();
+            }
+            
+            // D키로 바구니 위아래 점프 액션
+            if ((e.key === 'd' || e.key === 'D') && !isJumping && !isGameOver) {
+                isJumping = true;
+                jumpVelocity = 25; // 튀어오르는 힘
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'Left') keys.ArrowLeft = false;
+            if (e.key === 'ArrowRight' || e.key === 'Right') keys.ArrowRight = false;
+        });
+
+        let isDragging = false;
+        
+        // 바구니뿐만 아니라 화면 전체 어디를 터치해도 드래그가 되게끔 개선
+        document.body.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            startMessage.style.opacity = '0';
+            updateBasketPositionByTouch(e);
+        }, { passive: true });
+
+        document.body.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            updateBasketPositionByTouch(e);
+        }, { passive: true });
+
+        document.body.addEventListener('touchend', () => {
+            isDragging = false;
+        });
+
+        // 마우스로도 바구니가 움직이도록 추가 (클릭 / 드래그)
+        document.body.addEventListener('mousedown', (e) => {
+            if (isGameOver) return;
+            isDragging = true;
+            startMessage.style.opacity = '0';
+            updateBasketPositionByX(e.clientX);
+        });
+
+        document.body.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            updateBasketPositionByX(e.clientX);
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        // 마우스 클릭 시 안내 숨김
+        document.body.addEventListener('click', () => {
+            if (!isGameOver) startMessage.style.opacity = '0';
+        });
+
+        // 다시 시작 버튼 클릭 이벤트 (모바일 지원용)
+        document.getElementById('restartBtn').addEventListener('click', () => {
+            if (isGameOver) restartGame();
+        });
+
+        function updateBasketPositionByX(clientX) {
+            const basketWidth = basket.offsetWidth || 80;
+            basketX = clientX - (basketWidth / 2); // 가리킨 곳 중앙으로 바구니 이동
+        }
+
+        function updateBasketPositionByTouch(e) {
+            if (!e.touches || e.touches.length === 0) return;
+            updateBasketPositionByX(e.touches[0].clientX);
+        }
+
+        function spawnFood() {
+            const isJunk = Math.random() < 0.3; // 30% 확률로 정크푸드
+            const foodList = isJunk ? junkFoods : healthyFoods;
+            const foodChar = foodList[Math.floor(Math.random() * foodList.length)];
+            const foodEl = document.createElement('div');
+            
+            foodEl.innerText = foodChar;
+            foodEl.className = 'food pointer-events-none';
+            
+            // 화면 밖으로 나가지 않게 여백을 둠
+            const margin = 50;
+            const startX = Math.random() * (window.innerWidth - margin * 2) + margin; 
+            let currentY = -50; 
+            
+            foodEl.style.left = `${startX}px`;
+            foodEl.style.top = `${currentY}px`;
+            
+            document.body.appendChild(foodEl);
+            
+            activeFoods.push({
+                element: foodEl,
+                x: startX,
+                y: currentY,
+                // 속도 대폭 증가! (기존 4~9 -> 8~16)
+                speed: 8 + Math.random() * 8, 
+                isJunk: isJunk
+            });
+        }
+
+        function gameLoop() {
+            if (isGameOver) return; // 게임 오버면 움직임 중단
+
+            // 1. 바구니 이동 (키보드)
+            if (!isDragging) {
+                if (keys.ArrowLeft) basketX -= basketSpeed;
+                if (keys.ArrowRight) basketX += basketSpeed;
+            }
+
+            // 바구니 화면 경계 처리
+            const minX = 0;
+            const basketWidth = basket.offsetWidth || 80;
+            const maxX = window.innerWidth - basketWidth;
+            
+            if (basketX < minX) basketX = minX;
+            if (basketX > maxX) basketX = maxX;
+            basket.style.left = `${basketX}px`;
+
+            // D키 점프(위아래 이동) 로직
+            if (isJumping) {
+                basketBottom += jumpVelocity;
+                jumpVelocity -= gravity; // 중력 적용
+                
+                // 바닥에 닿으면 점프 종료
+                if (basketBottom <= 40) {
+                    basketBottom = 40;
+                    isJumping = false;
+                }
+                basket.style.bottom = `${basketBottom}px`;
+            }
+
+            // 2. 음식 낙하 & 충돌 검사
+            const basketRect = basket.getBoundingClientRect();
+
+            // 순회 중 배열 삭제 오류 방지를 위해 역순 반복
+            for (let i = activeFoods.length - 1; i >= 0; i--) {
+                const food = activeFoods[i];
+                food.y += food.speed;
+                food.element.style.top = `${food.y}px`;
+
+                const foodRect = food.element.getBoundingClientRect();
+
+                // 충돌 검사 (모서리 살짝 안쪽으로 들어와야 잡힌 걸로 판정)
+                if (
+                    foodRect.bottom >= basketRect.top + 30 && 
+                    foodRect.top <= basketRect.bottom &&
+                    foodRect.right - 20 >= basketRect.left &&
+                    foodRect.left + 20 <= basketRect.right
+                ) {
+                    // 점수 계산 및 효과
+                    if (food.isJunk) {
+                        score -= 10;
+                        gameBoard.classList.add('danger-flash');
+                        scoreDisplay.classList.add('text-red-600', 'scale-110');
+                        setTimeout(() => {
+                            gameBoard.classList.remove('danger-flash');
+                            scoreDisplay.classList.remove('text-red-600', 'scale-110');
+                        }, 200);
+                    } else {
+                        score += 10;
+                    }
+
+                    scoreDisplay.innerText = `점수: ${score}`;
+                    
+                    // 먹은 음식 제거
+                    food.element.remove();
+                    activeFoods.splice(i, 1);
+                    continue; 
+                }
+
+                // 화면 바닥으로 떨어지면 제거
+                if (food.y > window.innerHeight) {
+                    // 아차! 다시 원상복구: 건강 간식을 놓치면 체력이 깎입니다!
+                    if (!food.isJunk) {
+                        loseLife();
+                    }
+                    
+                    food.element.remove();
+                    activeFoods.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 화면에 생명(하트)를 업데이트하는 함수
+        function updateLivesDisplay() {
+            const livesDisplay = document.getElementById('livesDisplay');
+            let heartStr = '';
+            for(let i=0; i<lives; i++) heartStr += '❤️';
+            livesDisplay.innerText = heartStr || '💔';
+        }
+
+        // 치유 기능 (아래 방향키)
+        function heal() {
+            if (isGameOver) return;
+            if (lives >= MAX_LIVES) return; // 하트가 가득 차 있으면 더 늘지 않음
+            lives++;
+            updateLivesDisplay();
+            
+            // 치유 시 점수판이 살짝 커지며 반응하는 효과
+            scoreDisplay.classList.add('scale-110');
+            setTimeout(() => {
+                scoreDisplay.classList.remove('scale-110');
+            }, 200);
+        }
+
+        // 목숨이 깎이는 함수
+        function loseLife() {
+            lives--;
+            updateLivesDisplay();
+
+            // 하트가 0개가 되면 게임 오버 처리
+            if (lives <= 0) {
+                gameOver();
+            }
+        }
+
+        // 게임 오버 처리 함수
+        function gameOver() {
+            isGameOver = true;
+            clearInterval(foodSpawner); // 더 이상 음식이 떨어지지 않게 타이머 중지
+            document.getElementById('gameOverScreen').classList.remove('hidden'); // 오버 화면 표시
+        }
+
+        // 게임 다시 시작 함수
+        function restartGame() {
+            isGameOver = false;
+            lives = 3;
+            score = 0;
+            basketBottom = 40; // 바구니 높이 초기화
+            basket.style.bottom = `${basketBottom}px`;
+            isJumping = false;   // 점프 중에 게임 오버가 되어도 초기화
+            jumpVelocity = 0;
+            keys.ArrowLeft = false;
+            keys.ArrowRight = false;
+            isDragging = false;
+
+            // UI 초기화
+            scoreDisplay.innerText = `점수: ${score}`;
+            updateLivesDisplay();
+            document.getElementById('gameOverScreen').classList.add('hidden'); // 오버 화면 숨김
+            
+            // 화면에 남아있는 음식들 모두 삭제
+            activeFoods.forEach(f => f.element.remove());
+            activeFoods.length = 0;
+            
+            // 게임 다시 시작 (간격 확 줄임! 1초 -> 0.35초마다 생성)
+            clearInterval(foodSpawner); // 타이머가 두 개로 겹치지 않게 정리
+            foodSpawner = setInterval(spawnFood, 350);
+            gameLoop();
+        }
+
+        window.addEventListener('resize', () => {
+            const basketWidth = basket.offsetWidth || 80;
+            const maxX = window.innerWidth - basketWidth;
+            if (basketX > maxX) basketX = maxX;
+            basket.style.left = `${basketX}px`;
+        });
+
+        window.onload = () => {
+            initBasketPosition();
+            // 시작할 때도 0.35초마다 음식 등장 (물량 폭발!)
+            foodSpawner = setInterval(spawnFood, 350); 
+            gameLoop();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>맛있는 음식 받기 게임</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts (Jua, Fredoka) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Jua&display=swap" rel="stylesheet">
+    <!-- FontAwesome for cute icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Jua', 'Fredoka', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* 주방 타일 패턴 배경 */
+        .kitchen-bg {
+            background-color: #d8f3dc;
+            background-image: 
+                radial-gradient(#b7e4c7 15%, transparent 16%),
+                radial-gradient(#b7e4c7 15%, transparent 16%);
+            background-size: 40px 40px;
+            background-position: 0 0, 20px 20px;
+        }
+
+        /* 귀여운 둥근 그림자 효과 */
+        .cute-shadow {
+            box-shadow: 0 10px 25px -5px rgba(45, 106, 79, 0.25), 0 8px 10px -6px rgba(45, 106, 79, 0.2);
+        }
+
+        /* 스파클 애니메이션 */
+        @keyframes sparkle {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+
+        .sparkle-icon {
+            animation: sparkle 2s infinite ease-in-out;
+        }
+
+        /* 획득 텍스트 (쏙! +10 / 앗! -10) Pop 애니메이션 */
+        @keyframes catchPop {
+            0% { opacity: 1; transform: translateY(0) scale(0.8); }
+            50% { opacity: 1; transform: translateY(-25px) scale(1.2); }
+            100% { opacity: 0; transform: translateY(-45px) scale(1); }
+        }
+
+        .catch-effect {
+            animation: catchPop 0.6s ease-out forwards;
+        }
+
+        /* 정크푸드 먹었을 때 화면 흔들림 & 어두워짐 연출 */
+        @keyframes junkShake {
+            0% { transform: translate(0, 0); filter: brightness(1) contrast(1); }
+            20% { transform: translate(-6px, 4px); filter: brightness(0.6) sepia(0.8) hue-rotate(-50deg); }
+            40% { transform: translate(6px, -4px); filter: brightness(0.7) sepia(0.5); }
+            60% { transform: translate(-4px, 2px); filter: brightness(0.8); }
+            80% { transform: translate(4px, -2px); filter: brightness(0.9); }
+            100% { transform: translate(0, 0); filter: brightness(1) contrast(1); }
+        }
+
+        .junk-hit {
+            animation: junkShake 0.4s ease-in-out;
+        }
+
+        /* 황금 사과 반짝임 & 두근거림 효과 */
+        @keyframes goldenGlow {
+            0%, 100% { filter: drop-shadow(0 0 10px #facc15); transform: scale(1); }
+            50% { filter: drop-shadow(0 0 20px #eab308); transform: scale(1.2); }
+        }
+
+        .golden-apple {
+            animation: goldenGlow 0.8s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="kitchen-bg min-h-screen flex items-center justify-center p-3 sm:p-6 overflow-hidden select-none">
+
+    <!-- 메인 게임 프레임 (주방 & 식탁 콘셉트) -->
+    <div id="main-frame" class="relative w-full max-w-2xl h-[90vh] max-h-[800px] bg-emerald-50/90 rounded-3xl border-8 border-emerald-300 cute-shadow flex flex-col justify-between overflow-hidden backdrop-blur-sm">
+        
+        <!-- 상단 주방 선반 & 상태 바 -->
+        <header class="bg-emerald-200/80 border-b-4 border-emerald-300 px-4 py-3 flex justify-between items-center z-10">
+            <!-- 레벨 및 점수 표시 -->
+            <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1.5 bg-amber-100/90 px-3 py-1.5 rounded-full border-2 border-amber-400 text-amber-900 text-sm sm:text-base font-bold shadow-sm">
+                    <span>Lv.<strong id="level-val" class="text-amber-600 text-base sm:text-lg">1</strong></span>
+                </div>
+                <div class="flex items-center gap-2 bg-white/90 px-3 sm:px-4 py-1.5 rounded-full border-2 border-emerald-400 text-emerald-800 text-base sm:text-lg shadow-sm">
+                    <i class="fa-solid fa-star text-amber-400 text-xl animate-bounce"></i>
+                    <span>점수: <strong id="score-val" class="text-emerald-600 font-bold text-lg sm:text-2xl">0</strong></span>
+                </div>
+            </div>
+
+            <!-- 타이틀 -->
+            <h1 class="hidden md:block shrink-0 whitespace-nowrap text-xl font-bold text-emerald-900 tracking-wide">
+                🍳 신선한 주방 식탁
+            </h1>
+
+            <!-- 남은 하트/생명 -->
+            <div id="hearts-container" class="flex items-center gap-1.5 bg-white/90 px-4 py-1.5 rounded-full border-2 border-emerald-400 shadow-sm">
+                <i class="fa-solid fa-heart text-rose-500 text-lg"></i>
+                <i class="fa-solid fa-heart text-rose-500 text-lg"></i>
+                <i class="fa-solid fa-heart text-rose-500 text-lg"></i>
+            </div>
+        </header>
+
+        <!-- 메인 게임 영역 (주방 식탁 내부) -->
+        <main id="game-container" class="relative flex-1 w-full flex flex-col justify-between items-center p-4 overflow-hidden">
+            
+            <!-- 주방 배경 장식 요소들 -->
+            <div class="absolute top-4 left-6 text-3xl opacity-25 pointer-events-none">🍳</div>
+            <div class="absolute top-8 right-8 text-3xl opacity-25 pointer-events-none">🥗</div>
+            <div class="absolute top-1/3 left-10 text-2xl opacity-20 pointer-events-none sparkle-icon">✨</div>
+            <div class="absolute top-1/4 right-12 text-2xl opacity-20 pointer-events-none sparkle-icon" style="animation-delay: 1s;">✨</div>
+
+            <!-- 안내 메세지 뱃지 -->
+            <div class="mt-2 bg-white/80 backdrop-blur border-2 border-emerald-300 text-emerald-800 px-5 py-2 rounded-2xl text-center shadow-md animate-pulse z-10">
+                <span class="text-base sm:text-lg">🌿 토끼 입속으로 건강 간식을 쏙! 🍩 정크푸드는 피하세요!</span>
+            </div>
+
+            <!-- 화면 맨 아래 이동하는 귀여운 토끼 (🐰) -->
+            <div id="basket" class="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center touch-none cursor-grab active:cursor-grabbing">
+                <div class="relative group flex flex-col items-center">
+                    <!-- 토끼 후광 효과 -->
+                    <div class="absolute -inset-2 bg-pink-300/40 rounded-full blur-md group-hover:bg-pink-400/50 transition"></div>
+                    
+                    <!-- 입 벌린 귀여운 토끼 캐릭터 (SVG) -->
+                    <div class="relative transform transition group-hover:scale-105 pointer-events-none drop-shadow-md">
+                        <svg width="90" height="95" viewBox="0 0 100 105" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <!-- 쫑긋거리는 토끼 귀 -->
+                            <g class="animate-bounce" style="animation-duration: 2s;">
+                                <ellipse cx="32" cy="25" rx="10" ry="22" fill="#FFFFFF" stroke="#F472B6" stroke-width="3"/>
+                                <ellipse cx="32" cy="25" rx="6" ry="15" fill="#FBCFE8"/>
+                                
+                                <ellipse cx="68" cy="25" rx="10" ry="22" fill="#FFFFFF" stroke="#F472B6" stroke-width="3"/>
+                                <ellipse cx="68" cy="25" rx="6" ry="15" fill="#FBCFE8"/>
+                            </g>
+
+                            <!-- 머리 -->
+                            <circle cx="50" cy="65" r="34" fill="#FFFFFF" stroke="#F472B6" stroke-width="3"/>
+                            
+                            <!-- 분홍 볼터치 -->
+                            <circle cx="28" cy="68" r="7" fill="#FCA5A5" opacity="0.6"/>
+                            <circle cx="72" cy="68" r="7" fill="#FCA5A5" opacity="0.6"/>
+
+                            <!-- 반짝이는 눈 -->
+                            <circle cx="36" cy="58" r="4" fill="#374151"/>
+                            <circle cx="34.5" cy="56.5" r="1.5" fill="#FFFFFF"/>
+                            
+                            <circle cx="64" cy="58" r="4" fill="#374151"/>
+                            <circle cx="62.5" cy="56.5" r="1.5" fill="#FFFFFF"/>
+
+                            <!-- 분홍 코 -->
+                            <polygon points="50,63 46,60 54,60" fill="#F472B6"/>
+
+                            <!-- 크게 벌린 입 (간식 받아먹는 입) -->
+                            <path d="M 38 68 Q 50 67 62 68 Q 62 87 50 88 Q 38 87 38 68 Z" fill="#EF4444" stroke="#B91C1C" stroke-width="1.5"/>
+                            <!-- 혀 -->
+                            <path d="M 43 81 Q 50 77 57 81 Q 50 88 43 81 Z" fill="#F9A8D4"/>
+                        </svg>
+                    </div>
+
+                    <!-- 토끼 그림자 -->
+                    <div class="w-20 h-3 bg-emerald-800/15 rounded-full mx-auto mt-1 blur-sm"></div>
+                </div>
+            </div>
+
+            <!-- 모바일/터치 조작 버튼 -->
+            <div class="absolute bottom-4 left-4 right-4 flex justify-between pointer-events-none z-20">
+                <button id="btn-left" class="pointer-events-auto bg-white/90 active:bg-emerald-200 border-2 border-emerald-400 text-emerald-800 text-2xl w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition active:scale-95">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <button id="btn-right" class="pointer-events-auto bg-white/90 active:bg-emerald-200 border-2 border-emerald-400 text-emerald-800 text-2xl w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition active:scale-95">
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </main>
+
+        <!-- 게임 오버 팝업 레이어 -->
+        <div id="game-over-modal" class="hidden absolute inset-0 bg-black/60 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 text-center">
+            <div class="bg-white/95 rounded-3xl p-6 sm:p-8 max-w-sm w-full border-4 border-rose-300 shadow-2xl flex flex-col items-center transform transition duration-300 scale-100">
+                <div class="text-6xl mb-3 animate-bounce">💔</div>
+                <h2 class="text-3xl font-extrabold text-rose-600 mb-2">게임 오버!</h2>
+                <p class="text-emerald-900 font-bold text-lg mb-6">건강한 식습관 완성 실패!</p>
+                
+                <div class="bg-emerald-50 w-full p-4 rounded-2xl border-2 border-emerald-200 mb-6 text-emerald-800 text-sm sm:text-base leading-relaxed">
+                    ⌨️ <strong class="text-emerald-600">스페이스(Space)</strong> 키를 누르거나<br>아래 버튼을 눌러 다시 도전하세요!
+                </div>
+
+                <button id="btn-restart" class="w-full bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg transition text-lg flex items-center justify-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-rotate-right"></i> 다시 시작하기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const gameContainer = document.getElementById('game-container');
+        const mainFrame = document.getElementById('main-frame');
+        const basket = document.getElementById('basket');
+        const btnLeft = document.getElementById('btn-left');
+        const btnRight = document.getElementById('btn-right');
+        const scoreVal = document.getElementById('score-val');
+        const levelVal = document.getElementById('level-val');
+        const heartsContainer = document.getElementById('hearts-container');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const btnRestart = document.getElementById('btn-restart');
+
+        let score = 0; // 게임 점수 변수
+        let level = 1; // 난이도 레벨 (1 ~ 3)
+        let lives = 3; // 남은 목숨 (하트 3개)
+        let isGameOver = false; // 게임 오버 상태 flag
+        let basketX = 0; // 바구니 X 좌표
+        const speed = 8; // 바구니 이동 속도
+        const keys = { ArrowLeft: false, ArrowRight: false };
+
+        // 건강 간식 및 정크푸드 데이터 정의
+        const healthySnacks = ['🍎', '🥦', '🥛', '🍌'];
+        const junkFoods = ['🍩', '🍟', '🍬'];
+
+        let activeItems = [];
+        let spawnCounter = 0;
+        let spawnInterval = 45; // 간식 생성 주기 (레벨에 따라 짧아짐)
+
+        // 하트(목숨) UI 업데이트 함수
+        function updateHeartsDisplay() {
+            heartsContainer.innerHTML = '';
+            for (let i = 0; i < 3; i++) {
+                const heartIcon = document.createElement('i');
+                if (i < lives) {
+                    heartIcon.className = 'fa-solid fa-heart text-rose-500 text-lg transition-transform scale-100';
+                } else {
+                    heartIcon.className = 'fa-regular fa-heart text-gray-400 text-lg opacity-60';
+                }
+                heartsContainer.appendChild(heartIcon);
+            }
+        }
+
+        // 점수 획득/차감/놓침 연출 효과
+        function showCatchEffect(x, y, text, colorClass) {
+            const effectEl = document.createElement('div');
+            effectEl.className = `absolute ${colorClass} font-bold text-xl sm:text-2xl pointer-events-none z-30 catch-effect drop-shadow-md whitespace-nowrap`;
+            effectEl.innerText = text;
+            effectEl.style.left = `${x}px`;
+            effectEl.style.top = `${y}px`;
+            gameContainer.appendChild(effectEl);
+
+            setTimeout(() => {
+                effectEl.remove();
+            }, 600);
+        }
+
+        // 레벨 판정 및 난이도 조절 함수
+        function updateLevel() {
+            const oldLevel = level;
+
+            if (score >= 250) {
+                level = 3;
+                spawnInterval = 25; // 3단계: 빠르고 촘촘하게 떨어진
+            } else if (score >= 100) {
+                level = 2;
+                spawnInterval = 35; // 2단계: 중간 속도
+            } else {
+                level = 1;
+                spawnInterval = 45; // 1단계: 기본 속도
+            }
+
+            if (levelVal) levelVal.innerText = level;
+
+            // 레벨업 되었을 때 축하 메시지 띄우기
+            if (level > oldLevel) {
+                const centerX = gameContainer.clientWidth / 2 - 80;
+                showCatchEffect(centerX, 80, `🎉 LEVEL ${level} UP! (속도 증가)`, 'text-amber-500 font-extrabold text-2xl animate-bounce');
+            }
+        }
+
+        // 정크푸드 받았을 때 화면 흔들림 및 어두워지는 피드백 효과
+        function triggerJunkImpact() {
+            mainFrame.classList.remove('junk-hit');
+            void mainFrame.offsetWidth;
+            mainFrame.classList.add('junk-hit');
+
+            setTimeout(() => {
+                mainFrame.classList.remove('junk-hit');
+            }, 400);
+        }
+
+        // 바구니 초기 위치 설정
+        function initBasketPosition() {
+            const containerWidth = gameContainer.clientWidth;
+            basketX = containerWidth / 2;
+            applyBasketPosition();
+        }
+
+        // 바구니 위치 반영 및 벽 제한
+        function applyBasketPosition() {
+            const containerWidth = gameContainer.clientWidth;
+            const basketWidth = basket.offsetWidth || 80;
+            const halfWidth = basketWidth / 2;
+
+            if (basketX < halfWidth) {
+                basketX = halfWidth;
+            } else if (basketX > containerWidth - halfWidth) {
+                basketX = containerWidth - halfWidth;
+            }
+
+            basket.style.left = `${basketX}px`;
+        }
+
+        // 키보드 컨트롤 이벤트 (스페이스바로 재시작 지원)
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'Left') keys.ArrowLeft = true;
+            if (e.key === 'ArrowRight' || e.key === 'Right') keys.ArrowRight = true;
+
+            // 스페이스 키 누르면 게임 오버일 때 시작
+            if ((e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar') && isGameOver) {
+                e.preventDefault();
+                resetGame();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'Left') keys.ArrowLeft = false;
+            if (e.key === 'ArrowRight' || e.key === 'Right') keys.ArrowRight = false;
+        });
+
+        // 모바일 터치 버튼 등록
+        const setupTouchButton = (button, keyName) => {
+            if (!button) return;
+            button.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                keys[keyName] = true;
+            });
+            button.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                keys[keyName] = false;
+            });
+            button.addEventListener('mousedown', () => keys[keyName] = true);
+            button.addEventListener('mouseup', () => keys[keyName] = false);
+            button.addEventListener('mouseleave', () => keys[keyName] = false);
+        };
+
+        setupTouchButton(btnLeft, 'ArrowLeft');
+        setupTouchButton(btnRight, 'ArrowRight');
+
+        if (btnRestart) {
+            btnRestart.addEventListener('click', () => {
+                if (isGameOver) resetGame();
+            });
+        }
+
+        // 하늘에서 음식을 떨어뜨리는 함수
+        function spawnItem() {
+            if (isGameOver) return;
+
+            const itemEl = document.createElement('div');
+            itemEl.className = 'absolute text-4xl sm:text-5xl pointer-events-none select-none z-20 filter drop-shadow-sm';
+
+            // 생성 확률: 10% 황금 사과, 35% 정크푸드, 55% 일반 건강 간식
+            const rand = Math.random();
+            let isGolden = false;
+            let isJunk = false;
+            let snack = '';
+
+            if (rand < 0.10) {
+                // 황금 사과 등장
+                isGolden = true;
+                snack = '🍎✨';
+                itemEl.classList.add('golden-apple');
+            } else if (rand < 0.45) {
+                // 정크푸드 등장
+                isJunk = true;
+                snack = junkFoods[Math.floor(Math.random() * junkFoods.length)];
+            } else {
+                // 일반 건강 간식 등장
+                snack = healthySnacks[Math.floor(Math.random() * healthySnacks.length)];
+            }
+
+            itemEl.innerText = snack;
+
+            const containerWidth = gameContainer.clientWidth;
+            const spawnX = Math.random() * (containerWidth - 70) + 10;
+
+            itemEl.style.left = `${spawnX}px`;
+            itemEl.style.top = `-50px`;
+
+            gameContainer.appendChild(itemEl);
+
+            // 레벨에 따른 낙하 속도 가중치 (Lv1: 1.0배, Lv2: 1.5배, Lv3: 2.1배)
+            const speedMultiplier = level === 1 ? 1.0 : (level === 2 ? 1.5 : 2.1);
+            const baseSpeed = isGolden ? 4.0 : (3.2 + Math.random() * 2.5);
+
+            activeItems.push({
+                el: itemEl,
+                x: spawnX,
+                y: -50,
+                speed: baseSpeed * speedMultiplier,
+                isJunk: isJunk,
+                isGolden: isGolden
+            });
+        }
+
+        // 음식 낙하 및 충돌/놓침 체크
+        function updateItems() {
+            const containerHeight = gameContainer.clientHeight;
+            const basketRect = basket.getBoundingClientRect();
+            const containerRect = gameContainer.getBoundingClientRect();
+
+            for (let i = activeItems.length - 1; i >= 0; i--) {
+                const item = activeItems[i];
+                item.y += item.speed;
+                item.el.style.top = `${item.y}px`;
+
+                const itemRect = item.el.getBoundingClientRect();
+
+                // 바구니 충돌 감지
+                const isCaught = !(
+                    itemRect.right < basketRect.left + 10 ||
+                    itemRect.left > basketRect.right - 10 ||
+                    itemRect.bottom < basketRect.top + 15 ||
+                    itemRect.top > basketRect.bottom - 5
+                );
+
+                if (isCaught) {
+                    const effectX = itemRect.left - containerRect.left;
+                    const effectY = itemRect.top - containerRect.top - 15;
+
+                    if (item.isGolden) {
+                        if (lives < 3) {
+                            lives++;
+                            updateHeartsDisplay();
+                            showCatchEffect(effectX, effectY, '하트 회복! ❤️', 'text-amber-500 font-extrabold text-2xl');
+                        } else {
+                            score += 50;
+                            showCatchEffect(effectX, effectY, '대박! +50✨', 'text-amber-500 font-extrabold text-2xl');
+                        }
+                    } else if (item.isJunk) {
+                        score = Math.max(0, score - 10);
+                        showCatchEffect(effectX, effectY, '앗! -10', 'text-rose-600');
+                        triggerJunkImpact();
+                    } else {
+                        score += 10;
+                        showCatchEffect(effectX, effectY, '쏙! +10', 'text-emerald-700');
+                    }
+
+                    scoreVal.innerText = score;
+                    updateLevel(); // 점수 변화에 맞춰 레벨업 체크
+                    item.el.remove();
+                    activeItems.splice(i, 1);
+                    continue;
+                }
+
+                // 바닥을 벗어난 음식 처리
+                if (item.y > containerHeight + 30) {
+                    // 일반 건강 간식을 놓친 경우 하트 차감 (정크푸드 및 황금사과는 차감 없음)
+                    if (!item.isJunk && !item.isGolden) {
+                        lives--;
+                        updateHeartsDisplay();
+                        showCatchEffect(item.x, containerHeight - 80, '놓침! 💔', 'text-rose-500');
+
+                        if (lives <= 0) {
+                            triggerGameOver();
+                        }
+                    }
+
+                    item.el.remove();
+                    activeItems.splice(i, 1);
+                }
+            }
+        }
+
+        // 게임 오버 처리 함수
+        function triggerGameOver() {
+            isGameOver = true;
+            gameOverModal.classList.remove('hidden');
+        }
+
+        // 게임 리셋/재시작 함수
+        function resetGame() {
+            score = 0;
+            level = 1;
+            lives = 3;
+            isGameOver = false;
+            spawnInterval = 45;
+            
+            scoreVal.innerText = score;
+            if (levelVal) levelVal.innerText = level;
+            updateHeartsDisplay();
+
+            // 기존 음식들 전부 제거
+            activeItems.forEach(item => item.el.remove());
+            activeItems = [];
+
+            gameOverModal.classList.add('hidden');
+            initBasketPosition();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 메인 게임 루프
+        function gameLoop() {
+            if (isGameOver) return;
+
+            if (keys.ArrowLeft) {
+                basketX -= speed;
+                applyBasketPosition();
+            }
+            if (keys.ArrowRight) {
+                basketX += speed;
+                applyBasketPosition();
+            }
+
+            // 음식 무한 생성
+            spawnCounter++;
+            if (spawnCounter >= spawnInterval) {
+                spawnItem();
+                spawnCounter = 0;
+            }
+
+            updateItems();
+            if (!isGameOver) requestAnimationFrame(gameLoop);
+        }
+
+        window.addEventListener('load', () => {
+            initBasketPosition();
+            updateHeartsDisplay();
+            requestAnimationFrame(gameLoop);
+        });
+
+        window.addEventListener('resize', () => {
+            applyBasketPosition();
+        });
+    </script>
+</body>
+</html>

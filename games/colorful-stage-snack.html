@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>알록달록 맛있는 무대 - 건강 간식 받기 게임</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
+        
+        body {
+            font-family: 'Jua', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* 주방 격자 패턴 스타일 */
+        .kitchen-grid {
+            background-color: #d9f99d; /* 연두색 (Lime-200) */
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.4) 2px, transparent 2px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.4) 2px, transparent 2px);
+            background-size: 36px 36px;
+        }
+
+        /* 바구니 둥둥 떠있는 애니메이션 */
+        @keyframes floatIdle {
+            0%, 100% { transform: translate(-50%, 0); }
+            50% { transform: translate(-50%, -6px); }
+        }
+
+        .basket-idle {
+            animation: floatIdle 1.8s ease-in-out infinite;
+        }
+
+        /* 바구니 간식 잡았을 때 통통 튀는 애니메이션 */
+        @keyframes basketBounce {
+            0% { transform: translate(-50%, 0) scale(1); }
+            40% { transform: translate(-50%, 12px) scale(1.25, 0.85); }
+            70% { transform: translate(-50%, -8px) scale(0.9, 1.1); }
+            100% { transform: translate(-50%, 0) scale(1); }
+        }
+
+        .basket-bounce {
+            animation: basketBounce 0.25s ease-out;
+        }
+
+        /* 정크푸드 잡았을 때 화면 흔들림 효과 */
+        @keyframes shakeScreen {
+            0%, 100% { transform: translate(0, 0); }
+            20% { transform: translate(-10px, 8px); }
+            40% { transform: translate(10px, -8px); }
+            60% { transform: translate(-8px, 6px); }
+            80% { transform: translate(8px, -4px); }
+        }
+
+        .shake-effect {
+            animation: shakeScreen 0.35s ease-in-out;
+        }
+
+        /* 획득 팝업 텍스트 float 애니메이션 */
+        @keyframes floatUpFade {
+            0% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -45px) scale(1.2); }
+        }
+
+        .score-popup {
+            position: absolute;
+            animation: floatUpFade 0.75s forwards ease-out;
+            pointer-events: none;
+            font-weight: bold;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body class="bg-emerald-900 min-h-screen flex items-center justify-center p-2 sm:p-4">
+
+    <!-- 게임 전체 컨테이너 -->
+    <div id="gameWindow" class="relative w-full max-w-xl h-[640px] kitchen-grid rounded-3xl shadow-2xl border-8 border-lime-500 overflow-hidden flex flex-col justify-between transition-transform">
+        
+        <!-- 경고 깜빡임 오버레이 (정크푸드 충돌 시) -->
+        <div id="flashOverlay" class="absolute inset-0 bg-red-500/20 pointer-events-none opacity-0 transition-opacity duration-200 z-40"></div>
+
+        <!-- 상단 헤더 (점수, 하트 목숨 5개, 잡은 개수) -->
+        <header class="relative z-30 p-3 sm:p-4 flex justify-between items-center bg-white/80 backdrop-blur-md rounded-b-2xl shadow-md border-b-4 border-lime-300 mx-2 mt-1">
+            <!-- 하트 기회 (목숨 5개) -->
+            <div class="flex items-center space-x-1">
+                <span class="text-xs sm:text-sm text-lime-800 font-bold mr-1">기회:</span>
+                <span id="livesContainer" class="text-xl sm:text-2xl tracking-wider filter drop-shadow">❤️ ❤️ ❤️ ❤️ ❤️</span>
+            </div>
+
+            <!-- 현재 점수 -->
+            <div class="bg-amber-100 border-2 border-amber-300 rounded-full px-3 py-1 flex items-center shadow-inner">
+                <span class="text-amber-700 text-sm font-bold mr-1">⭐</span>
+                <span id="scoreText" class="text-lg sm:text-2xl font-black text-amber-900 tracking-wide">0점</span>
+            </div>
+
+            <!-- 성공 수량 -->
+            <div class="hidden sm:flex items-center text-emerald-800 text-sm font-bold bg-lime-100/80 px-3 py-1 rounded-full border border-lime-300">
+                <span>획득: </span>
+                <span id="caughtCount" class="ml-1 text-base text-emerald-900">0개</span>
+            </div>
+        </header>
+
+        <!-- 간식들이 떨어지는 무대 공간 (z-20으로 설정하여 하단 패드 앞쪽에 노출) -->
+        <main id="stage" class="relative flex-1 w-full overflow-hidden z-20">
+            <!-- 떨어지는 간식 이모지들이 자바스크립트로 동적 생성됩니다 -->
+            
+            <!-- 용암 레이어 -->
+            <div id="lavaOverlay" class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-red-600 via-orange-500 to-yellow-400/90 transition-all duration-700 ease-out pointer-events-none z-20 h-0 flex justify-center items-start pt-3 shadow-[0_-10px_35px_rgba(239,68,68,0.8)] overflow-hidden">
+                <div class="text-3xl sm:text-4xl animate-bounce tracking-widest filter drop-shadow">
+                    🔥 🌋 🔥 🌋 🔥 🌋 🔥
+                </div>
+            </div>
+        </main>
+
+        <!-- 하단 식탁 패드 & 바구니 구역 -->
+        <footer class="relative z-10 w-full bg-amber-200 border-t-8 border-amber-400 flex flex-col justify-end items-center p-2 sm:p-3 shadow-inner">
+            <!-- 식탁 매트 포인트 디자인 -->
+            <div class="absolute inset-x-0 top-0 h-4 bg-amber-300/60"></div>
+            
+            <!-- 플레이어 바구니 🧺 -->
+            <div id="basket" 
+                 class="absolute bottom-16 text-6xl sm:text-7xl cursor-pointer basket-idle transition-transform duration-75 filter drop-shadow-lg select-none z-20"
+                 style="left: 50%;">
+                🧺
+            </div>
+
+            <!-- 모바일 / 화면 터치조작용 버튼 구역 -->
+            <div class="relative z-30 flex flex-col items-center space-y-2 mt-2 w-full">
+                <!-- 방향 이동 버튼 -->
+                <div class="flex space-x-4">
+                    <button id="btnLeft" class="bg-amber-500 active:bg-amber-600 text-white font-bold px-6 py-2 rounded-full shadow-lg border-b-4 border-amber-700 text-lg active:translate-y-1 transition-all">
+                        ◀ 왼쪽
+                    </button>
+                    <button id="btnRight" class="bg-amber-500 active:bg-amber-600 text-white font-bold px-6 py-2 rounded-full shadow-lg border-b-4 border-amber-700 text-lg active:translate-y-1 transition-all">
+                        오른쪽 ▶
+                    </button>
+                </div>
+
+                <!-- 비밀 스킬 버튼 -->
+                <div class="flex space-x-3">
+                    <button id="btnBomb" class="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white text-xs sm:text-sm font-bold px-3 py-1 rounded-xl shadow-md border-b-2 border-red-800">
+                        💣 비밀 스킬 1
+                    </button>
+                    <button id="btnLava" class="bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white text-xs sm:text-sm font-bold px-3 py-1 rounded-xl shadow-md border-b-2 border-orange-800">
+                        🔥 비밀 스킬 2
+                    </button>
+                </div>
+            </div>
+            
+            <!-- PC 조작 안내 -->
+            <p class="hidden sm:block text-xs text-amber-800 font-bold mt-2">
+                ⌨️ [◀][▶] / [A][D] 이동
+            </p>
+        </footer>
+
+        <!-- 게임 오버 레이어 -->
+        <div id="gameOverModal" class="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-6 opacity-0 pointer-events-none transition-opacity duration-300">
+            <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center border-8 border-lime-400 shadow-2xl transform scale-95 transition-transform duration-300" id="modalCard">
+                <div class="text-6xl mb-3 animate-bounce">😭</div>
+                <h2 class="text-2xl sm:text-3xl font-black text-rose-600 mb-2">게임 오버!</h2>
+                <p class="text-gray-700 text-base sm:text-lg mb-4 font-bold">건강한 식습관 완성 실패!</p>
+                
+                <div class="bg-lime-50 rounded-2xl p-4 mb-6 border-2 border-lime-200">
+                    <p class="text-sm text-gray-600 mb-1">최종 점수</p>
+                    <p id="finalScore" class="text-3xl font-black text-lime-700">0점</p>
+                </div>
+
+                <button id="restartBtn" class="w-full bg-lime-500 hover:bg-lime-600 active:bg-lime-700 text-white text-xl font-black py-3 px-6 rounded-2xl shadow-lg border-b-4 border-lime-700 transition-all hover:scale-105 active:scale-95">
+                    🔄 다시 시작하기 (Space)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 게임 데이터 및 이모지 정의 ---
+        const HEALTHY_SNACKS = [
+            { emoji: '🍎', name: '사과' },
+            { emoji: '🥦', name: '브로콜리' },
+            { emoji: '🥛', name: '우유' },
+            { emoji: '🍌', name: '바나나' },
+            { emoji: '🥕', name: '당근' }
+        ];
+
+        const JUNK_FOODS = [
+            { emoji: '🍩', name: '도넛' },
+            { emoji: '🍟', name: '감자튀김' },
+            { emoji: '🍬', name: '사탕' },
+            { emoji: '🍕', name: '피자' },
+            { emoji: '🍔', name: '햄버거' }
+        ];
+
+        // --- 요소 참조 ---
+        const gameWindow = document.getElementById('gameWindow');
+        const stage = document.getElementById('stage');
+        const basket = document.getElementById('basket');
+        const scoreText = document.getElementById('scoreText');
+        const livesContainer = document.getElementById('livesContainer');
+        const caughtCountText = document.getElementById('caughtCount');
+        const flashOverlay = document.getElementById('flashOverlay');
+        const gameOverModal = document.getElementById('gameOverModal');
+        const modalCard = document.getElementById('modalCard');
+        const finalScore = document.getElementById('finalScore');
+        const restartBtn = document.getElementById('restartBtn');
+        const btnLeft = document.getElementById('btnLeft');
+        const btnRight = document.getElementById('btnRight');
+        const btnBomb = document.getElementById('btnBomb');
+        const btnLava = document.getElementById('btnLava');
+        const lavaOverlay = document.getElementById('lavaOverlay');
+
+        // --- 상태 변수 ---
+        let score = 0;
+        let caughtCount = 0;
+        const MAX_LIVES = 5; // 하트 5개
+        let lives = MAX_LIVES;
+        let isGameOver = false;
+        let spawnIntervalId = null;
+
+        // 바구니 위치 및 이동 속도
+        let basketXPercent = 50; 
+        const basketSpeed = 3.2;  // 빠른 민첩성
+        
+        let moveLeft = false;
+        let moveRight = false;
+
+        let activeSnacks = [];
+
+        // 용암 상태 변수
+        let isLavaActive = false;
+        let lavaHeightPercent = 0;
+
+        // 효과음 재생용 AudioContext
+        // (브라우저 자동재생 정책 때문에 첫 사용자 입력이 있을 때 만들고 깨워준다)
+        let audioCtx = null;
+
+        function unlockAudio() {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;
+            if (!audioCtx) audioCtx = new Ctx();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        ['pointerdown', 'mousedown', 'touchstart', 'keydown', 'click'].forEach((type) => {
+            window.addEventListener(type, unlockAudio);
+        });
+
+        function playCatchSound() {
+            if (!audioCtx) return; // 아직 사용자 입력이 없으면 소리 없이 넘어감
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.12);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.12);
+        }
+
+        function playJunkSound() {
+            if (!audioCtx) return; // 아직 사용자 입력이 없으면 소리 없이 넘어감
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(110, audioCtx.currentTime + 0.25);
+            gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.25);
+        }
+
+        function playMissSound() {
+            if (!audioCtx) return; // 아직 사용자 입력이 없으면 소리 없이 넘어감
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(150, audioCtx.currentTime + 0.2);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.2);
+        }
+
+        // 폭발 효과음
+        function playExplosionSound() {
+            if (!audioCtx) return; // 아직 사용자 입력이 없으면 소리 없이 넘어감
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(160, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.6);
+            gain.gain.setValueAtTime(0.6, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.6);
+        }
+
+        // 용암 효과음
+        function playLavaSound() {
+            if (!audioCtx) return; // 아직 사용자 입력이 없으면 소리 없이 넘어감
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const bufferSize = audioCtx.sampleRate * 1.5;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(250, audioCtx.currentTime);
+            filter.frequency.linearRampToValueAtTime(850, audioCtx.currentTime + 0.6);
+            filter.frequency.linearRampToValueAtTime(180, audioCtx.currentTime + 1.5);
+
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.5);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            noise.start();
+        }
+
+        // E 키 / 비밀 스킬 1: 모든 음식 전멸
+        function triggerNuclearBomb() {
+            if (isGameOver) return;
+
+            playExplosionSound();
+
+            gameWindow.classList.remove('shake-effect');
+            void gameWindow.offsetWidth;
+            gameWindow.classList.add('shake-effect');
+
+            flashOverlay.style.opacity = '1';
+            flashOverlay.className = 'absolute inset-0 bg-yellow-400/40 pointer-events-none transition-opacity duration-300 z-40';
+            setTimeout(() => {
+                flashOverlay.style.opacity = '0';
+                flashOverlay.className = 'absolute inset-0 bg-red-500/20 pointer-events-none transition-opacity duration-200 z-40';
+            }, 400);
+
+            // 화면상 모든 음식 전멸
+            for (let i = activeSnacks.length - 1; i >= 0; i--) {
+                activeSnacks[i].element.remove();
+            }
+            activeSnacks = [];
+
+            createScorePopup(50, 180, '💣 대폭발! 모든 음식 전멸!', 'text-amber-600 bg-yellow-100 border-2 border-yellow-400 px-3 py-1 rounded-full shadow-lg');
+        }
+
+        // Q 키 / 비밀 스킬 2: 용암 차오르기
+        function triggerLava() {
+            if (isGameOver || isLavaActive) return;
+
+            isLavaActive = true;
+            lavaHeightPercent = 75; // 무대 높이의 75%까지 상승
+            lavaOverlay.style.height = `${lavaHeightPercent}%`;
+
+            playLavaSound();
+
+            gameWindow.classList.remove('shake-effect');
+            void gameWindow.offsetWidth;
+            gameWindow.classList.add('shake-effect');
+
+            createScorePopup(50, 140, '🌋 용암이 차올라요! 🔥', 'text-red-600 bg-amber-100 border-2 border-red-500 px-4 py-1 rounded-full shadow-xl');
+
+            // 2.5초 후 용암 감소 및 해제
+            setTimeout(() => {
+                lavaHeightPercent = 0;
+                lavaOverlay.style.height = '0%';
+                setTimeout(() => {
+                    isLavaActive = false;
+                }, 750);
+            }, 2500);
+        }
+
+        // --- 키보드 및 터치 입력 처리 ---
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                if (e.key === 'ArrowLeft') e.preventDefault(); // 화살표로 페이지가 스크롤되지 않게
+                moveLeft = true;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                if (e.key === 'ArrowRight') e.preventDefault();
+                moveRight = true;
+            }
+            if (e.key === 'e' || e.key === 'E') {
+                triggerNuclearBomb();
+            }
+            if (e.key === 'q' || e.key === 'Q') {
+                triggerLava();
+            }
+            if (e.key === ' ' || e.code === 'Space') {
+                e.preventDefault(); // 스페이스바로 페이지가 스크롤되지 않게
+                if (isGameOver) {
+                    resetGame();
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                moveLeft = false;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                moveRight = false;
+            }
+        });
+
+        // 모바일 가상 버튼 이벤트 연동
+        const addTouchEvents = (btn, isLeft) => {
+            const startHandler = (e) => {
+                e.preventDefault();
+                if (isLeft) moveLeft = true;
+                else moveRight = true;
+            };
+            const endHandler = (e) => {
+                e.preventDefault();
+                if (isLeft) moveLeft = false;
+                else moveRight = false;
+            };
+
+            btn.addEventListener('mousedown', startHandler);
+            btn.addEventListener('mouseup', endHandler);
+            btn.addEventListener('mouseleave', endHandler);
+            btn.addEventListener('touchstart', startHandler);
+            btn.addEventListener('touchend', endHandler);
+        };
+
+        addTouchEvents(btnLeft, true);
+        addTouchEvents(btnRight, false);
+
+        btnBomb.addEventListener('click', () => triggerNuclearBomb());
+        btnLava.addEventListener('click', () => triggerLava());
+
+        // --- 간식 생성 및 떨어뜨리기 ---
+        function spawnItem() {
+            if (isGameOver) return;
+
+            const isJunk = Math.random() < 0.28;
+            const itemData = isJunk 
+                ? JUNK_FOODS[Math.floor(Math.random() * JUNK_FOODS.length)]
+                : HEALTHY_SNACKS[Math.floor(Math.random() * HEALTHY_SNACKS.length)];
+
+            const itemEl = document.createElement('div');
+            itemEl.className = 'absolute text-4xl sm:text-5xl filter drop-shadow select-none transition-transform z-20';
+            itemEl.innerText = itemData.emoji;
+
+            const startX = Math.random() * 80 + 10;
+            itemEl.style.left = `${startX}%`;
+            itemEl.style.top = '-50px';
+
+            stage.appendChild(itemEl);
+
+            const snackObj = {
+                element: itemEl,
+                x: startX,
+                y: -50,
+                speed: Math.random() * 1.5 + 2.2,
+                isJunk: isJunk,
+                name: itemData.name
+            };
+
+            activeSnacks.push(snackObj);
+        }
+
+        // --- 점수 팝업 텍스트 생성 ---
+        function createScorePopup(x, y, text, colorClass) {
+            const popup = document.createElement('div');
+            popup.className = `score-popup text-xl sm:text-2xl font-black ${colorClass}`;
+            popup.innerText = text;
+            popup.style.left = `${x}%`;
+            popup.style.top = `${y}px`;
+            
+            stage.appendChild(popup);
+            setTimeout(() => popup.remove(), 750);
+        }
+
+        function triggerJunkEffects() {
+            gameWindow.classList.remove('shake-effect');
+            void gameWindow.offsetWidth;
+            gameWindow.classList.add('shake-effect');
+
+            flashOverlay.style.opacity = '1';
+            setTimeout(() => {
+                flashOverlay.style.opacity = '0';
+            }, 250);
+        }
+
+        function updateLivesUI() {
+            let heartsHtml = '';
+            for (let i = 0; i < MAX_LIVES; i++) {
+                if (i < lives) {
+                    heartsHtml += '❤️ ';
+                } else {
+                    heartsHtml += '🖤 ';
+                }
+            }
+            livesContainer.innerHTML = heartsHtml.trim();
+        }
+
+        function triggerGameOver() {
+            isGameOver = true;
+            clearInterval(spawnIntervalId);
+
+            finalScore.innerText = `${score}점`;
+            
+            gameOverModal.classList.remove('opacity-0', 'pointer-events-none');
+            gameOverModal.classList.add('opacity-100');
+            modalCard.classList.remove('scale-95');
+            modalCard.classList.add('scale-100');
+        }
+
+        function resetGame() {
+            score = 0;
+            caughtCount = 0;
+            lives = MAX_LIVES;
+            isGameOver = false;
+
+            scoreText.innerText = '0점';
+            caughtCountText.innerText = '0개';
+            updateLivesUI();
+
+            activeSnacks.forEach(snack => snack.element.remove());
+            activeSnacks = [];
+
+            gameOverModal.classList.add('opacity-0', 'pointer-events-none');
+            gameOverModal.classList.remove('opacity-100');
+            modalCard.classList.add('scale-95');
+
+            clearInterval(spawnIntervalId);
+            spawnIntervalId = setInterval(spawnItem, 850);
+        }
+
+        restartBtn.addEventListener('click', resetGame);
+
+        // --- 프레임 업데이트 루프 ---
+        function updateGameLoop() {
+            if (!isGameOver) {
+                if (moveLeft) {
+                    basketXPercent -= basketSpeed;
+                }
+                if (moveRight) {
+                    basketXPercent += basketSpeed;
+                }
+
+                if (basketXPercent < 8) basketXPercent = 8;
+                if (basketXPercent > 92) basketXPercent = 92;
+
+                basket.style.left = `${basketXPercent}%`;
+
+                const stageHeight = stage.clientHeight;
+                const basketY = stageHeight - 40;
+                const lavaTopY = stageHeight * (1 - lavaHeightPercent / 100);
+
+                for (let i = activeSnacks.length - 1; i >= 0; i--) {
+                    const snack = activeSnacks[i];
+                    snack.y += snack.speed;
+                    snack.element.style.top = `${snack.y}px`;
+
+                    // [용암 구역 처리]
+                    if (lavaHeightPercent > 0 && snack.y >= lavaTopY) {
+                        createScorePopup(snack.x, snack.y, snack.isJunk ? '🔥 녹아버림!' : '🔥 타버림!', 'text-orange-600 bg-amber-100 border border-orange-400 text-xs px-2 py-0.5 rounded-full shadow');
+                        snack.element.remove();
+                        activeSnacks.splice(i, 1);
+                        continue;
+                    }
+
+                    // [바구니 충돌 판정]
+                    if (snack.y >= basketY - 25 && snack.y <= basketY + 30) {
+                        const distanceX = Math.abs(snack.x - basketXPercent);
+
+                        if (distanceX < 12) {
+                            if (snack.isJunk) {
+                                score = Math.max(0, score - 10);
+                                playJunkSound();
+                                triggerJunkEffects();
+                                createScorePopup(snack.x, snack.y, '-10 으악!', 'text-rose-600');
+                            } else {
+                                score += 10;
+                                caughtCount++;
+                                playCatchSound();
+                                
+                                basket.classList.remove('basket-idle', 'basket-bounce');
+                                void basket.offsetWidth; 
+                                basket.classList.add('basket-bounce');
+                                setTimeout(() => basket.classList.add('basket-idle'), 250);
+
+                                createScorePopup(snack.x, snack.y, '+10 쏙!', 'text-emerald-600');
+                            }
+
+                            scoreText.innerText = `${score}점`;
+                            caughtCountText.innerText = `${caughtCount}개`;
+
+                            snack.element.remove();
+                            activeSnacks.splice(i, 1);
+                            continue;
+                        }
+                    }
+
+                    // [바닥 낙하 판정]
+                    if (snack.y > stageHeight + 20) {
+                        if (!snack.isJunk) {
+                            lives--;
+                            updateLivesUI();
+                            playMissSound();
+                            createScorePopup(snack.x, stageHeight - 60, '놓쳤다! 💔', 'text-red-500');
+
+                            if (lives <= 0) {
+                                triggerGameOver();
+                            }
+                        }
+
+                        snack.element.remove();
+                        activeSnacks.splice(i, 1);
+                    }
+                }
+            }
+
+            requestAnimationFrame(updateGameLoop);
+        }
+
+        // --- 시작 실행 ---
+        window.onload = () => {
+            spawnIntervalId = setInterval(spawnItem, 850);
+            requestAnimationFrame(updateGameLoop);
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>연두색 주방 바구니 게임</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Jua & Gowun Dodum -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Jua', 'Gowun Dodum', sans-serif;
+            background-color: #ecfdf5;
+            touch-action: manipulation;
+        }
+
+        /* 체크무늬 패브릭 식탁보 배경 패턴 */
+        .kitchen-bg {
+            background-color: #dcfce7;
+            background-image: 
+                linear-gradient(90deg, rgba(34, 197, 94, 0.12) 50%, transparent 50%),
+                linear-gradient(rgba(34, 197, 94, 0.12) 50%, transparent 50%);
+            background-size: 40px 40px;
+        }
+
+        /* 바구니 자체 통통 튀는 기본 CSS 애니메이션 */
+        @keyframes gentleFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+
+        .basket-float {
+            animation: gentleFloat 2.2s ease-in-out infinite;
+        }
+
+        /* 간식 받아냈을 때 바구니 팅김 애니메이션 */
+        @keyframes basketBounce {
+            0% { transform: scale(1); }
+            40% { transform: scale(1.2, 0.85); }
+            70% { transform: scale(0.95, 1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .bounce-active {
+            animation: basketBounce 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* 점수 / "쏙! +10" 및 "앗! -10" 팝업 애니메이션 */
+        @keyframes popUpFade {
+            0% {
+                opacity: 0;
+                transform: translateY(10px) scale(0.6);
+            }
+            40% {
+                opacity: 1;
+                transform: translateY(-20px) scale(1.2);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-45px) scale(0.9);
+            }
+        }
+
+        .pop-text {
+            position: absolute;
+            animation: popUpFade 0.7s ease-out forwards;
+            pointer-events: none;
+            font-weight: 900;
+            text-shadow: 0 2px 4px rgba(255, 255, 255, 0.9), 0 0 8px #bef264;
+            z-index: 50;
+        }
+
+        /* 정크푸드 수집 시 화면 흔들림 애니메이션 */
+        @keyframes screenShake {
+            0% { transform: translate(0, 0); }
+            20% { transform: translate(-10px, 6px); }
+            40% { transform: translate(10px, -6px); }
+            60% { transform: translate(-8px, 4px); }
+            80% { transform: translate(8px, -4px); }
+            100% { transform: translate(0, 0); }
+        }
+
+        .shake-screen {
+            animation: screenShake 0.4s ease-in-out;
+        }
+
+        /* 떨어지는 간식 스타일 */
+        .snack-item {
+            position: absolute;
+            user-select: none;
+            pointer-events: none;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.15));
+            will-change: transform, top;
+        }
+    </style>
+</head>
+<body class="bg-lime-100 min-h-screen flex flex-col justify-between items-center overflow-hidden relative select-none">
+
+    <!-- 정크푸드 획득 시 화면 어두워지는 붉은/암전 효과 레이어 -->
+    <div id="bad-flash-overlay" class="fixed inset-0 bg-rose-950/40 z-50 pointer-events-none opacity-0 transition-opacity duration-150"></div>
+
+    <!-- 주방 배경 레이어 -->
+    <div class="absolute inset-0 kitchen-bg pointer-events-none"></div>
+
+    <!-- 은은한 원형 조명 분위기 연출 -->
+    <div class="absolute inset-0 bg-radial-gradient from-white/40 via-transparent to-lime-900/10 pointer-events-none"></div>
+
+    <!-- 메인 컨테이너 (모바일 기기 비율 지원) -->
+    <div id="game-container" class="relative w-full max-w-md h-screen max-h-[900px] flex flex-col justify-between items-center shadow-2xl border-x-4 border-lime-300/60 overflow-hidden bg-gradient-to-b from-lime-50/70 via-emerald-50/50 to-lime-100/80">
+        
+        <!-- 상단 HUD Header -->
+        <header class="w-full px-4 pt-4 pb-2 z-30 flex justify-between items-center bg-white/70 backdrop-blur-md border-b-2 border-lime-200 shadow-sm">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl">🥗</span>
+                <div>
+                    <h1 class="text-lg leading-none font-bold text-lime-900">건강 간식 받기</h1>
+                    <p class="text-xs text-lime-700">맛있는 간식을 쏙 쏙!</p>
+                </div>
+            </div>
+
+            <!-- 하트 목숨 및 점수 표시판 -->
+            <div class="flex items-center gap-2">
+                <!-- 하트 목숨 표시 -->
+                <div class="flex items-center gap-1 bg-rose-50 px-2.5 py-1 rounded-2xl border-2 border-rose-300 shadow-sm">
+                    <span id="hearts-text" class="text-base tracking-widest select-none">❤️ ❤️ ❤️</span>
+                </div>
+
+                <div id="score-box" class="flex flex-col items-center justify-center bg-white px-3 py-1 rounded-2xl border-2 border-lime-400 shadow-sm transition-transform duration-150">
+                    <span class="text-[10px] text-lime-700 font-bold tracking-wider">SCORE</span>
+                    <span id="score-text" class="text-xl font-black text-emerald-600 leading-none">0</span>
+                </div>
+                <div class="flex flex-col items-center justify-center bg-lime-50 px-2.5 py-1 rounded-2xl border border-lime-300 shadow-inner">
+                    <span class="text-[9px] text-lime-600 font-bold">BEST</span>
+                    <span id="best-score-text" class="text-sm font-bold text-lime-800 leading-none">0</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 떨어지는 간식들이 다니는 중앙 아레나 영역 -->
+        <main id="play-area" class="relative w-full flex-1 overflow-visible z-20">
+            <!-- Pop-up Text Container -->
+            <div id="pop-container" class="absolute inset-0 pointer-events-none z-40"></div>
+        </main>
+
+        <!-- 게임 시작 / 게임 오버 안내 Modal Overlay -->
+        <div id="start-modal" class="absolute inset-0 m-auto w-11/12 max-w-xs h-fit bg-white/95 backdrop-blur-md rounded-3xl p-6 shadow-2xl border-4 border-lime-400 text-center z-30 transition-all duration-300 transform scale-100">
+            <div id="modal-icon" class="w-16 h-16 bg-lime-100 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl border-2 border-lime-400 shadow-inner">
+                🥗
+            </div>
+            <h1 id="modal-title" class="text-2xl font-bold text-lime-900 mb-1">건강 간식 받기!</h1>
+            <p id="modal-desc" class="text-sm text-lime-800 leading-relaxed font-sans mb-4">
+                건강 간식을 받으면 <strong class="text-emerald-600 font-bold">+10점</strong>!<br>
+                정크푸드(🍩🍟🍬)는 피해가세요 <strong class="text-rose-600 font-bold">-10점</strong>!<br>
+                <span class="text-xs text-rose-500 font-semibold mt-1 block">💡 건강 간식을 놓치면 하트가 감소해요!</span>
+            </p>
+            <button id="btn-start" class="w-full py-3 bg-gradient-to-r from-lime-500 to-emerald-600 hover:from-lime-600 hover:to-emerald-700 active:scale-95 text-white font-bold text-lg rounded-2xl shadow-lg border-2 border-lime-200 transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer">
+                <i class="fa-solid fa-play"></i>
+                <span id="btn-start-text">게임 시작하기</span>
+            </button>
+            <p id="space-key-hint" class="text-[11px] text-lime-600 mt-2 font-medium">⌨️ [스페이스 바] 키를 눌러서 시작할 수 있어요!</p>
+        </div>
+
+        <!-- 하단 주방 조리대 / 식탁 패널 -->
+        <footer class="relative w-full z-10 flex flex-col items-center">
+            
+            <!-- 식탁 카운터 상단 경계선 레이어 -->
+            <div class="w-full h-2 bg-gradient-to-r from-amber-200 via-amber-300 to-amber-200 border-t border-amber-400/50"></div>
+            
+            <!-- 연두색 및 원목 톤의 식탁 카운터 본체 -->
+            <div id="table-counter" class="w-full h-32 bg-gradient-to-b from-amber-100 via-lime-50 to-lime-200 border-t-4 border-amber-200/80 flex flex-col justify-between items-center px-4 pb-3 shadow-inner relative">
+                
+                <!-- 바구니 (🧺) 이동 트랙 레이어 -->
+                <div class="absolute -top-14 left-0 right-0 w-full flex justify-center items-center pointer-events-none z-30">
+                    <!-- JS 좌우 이동 제어용 컨테이너 -->
+                    <div id="basket-container" class="relative transition-transform duration-75 ease-out" style="transform: translateX(0px);">
+                        <!-- 바구니 float/bounce 애니메이션용 내부 래퍼 -->
+                        <div id="basket-wrapper" class="basket-float cursor-pointer transform hover:scale-105 active:scale-95 transition-all">
+                            <div class="relative flex flex-col items-center">
+                                <!-- 바구니 이모지 -->
+                                <span id="basket" class="text-6xl drop-shadow-xl select-none inline-block">🧺</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 키보드 조작 안내 및 버튼 피드백 -->
+                <div class="w-full pt-8 flex justify-between items-center text-lime-900/80 font-medium text-xs">
+                    <div class="flex items-center gap-1.5 bg-white/60 px-2.5 py-1 rounded-full border border-lime-300/60 shadow-sm">
+                        <i class="fa-solid fa-keyboard text-lime-700"></i>
+                        <span>방향키 ◀ ▶ 또는 A / D 이동</span>
+                    </div>
+
+                    <button id="btn-restart" class="hidden px-3 py-1 bg-lime-500 hover:bg-lime-600 text-white rounded-full font-bold shadow transition-all active:scale-95 text-xs flex items-center gap-1">
+                        <i class="fa-solid fa-rotate-right"></i> 다시 하기
+                    </button>
+                </div>
+
+                <!-- 모바일 / 화면 터치 조작 보조 버튼 -->
+                <div class="w-full flex justify-between items-center gap-4 mt-1">
+                    <button id="btn-left" class="flex-1 py-2.5 bg-white/80 active:bg-lime-300 border-2 border-lime-400/70 text-lime-800 rounded-xl shadow font-bold text-lg flex justify-center items-center transition-all select-none touch-none">
+                        <i class="fa-solid fa-caret-left mr-1"></i> LEFT
+                    </button>
+                    <button id="btn-right" class="flex-1 py-2.5 bg-white/80 active:bg-lime-300 border-2 border-lime-400/70 text-lime-800 rounded-xl shadow font-bold text-lg flex justify-center items-center transition-all select-none touch-none">
+                        RIGHT <i class="fa-solid fa-caret-right ml-1"></i>
+                    </button>
+                </div>
+
+            </div>
+        </footer>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // DOM Elements Reference
+            const playArea = document.getElementById('play-area');
+            const popContainer = document.getElementById('pop-container');
+            const basketContainer = document.getElementById('basket-container');
+            const basketWrapper = document.getElementById('basket-wrapper');
+            const basket = document.getElementById('basket');
+            
+            const scoreText = document.getElementById('score-text');
+            const bestScoreText = document.getElementById('best-score-text');
+            const scoreBox = document.getElementById('score-box');
+            const heartsText = document.getElementById('hearts-text');
+            
+            const startModal = document.getElementById('start-modal');
+            const modalIcon = document.getElementById('modal-icon');
+            const modalTitle = document.getElementById('modal-title');
+            const modalDesc = document.getElementById('modal-desc');
+            const btnStart = document.getElementById('btn-start');
+            const btnStartText = document.getElementById('btn-start-text');
+            const btnRestart = document.getElementById('btn-restart');
+            
+            const btnLeft = document.getElementById('btn-left');
+            const btnRight = document.getElementById('btn-right');
+
+            // 게임 상태 변수
+            let score = 0;
+            let bestScore = 0;
+            let lives = 3;
+            let isPlaying = false;
+            let isGameOver = false;
+            let spawnTimer = null;
+            let snacks = [];
+
+            // 저장된 최고 점수 불러오기
+            try {
+                const saved = localStorage.getItem('basket_game_best');
+                if (saved) {
+                    bestScore = parseInt(saved, 10) || 0;
+                    bestScoreText.innerText = bestScore;
+                }
+            } catch(e) {}
+
+            // 건강 간식 이모지 목록
+            const healthySnacks = [
+                { emoji: '🍎', name: '사과' },
+                { emoji: '🧀', name: '치즈' },
+                { emoji: '🍇', name: '포도' },
+                { emoji: '🥑', name: '아보카도' },
+                { emoji: '🥦', name: '브로콜리' },
+                { emoji: '🍓', name: '딸기' },
+                { emoji: '🍌', name: '바나나' },
+                { emoji: '🥕', name: '당근' },
+                { emoji: '🌽', name: '옥수수' },
+                { emoji: '🍉', name: '수박' },
+                { emoji: '🍊', name: '귤' },
+                { emoji: '🍑', name: '복숭아' }
+            ];
+
+            // 몸에 안 좋은 정크푸드 목록
+            const junkFoods = [
+                { emoji: '🍩', name: '도넛' },
+                { emoji: '🍟', name: '감자튀김' },
+                { emoji: '🍬', name: '사탕' },
+                { emoji: '🍕', name: '피자' },
+                { emoji: '🍔', name: '햄버거' },
+                { emoji: '🥤', name: '탄산음료' }
+            ];
+
+            // 바구니 이동 조작 상태
+            const basketState = {
+                posX: 0,
+                speed: 7.5,
+                moveLeft: false,
+                moveRight: false
+            };
+
+            // 좌우 한계 경계 계산
+            function getBoundaries() {
+                const containerWidth = playArea.clientWidth || 360;
+                const basketWidth = 60;
+                return (containerWidth / 2) - (basketWidth / 2) - 8;
+            }
+
+            // Web Audio API를 활용한 바구니 획득 퐁! 소리 합성
+            let audioCtx = null;
+            function playCatchSound() {
+                try {
+                    if (!audioCtx) {
+                        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                    if (audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.1);
+
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.1);
+                } catch(e) {}
+            }
+
+            // 정크푸드 피격 시 무거운 삐- 경고음
+            function playBadSound() {
+                try {
+                    if (!audioCtx) {
+                        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                    if (audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.25);
+
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.25);
+                } catch(e) {}
+            }
+
+            // 하트 손실 경고음
+            function playMissSound() {
+                try {
+                    if (!audioCtx) {
+                        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                    if (audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.2);
+
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.2);
+                } catch(e) {}
+            }
+
+            // 화면 흔들림 및 어두워지는 피격 시각 효과
+            function triggerShakeEffect() {
+                document.body.classList.add('shake-screen');
+                const overlay = document.getElementById('bad-flash-overlay');
+                if (overlay) overlay.classList.remove('opacity-0');
+                
+                setTimeout(() => {
+                    document.body.classList.remove('shake-screen');
+                    if (overlay) overlay.classList.add('opacity-0');
+                }, 400);
+            }
+
+            // 바구니 팅김 애니메이션 발동
+            function triggerBasketCatchAnim() {
+                basketWrapper.classList.remove('bounce-active');
+                void basketWrapper.offsetWidth; // Force reflow
+                basketWrapper.classList.add('bounce-active');
+                setTimeout(() => {
+                    basketWrapper.classList.remove('bounce-active');
+                }, 250);
+            }
+
+            // 점수 획득/차감 +10 / -10 팝업 문구 생성
+            function createPopEffect(x, y, isBad) {
+                const pop = document.createElement('div');
+                pop.className = 'pop-text text-2xl';
+                if (isBad) {
+                    pop.style.color = '#e11d48';
+                    pop.innerText = '앗! -10';
+                } else {
+                    pop.style.color = '#15803d';
+                    pop.innerText = '쏙! +10';
+                }
+                pop.style.left = `${x - 30}px`;
+                pop.style.top = `${y - 10}px`;
+                popContainer.appendChild(pop);
+                
+                setTimeout(() => {
+                    if (pop.parentNode) pop.parentNode.removeChild(pop);
+                }, 700);
+            }
+
+            // 점수 변동 및 최고점 갱신 함수
+            function addScore(points) {
+                score = Math.max(0, score + points);
+                scoreText.innerText = score;
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestScoreText.innerText = bestScore;
+                    try {
+                        localStorage.setItem('basket_game_best', bestScore);
+                    } catch(e) {}
+                }
+
+                scoreBox.classList.add('scale-110');
+                setTimeout(() => scoreBox.classList.remove('scale-110'), 150);
+            }
+
+            // 하트 목숨 UI 업데이트
+            function updateHeartsUI() {
+                let heartsStr = '';
+                for (let i = 0; i < 3; i++) {
+                    if (i < lives) {
+                        heartsStr += '❤️ ';
+                    } else {
+                        heartsStr += '🖤 ';
+                    }
+                }
+                heartsText.innerText = heartsStr.trim();
+            }
+
+            // 간식 무작위 생성 함수 (건강 간식 65% / 정크푸드 35%)
+            function spawnSnack() {
+                if (!isPlaying) return;
+
+                const isJunk = Math.random() < 0.35;
+                const itemPool = isJunk ? junkFoods : healthySnacks;
+                const snackData = itemPool[Math.floor(Math.random() * itemPool.length)];
+
+                const el = document.createElement('div');
+                el.className = 'snack-item text-4xl';
+                el.innerText = snackData.emoji;
+
+                const containerWidth = playArea.clientWidth || 360;
+                const margin = 40;
+                const randomX = Math.floor(Math.random() * (containerWidth - margin * 2)) + margin;
+
+                el.style.left = `${randomX - 20}px`;
+                el.style.top = `-40px`;
+
+                playArea.appendChild(el);
+
+                // 점수가 높아질수록 하강 속도가 미세하게 상승
+                const fallSpeed = 3.2 + Math.random() * 2.2 + Math.min(score / 120, 2.5);
+
+                snacks.push({
+                    element: el,
+                    x: randomX,
+                    y: -40,
+                    speed: fallSpeed,
+                    isJunk: isJunk,
+                    name: snackData.name
+                });
+            }
+
+            // 게임 오버 처리
+            function triggerGameOver() {
+                isPlaying = false;
+                isGameOver = true;
+                if (spawnTimer) clearInterval(spawnTimer);
+
+                // 남은 간식 모두 제거
+                snacks.forEach(s => {
+                    if (s.element.parentNode) s.element.parentNode.removeChild(s.element);
+                });
+                snacks = [];
+
+                // 모달 텍스트 및 스타일 변경
+                modalIcon.innerText = '😭';
+                modalTitle.innerText = '게임 오버!';
+                modalTitle.className = 'text-2xl font-bold text-rose-600 mb-1';
+                modalDesc.innerHTML = `
+                    <strong class="text-rose-700 text-base">건강한 식습관 완성 실패!</strong><br>
+                    최종 점수: <span class="text-emerald-600 font-bold text-lg">${score}점</span><br>
+                    <span class="text-xs text-lime-800 mt-2 block">스페이스 키를 누르거나 아래 버튼을 누르면<br>다시 처음부터 도전할 수 있어요!</span>
+                `;
+                btnStartText.innerText = '다시 도전하기';
+
+                startModal.classList.remove('hidden');
+                void startModal.offsetWidth;
+                startModal.classList.remove('scale-0', 'opacity-0');
+                startModal.classList.add('scale-100', 'opacity-100');
+            }
+
+            // 프레임 주기별 통합 업데이트 루프 (바구니 이동 + 간식 하강 + 충돌 판정)
+            function gameLoop() {
+                // 1. 바구니 위치 갱신
+                const maxOffset = getBoundaries();
+                if (basketState.moveLeft) {
+                    basketState.posX -= basketState.speed;
+                }
+                if (basketState.moveRight) {
+                    basketState.posX += basketState.speed;
+                }
+
+                basketState.posX = Math.max(-maxOffset, Math.min(maxOffset, basketState.posX));
+                basketContainer.style.transform = `translateX(${basketState.posX}px)`;
+
+                // 2. 간식 떨어뜨리기 & 충돌 검사
+                if (isPlaying) {
+                    const playAreaRect = playArea.getBoundingClientRect();
+                    const basketRect = basket.getBoundingClientRect();
+
+                    for (let i = snacks.length - 1; i >= 0; i--) {
+                        const s = snacks[i];
+                        s.y += s.speed;
+                        s.element.style.top = `${s.y}px`;
+
+                        const snackRect = s.element.getBoundingClientRect();
+
+                        // 바구니 상단과 간식 충돌 검사 (Collision Box)
+                        const isColliding = (
+                            snackRect.bottom >= basketRect.top + 10 &&
+                            snackRect.top <= basketRect.bottom &&
+                            snackRect.right >= basketRect.left + 10 &&
+                            snackRect.left <= basketRect.right - 10
+                        );
+
+                        if (isColliding) {
+                            const popX = basketRect.left - playAreaRect.left + (basketRect.width / 2);
+                            const popY = playAreaRect.height - 40;
+
+                            if (s.isJunk) {
+                                // 정크푸드 받아냄 (-10점 & 피격 효과)
+                                playBadSound();
+                                triggerShakeEffect();
+                                createPopEffect(popX, popY, true);
+                                addScore(-10);
+                            } else {
+                                // 건강 간식 받아냄 성공! (+10점)
+                                playCatchSound();
+                                triggerBasketCatchAnim();
+                                createPopEffect(popX, popY, false);
+                                addScore(10);
+                            }
+
+                            // 간식 제거
+                            if (s.element.parentNode) {
+                                s.element.parentNode.removeChild(s.element);
+                            }
+                            snacks.splice(i, 1);
+                            continue;
+                        }
+
+                        // 바닥에 도달한 경우 (놓침 처리)
+                        if (s.y > playAreaRect.height + 40) {
+                            // 건강 간식을 바닥으로 놓쳤을 때만 하트 감소!
+                            if (!s.isJunk) {
+                                playMissSound();
+                                lives--;
+                                updateHeartsUI();
+
+                                // 하트 분실 팝업 연출
+                                const popX = s.x;
+                                const popY = playAreaRect.height - 30;
+                                const pop = document.createElement('div');
+                                pop.className = 'pop-text text-xl';
+                                pop.style.color = '#e11d48';
+                                pop.innerText = '놓쳤다!💔';
+                                pop.style.left = `${popX - 30}px`;
+                                pop.style.top = `${popY}px`;
+                                popContainer.appendChild(pop);
+                                setTimeout(() => { if (pop.parentNode) pop.parentNode.removeChild(pop); }, 700);
+
+                                if (lives <= 0) {
+                                    if (s.element.parentNode) s.element.parentNode.removeChild(s.element);
+                                    snacks.splice(i, 1);
+                                    triggerGameOver();
+                                    break;
+                                }
+                            }
+
+                            if (s.element.parentNode) {
+                                s.element.parentNode.removeChild(s.element);
+                            }
+                            snacks.splice(i, 1);
+                        }
+                    }
+                }
+
+                requestAnimationFrame(gameLoop);
+            }
+
+            // 게임 시작 및 다시 시작 함수
+            function startGame() {
+                score = 0;
+                lives = 3;
+                isPlaying = true;
+                isGameOver = false;
+
+                scoreText.innerText = '0';
+                updateHeartsUI();
+
+                // 생성된 간식 초기화
+                snacks.forEach(s => {
+                    if (s.element.parentNode) s.element.parentNode.removeChild(s.element);
+                });
+                snacks = [];
+
+                startModal.classList.add('scale-0', 'opacity-0');
+                setTimeout(() => {
+                    startModal.classList.add('hidden');
+                }, 300);
+
+                btnRestart.classList.remove('hidden');
+
+                // 일정 주기로 간식 계속 떨어뜨리기 (650ms 주기)
+                if (spawnTimer) clearInterval(spawnTimer);
+                spawnTimer = setInterval(spawnSnack, 650);
+            }
+
+            // 키보드 조작 이벤트 리스너
+            window.addEventListener('keydown', (e) => {
+                const code = e.code || e.key;
+
+                // 스페이스 키 입력 시 게임 시작 / 다시 시작
+                if (code === 'Space' || e.keyCode === 32) {
+                    e.preventDefault();
+                    if (!isPlaying) {
+                        startGame();
+                    }
+                    return;
+                }
+
+                if (code === 'ArrowLeft' || code === 'KeyA' || e.keyCode === 37) {
+                    basketState.moveLeft = true;
+                    btnLeft.classList.add('bg-lime-300');
+                    e.preventDefault();
+                } else if (code === 'ArrowRight' || code === 'KeyD' || e.keyCode === 39) {
+                    basketState.moveRight = true;
+                    btnRight.classList.add('bg-lime-300');
+                    e.preventDefault();
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                const code = e.code || e.key;
+                if (code === 'ArrowLeft' || code === 'KeyA' || e.keyCode === 37) {
+                    basketState.moveLeft = false;
+                    btnLeft.classList.remove('bg-lime-300');
+                } else if (code === 'ArrowRight' || code === 'KeyD' || e.keyCode === 39) {
+                    basketState.moveRight = false;
+                    btnRight.classList.remove('bg-lime-300');
+                }
+            });
+
+            // 모바일 터치 버튼 이벤트 처리
+            const setupTouchBtn = (btn, dir) => {
+                const startMove = (e) => {
+                    e.preventDefault();
+                    if (dir === 'left') basketState.moveLeft = true;
+                    if (dir === 'right') basketState.moveRight = true;
+                };
+                const stopMove = (e) => {
+                    e.preventDefault();
+                    if (dir === 'left') basketState.moveLeft = false;
+                    if (dir === 'right') basketState.moveRight = false;
+                };
+
+                btn.addEventListener('touchstart', startMove, { passive: false });
+                btn.addEventListener('touchend', stopMove, { passive: false });
+                btn.addEventListener('mousedown', startMove);
+                btn.addEventListener('mouseup', stopMove);
+                btn.addEventListener('mouseleave', stopMove);
+            };
+
+            setupTouchBtn(btnLeft, 'left');
+            setupTouchBtn(btnRight, 'right');
+
+            // 버튼 이벤트 연결
+            btnStart.addEventListener('click', startGame);
+            btnRestart.addEventListener('click', startGame);
+
+            // 포커스 자동 맞춤
+            window.addEventListener('click', () => {
+                window.focus();
+            });
+
+            // 프레임 애니메이션 루프 실행
+            requestAnimationFrame(gameLoop);
+        });
+    </script>
+</body>
+</html>

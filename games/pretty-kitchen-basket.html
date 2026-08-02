@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>예쁜 주방 건강 간식 받기 게임</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap');
+        
+        * {
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Gowun Dodum', sans-serif;
+            touch-action: manipulation;
+            overscroll-behavior-y: contain;
+        }
+
+        /* 주방 격자 패턴 배경 */
+        .kitchen-bg {
+            background-color: #ecfdf5;
+            background-image: 
+                radial-gradient(#a7f3d0 1.5px, transparent 1.5px), 
+                radial-gradient(#a7f3d0 1.5px, #ecfdf5 1.5px);
+            background-size: 24px 24px;
+            background-position: 0 0, 12px 12px;
+        }
+
+        @media (min-width: 640px) {
+            .kitchen-bg {
+                background-size: 30px 30px;
+                background-position: 0 0, 15px 15px;
+            }
+        }
+
+        /* 식탁 체크 패턴 */
+        .table-cloth {
+            background-color: #ffffff;
+            background-image: linear-gradient(90deg, rgba(167, 243, 208, 0.4) 50%, transparent 50%),
+                              linear-gradient(rgba(167, 243, 208, 0.4) 50%, transparent 50%);
+            background-size: 16px 16px;
+        }
+
+        /* 점수 획득 텍스트 애니메이션 효과 */
+        .score-popup {
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.9), 0 0 20px rgba(255, 255, 255, 0.8);
+        }
+
+        /* 화면 흔들림 애니메이션 */
+        @keyframes stage-shake {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            15% { transform: translate(-10px, 8px) rotate(-2deg); }
+            30% { transform: translate(10px, -8px) rotate(2deg); }
+            45% { transform: translate(-8px, -10px) rotate(-1deg); }
+            60% { transform: translate(8px, 10px) rotate(1deg); }
+            75% { transform: translate(-4px, 4px) rotate(-0.5deg); }
+        }
+
+        .shake-effect {
+            animation: stage-shake 0.5s ease-in-out;
+        }
+
+        /* 충격파 Ring 애니메이션 */
+        @keyframes shockwave-expand {
+            0% { transform: translate(-50%, -50%) scale(0.1); opacity: 1; border-width: 10px; }
+            50% { opacity: 0.9; }
+            100% { transform: translate(-50%, -50%) scale(4); opacity: 0; border-width: 1px; }
+        }
+
+        .shockwave-ring {
+            position: absolute;
+            border-radius: 50%;
+            border-style: solid;
+            border-color: #f97316;
+            box-shadow: 0 0 30px #ef4444, inset 0 0 20px #eab308;
+            pointer-events: none;
+            animation: shockwave-expand 0.6s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+        }
+
+        /* 파티클 확산 애니메이션 */
+        @keyframes particle-fly {
+            0% { transform: translate(-50%, -50%) scale(0.6) rotate(0deg); opacity: 1; }
+            100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.5) rotate(360deg); opacity: 0; }
+        }
+
+        .nuke-particle {
+            position: absolute;
+            pointer-events: none;
+            font-size: 1.8rem;
+            animation: particle-fly 0.75s cubic-bezier(0.1, 0.7, 0.1, 1) forwards;
+        }
+
+        /* 모바일 터치 드래그 가이드 레이어 */
+        .touch-active {
+            cursor: grabbing !important;
+        }
+    </style>
+</head>
+<body class="kitchen-bg h-screen w-screen flex flex-col items-center justify-center p-2 sm:p-4 select-none overflow-hidden">
+
+    <!-- 메인 게임 스테이지 카드 (반응형: 모바일은 화면 꽉 차게, 큰 화면은 max-w-3xl) -->
+    <div id="game-card" class="w-full max-w-3xl h-[92vh] sm:h-[85vh] max-h-[780px] bg-emerald-50/80 rounded-2xl sm:rounded-3xl shadow-2xl border-2 sm:border-4 border-emerald-200 relative flex flex-col justify-between overflow-hidden">
+        
+        <!-- 게임 상단 주방 선반 & 점수표 (z-30) -->
+        <div class="w-full bg-emerald-200/80 px-3 py-2 sm:p-4 flex justify-between items-center border-b-2 border-emerald-300/50 backdrop-blur-md z-30 shadow-sm shrink-0">
+            <div class="flex items-center space-x-1.5 sm:space-x-3">
+                <span class="text-2xl sm:text-3xl">🌿</span>
+                <span class="font-bold text-emerald-900 text-base sm:text-xl md:text-2xl">아늑한 건강 주방</span>
+            </div>
+            <!-- 점수 표시 영역 -->
+            <div id="score-card" class="bg-white/95 px-3 py-1 sm:px-5 sm:py-1.5 rounded-full border-2 border-emerald-400 shadow-md flex items-center space-x-1.5 sm:space-x-2 transition-transform duration-150">
+                <span class="text-lg sm:text-2xl">⭐</span>
+                <span id="score-display" class="font-black text-emerald-900 text-lg sm:text-xl md:text-2xl">0점</span>
+            </div>
+        </div>
+
+        <!-- 주방 안내 문구 (반응형) -->
+        <div class="absolute top-12 sm:top-20 inset-x-0 flex justify-center pointer-events-none z-20 px-2">
+            <div id="status-badge" class="bg-white/90 backdrop-blur-sm px-3 py-1 sm:px-5 sm:py-2 rounded-full border border-emerald-300 shadow-sm transition-colors duration-300 text-center max-w-[95%]">
+                <p id="status-text" class="text-xs sm:text-base font-semibold text-emerald-800 truncate sm:whitespace-normal">
+                    하늘에서 달콤한 건강 간식이 떨어져요! 🍎🥦🥛🍌
+                </p>
+            </div>
+        </div>
+
+        <!-- 게임 스테이지 (간식 & 바구니 영역) -->
+        <div id="game-stage" class="relative w-full flex-1 overflow-hidden touch-none cursor-grab">
+            <!-- 핵 폭발 플래시 오버레이 -->
+            <div id="flash-overlay" class="absolute inset-0 bg-amber-500/80 pointer-events-none z-30 opacity-0 transition-opacity duration-75"></div>
+
+            <!-- 시야 가림 오버레이 (해로운 음식 획득 시 - z-20) -->
+            <div id="fog-overlay" class="absolute inset-0 bg-slate-900/95 backdrop-blur-md z-20 flex flex-col items-center justify-center text-white font-bold opacity-0 pointer-events-none transition-opacity duration-300 p-4 text-center">
+                <span class="text-5xl sm:text-7xl mb-2 sm:mb-3 animate-bounce">⚡🏃‍♂️</span>
+                <span class="text-xl sm:text-3xl text-amber-300 font-extrabold animate-pulse mb-1">10,000,000배 초광속 폭풍!</span>
+                <span class="text-xs sm:text-base text-slate-200 mt-1 sm:mt-2 px-2">화면이 안 보여도 손가락으로 맞춰보세요!<br><span class="text-emerald-300 font-bold text-sm sm:text-lg">간식을 먹을 수 있어요! 🎯</span></span>
+                <span class="text-xs sm:text-sm text-rose-300 font-bold mt-3 sm:mt-4 bg-rose-950/80 px-3 py-1 rounded-full border border-rose-500/40">-25점 감점 & 5초간 시야 가림</span>
+            </div>
+
+            <!-- 떨어지는 간식이 생성되는 컨테이너 -->
+            <div id="snack-container" class="absolute inset-0 pointer-events-none overflow-hidden z-10 transition-opacity duration-300"></div>
+
+            <!-- 바구니 컨테이너 -->
+            <div id="basket-container" class="absolute bottom-2 sm:bottom-3 z-[25] text-5xl sm:text-7xl transition-transform duration-100 ease-out cursor-pointer filter drop-shadow-lg leading-none select-none">
+                🧺
+            </div>
+        </div>
+
+        <!-- 하단 식탁 카운터 & 터치 컨트롤러 (반응형) -->
+        <div class="table-cloth w-full p-2.5 sm:p-4 border-t-2 sm:border-t-4 border-emerald-300/80 flex flex-col justify-between items-center z-30 shadow-inner shrink-0">
+            <div class="text-[11px] sm:text-xs md:text-sm text-emerald-800 font-medium bg-white/80 px-3 py-0.5 rounded-full shadow-sm mb-1.5 sm:mb-2 text-center">
+                화면 직접 드래그 / 방향키 [◀][▶] / 아래 버튼으로 조작
+            </div>
+            
+            <!-- 터치 버튼 -->
+            <div class="flex space-x-4 sm:space-x-8 w-full justify-center px-2 sm:px-6">
+                <button id="btn-left" class="flex-1 max-w-[140px] sm:max-w-[180px] bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-bold py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-md sm:shadow-lg border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 transition-all text-xl sm:text-2xl flex items-center justify-center touch-none">
+                    ◀
+                </button>
+                <button id="btn-right" class="flex-1 max-w-[140px] sm:max-w-[180px] bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-bold py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-md sm:shadow-lg border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 transition-all text-xl sm:text-2xl flex items-center justify-center touch-none">
+                    ▶
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        window.addEventListener('load', () => {
+            const stage = document.getElementById('game-stage');
+            const gameCard = document.getElementById('game-card');
+            const snackContainer = document.getElementById('snack-container');
+            const basketContainer = document.getElementById('basket-container');
+            const scoreDisplay = document.getElementById('score-display');
+            const scoreCard = document.getElementById('score-card');
+            const fogOverlay = document.getElementById('fog-overlay');
+            const statusBadge = document.getElementById('status-badge');
+            const statusText = document.getElementById('status-text');
+            const btnLeft = document.getElementById('btn-left');
+            const btnRight = document.getElementById('btn-right');
+
+            let basketX = 0;
+            let speed = 8;
+            let score = 0;
+            let fogTimer = null;
+
+            // 속도 배율
+            let speedMultiplier = 1;
+
+            // 간식 구성
+            const healthySnacks = ['🍎', '🥦', '🥛', '🍌'];
+            const junkSnacks = ['🍔', '🍕', '🍩', '🍟', '🥤'];
+            const nukeEmoji = '☢️';
+            const activeSnacks = [];
+            let lastSpawnTime = 0;
+            const spawnInterval = 850;
+
+            const keys = { left: false, right: false };
+            let isDraggingStage = false;
+
+            function initBasketPosition() {
+                if (!stage || !basketContainer) return;
+                const stageWidth = stage.clientWidth;
+                const basketWidth = basketContainer.clientWidth || 60;
+                basketX = (stageWidth - basketWidth) / 2;
+                updateBasketDOM();
+            }
+
+            function clampBasketPosition() {
+                if (!stage || !basketContainer) return;
+                const stageWidth = stage.clientWidth;
+                const basketWidth = basketContainer.clientWidth || 60;
+                
+                if (basketX < 0) basketX = 0;
+                if (basketX > stageWidth - basketWidth) {
+                    basketX = stageWidth - basketWidth;
+                }
+            }
+
+            function updateBasketDOM() {
+                if (basketContainer) {
+                    basketContainer.style.left = `${basketX}px`;
+                }
+            }
+
+            function updateScoreDisplay() {
+                if (scoreDisplay) scoreDisplay.innerText = `${score}점`;
+                if (scoreCard) {
+                    scoreCard.classList.add('scale-110', 'bg-yellow-100');
+                    setTimeout(() => scoreCard.classList.remove('scale-110', 'bg-yellow-100'), 200);
+                }
+            }
+
+            function showScoreEffect(x, y, text = '+10', isNegative = false) {
+                const effect = document.createElement('div');
+                const textColor = isNegative ? 'text-rose-500 font-extrabold' : 'text-emerald-500 font-black';
+                effect.className = `absolute score-popup ${textColor} text-2xl sm:text-4xl pointer-events-none z-40 transition-all duration-500 ease-out transform -translate-x-1/2 select-none drop-shadow-xl`;
+                effect.innerText = text;
+                effect.style.left = `${x}px`;
+                effect.style.top = `${y}px`;
+                stage.appendChild(effect);
+
+                basketContainer.classList.add('scale-125');
+                setTimeout(() => basketContainer.classList.remove('scale-125'), 120);
+
+                setTimeout(() => {
+                    effect.style.top = `${y - 40}px`;
+                    effect.style.opacity = '0';
+                }, 20);
+
+                setTimeout(() => {
+                    if (effect.parentNode) effect.parentNode.removeChild(effect);
+                }, 600);
+            }
+
+            function triggerNukeExplosion(x, y) {
+                if (gameCard) {
+                    gameCard.classList.remove('shake-effect');
+                    void gameCard.offsetWidth;
+                    gameCard.classList.add('shake-effect');
+                    setTimeout(() => gameCard.classList.remove('shake-effect'), 500);
+                }
+
+                const flashOverlay = document.getElementById('flash-overlay');
+                if (flashOverlay) {
+                    flashOverlay.style.opacity = '1';
+                    setTimeout(() => { flashOverlay.style.opacity = '0'; }, 120);
+                }
+
+                const shockwave = document.createElement('div');
+                shockwave.className = 'shockwave-ring z-[35]';
+                shockwave.style.left = `${x}px`;
+                shockwave.style.top = `${y}px`;
+                shockwave.style.width = '80px';
+                shockwave.style.height = '80px';
+                stage.appendChild(shockwave);
+                setTimeout(() => { if (shockwave.parentNode) shockwave.parentNode.removeChild(shockwave); }, 600);
+
+                const particleEmojis = ['💥', '🔥', '💣', '⚡', '💨', '✨'];
+                const particleCount = 18;
+                for (let i = 0; i < particleCount; i++) {
+                    const p = document.createElement('div');
+                    p.className = 'nuke-particle z-40 select-none filter drop-shadow-lg';
+                    p.innerText = particleEmojis[Math.floor(Math.random() * particleEmojis.length)];
+                    
+                    const angle = (Math.PI * 2 / particleCount) * i + (Math.random() * 0.4 - 0.2);
+                    const dist = 90 + Math.random() * 120;
+                    const dx = Math.cos(angle) * dist;
+                    const dy = Math.sin(angle) * dist;
+
+                    p.style.left = `${x}px`;
+                    p.style.top = `${y}px`;
+                    p.style.setProperty('--dx', `${dx}px`);
+                    p.style.setProperty('--dy', `${dy}px`);
+
+                    stage.appendChild(p);
+                    setTimeout(() => { if (p.parentNode) p.parentNode.removeChild(p); }, 750);
+                }
+            }
+
+            function triggerWarpSpeedDebuff() {
+                if (!fogOverlay || !snackContainer) return;
+
+                fogOverlay.classList.remove('opacity-0', 'pointer-events-none');
+                fogOverlay.classList.add('opacity-100');
+                snackContainer.classList.add('opacity-0');
+
+                statusBadge.className = 'bg-rose-500 text-white px-3 py-1 sm:px-5 sm:py-2 rounded-full shadow-lg animate-pulse transition-colors duration-300 text-center max-w-[95%]';
+                statusText.innerText = '⚡🚨 10,000,000배 속도 증가 & 블라인드 중! 🚨⚡';
+                statusText.className = 'text-xs sm:text-base font-bold text-white truncate sm:whitespace-normal';
+
+                speedMultiplier = 2.5;
+
+                if (fogTimer) clearTimeout(fogTimer);
+
+                fogTimer = setTimeout(() => {
+                    fogOverlay.classList.remove('opacity-100');
+                    fogOverlay.classList.add('opacity-0', 'pointer-events-none');
+                    snackContainer.classList.remove('opacity-0');
+
+                    statusBadge.className = 'bg-white/90 backdrop-blur-sm px-3 py-1 sm:px-5 sm:py-2 rounded-full border border-emerald-300 shadow-sm transition-colors duration-300 text-center max-w-[95%]';
+                    statusText.innerText = '하늘에서 달콤한 건강 간식이 떨어져요! 🍎🥦🥛🍌';
+                    statusText.className = 'text-xs sm:text-base font-semibold text-emerald-800 truncate sm:whitespace-normal';
+
+                    speedMultiplier = 1;
+                }, 5000);
+            }
+
+            function spawnSnack() {
+                if (!stage || !snackContainer) return;
+
+                const stageWidth = stage.clientWidth;
+                const rand = Math.random();
+                let snackType = 'healthy';
+                let emoji = '';
+
+                if (rand < 0.10) {
+                    snackType = 'nuke';
+                    emoji = nukeEmoji;
+                } else if (rand < 0.35) {
+                    snackType = 'junk';
+                    emoji = junkSnacks[Math.floor(Math.random() * junkSnacks.length)];
+                } else {
+                    snackType = 'healthy';
+                    emoji = healthySnacks[Math.floor(Math.random() * healthySnacks.length)];
+                }
+                
+                const snackEl = document.createElement('div');
+                snackEl.className = 'absolute text-3xl sm:text-5xl select-none filter drop-shadow-md leading-none';
+                snackEl.innerText = emoji;
+                
+                const x = Math.random() * (stageWidth - 50) + 5;
+                const y = -45;
+                const baseFallSpeed = 2.0 + Math.random() * 3.5;
+
+                snackEl.style.left = `${x}px`;
+                snackEl.style.top = `${y}px`;
+
+                snackContainer.appendChild(snackEl);
+
+                activeSnacks.push({
+                    element: snackEl,
+                    x: x,
+                    y: y,
+                    baseSpeed: baseFallSpeed,
+                    rotation: (Math.random() - 0.5) * 20,
+                    rotSpeed: (Math.random() - 0.5) * 3,
+                    type: snackType
+                });
+            }
+
+            function updateSnacks() {
+                if (!stage) return;
+                const stageHeight = stage.clientHeight;
+                const basketWidth = basketContainer.clientWidth || 60;
+                const bottomLimit = stageHeight + 400;
+
+                for (let i = activeSnacks.length - 1; i >= 0; i--) {
+                    const snack = activeSnacks[i];
+                    
+                    const oldY = snack.y;
+                    const effectiveSpeed = snack.baseSpeed * speedMultiplier;
+                    snack.y += effectiveSpeed;
+                    const newY = snack.y;
+
+                    snack.rotation += snack.rotSpeed;
+                    
+                    snack.element.style.top = `${snack.y}px`;
+                    snack.element.style.transform = `rotate(${snack.rotation}deg)`;
+
+                    const snackWidth = 40;
+                    const snackHeight = 40;
+                    const snackCenterX = snack.x + snackWidth / 2;
+
+                    const basketLeft = basketX;
+                    const basketRight = basketX + basketWidth;
+                    const basketTopY = stageHeight - (window.innerWidth < 640 ? 60 : 75);
+
+                    const passedBasketY = (oldY + snackHeight < basketTopY) && (newY + snackHeight >= basketTopY);
+                    const isInsideBasketY = (newY + snackHeight >= basketTopY) && (snack.y <= stageHeight - 5);
+                    const isXOverlap = (snackCenterX >= basketLeft - 10) && (snackCenterX <= basketRight + 10);
+
+                    if ((passedBasketY || isInsideBasketY) && isXOverlap) {
+                        if (snack.type === 'nuke') {
+                            score = 0;
+                            updateScoreDisplay();
+
+                            triggerNukeExplosion(snackCenterX, basketTopY);
+                            showScoreEffect(snackCenterX, basketTopY - 15, '💥 0점 리셋!', true);
+                            
+                            statusBadge.className = 'bg-amber-500 text-white px-3 py-1 sm:px-5 sm:py-2 rounded-full shadow-lg animate-bounce transition-colors duration-300 text-center max-w-[95%]';
+                            statusText.innerText = '☢️ 핵 폭발! 점수가 0점으로 리셋되었습니다! 💥';
+                            statusText.className = 'text-xs sm:text-base font-bold text-white truncate sm:whitespace-normal';
+
+                            setTimeout(() => {
+                                if (speedMultiplier === 1) {
+                                    statusBadge.className = 'bg-white/90 backdrop-blur-sm px-3 py-1 sm:px-5 sm:py-2 rounded-full border border-emerald-300 shadow-sm transition-colors duration-300 text-center max-w-[95%]';
+                                    statusText.innerText = '하늘에서 달콤한 건강 간식이 떨어져요! 🍎🥦🥛🍌';
+                                    statusText.className = 'text-xs sm:text-base font-semibold text-emerald-800 truncate sm:whitespace-normal';
+                                }
+                            }, 2000);
+                        } else if (snack.type === 'junk') {
+                            score = Math.max(0, score - 25);
+                            updateScoreDisplay();
+
+                            showScoreEffect(snackCenterX, basketTopY - 15, '-25', true);
+                            triggerWarpSpeedDebuff();
+                        } else {
+                            const points = Math.round(snack.baseSpeed * 10);
+                            score += points;
+                            updateScoreDisplay();
+
+                            showScoreEffect(snackCenterX, basketTopY - 15, `+${points}`, false);
+                        }
+
+                        if (snack.element.parentNode) {
+                            snack.element.parentNode.removeChild(snack.element);
+                        }
+                        activeSnacks.splice(i, 1);
+                        continue;
+                    }
+
+                    if (snack.y >= bottomLimit) {
+                        if (snack.element.parentNode) {
+                            snack.element.parentNode.removeChild(snack.element);
+                        }
+                        activeSnacks.splice(i, 1);
+                    }
+                }
+            }
+
+            function moveLoop(timestamp) {
+                if (stage && basketContainer) {
+                    let moved = false;
+
+                    if (keys.left) {
+                        basketX -= speed;
+                        moved = true;
+                    }
+                    if (keys.right) {
+                        basketX += speed;
+                        moved = true;
+                    }
+
+                    if (moved) {
+                        clampBasketPosition();
+                        updateBasketDOM();
+                    }
+
+                    if (!lastSpawnTime || timestamp - lastSpawnTime > spawnInterval) {
+                        spawnSnack();
+                        lastSpawnTime = timestamp;
+                    }
+
+                    updateSnacks();
+                }
+                requestAnimationFrame(moveLoop);
+            }
+
+            // 1. 키보드 컨트롤
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                    e.preventDefault();
+                    keys.left = true;
+                }
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                    e.preventDefault();
+                    keys.right = true;
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                    e.preventDefault();
+                    keys.left = false;
+                }
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                    e.preventDefault();
+                    keys.right = false;
+                }
+            });
+
+            // 2. 스테이지 직접 터치 & 드래그 조작 지원 (모바일 반응형 최적화)
+            const handleTouchMove = (clientX) => {
+                if (!stage || !basketContainer) return;
+                const stageRect = stage.getBoundingClientRect();
+                const basketWidth = basketContainer.clientWidth || 60;
+                
+                // 터치/마우스 클릭 지점 중심으로 바구니 이동
+                basketX = (clientX - stageRect.left) - (basketWidth / 2);
+                clampBasketPosition();
+                updateBasketDOM();
+            };
+
+            stage.addEventListener('touchstart', (e) => {
+                isDraggingStage = true;
+                stage.classList.add('touch-active');
+                if (e.touches && e.touches[0]) {
+                    handleTouchMove(e.touches[0].clientX);
+                }
+            }, { passive: true });
+
+            stage.addEventListener('touchmove', (e) => {
+                if (isDraggingStage && e.touches && e.touches[0]) {
+                    handleTouchMove(e.touches[0].clientX);
+                }
+            }, { passive: true });
+
+            stage.addEventListener('touchend', () => {
+                isDraggingStage = false;
+                stage.classList.remove('touch-active');
+            });
+
+            stage.addEventListener('mousedown', (e) => {
+                isDraggingStage = true;
+                stage.classList.add('touch-active');
+                handleTouchMove(e.clientX);
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (isDraggingStage) {
+                    handleTouchMove(e.clientX);
+                }
+            });
+
+            window.addEventListener('mouseup', () => {
+                isDraggingStage = false;
+                if (stage) stage.classList.remove('touch-active');
+            });
+
+            // 3. 하단 모바일 터치 버튼
+            const addTouchListeners = (btn, direction) => {
+                const startMove = (e) => {
+                    e.preventDefault();
+                    keys[direction] = true;
+                };
+                const stopMove = (e) => {
+                    e.preventDefault();
+                    keys[direction] = false;
+                };
+
+                btn.addEventListener('touchstart', startMove, { passive: false });
+                btn.addEventListener('touchend', stopMove, { passive: false });
+                btn.addEventListener('mousedown', startMove);
+                btn.addEventListener('mouseup', stopMove);
+                btn.addEventListener('mouseleave', stopMove);
+            };
+
+            if (btnLeft && btnRight) {
+                addTouchListeners(btnLeft, 'left');
+                addTouchListeners(btnRight, 'right');
+            }
+
+            // 4. 화면 크기 및 방향 전환 (Resize) 대응
+            window.addEventListener('resize', () => {
+                speed = window.innerWidth < 640 ? 6 : 9;
+                clampBasketPosition();
+                updateBasketDOM();
+            });
+
+            // 초기 구동
+            speed = window.innerWidth < 640 ? 6 : 9;
+            initBasketPosition();
+            requestAnimationFrame(moveLoop);
+        });
+    </script>
+</body>
+</html>

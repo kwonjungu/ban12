@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>건강 간식을 모아라! - 캔버스 버젼</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+  
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      margin: 0;
+      padding: 0;
+      touch-action: manipulation;
+    }
+
+    body {
+      font-family: 'Jua', 'Noto Sans KR', sans-serif;
+      background: #111827;
+      color: #f3f4f6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .game-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 480px;
+      height: 100vh;
+      max-height: 720px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      border-radius: 24px;
+      overflow: hidden;
+      border: 4px solid #4ade80;
+      background: #000;
+    }
+
+    @media (max-width: 640px) {
+      .game-wrapper {
+        max-width: 100vw;
+        max-height: 100vh;
+        border-radius: 0;
+        border: none;
+      }
+    }
+
+    #gameCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: linear-gradient(180deg, #a7f3d0 0%, #34d399 50%, #059669 100%);
+    }
+
+    .overlay-panel {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(8px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+      z-index: 30;
+      transition: opacity 0.3s ease, visibility 0.3s;
+    }
+
+    .overlay-panel.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .btn-action {
+      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      color: white;
+      font-weight: bold;
+      padding: 14px 28px;
+      border-radius: 9999px;
+      box-shadow: 0 8px 20px rgba(34, 197, 94, 0.4);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+      border: 2px solid #86efac;
+    }
+
+    .btn-action:hover {
+      transform: translateY(-2px) scale(1.03);
+      box-shadow: 0 12px 24px rgba(34, 197, 94, 0.5);
+    }
+
+    .btn-action:active {
+      transform: translateY(1px) scale(0.98);
+    }
+
+    .shake-anim {
+      animation: shake 0.35s cubic-bezier(.36,.07,.19,.97) both;
+    }
+
+    @keyframes shake {
+      10%, 90% { transform: translate3d(-3px, 0, 0); }
+      20%, 80% { transform: translate3d(5px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+      40%, 60% { transform: translate3d(6px, 0, 0); }
+    }
+
+    .pulse-glow {
+      animation: pulseGlow 1.8s infinite ease-in-out;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { transform: scale(1); filter: drop-shadow(0 0 8px rgba(74, 222, 128, 0.6)); }
+      50% { transform: scale(1.05); filter: drop-shadow(0 0 16px rgba(74, 222, 128, 0.9)); }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="gameWrapper" class="game-wrapper">
+    
+    <!-- Top HUD Overlay -->
+    <div class="absolute top-0 left-0 right-0 p-4 z-20 flex justify-between items-center pointer-events-none">
+      <div class="bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-slate-700/60 shadow-lg text-white">
+        <div id="scoreText" class="text-xl font-black text-emerald-400">점수: 0</div>
+        <div id="highScoreText" class="text-xs text-slate-300">최고: 0</div>
+        <div id="comboText" class="text-xs font-bold text-amber-300 opacity-0 transition-opacity">콤보 x0</div>
+        <div id="invincibleText" class="text-xs font-black text-cyan-300 hidden animate-pulse mt-0.5">🛡️ 무적 모드 ON</div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="audioToggleBtn" class="pointer-events-auto bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/60 text-emerald-400 hover:text-emerald-300 transition active:scale-95 shadow-lg">
+          <i id="audioIcon" class="fas fa-volume-up text-lg"></i>
+        </button>
+        <div id="livesContainer" class="bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-slate-700/60 text-xl shadow-lg flex gap-1">
+          <span>❤️</span><span>❤️</span><span>❤️</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Canvas Element -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Mobile Controls -->
+    <div id="touchControls" class="absolute bottom-4 left-4 right-4 z-20 flex justify-between gap-4 pointer-events-none opacity-80 md:hidden">
+      <button id="btnLeft" class="pointer-events-auto flex-1 bg-slate-900/70 border border-slate-600/50 active:bg-emerald-600/50 text-white text-3xl py-4 rounded-2xl shadow-xl flex justify-center items-center backdrop-blur-sm active:scale-95 transition">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+      <button id="btnRight" class="pointer-events-auto flex-1 bg-slate-900/70 border border-slate-600/50 active:bg-emerald-600/50 text-white text-3xl py-4 rounded-2xl shadow-xl flex justify-center items-center backdrop-blur-sm active:scale-95 transition">
+        <i class="fas fa-chevron-right"></i>
+      </button>
+    </div>
+
+    <!-- Start Overlay Screen -->
+    <div id="startScreen" class="overlay-panel">
+      <div class="text-center max-w-xs">
+        <div class="text-6xl mb-3 pulse-glow">🧺</div>
+        <h1 class="text-3xl font-black text-emerald-400 mb-2 drop-shadow-md">건강 간식을 모아라!</h1>
+        <p class="text-xs text-slate-300 mb-6">캔버스 엔진으로 더 부드럽고 흥미진진해진 간식 모으기!</p>
+        
+        <div class="bg-slate-800/80 border border-slate-700 p-4 rounded-2xl text-left text-sm mb-6 space-y-2 text-slate-200">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">🕹️</span>
+            <span><b>조작법:</b> 방향키 (◀ ▶) 또는 화면 터치/드래그</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xl">🍏</span>
+            <span><b>건강 간식:</b> +10점 & 콤보 누적</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xl">✨</span>
+            <span><b>황금 사과:</b> +50점 & 체력 1 회복!</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xl">🍔</span>
+            <span><b>정크 푸드:</b> -10점 & 화면 흔들림</span>
+          </div>
+          <div class="text-xs text-amber-400 mt-2 pt-2 border-t border-slate-700/60">
+            💡 <b>치트키:</b> [Z+X+C] 무적 모드 | [Q+W+E+R] +10,000점!
+          </div>
+        </div>
+
+        <button id="startBtn" class="btn-action w-full text-lg">
+          게임 시작하기 <i class="fas fa-play ml-2"></i>
+        </button>
+        <div class="text-xs text-slate-400 mt-3">[ 스페이스바 / 엔터 ] 키를 눌러 바로 시작</div>
+      </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameOverScreen" class="overlay-panel hidden">
+      <div class="text-center max-w-xs w-full">
+        <div class="text-6xl mb-3 animate-bounce">😭</div>
+        <h2 class="text-3xl font-black text-red-500 mb-1">게임 오버!</h2>
+        <p class="text-slate-300 text-sm mb-6">건강한 식습관 완성 실패!</p>
+
+        <div class="bg-slate-800/80 border border-slate-700 p-5 rounded-2xl mb-6 space-y-3">
+          <div>
+            <div class="text-xs text-slate-400">최종 점수</div>
+            <div id="finalScore" class="text-4xl font-black text-amber-400">0점</div>
+          </div>
+          <div class="flex justify-around pt-3 border-t border-slate-700/60 text-xs text-slate-300">
+            <div>최고 기록: <span id="finalHighScore" class="font-bold text-white">0</span></div>
+            <div>최대 콤보: <span id="maxComboText" class="font-bold text-emerald-400">0</span></div>
+          </div>
+        </div>
+
+        <button id="restartBtn" class="btn-action w-full text-lg">
+          다시 도전하기 <i class="fas fa-rotate-right ml-2"></i>
+        </button>
+        <div class="text-xs text-slate-400 mt-3">[ 스페이스바 ]를 눌러 재시작</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Core Game State
+    let gameState = 'START';
+    let score = 0;
+    let highScore = parseInt(localStorage.getItem('healthy_canvas_high') || '0', 10);
+    let lives = 3;
+    let combo = 0;
+    let maxCombo = 0;
+    let isInvincible = false;
+    let zxcToggleCooldown = false;
+    let qwerCooldown = false;
+
+    // Item Definitions
+    const HEALTHY_ITEMS = [
+      { emoji: '🍎' }, { emoji: '🥦' }, { emoji: '🥛' }, 
+      { emoji: '🍌' }, { emoji: '🥑' }, { emoji: '🥕' }
+    ];
+    const JUNK_ITEMS = [
+      { emoji: '🍔' }, { emoji: '🍕' }, { emoji: '🍟' }, 
+      { emoji: '🍩' }, { emoji: '🥤' }
+    ];
+    const GOLDEN_ITEM = { emoji: '🌟' };
+
+    // Web Audio Synthesizer
+    class SoundSystem {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      playTone(freq, type = 'sine', duration = 0.1, gainVal = 0.1) {
+        if (!this.enabled || !this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch(e) {}
+      }
+
+      playCatchHealthy() {
+        this.playTone(523.25, 'sine', 0.12, 0.15);
+        setTimeout(() => this.playTone(659.25, 'sine', 0.15, 0.15), 60);
+      }
+
+      playCatchGolden() {
+        this.playTone(523.25, 'triangle', 0.1, 0.2);
+        setTimeout(() => this.playTone(659.25, 'triangle', 0.1, 0.2), 80);
+        setTimeout(() => this.playTone(783.99, 'triangle', 0.1, 0.2), 160);
+        setTimeout(() => this.playTone(1046.50, 'triangle', 0.25, 0.2), 240);
+      }
+
+      playCatchJunk() {
+        this.playTone(180, 'sawtooth', 0.2, 0.25);
+        setTimeout(() => this.playTone(130, 'sawtooth', 0.25, 0.25), 80);
+      }
+
+      playMiss() {
+        this.playTone(220, 'square', 0.15, 0.15);
+      }
+
+      playGameOver() {
+        this.playTone(300, 'sawtooth', 0.2, 0.2);
+        setTimeout(() => this.playTone(250, 'sawtooth', 0.2, 0.2), 150);
+        setTimeout(() => this.playTone(200, 'sawtooth', 0.2, 0.2), 300);
+        setTimeout(() => this.playTone(150, 'sawtooth', 0.4, 0.2), 450);
+      }
+    }
+
+    const audio = new SoundSystem();
+
+    // Safe DOM getters to prevent initialization ordering errors
+    let wrapper, canvas, ctx;
+    
+    function getDomElements() {
+      wrapper = document.getElementById('gameWrapper');
+      canvas = document.getElementById('gameCanvas');
+      if (canvas) {
+        ctx = canvas.getContext('2d');
+      }
+    }
+
+    // Viewport Virtual Dimensions
+    const V_WIDTH = 480;
+    const V_HEIGHT = 680;
+    let scaleRatio = 1;
+
+    // Player Basket
+    const basket = {
+      x: V_WIDTH / 2,
+      y: V_HEIGHT - 65,
+      width: 85,
+      height: 50,
+      speed: 9,
+      emoji: '🧺'
+    };
+
+    let items = [];
+    let particles = [];
+    let floatingTexts = [];
+    let spawnTimer = 0;
+    let spawnInterval = 45;
+    let keys = {};
+
+    function resizeCanvas() {
+      if (!wrapper || !canvas) {
+        getDomElements();
+      }
+      if (!wrapper || !canvas) return;
+
+      const rect = wrapper.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+
+      // 캔버스 내부 해상도(device pixel) 기준으로 그리므로 dpr 을 포함해야 함
+      scaleRatio = canvas.width / V_WIDTH;
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true;
+      }
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    window.addEventListener('keydown', (e) => {
+      audio.init();
+      keys[e.code] = true;
+
+      // Z + X + C Cheat Code: Invincibility Mode
+      const isZ = keys['KeyZ'] || keys['z'] || keys['Z'];
+      const isX = keys['KeyX'] || keys['x'] || keys['X'];
+      const isC = keys['KeyC'] || keys['c'] || keys['C'];
+
+      if (isZ && isX && isC) {
+        if (!zxcToggleCooldown) {
+          isInvincible = !isInvincible;
+          zxcToggleCooldown = true;
+          audio.playCatchGolden();
+          addFloatingText(
+            basket.x, 
+            basket.y - 45, 
+            isInvincible ? "🛡️ 무적 모드 ON!" : "🛡️ 무적 모드 OFF", 
+            isInvincible ? "#38bdf8" : "#f87171"
+          );
+          updateUI();
+        }
+      }
+
+      // Q + W + E + R Cheat Code: +10,000 Points
+      const isQ = keys['KeyQ'] || keys['q'] || keys['Q'];
+      const isW = keys['KeyW'] || keys['w'] || keys['W'];
+      const isE = keys['KeyE'] || keys['e'] || keys['E'];
+      const isR = keys['KeyR'] || keys['r'] || keys['R'];
+
+      if (isQ && isW && isE && isR) {
+        if (!qwerCooldown && gameState === 'PLAYING') {
+          score += 10000;
+          qwerCooldown = true;
+          if (score > highScore) {
+            highScore = score;
+            localStorage.setItem('healthy_canvas_high', highScore);
+          }
+          audio.playCatchGolden();
+          createBurst(basket.x, basket.y, '#ffd700', 30);
+          addFloatingText(
+            basket.x, 
+            basket.y - 45, 
+            "🚀 +10,000점 만점 치트!", 
+            "#ffd700"
+          );
+          updateUI();
+        }
+      }
+
+      if (e.code === 'Space' || e.code === 'Enter') {
+        e.preventDefault();
+        if (gameState === 'START' || gameState === 'GAMEOVER') {
+          startGame();
+        }
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      keys[e.code] = false;
+      const isZ = keys['KeyZ'] || keys['z'] || keys['Z'];
+      const isX = keys['KeyX'] || keys['x'] || keys['X'];
+      const isC = keys['KeyC'] || keys['c'] || keys['C'];
+      if (!isZ || !isX || !isC) {
+        zxcToggleCooldown = false;
+      }
+
+      const isQ = keys['KeyQ'] || keys['q'] || keys['Q'];
+      const isW = keys['KeyW'] || keys['w'] || keys['W'];
+      const isE = keys['KeyE'] || keys['e'] || keys['E'];
+      const isR = keys['KeyR'] || keys['r'] || keys['R'];
+      if (!isQ || !isW || !isE || !isR) {
+        qwerCooldown = false;
+      }
+    });
+
+    function handlePointerMove(e) {
+      if (gameState !== 'PLAYING' || !canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      if (!rect.width) return;
+      const relativeX = (clientX - rect.left) * (V_WIDTH / rect.width);
+      basket.x = Math.max(basket.width / 2, Math.min(V_WIDTH - basket.width / 2, relativeX));
+    }
+
+    class Particle {
+      constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 8;
+        this.vy = (Math.random() - 0.5) * 8 - 2;
+        this.size = Math.random() * 6 + 3;
+        this.color = color;
+        this.alpha = 1;
+        this.decay = Math.random() * 0.03 + 0.02;
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy += 0.2;
+        this.alpha -= this.decay;
+      }
+
+      draw(ctx, ratio) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.alpha);
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x * ratio, this.y * ratio, this.size * ratio, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    class FloatingText {
+      constructor(x, y, text, color) {
+        this.x = x;
+        this.y = y;
+        this.text = text;
+        this.color = color;
+        this.alpha = 1;
+        this.vy = -2;
+      }
+
+      update() {
+        this.y += this.vy;
+        this.alpha -= 0.025;
+      }
+
+      draw(ctx, ratio) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.alpha);
+        ctx.font = `bold ${Math.round(22 * ratio)}px 'Jua', sans-serif`;
+        ctx.fillStyle = this.color;
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3 * ratio;
+        ctx.textAlign = 'center';
+        ctx.strokeText(this.text, this.x * ratio, this.y * ratio);
+        ctx.fillText(this.text, this.x * ratio, this.y * ratio);
+        ctx.restore();
+      }
+    }
+
+    function createBurst(x, y, color, count = 12) {
+      for (let i = 0; i < count; i++) {
+        particles.push(new Particle(x, y, color));
+      }
+    }
+
+    function addFloatingText(x, y, text, color) {
+      floatingTexts.push(new FloatingText(x, y, text, color));
+    }
+
+    // 음식을 획득했을 때 동일한 음식 1개를 하늘에서 떨어뜨리는 함수
+    function spawnBurstItems(emoji, type, count = 1) {
+      const effectiveScore = Math.min(score, 1000);
+      const baseSpeed = Math.min(5.5, 2.4 + Math.floor(effectiveScore / 120) * 0.2);
+      const speedMult = type === 'golden' ? 1.15 : 1;
+
+      for (let k = 0; k < count; k++) {
+        const x = Math.random() * (V_WIDTH - 60) + 30;
+        // 시차를 두고 떨어지도록 Y 높이를 무작위로 분산
+        const startY = -30 - Math.random() * 220;
+        items.push({
+          x: x,
+          y: startY,
+          size: 42,
+          type: type,
+          emoji: emoji,
+          speed: baseSpeed * speedMult * (0.85 + Math.random() * 0.3),
+          rotation: 0,
+          rotSpeed: (Math.random() - 0.5) * 0.08
+        });
+      }
+    }
+
+    function spawnItem() {
+      const rand = Math.random();
+      let type, itemData, speedMult = 1;
+
+      if (rand < 0.62) {
+        type = 'healthy';
+        itemData = HEALTHY_ITEMS[Math.floor(Math.random() * HEALTHY_ITEMS.length)];
+      } else if (rand < 0.92) {
+        type = 'junk';
+        itemData = JUNK_ITEMS[Math.floor(Math.random() * JUNK_ITEMS.length)];
+      } else {
+        type = 'golden';
+        itemData = GOLDEN_ITEM;
+        speedMult = 1.15;
+      }
+
+      const x = Math.random() * (V_WIDTH - 60) + 30;
+      // 난이도 속도 보정: 최고 속도 및 가속도를 크게 낮추어 편안한 속도로 유지
+      const effectiveScore = Math.min(score, 1000);
+      const baseSpeed = Math.min(5.5, 2.4 + Math.floor(effectiveScore / 120) * 0.2);
+
+      items.push({
+        x: x,
+        y: -30,
+        size: 42,
+        type: type,
+        emoji: itemData.emoji,
+        speed: baseSpeed * speedMult,
+        rotation: 0,
+        rotSpeed: (Math.random() - 0.5) * 0.08
+      });
+    }
+
+    function triggerScreenShake() {
+      if (!wrapper) return;
+      wrapper.classList.remove('shake-anim');
+      void wrapper.offsetWidth;
+      wrapper.classList.add('shake-anim');
+      setTimeout(() => wrapper.classList.remove('shake-anim'), 350);
+    }
+
+    function updateUI() {
+      const scoreText = document.getElementById('scoreText');
+      const highScoreText = document.getElementById('highScoreText');
+      const comboText = document.getElementById('comboText');
+      const invincibleText = document.getElementById('invincibleText');
+      const livesContainer = document.getElementById('livesContainer');
+
+      if (scoreText) scoreText.textContent = `점수: ${score}`;
+      if (highScoreText) highScoreText.textContent = `최고: ${highScore}`;
+      
+      if (comboText) {
+        if (combo > 1) {
+          comboText.textContent = `🔥 ${combo} 콤보!`;
+          comboText.classList.remove('opacity-0');
+        } else {
+          comboText.classList.add('opacity-0');
+        }
+      }
+
+      if (invincibleText) {
+        if (isInvincible) {
+          invincibleText.classList.remove('hidden');
+        } else {
+          invincibleText.classList.add('hidden');
+        }
+      }
+
+      if (livesContainer) {
+        let heartsHtml = '';
+        for (let i = 0; i < 3; i++) {
+          heartsHtml += i < lives ? '❤️' : '🖤';
+        }
+        livesContainer.innerHTML = heartsHtml;
+      }
+    }
+
+    function startGame() {
+      score = 0;
+      lives = 3;
+      combo = 0;
+      maxCombo = 0;
+      isInvincible = false;
+      items = [];
+      particles = [];
+      floatingTexts = [];
+      basket.x = V_WIDTH / 2;
+      spawnTimer = 0;
+
+      updateUI();
+      const startScreen = document.getElementById('startScreen');
+      const gameOverScreen = document.getElementById('gameOverScreen');
+      if (startScreen) startScreen.classList.add('hidden');
+      if (gameOverScreen) gameOverScreen.classList.add('hidden');
+      gameState = 'PLAYING';
+    }
+
+    function triggerGameOver() {
+      gameState = 'GAMEOVER';
+      audio.playGameOver();
+
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('healthy_canvas_high', highScore);
+      }
+
+      const finalScore = document.getElementById('finalScore');
+      const finalHighScore = document.getElementById('finalHighScore');
+      const maxComboText = document.getElementById('maxComboText');
+      const gameOverScreen = document.getElementById('gameOverScreen');
+
+      if (finalScore) finalScore.textContent = `${score}점`;
+      if (finalHighScore) finalHighScore.textContent = `${highScore}점`;
+      if (maxComboText) maxComboText.textContent = `${maxCombo}회`;
+      if (gameOverScreen) gameOverScreen.classList.remove('hidden');
+    }
+
+    let leftPressed = false;
+    let rightPressed = false;
+
+    function update() {
+      if (gameState !== 'PLAYING') return;
+
+      if ((keys['ArrowLeft'] || keys['KeyA'] || leftPressed) && basket.x > basket.width / 2) {
+        basket.x -= basket.speed;
+      }
+      if ((keys['ArrowRight'] || keys['KeyD'] || rightPressed) && basket.x < V_WIDTH - basket.width / 2) {
+        basket.x += basket.speed;
+      }
+
+      spawnTimer++;
+      // 스폰 간격도 넉넉하게 유지되도록 보정
+      const effectiveScore = Math.min(score, 1000);
+      const currentInterval = Math.max(30, spawnInterval - Math.floor(effectiveScore / 150) * 2);
+      if (spawnTimer >= currentInterval) {
+        spawnItem();
+        spawnTimer = 0;
+      }
+
+      const basketTop = basket.y - 15;
+      const basketBottom = basket.y + basket.height;
+
+      for (let i = items.length - 1; i >= 0; i--) {
+        const item = items[i];
+        item.y += item.speed;
+        item.rotation += item.rotSpeed;
+
+        if (
+          item.y + item.size / 2 >= basketTop &&
+          item.y - item.size / 2 <= basketBottom &&
+          Math.abs(item.x - basket.x) < (basket.width / 2 + item.size / 3)
+        ) {
+          // 음식을 바구니로 받았을 때 동일한 음식 1개 스폰
+          spawnBurstItems(item.emoji, item.type, 1);
+
+          if (item.type === 'healthy') {
+            combo++;
+            if (combo > maxCombo) maxCombo = combo;
+            const points = 10 + (combo > 5 ? 5 : 0);
+            score += points;
+            
+            audio.playCatchHealthy();
+            createBurst(item.x, item.y, '#4ade80', 12);
+            addFloatingText(item.x, item.y, `+${points}`, '#4ade80');
+          } else if (item.type === 'golden') {
+            combo++;
+            if (combo > maxCombo) maxCombo = combo;
+            score += 50;
+            if (lives < 3) lives++;
+
+            audio.playCatchGolden();
+            createBurst(item.x, item.y, '#fbbf24', 20);
+            addFloatingText(item.x, item.y, `+50 ❤️`, '#fbbf24');
+          } else if (item.type === 'junk') {
+            if (isInvincible) {
+              score += 10;
+              audio.playCatchHealthy();
+              createBurst(item.x, item.y, '#38bdf8', 16);
+              addFloatingText(item.x, item.y, `🛡️ 방어! +10`, '#38bdf8');
+            } else {
+              combo = 0;
+              score = Math.max(0, score - 10);
+
+              audio.playCatchJunk();
+              triggerScreenShake();
+              createBurst(item.x, item.y, '#f87171', 14);
+              addFloatingText(item.x, item.y, `-10!`, '#f87171');
+            }
+          }
+
+          updateUI();
+          items.splice(i, 1);
+          continue;
+        }
+
+        if (item.y > V_HEIGHT + 30) {
+          if (item.type === 'healthy' || item.type === 'golden') {
+            if (!isInvincible) {
+              combo = 0;
+              lives--;
+              audio.playMiss();
+              addFloatingText(item.x, V_HEIGHT - 40, `놓침!`, '#ef4444');
+              updateUI();
+
+              if (lives <= 0 && gameState === 'PLAYING') {
+                triggerGameOver();
+              }
+            } else {
+              addFloatingText(item.x, V_HEIGHT - 40, `🛡️ 방어됨`, '#38bdf8');
+            }
+          }
+          items.splice(i, 1);
+        }
+      }
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        if (particles[i].alpha <= 0) particles.splice(i, 1);
+      }
+
+      for (let i = floatingTexts.length - 1; i >= 0; i--) {
+        floatingTexts[i].update();
+        if (floatingTexts[i].alpha <= 0) floatingTexts.splice(i, 1);
+      }
+    }
+
+    function drawBackground() {
+      if (!ctx || !canvas) return;
+
+      const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      bgGrad.addColorStop(0, '#064e3b');
+      bgGrad.addColorStop(0.5, '#047857');
+      bgGrad.addColorStop(1, '#065f46');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.lineWidth = 1 * scaleRatio;
+      const gridSize = 40 * scaleRatio;
+      
+      for (let x = 0; x < canvas.width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+
+      const floorY = (V_HEIGHT - 30) * scaleRatio;
+      ctx.fillStyle = 'rgba(2, 44, 34, 0.6)';
+      ctx.fillRect(0, floorY, canvas.width, canvas.height - floorY);
+      ctx.fillStyle = '#10b981';
+      ctx.fillRect(0, floorY, canvas.width, 4 * scaleRatio);
+    }
+
+    function render() {
+      if (!ctx || !canvas) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      drawBackground();
+
+      const r = scaleRatio;
+
+      ctx.save();
+      ctx.shadowColor = isInvincible ? '#38bdf8' : 'rgba(0, 0, 0, 0.3)';
+      ctx.shadowBlur = isInvincible ? 25 * r : 10 * r;
+      ctx.shadowOffsetY = 5 * r;
+
+      if (isInvincible) {
+        ctx.beginPath();
+        ctx.arc(basket.x * r, basket.y * r, 48 * r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.22)';
+        ctx.fill();
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 3 * r;
+        ctx.setLineDash([8 * r, 4 * r]);
+        ctx.stroke();
+      }
+
+      ctx.font = `${Math.round(basket.height * 1.2 * r)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(basket.emoji, basket.x * r, basket.y * r);
+      ctx.restore();
+
+      items.forEach(item => {
+        ctx.save();
+        ctx.translate(item.x * r, item.y * r);
+        ctx.rotate(item.rotation);
+
+        if (item.type === 'golden') {
+          ctx.shadowColor = '#fbbf24';
+          ctx.shadowBlur = 15 * r;
+        }
+
+        ctx.font = `${Math.round(item.size * r)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(item.emoji, 0, 0);
+        ctx.restore();
+      });
+
+      particles.forEach(p => p.draw(ctx, r));
+      floatingTexts.forEach(ft => ft.draw(ctx, r));
+    }
+
+    function gameLoop() {
+      update();
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+
+    window.onload = () => {
+      getDomElements();
+
+      const highScoreText = document.getElementById('highScoreText');
+      if (highScoreText) highScoreText.textContent = `최고: ${highScore}`;
+
+      const startBtn = document.getElementById('startBtn');
+      const restartBtn = document.getElementById('restartBtn');
+      const audioToggleBtn = document.getElementById('audioToggleBtn');
+      const audioIcon = document.getElementById('audioIcon');
+      const btnLeft = document.getElementById('btnLeft');
+      const btnRight = document.getElementById('btnRight');
+
+      if (startBtn) startBtn.addEventListener('click', () => { audio.init(); startGame(); });
+      if (restartBtn) restartBtn.addEventListener('click', () => { audio.init(); startGame(); });
+
+      if (audioToggleBtn) {
+        audioToggleBtn.addEventListener('click', () => {
+          audio.init();
+          audio.enabled = !audio.enabled;
+          if (audioIcon) {
+            audioIcon.className = audio.enabled ? "fas fa-volume-up text-lg" : "fas fa-volume-mute text-lg";
+          }
+          audioToggleBtn.classList.toggle('opacity-50', !audio.enabled);
+        });
+      }
+
+      if (btnLeft) {
+        btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); audio.init(); leftPressed = true; });
+        btnLeft.addEventListener('touchend', () => { leftPressed = false; });
+      }
+      if (btnRight) {
+        btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); audio.init(); rightPressed = true; });
+        btnRight.addEventListener('touchend', () => { rightPressed = false; });
+      }
+
+      if (canvas) {
+        canvas.addEventListener('mousemove', (e) => {
+          if (e.buttons === 1) handlePointerMove(e);
+        });
+        canvas.addEventListener('touchstart', (e) => {
+          audio.init();
+          handlePointerMove(e);
+        }, { passive: true });
+        canvas.addEventListener('touchmove', handlePointerMove, { passive: true });
+      }
+
+      resizeCanvas();
+      requestAnimationFrame(gameLoop);
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>음식 받기 게임 🧺</title>
+    <!-- Tailwind CSS for utility styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for cute rounded typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Jua', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* 두 번째 버전 스타일: 에머랄드 빛 신비로운 뱀 비늘 패턴 배경 */
+        .snake-bg {
+            background-color: #064e3b;
+            background-image: 
+                radial-gradient(circle at 50% 20%, #047857 0%, transparent 60%),
+                repeating-linear-gradient(45deg, #065f46 0, #065f46 15px, #047857 15px, #047857 30px),
+                repeating-linear-gradient(-45deg, #047857 0, #047857 15px, #065f46 15px, #065f46 30px);
+            background-size: 100% 100%, 60px 60px, 60px 60px;
+        }
+
+        /* 뱀 테마 식탁/보드 스타일 */
+        .snake-board {
+            background: linear-gradient(180deg, #022c22 0%, #064e3b 100%);
+            border: 8px solid #10b981;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), inset 0 0 20px rgba(16, 185, 129, 0.2);
+            touch-action: none;
+            -webkit-touch-callout: none;
+        }
+
+        /* 점수 획득 시 팝업 텍스트 애니메이션 */
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-40px) scale(1.3); }
+        }
+
+        .score-popup {
+            position: absolute;
+            font-weight: bold;
+            color: #34d399;
+            font-size: 1.5rem;
+            pointer-events: none;
+            animation: floatUp 0.6s ease-out forwards;
+            text-shadow: 0 2px 6px rgba(0,0,0,0.8);
+        }
+
+        /* 정크푸드 감점 팝업 텍스트 */
+        .score-popup-minus {
+            position: absolute;
+            font-weight: bold;
+            color: #f87171;
+            font-size: 1.6rem;
+            pointer-events: none;
+            animation: floatUp 0.6s ease-out forwards;
+            text-shadow: 0 2px 6px rgba(0,0,0,0.8);
+        }
+
+        /* 게임 오버 모달 애니메이션 */
+        @keyframes modalPop {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .modal-animate {
+            animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* 화면 흔들림 애니메이션 */
+        @keyframes shakeBoard {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            20% { transform: translate(-10px, 6px) rotate(-1.5deg); }
+            40% { transform: translate(10px, -6px) rotate(1.5deg); }
+            60% { transform: translate(-8px, 3px) rotate(-1deg); }
+            80% { transform: translate(8px, -3px) rotate(1deg); }
+        }
+
+        .shake-animation {
+            animation: shakeBoard 0.4s ease-in-out;
+        }
+
+        /* 바구니 캐치 애니메이션 */
+        .basket-bounce {
+            animation: catchBounce 0.15s ease-in-out;
+        }
+
+        @keyframes catchBounce {
+            0% { transform: translate(-50%, 0) scale(1); }
+            50% { transform: translate(-50%, 8px) scale(1.2, 0.85); }
+            100% { transform: translate(-50%, 0) scale(1); }
+        }
+
+        /* 탄산 폭주 모드 테두리 오라 애니메이션 */
+        @keyframes feverGlow {
+            0%, 100% { box-shadow: 0 0 20px #06b6d4, inset 0 0 20px #0891b2; border-color: #22d3ee; }
+            50% { box-shadow: 0 0 35px #38bdf8, inset 0 0 30px #0284c7; border-color: #67e8f9; }
+        }
+
+        .fever-board {
+            animation: feverGlow 0.8s infinite alternate !important;
+        }
+
+        /* 탄산 폭주 획득 팝업 텍스트 */
+        .score-popup-fever {
+            position: absolute;
+            font-weight: bold;
+            color: #38bdf8;
+            font-size: 1.8rem;
+            pointer-events: none;
+            animation: floatUp 0.8s ease-out forwards;
+            text-shadow: 0 0 10px #0284c7, 0 2px 6px rgba(0,0,0,0.9);
+        }
+
+        /* 커피 카페인 획득 팝업 텍스트 */
+        .score-popup-coffee {
+            position: absolute;
+            font-weight: bold;
+            color: #fbbf24;
+            font-size: 1.7rem;
+            pointer-events: none;
+            animation: floatUp 0.8s ease-out forwards;
+            text-shadow: 0 0 10px #78350f, 0 2px 6px rgba(0,0,0,0.9);
+        }
+    </style>
+</head>
+<body class="snake-bg min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden relative">
+
+    <!-- 귀여운 뱀 테마 장식 이모지 -->
+    <div class="absolute top-4 left-4 text-4xl md:text-5xl pointer-events-none z-0 opacity-80 select-none">
+        🐍
+    </div>
+    <div class="absolute top-4 right-4 text-4xl md:text-5xl pointer-events-none z-0 opacity-80 select-none">
+        🌿
+    </div>
+    <div class="absolute bottom-4 left-4 text-3xl md:text-4xl pointer-events-none z-0 opacity-70 select-none">
+        🍃
+    </div>
+    <div class="absolute bottom-4 right-4 text-3xl md:text-4xl pointer-events-none z-0 opacity-70 select-none">
+        🐍
+    </div>
+
+    <!-- 메인 게임 보드 (뱀 비늘 테마 보드) -->
+    <div id="gameBoard" class="snake-board w-full max-w-lg h-[85vh] rounded-3xl flex flex-col justify-between items-center p-4 relative overflow-hidden z-10">
+        
+        <!-- 정크푸드 획득 시 붉고 어둡게 일렁이는 오버레이 -->
+        <div id="damageOverlay" class="absolute inset-0 bg-red-950/0 pointer-events-none z-30 transition-colors duration-200 rounded-2xl"></div>
+
+        <!-- 음식들이 떨어질 전용 컨테이너 (z-10) -->
+        <div id="foodContainer" class="absolute inset-0 pointer-events-none z-10 overflow-hidden"></div>
+
+        <!-- 커피 마셨을 때 주변 시야를 가리는 터널 비전 오버레이 (z-index: 25) -->
+        <div id="coffeeOverlay" class="absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-300 rounded-2xl" style="z-index: 25; background: radial-gradient(circle 130px at 50% 90%, transparent 0%, rgba(0, 0, 0, 0.98) 100%);"></div>
+
+        <!-- 상단 헤더 및 점수판/타이머 -->
+        <div class="w-full flex flex-col items-center gap-2 pt-2 z-20">
+            <!-- 점수 및 제한시간 표시 영역 -->
+            <div class="flex items-center gap-3">
+                <!-- 타이머 -->
+                <div class="bg-emerald-950/90 border-2 border-emerald-400 rounded-full px-4 py-1.5 shadow-lg flex items-center gap-1.5 backdrop-blur-sm">
+                    <span class="text-xl">⏱️</span>
+                    <span id="timerDisplay" class="text-xl font-extrabold text-emerald-200">90초</span>
+                </div>
+
+                <!-- 대형 점수판 -->
+                <div class="bg-emerald-950/90 border-2 border-emerald-400 rounded-full px-5 py-1.5 shadow-lg flex items-center gap-2 backdrop-blur-sm">
+                    <span class="text-yellow-400 text-xl">⭐</span>
+                    <span id="scoreDisplay" class="text-2xl font-extrabold text-emerald-300 tracking-wider">0 점</span>
+                </div>
+            </div>
+
+            <!-- 탄산 폭주 피버 타이머 배지 -->
+            <div id="feverBadge" class="hidden bg-cyan-900/90 border-2 border-cyan-400 rounded-full px-4 py-1 shadow-lg flex items-center gap-2 backdrop-blur-sm animate-pulse">
+                <span class="text-xl">🥤</span>
+                <span class="text-cyan-200 font-bold text-sm">탄산 폭주!</span>
+                <span id="feverTimerDisplay" class="text-cyan-300 font-black text-base">20초</span>
+            </div>
+
+            <!-- 커피 각성 시야 제한 타이머 배지 -->
+            <div id="coffeeBadge" class="hidden bg-amber-950/90 border-2 border-amber-500 rounded-full px-4 py-1 shadow-lg flex items-center gap-2 backdrop-blur-sm animate-pulse">
+                <span class="text-xl">☕</span>
+                <span class="text-amber-200 font-bold text-sm">시야 제한! (0초 되면 회복)</span>
+                <span id="coffeeTimerDisplay" class="text-amber-300 font-black text-base">8초</span>
+            </div>
+
+            <!-- 시작 난이도 선택 버튼 그룹 -->
+            <div id="startBtnContainer" class="flex items-center gap-2">
+                <button onclick="startGame(false)" class="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-base md:text-lg py-2 px-4 rounded-2xl shadow-lg transform active:scale-95 transition-all duration-150 border-2 border-emerald-300">
+                    🟢 일반 모드
+                </button>
+                <button onclick="startGame(true)" class="bg-gradient-to-r from-rose-600 to-red-500 hover:from-rose-500 hover:to-red-400 text-white font-bold text-base md:text-lg py-2 px-4 rounded-2xl shadow-lg transform active:scale-95 transition-all duration-150 border-2 border-red-300">
+                    🔥 하드 모드
+                </button>
+            </div>
+
+            <!-- 현재 선택 모드 안내 배지 -->
+            <div id="modeBadge" class="hidden bg-emerald-950/80 border border-emerald-400 rounded-full px-3 py-0.5 text-xs text-emerald-200 font-bold">
+                🟢 일반 모드
+            </div>
+            
+            <!-- 안내 문구 -->
+            <p id="instructionText" class="text-emerald-200 text-xs md:text-base font-bold bg-emerald-900/80 px-3 py-1 rounded-full animate-bounce mt-1 border border-emerald-600 text-center max-w-[90%]">
+                난이도를 선택하거나 터치/드래그로 바구니를 이동해보세요!
+            </p>
+        </div>
+
+        <!-- 하단 바구니 영역 -->
+        <div id="basket" class="absolute bottom-12 md:bottom-5 text-5xl md:text-6xl cursor-pointer select-none filter drop-shadow-lg z-20 transition-transform duration-75 touch-none" style="left: 50%; transform: translateX(-50%);">
+            🧺
+        </div>
+
+        <!-- 모바일 전용 좌/우 터치 버튼 -->
+        <div id="mobileControls" class="w-full flex justify-between items-center px-4 pb-2 z-20 md:hidden opacity-90 select-none pointer-events-auto">
+            <button id="btnLeft" class="bg-emerald-900/80 active:bg-emerald-600 text-emerald-200 border-2 border-emerald-400 rounded-2xl px-6 py-3 text-xl font-bold active:scale-95 transition-transform touch-none shadow-md">
+                ◀
+            </button>
+            <span class="text-emerald-300/80 text-xs font-bold">화면 슬라이드 / 버튼 조작</span>
+            <button id="btnRight" class="bg-emerald-900/80 active:bg-emerald-600 text-emerald-200 border-2 border-emerald-400 rounded-2xl px-6 py-3 text-xl font-bold active:scale-95 transition-transform touch-none shadow-md">
+                ▶
+            </button>
+        </div>
+
+        <!-- 게임 종료 / 최종 점수 안내 모달 -->
+        <div id="gameOverModal" class="hidden absolute inset-0 bg-black/75 backdrop-blur-md z-40 flex flex-col items-center justify-center p-6 text-center">
+            <div class="bg-emerald-900 border-4 border-emerald-400 p-6 rounded-3xl shadow-2xl modal-animate flex flex-col items-center gap-4 max-w-xs w-full">
+                <span class="text-5xl">💀</span>
+                <h2 id="gameOverTitle" class="text-3xl font-extrabold text-yellow-300">게임 종료!</h2>
+                <p id="gameOverReason" class="text-emerald-200 text-sm">시간이 모두 지나갔습니다!</p>
+                
+                <div class="bg-emerald-950 border-2 border-emerald-500 rounded-2xl p-4 w-full my-1">
+                    <span class="text-emerald-300 text-sm block mb-1">최종 획득 점수</span>
+                    <span id="finalScoreDisplay" class="text-4xl font-black text-yellow-400 tracking-wider">0 점</span>
+                </div>
+
+                <!-- 게임 오버 시 모드별 재시작 및 선택 화면 이동 버튼 -->
+                <div class="flex flex-col gap-2 w-full mt-1">
+                    <div class="flex gap-2 w-full">
+                        <button onclick="startGame(false)" class="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xs md:text-sm py-2.5 px-2 rounded-xl shadow-lg transform active:scale-95 transition-all border border-emerald-300">
+                            🟢 일반 재시작
+                        </button>
+                        <button onclick="startGame(true)" class="flex-1 bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-400 hover:to-red-500 text-white font-black text-xs md:text-sm py-2.5 px-2 rounded-xl shadow-lg transform active:scale-95 transition-all border border-red-300">
+                            🔥 하드 재시작
+                        </button>
+                    </div>
+                    <button onclick="resetToModeSelection()" class="w-full bg-emerald-950 hover:bg-emerald-800 text-emerald-200 font-bold text-xs py-2 px-3 rounded-xl border border-emerald-500 transform active:scale-95 transition-all">
+                        ⚙️ 난이도 선택 화면으로
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const basket = document.getElementById('basket');
+        const board = document.getElementById('gameBoard');
+        const instructionText = document.getElementById('instructionText');
+        const foodContainer = document.getElementById('foodContainer');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const gameOverModal = document.getElementById('gameOverModal');
+        const finalScoreDisplay = document.getElementById('finalScoreDisplay');
+        const gameOverReason = document.getElementById('gameOverReason');
+        const feverBadge = document.getElementById('feverBadge');
+        const feverTimerDisplay = document.getElementById('feverTimerDisplay');
+        const coffeeBadge = document.getElementById('coffeeBadge');
+        const coffeeTimerDisplay = document.getElementById('coffeeTimerDisplay');
+        const coffeeOverlay = document.getElementById('coffeeOverlay');
+
+        // 게임 상태 변수
+        let score = 0;
+        let timeLeft = 90;
+        let isGameStarted = false;
+        let isHardMode = false;
+        let spawnTimer = null;
+        let countdownTimer = null;
+        let feverTimer = null;
+        let feverTimeLeft = 0;
+        let coffeeTimer = null;
+        let coffeeTimeLeft = 0;
+        const fallingFoods = [];
+        
+        const healthyFoods = ['🍎', '🥦', '🥛', '🍌', '🥩'];
+        const junkFoods = ['🍩', '🍟', '🍬', '🍔', '🍕'];
+        const sodaFood = '🥤';
+        const coffeeFood = '☕';
+
+        let audioCtx = null;
+
+        function playPopSound() {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(350, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(850, audioCtx.currentTime + 0.08);
+
+                gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.09);
+            } catch(e) {}
+        }
+
+        function playBadSound() {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.2);
+
+                gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.21);
+            } catch(e) {}
+        }
+
+        function playCoffeeSound() {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                [220, 180, 150].forEach((freq, i) => {
+                    setTimeout(() => {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                        osc.frequency.exponentialRampToValueAtTime(freq + 120, audioCtx.currentTime + 0.1);
+                        gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.start();
+                        osc.stop(audioCtx.currentTime + 0.11);
+                    }, i * 110);
+                });
+            } catch(e) {}
+        }
+
+        function playSodaSound() {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                    setTimeout(() => {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.start();
+                        osc.stop(audioCtx.currentTime + 0.13);
+                    }, i * 65);
+                });
+            } catch(e) {}
+        }
+
+        function triggerSodaFever() {
+            feverTimeLeft = 20;
+
+            if (!feverTimer) {
+                if (feverBadge) feverBadge.classList.remove('hidden');
+                board.classList.add('fever-board');
+
+                if (spawnTimer) clearInterval(spawnTimer);
+                spawnTimer = setInterval(spawnFood, 80);
+
+                feverTimer = setInterval(() => {
+                    feverTimeLeft--;
+                    if (feverTimerDisplay) {
+                        feverTimerDisplay.textContent = `${feverTimeLeft}초`;
+                    }
+
+                    if (feverTimeLeft <= 0) {
+                        stopSodaFever();
+                    }
+                }, 1000);
+            }
+
+            if (feverTimerDisplay) {
+                feverTimerDisplay.textContent = `${feverTimeLeft}초`;
+            }
+        }
+
+        function stopSodaFever() {
+            feverTimeLeft = 0;
+            if (feverTimer) {
+                clearInterval(feverTimer);
+                feverTimer = null;
+            }
+            if (feverBadge) feverBadge.classList.add('hidden');
+            board.classList.remove('fever-board');
+
+            if (isGameStarted) {
+                if (spawnTimer) clearInterval(spawnTimer);
+                spawnTimer = setInterval(spawnFood, isHardMode ? 260 : 500);
+            }
+        }
+
+        // 커피 시야 제한 발동 (8초간 시야가 좁아졌다가 0초가 되면 원래대로 회복)
+        function triggerCoffeeVision() {
+            coffeeTimeLeft = 8;
+
+            if (!coffeeTimer) {
+                if (coffeeBadge) coffeeBadge.classList.remove('hidden');
+                if (coffeeOverlay) {
+                    coffeeOverlay.style.background = `radial-gradient(circle 130px at ${basketX}px calc(100% - 35px), transparent 0%, rgba(0, 0, 0, 0.98) 100%)`;
+                    coffeeOverlay.classList.remove('opacity-0');
+                    coffeeOverlay.classList.add('opacity-100');
+                }
+
+                coffeeTimer = setInterval(() => {
+                    coffeeTimeLeft--;
+                    if (coffeeTimerDisplay) {
+                        coffeeTimerDisplay.textContent = `${coffeeTimeLeft}초`;
+                    }
+
+                    if (coffeeTimeLeft <= 0) {
+                        // 8초가 지나면 사망이 아니라 시야가 원래대로 회복된다
+                        stopCoffeeVision();
+                    }
+                }, 1000);
+            }
+
+            if (coffeeTimerDisplay) {
+                coffeeTimerDisplay.textContent = `${coffeeTimeLeft}초`;
+            }
+        }
+
+        function stopCoffeeVision() {
+            coffeeTimeLeft = 0;
+            if (coffeeTimer) {
+                clearInterval(coffeeTimer);
+                coffeeTimer = null;
+            }
+            if (coffeeBadge) coffeeBadge.classList.add('hidden');
+            if (coffeeOverlay) {
+                coffeeOverlay.classList.remove('opacity-100');
+                coffeeOverlay.classList.add('opacity-0');
+            }
+        }
+
+        function resetToModeSelection() {
+            isGameStarted = false;
+            stopSodaFever();
+            stopCoffeeVision();
+            if (spawnTimer) clearInterval(spawnTimer);
+            if (countdownTimer) clearInterval(countdownTimer);
+            clearAllFoods();
+
+            if (gameOverModal) gameOverModal.classList.add('hidden');
+            
+            const startBtnContainer = document.getElementById('startBtnContainer');
+            const modeBadge = document.getElementById('modeBadge');
+            
+            if (startBtnContainer) startBtnContainer.style.display = 'flex';
+            if (modeBadge) modeBadge.classList.add('hidden');
+            if (instructionText) {
+                instructionText.style.display = 'block';
+                instructionText.textContent = '난이도를 선택해 보세요!';
+            }
+            
+            if (timerDisplay) timerDisplay.textContent = '90초';
+            if (scoreDisplay) scoreDisplay.textContent = '0 점';
+        }
+
+        function startGame(hard = false) {
+            isHardMode = hard;
+
+            const startBtnContainer = document.getElementById('startBtnContainer');
+            const modeBadge = document.getElementById('modeBadge');
+            
+            if (startBtnContainer) startBtnContainer.style.display = 'none';
+            if (modeBadge) {
+                modeBadge.classList.remove('hidden');
+                if (isHardMode) {
+                    modeBadge.className = 'bg-red-950/90 border-2 border-red-500 rounded-full px-4 py-1 text-sm text-red-200 font-extrabold animate-pulse shadow-lg';
+                    modeBadge.textContent = '🔥 하드 모드 (정크푸드 40% & 낙하속도 1.3배!)';
+                } else {
+                    modeBadge.className = 'bg-emerald-950/80 border border-emerald-400 rounded-full px-3 py-0.5 text-xs text-emerald-200 font-bold';
+                    modeBadge.textContent = '🟢 일반 모드';
+                }
+            }
+
+            if (instructionText) instructionText.style.display = 'none';
+            if (gameOverModal) gameOverModal.classList.add('hidden');
+            
+            stopSodaFever();
+            stopCoffeeVision();
+
+            clearAllFoods();
+
+            isGameStarted = true;
+            score = 0;
+            timeLeft = 90;
+            updateScoreUI();
+            updateTimerUI();
+
+            startSpawningFoods();
+            startCountdown();
+        }
+
+        function clearAllFoods() {
+            for (let item of fallingFoods) {
+                if (item.element && item.element.parentNode) {
+                    item.element.parentNode.removeChild(item.element);
+                }
+            }
+            fallingFoods.length = 0;
+        }
+
+        function updateScoreUI() {
+            scoreDisplay.textContent = `${score} 점`;
+            
+            scoreDisplay.parentElement.classList.add('scale-110');
+            setTimeout(() => {
+                scoreDisplay.parentElement.classList.remove('scale-110');
+            }, 150);
+        }
+
+        function updateTimerUI() {
+            if (timerDisplay) {
+                timerDisplay.textContent = `${timeLeft}초`;
+            }
+        }
+
+        function startCountdown() {
+            if (countdownTimer) clearInterval(countdownTimer);
+            countdownTimer = setInterval(() => {
+                if (!isGameStarted) return;
+                
+                timeLeft--;
+                updateTimerUI();
+
+                if (timeLeft <= 0) {
+                    triggerGameOver("⏱️ 시간이 모두 지났습니다!");
+                }
+            }, 1000);
+        }
+
+        function triggerGameOver(reasonText) {
+            isGameStarted = false;
+            
+            stopSodaFever();
+            stopCoffeeVision();
+            if (spawnTimer) clearInterval(spawnTimer);
+            if (countdownTimer) clearInterval(countdownTimer);
+
+            clearAllFoods();
+
+            if (finalScoreDisplay) finalScoreDisplay.textContent = `${score} 점`;
+            if (gameOverReason) gameOverReason.textContent = reasonText;
+            if (gameOverModal) gameOverModal.classList.remove('hidden');
+        }
+
+        function startSpawningFoods() {
+            if (spawnTimer) clearInterval(spawnTimer);
+            spawnFood();
+            const interval = isHardMode ? 260 : 500;
+            spawnTimer = setInterval(spawnFood, interval);
+        }
+
+        function spawnFood() {
+            if (!board || !foodContainer || !isGameStarted) return;
+            const boardWidth = board.clientWidth;
+            
+            const rand = Math.random();
+            let randomFood = '';
+            let isJunk = false;
+            let isSoda = false;
+            let isCoffee = false;
+
+            if (isHardMode) {
+                if (rand < 0.08) {
+                    isCoffee = true;
+                    randomFood = coffeeFood;
+                } else if (rand < 0.16) {
+                    isSoda = true;
+                    randomFood = sodaFood;
+                } else if (rand < 0.56) {
+                    isJunk = true;
+                    randomFood = junkFoods[Math.floor(Math.random() * junkFoods.length)];
+                } else {
+                    randomFood = healthyFoods[Math.floor(Math.random() * healthyFoods.length)];
+                }
+            } else {
+                if (rand < 0.10) {
+                    isCoffee = true;
+                    randomFood = coffeeFood;
+                } else if (rand < 0.22) {
+                    isSoda = true;
+                    randomFood = sodaFood;
+                } else if (rand < 0.52) {
+                    isJunk = true;
+                    randomFood = junkFoods[Math.floor(Math.random() * junkFoods.length)];
+                } else {
+                    randomFood = healthyFoods[Math.floor(Math.random() * healthyFoods.length)];
+                }
+            }
+            
+            const foodEl = document.createElement('div');
+            foodEl.className = 'absolute text-4xl select-none filter drop-shadow-md transition-transform';
+            foodEl.textContent = randomFood;
+
+            const margin = 45;
+            const x = Math.random() * (boardWidth - margin * 2) + margin;
+            const y = 80;
+
+            foodEl.style.left = `${x}px`;
+            foodEl.style.top = `${y}px`;
+            foodEl.style.transform = 'translateX(-50%)';
+
+            foodContainer.appendChild(foodEl);
+
+            const hardSpeedMultiplier = isHardMode ? 1.3 : 1.0;
+            const speedMultiplier = (feverTimeLeft > 0 ? 2.2 : 1.0) * hardSpeedMultiplier;
+            const baseSpeed = 4.2 + Math.random() * 3.0;
+
+            fallingFoods.push({
+                element: foodEl,
+                x: x,
+                y: y,
+                speed: baseSpeed * speedMultiplier,
+                isJunk: isJunk,
+                isSoda: isSoda,
+                isCoffee: isCoffee
+            });
+        }
+
+        function createCatchEffect(x, y, isJunk, isSoda, isCoffee) {
+            const popup = document.createElement('div');
+            if (isCoffee) {
+                popup.className = 'score-popup-coffee';
+                popup.textContent = '☕ 8초간 시야제한!';
+            } else if (isSoda) {
+                popup.className = 'score-popup-fever';
+                popup.textContent = '🥤 폭주!';
+            } else {
+                popup.className = isJunk ? 'score-popup-minus' : 'score-popup';
+                popup.textContent = isJunk ? '-10' : '+10';
+            }
+            popup.style.left = `${x - 24}px`;
+            popup.style.top = `${y - 20}px`;
+            foodContainer.appendChild(popup);
+
+            setTimeout(() => {
+                if (popup.parentNode) popup.parentNode.removeChild(popup);
+            }, 700);
+
+            if (isCoffee || isSoda) {
+                basket.classList.remove('basket-bounce');
+                void basket.offsetWidth;
+                basket.classList.add('basket-bounce');
+            } else if (isJunk) {
+                triggerDamageEffect();
+            } else {
+                basket.classList.remove('basket-bounce');
+                void basket.offsetWidth;
+                basket.classList.add('basket-bounce');
+            }
+        }
+
+        function triggerDamageEffect() {
+            const damageOverlay = document.getElementById('damageOverlay');
+
+            board.classList.remove('shake-animation');
+            void board.offsetWidth;
+            board.classList.add('shake-animation');
+
+            if (damageOverlay) {
+                damageOverlay.classList.remove('bg-red-950/0');
+                damageOverlay.classList.add('bg-red-950/60');
+                setTimeout(() => {
+                    damageOverlay.classList.remove('bg-red-950/60');
+                    damageOverlay.classList.add('bg-red-950/0');
+                }, 300);
+            }
+        }
+
+        function updateFoods() {
+            if (!board || !isGameStarted) return;
+            const boardHeight = board.clientHeight;
+            const basketY = boardHeight - 65;
+            const basketWidth = 70;
+
+            for (let i = fallingFoods.length - 1; i >= 0; i--) {
+                const item = fallingFoods[i];
+                item.y += item.speed;
+                item.element.style.top = `${item.y}px`;
+
+                const isHorizontalHit = Math.abs(item.x - basketX) < (basketWidth / 2 + 12);
+                const isVerticalHit = item.y >= basketY - 25 && item.y <= basketY + 25;
+
+                if (isHorizontalHit && isVerticalHit) {
+                    if (item.isCoffee) {
+                        playCoffeeSound();
+                        triggerCoffeeVision();
+                        createCatchEffect(item.x, item.y, false, false, true);
+                    } else if (item.isSoda) {
+                        playSodaSound();
+                        triggerSodaFever();
+                        createCatchEffect(item.x, item.y, false, true, false);
+                    } else if (item.isJunk) {
+                        score -= 10;
+                        updateScoreUI();
+                        playBadSound();
+                        createCatchEffect(item.x, item.y, true, false, false);
+
+                        if (score <= 0) {
+                            if (item.element.parentNode) {
+                                item.element.parentNode.removeChild(item.element);
+                            }
+                            fallingFoods.splice(i, 1);
+                            triggerGameOver("💥 점수가 0점이 되었습니다... 허접이군요, 처음이네요! 😜");
+                            return;
+                        }
+                    } else {
+                        score += 10;
+                        updateScoreUI();
+                        playPopSound();
+                        createCatchEffect(item.x, item.y, false, false, false);
+                    }
+
+                    if (item.element.parentNode) {
+                        item.element.parentNode.removeChild(item.element);
+                    }
+                    fallingFoods.splice(i, 1);
+                    continue;
+                }
+
+                if (item.y > boardHeight - 40) {
+                    if (item.element.parentNode) {
+                        item.element.parentNode.removeChild(item.element);
+                    }
+                    fallingFoods.splice(i, 1);
+                }
+            }
+        }
+
+        let basketX = 0;
+        const speed = 13.0;
+        const keys = { ArrowLeft: false, ArrowRight: false, KeyA: false, KeyD: false };
+
+        function initPosition() {
+            if (!board || !basket) return;
+            const boardRect = board.getBoundingClientRect();
+            basketX = boardRect.width / 2;
+            applyPosition();
+        }
+
+        function applyPosition() {
+            if (!board || !basket) return;
+            const basketWidth = basket.offsetWidth || 70;
+            const boardWidth = board.clientWidth;
+            
+            const minX = basketWidth / 2 + 10;
+            const maxX = boardWidth - basketWidth / 2 - 10;
+
+            if (keys.ArrowLeft || keys.KeyA) basketX -= speed;
+            if (keys.ArrowRight || keys.KeyD) basketX += speed;
+
+            basketX = Math.max(minX, Math.min(maxX, basketX));
+            basket.style.left = `${basketX}px`;
+
+            if (coffeeOverlay && coffeeTimeLeft > 0) {
+                coffeeOverlay.style.background = `radial-gradient(circle 130px at ${basketX}px calc(100% - 35px), transparent 0%, rgba(0, 0, 0, 0.98) 100%)`;
+            }
+        }
+
+        function gameLoop() {
+            applyPosition();
+            updateFoods();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (['ArrowLeft', 'Left', 'a', 'A'].includes(e.key)) {
+                keys.ArrowLeft = true;
+                e.preventDefault();
+            }
+            if (['ArrowRight', 'Right', 'd', 'D'].includes(e.key)) {
+                keys.ArrowRight = true;
+                e.preventDefault();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (['ArrowLeft', 'Left', 'a', 'A'].includes(e.key)) keys.ArrowLeft = false;
+            if (['ArrowRight', 'Right', 'd', 'D'].includes(e.key)) keys.ArrowRight = false;
+        });
+
+        function handlePointerMove(e) {
+            if (!board) return;
+            const rect = board.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            if (clientX !== undefined) {
+                basketX = clientX - rect.left;
+                applyPosition();
+            }
+        }
+
+        board.addEventListener('touchstart', (e) => {
+            if (e.target.closest('#startBtnContainer') || e.target.closest('#gameOverModal') || e.target.closest('#mobileControls')) return;
+            handlePointerMove(e);
+        }, { passive: true });
+
+        board.addEventListener('touchmove', (e) => {
+            if (e.target.closest('#startBtnContainer') || e.target.closest('#gameOverModal')) return;
+            handlePointerMove(e);
+        }, { passive: true });
+
+        const btnLeft = document.getElementById('btnLeft');
+        const btnRight = document.getElementById('btnRight');
+
+        if (btnLeft && btnRight) {
+            const startMoveLeft = (e) => { e.preventDefault(); keys.ArrowLeft = true; };
+            const stopMoveLeft = (e) => { e.preventDefault(); keys.ArrowLeft = false; };
+            const startMoveRight = (e) => { e.preventDefault(); keys.ArrowRight = true; };
+            const stopMoveRight = (e) => { e.preventDefault(); keys.ArrowRight = false; };
+
+            btnLeft.addEventListener('touchstart', startMoveLeft, { passive: false });
+            btnLeft.addEventListener('touchend', stopMoveLeft, { passive: false });
+            btnLeft.addEventListener('mousedown', startMoveLeft);
+            btnLeft.addEventListener('mouseup', stopMoveLeft);
+
+            btnRight.addEventListener('touchstart', startMoveRight, { passive: false });
+            btnRight.addEventListener('touchend', stopMoveRight, { passive: false });
+            btnRight.addEventListener('mousedown', startMoveRight);
+            btnRight.addEventListener('mouseup', stopMoveRight);
+        }
+
+        basket.addEventListener('click', () => {
+            playPopSound();
+            basket.classList.add('basket-bounce');
+            setTimeout(() => basket.classList.remove('basket-bounce'), 200);
+        });
+
+        window.addEventListener('resize', initPosition);
+        window.addEventListener('load', () => {
+            initPosition();
+            requestAnimationFrame(gameLoop);
+        });
+    </script>
+</body>
+</html>

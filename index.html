@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light only" />
+<title>반곡초등학교 바이브코딩 저장소</title>
+<meta name="description" content="반곡초등학교 학생들이 바이브코딩으로 만든 게임 저장소" />
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.9em'%20font-size='90'%3E%F0%9F%A7%BA%3C/text%3E%3C/svg%3E" />
+<style>
+:root{
+  color-scheme:light only;
+  --ink:#0B0B10;
+  --ink-2:#15151F;
+  --paper:#F6F3EA;
+  --lime:#D6FF3E;
+  --pink:#FF3D9A;        /* 장식 전용 */
+  --pink-deep:#C2006B;   /* 흰 글자를 얹는 용도 (AA 통과) */
+  --violet:#5B3FD6;      /* 흰 글자를 얹는 용도 (AA 통과) */
+  --violet-soft:#7C5CFF; /* 장식 전용 */
+  --cyan:#38E8FF;
+  --line:#0B0B10;
+  --bw:3px;              /* 테두리 두께 통일 */
+  --bw-s:2px;
+  --r:22px;
+  --shadow:6px 6px 0 var(--ink);
+  --shadow-lg:10px 10px 0 var(--ink);
+  --s1:8px; --s2:14px; --s3:22px; --s4:34px; --s5:52px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,system-ui,"Malgun Gothic",sans-serif;
+  background:var(--paper);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:clip;
+}
+body::before{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.42;
+  background:
+    radial-gradient(42vw 42vw at 6% -10%, rgba(124,92,255,.30), transparent 62%),
+    radial-gradient(38vw 38vw at 98% 2%, rgba(255,61,154,.26), transparent 62%),
+    radial-gradient(46vw 46vw at 62% 104%, rgba(214,255,62,.36), transparent 60%);
+}
+body::after{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.wrap{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:0 20px}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--violet);outline-offset:3px;border-radius:6px}
+
+/* ── nav ───────────────────────────── */
+.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(246,243,234,.86);border-bottom:var(--bw) solid var(--ink)}
+.nav-in{max-width:1240px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:900;letter-spacing:-.04em;font-size:17px;text-decoration:none}
+.brand .dot{width:30px;height:30px;border-radius:10px;border:var(--bw) solid var(--ink);background:var(--lime);display:grid;place-items:center;font-size:15px;box-shadow:3px 3px 0 var(--ink)}
+.brand small{display:block;font-size:10px;font-weight:700;letter-spacing:.14em;color:rgba(11,11,16,.6);margin-top:-2px}
+.tabs{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+.tabbtn{
+  font:inherit;font-weight:800;font-size:14px;letter-spacing:-.02em;cursor:pointer;
+  padding:10px 16px;border-radius:999px;border:var(--bw-s) solid var(--ink);background:#fff;color:var(--ink);
+  transition:transform .12s ease, box-shadow .12s ease, background .12s ease;
+}
+.tabbtn:hover{transform:translate(-2px,-2px);box-shadow:3px 3px 0 var(--ink)}
+.tabbtn[aria-selected="true"]{background:var(--ink);color:var(--lime);box-shadow:3px 3px 0 var(--pink)}
+.tabbtn .n{color:rgba(11,11,16,.5);font-weight:700;margin-left:5px;font-size:12px}
+.tabbtn[aria-selected="true"] .n{color:rgba(214,255,62,.75)}
+
+/* ── ticker ────────────────────────── */
+.ticker{background:var(--ink);color:var(--lime);border-bottom:var(--bw) solid var(--ink);overflow:hidden;position:relative;z-index:1}
+.ticker-track{display:flex;width:max-content;padding:9px 0;white-space:nowrap;animation:slide 34s linear infinite;font-weight:900;font-size:12.5px;letter-spacing:.1em}
+.ticker-track span{padding-right:34px}
+@keyframes slide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* ── hero ──────────────────────────── */
+.hero{padding:var(--s5) 0 var(--s4);position:relative}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:var(--s4);align-items:center}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;background:var(--pink-deep);color:#fff;border:var(--bw-s) solid var(--ink);border-radius:999px;padding:7px 15px;font-size:12.5px;font-weight:900;letter-spacing:.04em;box-shadow:3px 3px 0 var(--ink);transform:rotate(-1.5deg)}
+h1.title{font-size:clamp(38px,7.4vw,80px);line-height:.95;letter-spacing:-.045em;font-weight:900;margin:var(--s3) 0 0}
+h1.title .hl{
+  background:linear-gradient(100deg,var(--violet),var(--pink-deep) 48%,#C2410C);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid var(--ink);border-radius:16px;padding:0 12px 4px;box-shadow:var(--shadow);transform:rotate(-1.2deg)}
+.lead{margin:var(--s3) 0 0;font-size:17px;line-height:1.75;font-weight:500;max-width:52ch;color:rgba(11,11,16,.82)}
+.lead b{color:var(--ink);font-weight:800}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:var(--s3)}
+.stat{background:#fff;border:var(--bw) solid var(--ink);border-radius:16px;padding:12px 17px;box-shadow:4px 4px 0 var(--ink);min-width:98px}
+.stat b{display:block;font-size:27px;letter-spacing:-.05em;line-height:1;font-weight:900}
+.stat span{font-size:11.5px;font-weight:800;color:rgba(11,11,16,.6);letter-spacing:.04em}
+
+.collage{position:relative;height:340px}
+.sticker{position:absolute;border:var(--bw) solid var(--ink);border-radius:20px;overflow:hidden;box-shadow:var(--shadow);background:#fff}
+.sticker img{display:block;width:100%;height:100%;object-fit:cover}
+.sticker.s1{width:58%;left:3%;top:5%;transform:rotate(-6deg);z-index:3;animation:bob 6s ease-in-out infinite}
+.sticker.s2{width:45%;right:1%;top:2%;transform:rotate(7deg);z-index:2;animation:bob 7.5s ease-in-out infinite .6s}
+.sticker.s3{width:43%;right:9%;bottom:2%;transform:rotate(-4deg);z-index:4;animation:bob 6.8s ease-in-out infinite 1.2s}
+.sticker.s4{width:32%;left:1%;bottom:6%;transform:rotate(9deg);z-index:1;animation:bob 8s ease-in-out infinite .3s}
+@keyframes bob{0%,100%{translate:0 0}50%{translate:0 -12px}}
+.tape{position:absolute;z-index:10;background:rgba(255,255,255,.72);border:2px solid rgba(11,11,16,.25);width:74px;height:22px;top:-9px;left:50%;margin-left:-37px;transform:rotate(-4deg)}
+
+/* ── panels ────────────────────────── */
+.panel{display:none;padding-bottom:var(--s5)}
+.panel.on{display:block;animation:fade .28s ease}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+.sec-head{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin:var(--s4) 0 var(--s3);padding-top:var(--s2)}
+.sec-head h2{font-size:clamp(25px,3.6vw,36px);letter-spacing:-.045em;font-weight:900;margin:0}
+.sec-head h2.sub{font-size:clamp(21px,3vw,29px)}
+.sec-head p{margin:0 0 4px;font-size:14px;font-weight:600;color:rgba(11,11,16,.6)}
+
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 var(--s3)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{font:inherit;font-size:13.5px;font-weight:800;cursor:pointer;padding:9px 16px;border-radius:999px;border:var(--bw-s) solid var(--ink);background:#fff;transition:.12s}
+.chip:hover{transform:translateY(-2px)}
+.chip[aria-pressed="true"]{background:var(--violet);color:#fff;box-shadow:3px 3px 0 var(--ink)}
+.pvtoggle{
+  font:inherit;font-size:13px;font-weight:800;cursor:pointer;margin-left:auto;
+  padding:9px 16px;border-radius:999px;border:var(--bw-s) dashed var(--ink);background:#fff;transition:.12s
+}
+.pvtoggle:hover{transform:translateY(-2px)}
+.pvtoggle[aria-pressed="true"]{border-style:solid;background:var(--lime)}
+
+/* ── game cards ────────────────────── */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:var(--s3)}
+.card{
+  position:relative;display:flex;flex-direction:column;background:#fff;border:var(--bw) solid var(--ink);border-radius:var(--r);
+  overflow:hidden;text-decoration:none;box-shadow:var(--shadow);
+  transition:transform .16s ease, box-shadow .16s ease;
+}
+.card[hidden]{display:none}
+.card:hover{transform:translate(-4px,-4px);box-shadow:var(--shadow-lg)}
+.thumb{position:relative;width:100%;aspect-ratio:16/10;background:#1a1a22;border-bottom:var(--bw) solid var(--ink);overflow:hidden}
+.thumb .ph{position:absolute;inset:0;z-index:1;display:grid;place-items:center;background-size:cover;background-position:center;transition:opacity .45s ease}
+.thumb .ph::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(11,11,16,.12),rgba(11,11,16,.62))}
+.thumb .ph em{position:relative;z-index:2;font-style:normal;font-size:11.5px;font-weight:900;color:#fff;letter-spacing:.08em;background:rgba(11,11,16,.7);border:2px solid rgba(255,255,255,.55);padding:6px 12px;border-radius:999px}
+.thumb iframe{position:absolute;top:0;left:0;width:1280px;height:800px;border:0;transform-origin:top left;transform:scale(var(--s,.25));pointer-events:none;opacity:0;transition:opacity .45s ease}
+.thumb.ready iframe{opacity:1}
+.thumb.ready .ph{opacity:0;transition-delay:.15s}
+.play{
+  position:absolute;z-index:4;right:10px;bottom:10px;
+  background:var(--lime);border:var(--bw-s) solid var(--ink);border-radius:999px;padding:7px 15px;font-weight:900;font-size:13px;
+  box-shadow:3px 3px 0 var(--ink);transition:transform .16s ease
+}
+.card:hover .play{transform:translate(-2px,-2px)}
+.badges{position:absolute;z-index:5;top:10px;left:10px;display:flex;gap:6px}
+.badge{font-size:10.5px;font-weight:900;letter-spacing:.06em;padding:4px 9px;border-radius:999px;border:2px solid var(--ink);background:#fff;box-shadow:2px 2px 0 var(--ink)}
+.badge.b3d{background:var(--cyan)}
+.badge.bcv{background:var(--pink-deep);color:#fff}
+.badge.bg{background:var(--lime)}
+.card-body{padding:16px 17px 18px;display:flex;flex-direction:column;gap:7px;flex:1}
+.card-body h3{margin:0;font-size:19px;letter-spacing:-.035em;font-weight:900;line-height:1.28}
+.card-body .cdesc{margin:0;font-size:13.5px;font-weight:600;color:rgba(11,11,16,.62);line-height:1.55}
+.card-foot{margin-top:auto;padding-top:12px;display:flex;align-items:center;gap:10px;justify-content:space-between;font-size:12px;font-weight:800}
+.card-foot .ctrl{color:rgba(11,11,16,.5);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-foot .go{color:var(--violet);flex:none}
+
+.previews-note{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border:var(--bw-s) dashed var(--ink);border-radius:16px;padding:12px 16px;font-size:13px;font-weight:700;margin-bottom:var(--s3);color:rgba(11,11,16,.85)}
+
+/* ── prompts ───────────────────────── */
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr));gap:16px;margin-bottom:var(--s4)}
+.rule{background:var(--ink);color:var(--paper);border:var(--bw) solid var(--ink);border-radius:var(--r);padding:21px;box-shadow:var(--shadow)}
+.rule .num{width:34px;height:34px;border-radius:11px;background:var(--lime);color:var(--ink);display:grid;place-items:center;font-weight:900;font-size:17px;margin-bottom:13px}
+.rule h3{margin:0 0 8px;font-size:17px;letter-spacing:-.03em;font-weight:900}
+.rule p{margin:0;font-size:13.5px;line-height:1.7;color:rgba(246,243,234,.8);font-weight:500}
+.rule code{background:rgba(214,255,62,.18);color:var(--lime);padding:1px 6px;border-radius:6px;font-size:12.5px}
+
+.steps{display:flex;flex-direction:column;gap:14px}
+.step{background:#fff;border:var(--bw) solid var(--ink);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow)}
+.step > summary{
+  list-style:none;cursor:pointer;padding:17px 18px;display:flex;align-items:center;gap:14px;
+  font-weight:900;font-size:18px;letter-spacing:-.03em;transition:background .15s
+}
+.step > summary::-webkit-details-marker{display:none}
+.step > summary:hover{background:rgba(91,63,214,.07)}
+.step .tagno{flex:none;width:44px;height:44px;border-radius:13px;border:var(--bw-s) solid var(--ink);background:var(--lime);display:grid;place-items:center;font-size:16px;font-weight:900;box-shadow:3px 3px 0 var(--ink)}
+.step .stitle{flex:1;min-width:0}
+.step .stitle small{display:block;font-size:12px;font-weight:700;color:rgba(11,11,16,.55);letter-spacing:.02em;margin-top:3px}
+.step .caret{flex:none;font-size:15px;color:rgba(11,11,16,.45);transition:transform .2s}
+.step[open] .caret{transform:rotate(180deg)}
+.step-body{padding:0 18px 18px;border-top:var(--bw-s) dashed rgba(11,11,16,.18);margin-top:2px;padding-top:16px}
+.plabel{font-size:12px;font-weight:900;letter-spacing:.09em;color:rgba(11,11,16,.55);margin-bottom:9px}
+.prompt{
+  position:relative;background:var(--ink-2);color:#EFECE3;border-radius:16px;padding:48px 18px 18px;
+  font-size:14px;line-height:1.85;font-weight:500;word-break:keep-all
+}
+.prompt .ptxt{display:block;white-space:pre-wrap}
+.copy{
+  position:absolute;top:11px;right:11px;font:inherit;font-size:12px;font-weight:900;cursor:pointer;
+  background:var(--lime);color:var(--ink);border:var(--bw-s) solid #000;border-radius:999px;padding:6px 14px;transition:.15s
+}
+.copy:hover{transform:translateY(-2px)}
+.copy.done{background:var(--cyan)}
+.check{margin-top:14px;background:rgba(214,255,62,.4);border:var(--bw-s) solid var(--ink);border-radius:14px;padding:12px 15px;font-size:13.5px;font-weight:700;line-height:1.65}
+.check b{background:var(--ink);color:var(--lime);padding:3px 9px;border-radius:7px;margin-right:9px;font-size:11px;letter-spacing:.06em;font-weight:900}
+.freelist{display:grid;gap:11px}
+
+.fix{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:16px}
+.fixcard{background:#fff;border:var(--bw) solid var(--ink);border-radius:var(--r);padding:19px;box-shadow:var(--shadow)}
+.fixcard .sit{display:inline-block;background:var(--pink-deep);color:#fff;border:var(--bw-s) solid var(--ink);border-radius:999px;padding:4px 12px;font-size:11.5px;font-weight:900;margin-bottom:12px}
+.fixcard h3{margin:0 0 13px;font-size:16.5px;letter-spacing:-.03em;font-weight:900;line-height:1.42}
+
+.ideas{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));gap:20px}
+.idea{background:#fff;border:var(--bw) solid var(--ink);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;transition:transform .16s,box-shadow .16s}
+.idea:hover{transform:translate(-4px,-4px);box-shadow:var(--shadow-lg)}
+.idea-top{padding:19px 19px 15px;display:flex;gap:13px;align-items:flex-start;border-bottom:var(--bw) solid var(--ink)}
+.idea-top .ico{flex:none;width:50px;height:50px;border-radius:15px;border:var(--bw-s) solid var(--ink);display:grid;place-items:center;font-size:24px;box-shadow:3px 3px 0 var(--ink)}
+.idea-top h3{margin:0 0 5px;font-size:19px;letter-spacing:-.035em;font-weight:900}
+.idea-top p{margin:0;font-size:13.5px;font-weight:600;color:rgba(11,11,16,.62);line-height:1.55}
+.idea-body{padding:16px 19px 19px;display:flex;flex-direction:column;gap:13px;flex:1}
+.lvl{display:flex;gap:5px;align-items:center;font-size:11.5px;font-weight:900;letter-spacing:.05em;color:rgba(11,11,16,.6)}
+.lvl i{width:9px;height:9px;border-radius:50%;background:rgba(11,11,16,.18);display:inline-block;font-style:normal}
+.lvl i.on{background:var(--pink-deep)}
+.nexts{font-size:13px;font-weight:600;line-height:1.7;color:rgba(11,11,16,.68);border-top:2px dashed rgba(11,11,16,.16);padding-top:12px}
+.nexts b{display:block;font-size:11px;letter-spacing:.09em;color:rgba(11,11,16,.55);margin-bottom:6px;font-weight:900}
+
+/* ── empty tab ─────────────────────── */
+.empty-hero{text-align:center;padding:var(--s5) 20px var(--s4)}
+.empty-hero .mascot{width:132px;height:132px;border-radius:34px;border:var(--bw) solid var(--ink);box-shadow:var(--shadow-lg);margin:0 auto var(--s3);overflow:hidden;transform:rotate(-4deg)}
+.empty-hero .mascot img{width:100%;height:100%;object-fit:cover;display:block}
+.empty-hero h2{font-size:clamp(28px,5vw,50px);letter-spacing:-.05em;font-weight:900;margin:0 0 var(--s2);line-height:1.08}
+.empty-hero .mark{background:var(--lime);border:var(--bw) solid var(--ink);border-radius:14px;padding:0 12px;display:inline-block;transform:rotate(-1.5deg)}
+.empty-hero p{margin:0 auto;max-width:44ch;font-size:16px;line-height:1.78;font-weight:600;color:rgba(11,11,16,.66)}
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(230px,100%),1fr));gap:18px;margin-top:var(--s5)}
+.slot{
+  aspect-ratio:4/3.4;border:var(--bw) dashed rgba(11,11,16,.38);border-radius:var(--r);display:grid;place-items:center;
+  background:rgba(255,255,255,.62);color:rgba(11,11,16,.55);text-align:center;padding:20px;transition:.18s
+}
+.slot:hover{border-color:var(--violet);color:var(--violet);background:#fff;transform:translateY(-4px)}
+.slot .plus{font-size:40px;font-weight:900;line-height:1;margin-bottom:10px}
+.slot .lb{font-size:13.5px;font-weight:900;letter-spacing:-.02em}
+.slot .sb{font-size:12px;font-weight:700;margin-top:5px}
+
+/* ── footer ────────────────────────── */
+.foot{border-top:var(--bw) solid var(--ink);background:var(--ink);color:var(--paper);padding:38px 0;position:relative;z-index:1}
+.foot-in{max-width:1240px;margin:0 auto;padding:0 20px;display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.foot b{font-size:16px;letter-spacing:-.03em}
+.foot p{margin:6px 0 0;font-size:13px;color:rgba(246,243,234,.6);font-weight:600}
+.foot a{color:var(--lime);font-weight:800;font-size:13.5px;text-decoration:none;border:var(--bw-s) solid var(--lime);border-radius:999px;padding:9px 17px;display:inline-block;transition:.15s}
+.foot a:hover{background:var(--lime);color:var(--ink)}
+
+@media (max-width:860px){
+  .hero{padding:var(--s4) 0 var(--s3)}
+  .hero-grid{grid-template-columns:1fr;gap:var(--s2)}
+  .collage{height:230px;order:-1;margin-bottom:var(--s2)}
+  .sticker.s1{width:52%}.sticker.s2{width:40%}.sticker.s3{width:38%}.sticker.s4{width:29%}
+  .tabs{width:100%;margin-left:0}
+  .tabbtn{flex:1 1 0;min-width:0;text-align:center;padding:10px 6px;font-size:13px}
+  .tabbtn .n{display:none}
+  .pvtoggle{margin-left:0;width:100%}
+}
+@media (hover:none){
+  .thumb iframe{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-in">
+    <a class="brand" href="#top">
+      <span class="dot" aria-hidden="true">🧺</span>
+      <span>반곡초 바이브코딩 저장소<small>BANGOK VIBE CODING</small></span>
+    </a>
+    <nav class="tabs" role="tablist" aria-label="저장소 메뉴">
+      <button class="tabbtn" id="tab-games"   role="tab" aria-selected="true"  aria-controls="panel-games"   data-tab="games">🕹️ 게임 저장소<span class="n">18</span></button>
+      <button class="tabbtn" id="tab-prompts" role="tab" aria-selected="false" aria-controls="panel-prompts" data-tab="prompts" tabindex="-1">💬 프롬프트 저장소<span class="n">7+9</span></button>
+      <button class="tabbtn" id="tab-next"    role="tab" aria-selected="false" aria-controls="panel-next"    data-tab="next" tabindex="-1">🌱 추가 개발 예정</button>
+    </nav>
+  </div>
+</header>
+
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-track">
+    <span>바이브코딩 ✦ 건강 간식을 모아라 ✦ 내가 만든 게임 ✦ AI와 함께 ✦ 반곡초등학교 ✦ HTML 한 파일 ✦ 한 번에 한 단계씩 ✦ 바이브코딩 ✦ 건강 간식을 모아라 ✦ 내가 만든 게임 ✦ AI와 함께 ✦ 반곡초등학교 ✦ HTML 한 파일 ✦ 한 번에 한 단계씩 ✦</span>
+    <span>바이브코딩 ✦ 건강 간식을 모아라 ✦ 내가 만든 게임 ✦ AI와 함께 ✦ 반곡초등학교 ✦ HTML 한 파일 ✦ 한 번에 한 단계씩 ✦ 바이브코딩 ✦ 건강 간식을 모아라 ✦ 내가 만든 게임 ✦ AI와 함께 ✦ 반곡초등학교 ✦ HTML 한 파일 ✦ 한 번에 한 단계씩 ✦</span>
+  </div>
+</div>
+
+<main class="wrap" id="top">
+
+  <section class="hero">
+    <div class="hero-grid">
+      <div>
+        <span class="eyebrow">⚡ 2026 여름 바이브코딩 수업</span>
+        <h1 class="title">아이들이 만든<br /><span class="hl">진짜 게임</span>,<br /><span class="box">전부 여기에</span></h1>
+        <p class="lead">코드를 한 줄도 안 외웠어요. 대신 <b>말로 시켰어요.</b><br />
+          반곡초등학교 친구들이 AI와 대화하면서 만든 HTML 게임 저장소예요.
+          카드의 미리보기는 <b>진짜 게임 화면</b>이에요.</p>
+        <div class="stats">
+          <div class="stat"><b>18</b><span>GAMES</span></div>
+          <div class="stat"><b>7</b><span>STEP 프롬프트</span></div>
+          <div class="stat"><b>9</b><span>다음 게임 아이디어</span></div>
+          <div class="stat"><b>∞</b><span>만들 수 있는 것</span></div>
+        </div>
+      </div>
+      <div class="collage" aria-hidden="true">
+        <div class="sticker s1"><span class="tape"></span><img src="assets/char-penguin.jpg" alt="" loading="lazy" width="720" height="720" /></div>
+        <div class="sticker s2"><img src="assets/char-apple.jpg" alt="" loading="lazy" width="720" height="720" /></div>
+        <div class="sticker s3"><img src="assets/char-redpanda.jpg" alt="" loading="lazy" width="720" height="720" /></div>
+        <div class="sticker s4"><img src="assets/char-banana.jpg" alt="" loading="lazy" width="720" height="720" /></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ TAB 1 ══════════ -->
+  <section class="panel on" id="panel-games" role="tabpanel" aria-labelledby="tab-games" tabindex="0">
+    <div class="sec-head">
+      <h2>🕹️ 게임 저장소</h2>
+      <p>카드를 누르면 게임이 새 창에서 열려요</p>
+    </div>
+
+    <div class="previews-note">
+      <span aria-hidden="true">👀</span>
+      <span>썸네일은 <b>진짜 게임 화면</b>이에요. 한 번에 6개까지만 켜지고, 화면 밖으로 나가면 자동으로 꺼져요. 느리면 <b>미리보기 끄기</b>를 누르세요.</span>
+    </div>
+
+    <div class="toolbar">
+      <div class="chips" id="chips">
+        <button class="chip" aria-pressed="true" data-f="all">전체</button>
+        <button class="chip" aria-pressed="false" data-f="3d">🧊 3D</button>
+        <button class="chip" aria-pressed="false" data-f="canvas">🖌️ 캔버스</button>
+        <button class="chip" aria-pressed="false" data-f="2d">🎨 2D</button>
+        <button class="chip" aria-pressed="false" data-f="a">묶음 A</button>
+        <button class="chip" aria-pressed="false" data-f="b">묶음 B</button>
+      </div>
+      <button class="pvtoggle" id="pvtoggle" type="button" aria-pressed="true">▶️ 미리보기 켜짐</button>
+    </div>
+
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <!-- ══════════ TAB 2 ══════════ -->
+  <section class="panel" id="panel-prompts" role="tabpanel" aria-labelledby="tab-prompts" tabindex="0">
+    <div class="sec-head">
+      <h2>💬 프롬프트 저장소</h2>
+      <p>복사해서 AI에게 그대로 붙여넣으면 돼요</p>
+    </div>
+
+    <div class="rules">
+      <div class="rule">
+        <div class="num" aria-hidden="true">1</div>
+        <h3>한 번에 한 단계씩!</h3>
+        <p>프롬프트를 하나 보내고, 게임이 잘 되는지 확인한 다음에 다음 단계로 가요.</p>
+      </div>
+      <div class="rule">
+        <div class="num" aria-hidden="true">2</div>
+        <h3>"지금 만든 게임에서~"</h3>
+        <p>다음 단계를 시킬 때는 꼭 <code>지금 만든 게임에서</code> 라고 말해요. 안 그러면 AI가 처음부터 새로 만들어서 이전 것이 사라져요!</p>
+      </div>
+      <div class="rule">
+        <div class="num" aria-hidden="true">3</div>
+        <h3>이상하면 이렇게 말해요</h3>
+        <p>“OO을 누르고 바구니를 움직였는데 안 움직여. 고쳐줘.” — <b>내가 뭘 했는지 + 뭐가 안 되는지</b></p>
+      </div>
+    </div>
+
+    <div class="sec-head">
+      <h2 class="sub">🧺 건강한 간식 잡기 게임 — 단계별 프롬프트</h2>
+      <p>1단계부터 순서대로</p>
+    </div>
+    <div class="steps" id="steps"></div>
+
+    <div class="sec-head">
+      <h2 class="sub">🛠️ 문제가 생겼을 때 쓰는 "고쳐줘 프롬프트"</h2>
+    </div>
+    <div class="fix" id="fixes"></div>
+
+    <div class="sec-head">
+      <h2 class="sub">🚀 다음엔 이런 게임 어때? — 추가 개발 아이디어</h2>
+      <p>1단계 프롬프트를 복사해서 시작하고, 그 다음은 위 규칙대로 한 단계씩</p>
+    </div>
+    <div class="ideas" id="ideas"></div>
+  </section>
+
+  <!-- ══════════ TAB 3 ══════════ -->
+  <section class="panel" id="panel-next" role="tabpanel" aria-labelledby="tab-next" tabindex="0">
+    <div class="empty-hero">
+      <div class="mascot"><img src="assets/char-greenboy.jpg" alt="" loading="lazy" width="720" height="720" /></div>
+      <h2>여기는 아직 <span class="mark">비어 있어요</span></h2>
+      <p>오늘 수업에서 만든 게임이 하나씩 여기에 채워질 거예요.<br />내 게임이 이 자리에 걸리는 날까지 — 한 단계씩!</p>
+    </div>
+    <div class="slots" id="slots"></div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="foot-in">
+    <div>
+      <b>반곡초등학교 바이브코딩 저장소</b>
+      <p>© 2026 반곡초등학교 · 학생들이 AI와 함께 만든 작품입니다</p>
+    </div>
+    <a href="https://github.com/kwonjungu/ban12" target="_blank" rel="noopener">⌘ GitHub 저장소 →</a>
+  </div>
+</footer>
+
+<script>
+/* ─────────── 데이터 ─────────── */
+const CHARS = ['char-apple','char-banana','char-greenboy','char-schoolgirl','char-girl','char-neon','char-redpanda','char-penguin'];
+
+const GAMES = [
+  {f:'3d-healthy-snack-bear.html',      t:'3D 건강 간식을 모아라!',       d:'곰돌이 셰프의 3D 주방 간식 받기',   c:'← → 이동 · 스페이스 시작', k:'3d', g:'a', e:'🐻'},
+  {f:'3d-catch-food.html',              t:'맛있는 음식을 잡아라! 3D',      d:'3D 바구니로 떨어지는 음식 받기',    c:'← → 이동 · 드래그', k:'3d', g:'a', e:'🧺'},
+  {f:'3d-bear-snack-collect.html',      t:'곰돌이의 건강 간식 모으기 3D',  d:'입 벌린 곰돌이에게 간식 골인',      c:'← → 이동 · 스페이스 시작', k:'3d', g:'a', e:'😋'},
+  {f:'healthy-snack-canvas.html',       t:'건강 간식을 모아라! (캔버스)',  d:'콤보와 황금별이 빛나는 간식 받기',  c:'← → · 드래그 · 스페이스', k:'canvas', g:'b', e:'🧺'},
+  {f:'space-egg.html',                  t:'스페이스 에그',                 d:'우주 계란후라이로 슈팅! 보스 대결', c:'WASD 이동 · 스페이스 발사', k:'canvas', g:'b', e:'🍳'},
+  {f:'healthy-snack-apple-bear.html',   t:'건강 간식을 모아라!',           d:'곰돌이 바구니로 건강 간식 받기',    c:'← → 이동 · 스페이스 시작', k:'canvas', g:'a', e:'🐻'},
+  {f:'healthy-snack-basket-1.html',     t:'건강한 간식 잡기 게임 ①',       d:'ㄱ키 누르면 간식 폭포가 쏟아져요',  c:'← → 이동 · ㄱ 폭포 · ㅅ 확대', k:'canvas', g:'a', e:'🧺'},
+  {f:'healthy-snack-basket-2.html',     t:'건강한 간식 잡기 게임 ②',       d:'간식이 폭포처럼 쏟아지는 바구니',   c:'← → 이동 · ㄱ 폭포', k:'canvas', g:'a', e:'🧺'},
+  {f:'colorful-stage-snack.html',       t:'알록달록 맛있는 무대',          d:'용암과 폭탄이 터지는 비밀 스킬',    c:'← → 이동 · E 폭탄 · Q 용암', k:'2d', g:'a', e:'🌋'},
+  {f:'yummy-catch.html',                t:'맛있는 음식 받기 게임',         d:'토끼 입으로 간식 쏙 받기',          c:'← → 이동 · 스페이스 재시작', k:'2d', g:'a', e:'🐰'},
+  {f:'green-kitchen-basket.html',       t:'연두색 주방 간식 받기',         d:'최고 점수가 저장되는 주방 캐치',    c:'← → 또는 A/D · 스페이스', k:'2d', g:'a', e:'🥗'},
+  {f:'food-basket-basic.html',          t:'음식 담기 게임',                d:'점프와 하트 회복이 되는 담기',      c:'← → 이동 · D 점프 · ↓ 회복', k:'2d', g:'a', e:'🧺'},
+  {f:'kitchen-food-catch.html',         t:'주방 음식 담기 게임',           d:'오징어 먹물과 탄산 부스트 주방',    c:'← → 이동 · 드래그', k:'2d', g:'b', e:'🦑'},
+  {f:'green-kitchen-cooking-catch.html',t:'연두빛 키친 — 쿠킹 캐치',       d:'손으로 받는 간식, 김구라 조심!',    c:'← → 이동 · 1·2·3 속도', k:'2d', g:'b', e:'🤲'},
+  {f:'cozy-kitchen-basket.html',        t:'아기자기 주방 음식 담기 게임',  d:'거대 망고 잡고 사과 샤워!',         c:'← → 이동 · Z/A 망고 크기', k:'2d', g:'b', e:'🧺'},
+  {f:'yummy-catch-basket.html',         t:'맛있는 주방 음식 받기',         d:'목숨 3개로 건강 간식만 쏙 받기',    c:'← → 이동 · 스페이스 재시작', k:'2d', g:'b', e:'🧺'},
+  {f:'food-catch-basket.html',          t:'음식 받기 게임',                d:'90초 동안 일반·하드 모드 대결',     c:'← → 이동 · 모드 선택 후 시작', k:'2d', g:'b', e:'🐍'},
+  {f:'pretty-kitchen-basket.html',      t:'예쁜 주방 건강 간식 받기',      d:'통통 튀며 건강 간식 모으기',        c:'← → 이동 · 드래그', k:'2d', g:'b', e:'✨'}
+];
+
+const STEPS = [
+  {n:'1단계', t:'알록달록 무대 만들기', s:'화면부터 예쁘게',
+   p:`HTML 파일 하나로 되는 게임을 만들 거야. 지금은 화면만 만들어줘.
+- 화면 배경은 예쁜 연두색 주방이나 식탁 느낌이야.
+- 화면 맨 아래 가운데에 음식을 담을 바구니(🧺) 이모지가 있어.
+- 아직 움직이는 건 없어도 돼. 화면만 예쁘게 보여줘.
+코드는 파일 하나(index.html)에 전부 넣어줘.`,
+   c:'연두색 배경에 아래쪽 가운데 바구니가 예쁘게 보이면 성공!'},
+  {n:'2단계', t:'바구니 움직이기', s:'방향키로 조종',
+   p:`지금 만든 게임에서, 왼쪽 오른쪽 방향키를 누르고 있으면 바구니(🧺)가 좌우로 부드럽게 움직이게 해줘.
+- 바구니는 아래쪽에서 좌우로만 움직여.
+- 화면 밖으로는 못 나가게 해줘.`,
+   c:'방향키를 꾹 누르면 바구니가 좌우로 미끄러지듯 움직이면 성공!'},
+  {n:'3단계', t:'하늘에서 건강 간식 떨어지기!', s:'주인공 등장',
+   p:`지금 만든 게임에서, 하늘에서 건강 간식이 떨어지게 해줘.
+- 건강 간식 이모지(🍎 사과, 🥦 브로콜리, 🥛 우유, 🍌 바나나)가 화면 위쪽 랜덤한 위치에서 아래로 뚝 떨어져.
+- 아래로 다 떨어진 간식은 사라지고, 계속해서 새 간식이 떨어져.
+- 아직 바구니로 받아도 아무 일 없어도 돼.`,
+   c:'하늘에서 사과, 브로콜리, 우유가 툭툭 떨어지면 성공!'},
+  {n:'4단계', t:'맛있게 냠냠! 간식 잡기', s:'드디어 점수',
+   p:`지금 만든 게임에서, 떨어지는 간식을 바구니로 받아낼 수 있게 해줘.
+- 바구니에 간식이 닿으면 "쏙!" 소리 느낌으로 사라져.
+- 건강 간식을 하나 받으면 점수가 10점 올라가.
+- 점수는 화면 위쪽에 항상 크게 보여줘.`,
+   c:'간식을 바구니로 받으면 싹 사라지면서 점수가 오르면 성공!'},
+  {n:'5단계', t:'조심해! 정크푸드 등장', s:'방해꾼 추가',
+   p:`지금 만든 게임에서, 몸에 안 좋은 정크푸드도 같이 떨어지게 해줘.
+- 가끔 정크푸드 이모지(🍩 도넛, 🍟 감자튀김, 🍬 캔디)가 떨어져.
+- 정크푸드를 바구니로 받으면 점수가 10점 깎여.
+- 정크푸드를 받았을 때 잠깐 화면이 흔들리거나 어두워지는 효과를 줘.`,
+   c:'도넛이나 감자튀김을 받았을 때 점수가 깎이면 성공!'},
+  {n:'6단계', t:'기회와 게임 오버', s:'진짜 게임처럼',
+   p:`지금 만든 게임에서, 목숨과 게임 오버 기능을 넣어줘.
+- 시작할 때 기회는 하트 3개(❤️ ❤️ ❤️)야. 화면 위쪽에 보여줘.
+- 건강 간식을 바구니로 못 받고 바닥에 떨어뜨리면 하트가 1개 사라져.
+- (정크푸드는 바닥에 떨어져도 하트가 안 사라져!)
+- 하트가 다 없어지면 "게임 오버! 건강한 식습관 완성 실패!"가 나오고, 스페이스 키를 누르면 다시 처음부터 시작해.`,
+   c:'좋은 간식을 3번 놓치면 게임 오버가 되고, 스페이스 키로 다시 시작되면 성공!'}
+];
+
+const FREE = [
+  `지금 만든 게임에서, 시작 화면을 만들어줘. "건강 간식을 모아라!" 제목과 게임 방법이 나오고, 스페이스 키를 누르면 시작돼.`,
+  `지금 만든 게임에서, 점수가 높아질수록 간식이 더 빠르게 떨어지게 해줘.`,
+  `지금 만든 게임에서, 최고 점수를 기억해서 보여줘.`,
+  `지금 만든 게임에서, 간식을 잡을 때 팡파르 소리나 효과음이 나게 해줘.`,
+  `지금 만든 게임에서, 가끔 황금 사과(🍎✨)가 떨어지게 해줘. 황금 사과를 먹으면 50점을 얻거나 하트가 1개 회복돼!`,
+  `지금 만든 게임에서, 바구니 대신 입을 벌린 귀여운 곰돌이(🐻)로 바꿔줘.`
+];
+
+const FIXES = [
+  {s:'상황 1', t:'화면이 하얗게 아무것도 안 나와요', p:`화면이 하얗게 아무것도 안 보여. 코드에 오류가 있는지 찾아서 고쳐줘.`},
+  {s:'상황 2', t:'이전에 되던 게 안 돼요',          p:`아까는 방향키로 바구니가 움직였는데 지금은 안 돼. 바구니 움직임 기능을 다시 살려줘.`},
+  {s:'상황 3', t:'AI가 게임을 새로 만들어버렸어요',  p:`새로 만들지 말고, 방금 전 코드에서 그것만 바꿔줘.`},
+  {s:'상황 4', t:'게임이 너무 어렵거나 너무 쉬워요', p:`간식이 너무 빠르게 떨어져서 어려워. 조금만 천천히 떨어지게 해줘.`}
+];
+
+const IDEAS = [
+  {ico:'🕵️', bg:'#FFD84D', t:'영양 탐정 퀴즈', d:'영양성분표만 보고 무슨 음식인지 맞히기', lv:1,
+   p:`HTML 파일 하나로 되는 퀴즈 게임을 만들 거야. 지금은 화면만 만들어줘.
+- 배경은 탐정 사무실 느낌으로 갈색과 노란색을 써줘.
+- 화면 가운데에 커다란 카드 한 장이 있고, 그 안에 영양성분표(칼로리, 당류, 나트륨, 단백질)가 크게 적혀 있어.
+- 카드 아래에는 음식 이모지 보기 4개(🥤 🍜 🥚 🍩)가 버튼으로 나란히 있어.
+- 아직 눌러도 아무 일이 없어도 돼. 화면만 예쁘게 보여줘.
+코드는 파일 하나(index.html)에 전부 넣어줘.`,
+   next:'보기를 누르면 정답/오답 표시 → 점수 → 문제 10개 넘기기 → 왜 그렇게 생각했는지 적으면 1점 더'},
+
+  {ico:'🥁', bg:'#FF9AD5', t:'급식 리듬 게임', d:'박자에 맞춰 떨어지는 반찬 두드리기', lv:2,
+   p:`HTML 파일 하나로 되는 리듬 게임을 만들 거야. 지금은 화면만 만들어줘.
+- 배경은 어두운 보라색이고 네온 불빛 느낌이야.
+- 화면을 세로로 4칸 나누고, 맨 아래에 판정선을 밝은 선으로 그려줘.
+- 각 칸 아래에는 눌러야 할 키(D F J K)가 크게 적혀 있어.
+- 아직 아무것도 안 떨어져도 돼. 화면만 예쁘게 보여줘.
+코드는 파일 하나(index.html)에 전부 넣어줘.`,
+   next:'위에서 반찬 이모지 떨어뜨리기 → 판정선에서 키 누르면 PERFECT/GOOD/MISS → 콤보 → 점점 빨라지기'},
+
+  {ico:'🌱', bg:'#B8F36B', t:'우리 반 텃밭 키우기', d:'물 주고 햇빛 주며 채소 키우는 클리커', lv:1,
+   p:`HTML 파일 하나로 되는 텃밭 키우기 게임을 만들 거야. 지금은 화면만 만들어줘.
+- 배경은 파란 하늘과 갈색 흙밭이야.
+- 흙밭 위에 작은 새싹(🌱) 하나가 가운데에 있어.
+- 아래쪽에 "물 주기 💧", "햇빛 주기 ☀️" 버튼 두 개가 크고 동그랗게 있어.
+- 화면 위쪽에는 "성장 포인트: 0" 이라고 크게 보여줘.
+- 아직 눌러도 아무 일이 없어도 돼.
+코드는 파일 하나(index.html)에 전부 넣어줘.`,
+   next:'버튼 누르면 포인트 +1 → 포인트에 따라 🌱→🌿→🥬 로 변신 → 물 너무 많이 주면 시들기 → 다 키우면 도감에 저장'},
+
+  {ico:'🏃', bg:'#7CD6FF', t:'복도 대탈출 러너', d:'장애물을 점프로 피하는 무한 달리기', lv:2,
+   p:`HTML 파일 하나로 되는 달리기 게임을 만들 거야. 지금은 화면만 만들어줘.
+- 배경은 학교 복도 느낌이고, 오른쪽에서 왼쪽으로 흘러가는 느낌을 주면 좋아.
+- 화면 왼쪽 아래에 달리는 학생(🏃) 이모지가 있어.
+- 화면 위쪽에는 "달린 거리: 0m" 라고 크게 보여줘.
+- 아직 움직이는 건 없어도 돼. 화면만 예쁘게 보여줘.
+코드는 파일 하나(index.html)에 전부 넣어줘.`,
+   next:'스페이스로 점프 → 오른쪽에서 장애물(🪣 🧹) 다가오기 → 부딪히면 게임 오버 → 점점 빨라지기 → 최고 기록 저장'},
+
+  {ico:'🍳', bg:'#FFB86B', t:'급식실 요리 조합', d:'재료를 드래그해서 합치면 새 음식 탄생', lv:3,
+   p:`HTML 파일 하나로 되는 요리 조합 게임을 만들 거야. 지금은 화면만 만들어줘.
+- 배경은 밝은 급식실 주방이야.
+- 화면 왼쪽에 재료 이모지 카드(🥚 🍚 🥬 🧀)가 세로로 놓여 있어.
+- 화면 오른쪽 가운데에는 커다랗고 동그란 냄비(🍲)가 있어.
+- 화면 아래에는 "만든 요리" 칸이 비어 있어.
+- 아직 움직이는 건 없어도 돼. 화면만 예쁘게 보여줘.
+코드는 파일 하나(index.html)에 전부 넣어줘.`,
+   next:'재료를 마우스로 끌어서 냄비에 넣기 → 2개 조합하면 새 요리 등장(🥚+🍚=🍳) → 요리 도감 → 못 만드는 조합은 💨'},
+
+  {ico:'🦷', bg:'#8FD9FF', t:'충치 몬스터 무찌르기', d:'칫솔로 슥슥! 이빨 지키기 게임', lv:2,
+   p:`HTML 파일 하나로 되는 게임을 만들 거야. 지금은 화면만 만들어줘.
+- 배경은 하늘색이고 가운데에 커다랗고 하얀 이빨(🦷)이 여러 개 나란히 있어.
+- 마우스를 따라다니는 칫솔(🪥) 이모지가 있어.
+- 화면 위쪽에 "깨끗함: 100%" 이라고 크게 보여줘.
+- 아직 충치는 없어도 돼. 화면만 예쁘게 보여줘.
+코드는 파일 하나(index.html)에 전부 넣어줘.`,
+   next:'이빨에 충치 몬스터(🦠) 랜덤 등장 → 칫솔로 문지르면 사라짐 → 시간 지나면 깨끗함 감소 → 0%면 게임 오버'},
+
+  {ico:'🐶', bg:'#FFC7DC', t:'강아지 산책 시뮬', d:'우리 강아지 밥 주고 산책 시키기', lv:2,
+   p:`HTML 파일 하나로 되는 강아지 키우기 게임을 만들 거야. 지금은 화면만 만들어줘.
+- 배경은 따뜻한 방 안 느낌이야.
+- 가운데에 귀여운 강아지(🐶) 이모지가 크게 있어.
+- 화면 위쪽에 배고픔 / 행복 / 체력 막대 세 개를 색깔 다르게 보여줘.
+- 아래쪽에 "밥 주기 🍖", "놀아주기 🎾", "산책 가기 🦮" 버튼 세 개가 있어.
+- 아직 눌러도 아무 일이 없어도 돼.
+코드는 파일 하나(index.html)에 전부 넣어줘.`,
+   next:'버튼 누르면 막대 변하기 → 시간이 지나면 배고픔 증가 → 강아지 표정 바뀌기 → 잘 키우면 레벨업'},
+
+  {ico:'🛒', bg:'#D6B8FF', t:'건강 장보기 타임어택', d:'30초 안에 건강한 재료만 카트에 담기', lv:2,
+   p:`HTML 파일 하나로 되는 장보기 게임을 만들 거야. 지금은 화면만 만들어줘.
+- 배경은 마트 진열대 느낌이야.
+- 화면에 음식 이모지 12개(🍎 🥦 🥛 🍌 🥕 🍞 🍩 🍟 🍬 🥤 🍰 🌭)가 바둑판처럼 놓여 있어.
+- 화면 위쪽에 "남은 시간: 30초"와 "장바구니: 0개"를 크게 보여줘.
+- 아직 눌러도 아무 일이 없어도 돼.
+코드는 파일 하나(index.html)에 전부 넣어줘.`,
+   next:'건강한 음식 클릭하면 +10점, 정크푸드는 -10점 → 시간 줄어들기 → 0초면 결과 화면 → 위치 섞기'},
+
+  {ico:'🚀', bg:'#FF8FA3', t:'우주 급식 배달', d:'행성마다 알맞은 음식 떨어뜨리기', lv:3,
+   p:`HTML 파일 하나로 되는 우주 배달 게임을 만들 거야. 지금은 화면만 만들어줘.
+- 배경은 까만 우주에 별이 반짝여.
+- 화면 위쪽에 우주선(🚀) 하나가 있고, 아래쪽에는 행성 세 개(🔴 🔵 🟢)가 나란히 있어.
+- 화면 위에 "배달 성공: 0개" 라고 크게 보여줘.
+- 아직 움직이는 건 없어도 돼. 화면만 예쁘게 보여줘.
+코드는 파일 하나(index.html)에 전부 넣어줘.`,
+   next:'방향키로 우주선 이동 → 스페이스로 음식 투하 → 행성 색과 음식 색이 맞으면 성공 → 행성이 움직이기'}
+];
+
+/* ─────────── 유틸 ─────────── */
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const promptBlock = text =>
+  `<div class="prompt"><button class="copy" type="button" aria-label="프롬프트 복사">복사</button><span class="ptxt">${esc(text)}</span></div>`;
+
+/* ─────────── 게임 카드 ─────────── */
+const grid = document.getElementById('grid');
+grid.innerHTML = GAMES.map((g, i) => {
+  const kindLabel = g.k === '3d' ? '3D' : g.k === 'canvas' ? 'CANVAS' : '2D';
+  const kindCls   = g.k === '3d' ? 'b3d' : g.k === 'canvas' ? 'bcv' : '';
+  return `<a class="card" href="games/${g.f}" target="_blank" rel="noopener" data-k="${g.k}" data-g="${g.g}">
+    <div class="thumb" data-src="games/${g.f}">
+      <div class="ph" style="background-image:url('assets/${CHARS[i % CHARS.length]}.jpg')"><em>미리보기 준비 중…</em></div>
+      <div class="badges">
+        <span class="badge ${kindCls}">${kindLabel}</span>
+        <span class="badge bg">묶음 ${g.g.toUpperCase()}</span>
+      </div>
+      <span class="play">▶ 플레이</span>
+    </div>
+    <div class="card-body">
+      <h3>${g.e} ${esc(g.t)}</h3>
+      <p class="cdesc">${esc(g.d)}</p>
+      <div class="card-foot"><span class="ctrl">${esc(g.c)}</span><span class="go">열기 →</span></div>
+    </div>
+  </a>`;
+}).join('');
+
+/* ─────────── 썸네일 = 진짜 게임 화면 ───────────
+   · 최대 6개까지만 동시에 살려 둔다 (LRU)
+   · 화면 밖으로 나가면 iframe 을 제거해 rAF 루프를 정지시킨다
+   · 터치 기기(hover 없음)에서는 아예 켜지 않는다
+------------------------------------------------ */
+const MAX_LIVE = 6;
+const live = [];                                    // LRU 큐 (오래된 것이 앞)
+const canPreview = window.matchMedia('(hover:hover) and (pointer:fine)').matches;
+let previewOn = canPreview && localStorage.getItem('bg_preview') !== 'off';
+
+function fitThumb(th){
+  th.style.setProperty('--s', (th.clientWidth / 1280).toFixed(4));
+}
+const ro = new ResizeObserver(es => es.forEach(e => fitThumb(e.target)));
+
+function unloadThumb(th){
+  const f = th.querySelector('iframe');
+  if (!f) return;
+  clearTimeout(th._t);
+  f.src = 'about:blank';
+  f.remove();
+  th.classList.remove('ready');
+  ro.unobserve(th);
+  const i = live.indexOf(th);
+  if (i > -1) live.splice(i, 1);
+  const em = th.querySelector('.ph em');
+  if (em) em.textContent = '미리보기 준비 중…';
+}
+
+function loadThumb(th){
+  if (!previewOn || th.querySelector('iframe')) return;
+  while (live.length >= MAX_LIVE) unloadThumb(live[0]);
+
+  const f = document.createElement('iframe');
+  f.setAttribute('scrolling','no');
+  f.setAttribute('tabindex','-1');
+  f.setAttribute('aria-hidden','true');
+  f.setAttribute('title','게임 미리보기');
+  f.addEventListener('load', () => {
+    // 404 페이지나 스크립트 사망을 감지 — 실제 게임 요소가 있는지 확인
+    let ok = true;
+    try {
+      const doc = f.contentDocument;
+      if (doc && !doc.querySelector('canvas, #gameArea, #game, .game-container, body > div')) ok = false;
+    } catch (_) { /* 크로스 오리진이면 검사 생략 */ }
+    if (!ok) { th.querySelector('.ph em').textContent = '미리보기를 불러오지 못했어요'; return; }
+    th.classList.add('ready');
+    fitThumb(th);
+    clearTimeout(th._t);
+  }, {once:true});
+
+  f.src = th.dataset.src;      // ★ appendChild 전에 지정 (about:blank 조기 load 방지)
+  th.appendChild(f);
+  fitThumb(th);
+  ro.observe(th);
+  live.push(th);
+
+  th._t = setTimeout(() => {
+    if (!th.classList.contains('ready')) th.querySelector('.ph em').textContent = '미리보기를 불러오지 못했어요';
+  }, 12000);
+}
+
+const io = new IntersectionObserver(entries => {
+  entries.forEach(en => {
+    const th = en.target;
+    if (en.isIntersecting) loadThumb(th);
+    else unloadThumb(th);
+  });
+}, {rootMargin:'250px 0px'});
+
+const thumbs = [...document.querySelectorAll('.thumb')];
+function startPreviews(){ thumbs.forEach(th => io.observe(th)); }
+function stopPreviews(){ thumbs.forEach(th => { io.unobserve(th); unloadThumb(th); }); }
+
+const pvBtn = document.getElementById('pvtoggle');
+function renderToggle(){
+  pvBtn.setAttribute('aria-pressed', String(previewOn));
+  pvBtn.textContent = previewOn ? '▶️ 미리보기 켜짐' : '⏸️ 미리보기 꺼짐';
+}
+if (!canPreview) {
+  previewOn = false;
+  pvBtn.disabled = true;
+  pvBtn.style.opacity = '.5';
+  pvBtn.style.cursor = 'default';
+  pvBtn.textContent = '📱 이 기기에선 미리보기 없음';
+  pvBtn.setAttribute('aria-pressed', 'false');
+} else {
+  renderToggle();
+  if (previewOn) startPreviews();
+  pvBtn.addEventListener('click', () => {
+    previewOn = !previewOn;
+    localStorage.setItem('bg_preview', previewOn ? 'on' : 'off');
+    renderToggle();
+    previewOn ? startPreviews() : stopPreviews();
+  });
+}
+
+/* ─────────── 필터 ─────────── */
+document.getElementById('chips').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  document.querySelectorAll('#chips .chip').forEach(c => c.setAttribute('aria-pressed', String(c === b)));
+  const f = b.dataset.f;
+  document.querySelectorAll('#grid .card').forEach(c => {
+    const ok = f === 'all' || c.dataset.k === f || c.dataset.g === f;
+    c.hidden = !ok;
+    if (!ok) unloadThumb(c.querySelector('.thumb'));
+  });
+});
+
+/* ─────────── 프롬프트 렌더 ─────────── */
+document.getElementById('steps').innerHTML = STEPS.map((s, i) => `
+  <details class="step"${i === 0 ? ' open' : ''}>
+    <summary>
+      <span class="tagno" aria-hidden="true">${i + 1}</span>
+      <span class="stitle">${esc(s.t)}<small>${esc(s.n)} · ${esc(s.s)}</small></span>
+      <span class="caret" aria-hidden="true">▼</span>
+    </summary>
+    <div class="step-body">
+      <div class="plabel">▶ 복사할 프롬프트</div>
+      ${promptBlock(s.p)}
+      <div class="check"><b>확인</b>${esc(s.c)}</div>
+    </div>
+  </details>`).join('') + `
+  <details class="step">
+    <summary>
+      <span class="tagno" style="background:var(--pink-deep);color:#fff" aria-hidden="true">7</span>
+      <span class="stitle">나만의 맛있는 게임으로 꾸미기<small>7단계 · 자유 미션</small></span>
+      <span class="caret" aria-hidden="true">▼</span>
+    </summary>
+    <div class="step-body">
+      <div class="plabel">▶ 아래에서 하나씩 골라서 시켜 보세요 (직접 만들어도 좋아요!)</div>
+      <div class="freelist">${FREE.map(promptBlock).join('')}</div>
+    </div>
+  </details>`;
+
+document.getElementById('fixes').innerHTML = FIXES.map(f => `
+  <div class="fixcard">
+    <span class="sit">${esc(f.s)}</span>
+    <h3>${esc(f.t)}</h3>
+    ${promptBlock(f.p)}
+  </div>`).join('');
+
+document.getElementById('ideas').innerHTML = IDEAS.map(v => `
+  <article class="idea">
+    <div class="idea-top">
+      <div class="ico" style="background:${v.bg}" aria-hidden="true">${v.ico}</div>
+      <div><h3>${esc(v.t)}</h3><p>${esc(v.d)}</p></div>
+    </div>
+    <div class="idea-body">
+      <div class="lvl">난이도 <i class="on"></i><i class="${v.lv > 1 ? 'on' : ''}"></i><i class="${v.lv > 2 ? 'on' : ''}"></i></div>
+      <div class="plabel">▶ 1단계 프롬프트 (여기부터 시작!)</div>
+      ${promptBlock(v.p)}
+      <div class="nexts"><b>다음 단계로 이어가기</b>${esc(v.next)}</div>
+    </div>
+  </article>`).join('');
+
+document.getElementById('slots').innerHTML = Array.from({length:8}, () =>
+  `<div class="slot"><div><div class="plus" aria-hidden="true">+</div><div class="lb">비어 있는 자리</div><div class="sb">여기에 내 게임</div></div></div>`).join('');
+
+/* ─────────── 복사 버튼 ─────────── */
+document.addEventListener('click', async e => {
+  const btn = e.target.closest('.copy'); if (!btn) return;
+  if (btn.classList.contains('done')) return;
+  const node = btn.parentElement.querySelector('.ptxt');
+  if (!node) return;
+  const text = node.textContent;
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (_) {}
+    ta.remove();
+  }
+  btn.textContent = '복사됨 ✓'; btn.classList.add('done');
+  clearTimeout(btn._t);
+  btn._t = setTimeout(() => { btn.textContent = '복사'; btn.classList.remove('done'); }, 1600);
+});
+
+/* ─────────── 탭 ─────────── */
+const tabBtns = [...document.querySelectorAll('.tabbtn')];
+function selectTab(b, focus){
+  tabBtns.forEach(x => {
+    const on = x === b;
+    x.setAttribute('aria-selected', String(on));
+    x.tabIndex = on ? 0 : -1;
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('on', p.id === 'panel-' + b.dataset.tab));
+  // 게임 탭을 떠나면 살아 있는 미리보기를 모두 정지
+  if (b.dataset.tab !== 'games') { thumbs.forEach(unloadThumb); }
+  else if (previewOn) { startPreviews(); }
+  if (focus) b.focus();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+tabBtns.forEach(b => b.addEventListener('click', () => selectTab(b)));
+document.querySelector('.tabs').addEventListener('keydown', e => {
+  const i = tabBtns.indexOf(document.activeElement);
+  if (i < 0) return;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+    e.preventDefault();
+    selectTab(tabBtns[(i + (e.key === 'ArrowRight' ? 1 : tabBtns.length - 1)) % tabBtns.length], true);
+  } else if (e.key === 'Home') { e.preventDefault(); selectTab(tabBtns[0], true); }
+  else if (e.key === 'End')   { e.preventDefault(); selectTab(tabBtns[tabBtns.length - 1], true); }
+});
+
+/* 탭이 백그라운드로 가면 미리보기 정지 (배터리·발열) */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) thumbs.forEach(unloadThumb);
+  else if (previewOn && document.getElementById('panel-games').classList.contains('on')) startPreviews();
+});
+</script>
+</body>
+</html>
