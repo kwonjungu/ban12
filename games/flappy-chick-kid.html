@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>파닥파닥 병아리 🐤</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Malgun Gothic", sans-serif;
+    background: radial-gradient(circle at 50% 0%, #2f6fb0 0%, #17335c 55%, #0c1a2f 100%);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+  }
+
+  /* 게임 스테이지 관리를 위한 프레임 컨테이너 */
+  #stage {
+    position: relative;
+    height: min(92vh, 700px);
+    aspect-ratio: 5 / 7;
+    max-width: 100%;
+    border-radius: 24px;
+    overflow: hidden;
+    background: #7ec8e3;
+    box-shadow: 0 24px 60px rgba(0,0,0,.6), 0 0 0 4px rgba(255,255,255,.18) inset;
+    cursor: pointer;
+    touch-action: none;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* ===== 상단 HUD ===== */
+  #hud {
+    position: absolute; left: 0; right: 0; top: 0;
+    display: flex; gap: 6px; align-items: center;
+    padding: 12px;
+    font-size: 13px; font-weight: 800;
+    pointer-events: none;
+    text-shadow: 0 2px 4px rgba(0,0,0,.4);
+  }
+  .chip {
+    background: rgba(0,0,0,.35);
+    border: 2px solid rgba(255,255,255,.3);
+    border-radius: 999px;
+    padding: 4px 10px;
+    white-space: nowrap;
+    backdrop-filter: blur(4px);
+  }
+  #chipShield.on { background: rgba(59,130,246,.65); border-color: #bfdbfe; }
+  #chipCoin { background: rgba(234,179,8,.75); border-color: #fef08a; color: #451a03; }
+
+  /* ===== 토스트 알림 ===== */
+  #toast {
+    position: absolute; left: 50%; top: 20%;
+    transform: translate(-50%, 8px) scale(.88);
+    background: rgba(15,23,42,.85);
+    border: 3px solid #fde047;
+    color: #fff;
+    font-weight: 900; font-size: 15px;
+    padding: 8px 18px;
+    border-radius: 16px;
+    opacity: 0;
+    transition: opacity .2s ease, transform .2s cubic-bezier(.175,.885,.32,1.275);
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 10px 25px rgba(0,0,0,.4);
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+
+  /* ===== UI 오버레이 레이어 ===== */
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 12px;
+    padding: 20px;
+    text-align: center;
+    background: linear-gradient(180deg, rgba(15,23,42,.4) 0%, rgba(15,23,42,.75) 100%);
+    backdrop-filter: blur(2px);
+  }
+  .overlay.hide { display: none; }
+
+  .card {
+    background: rgba(255,255,255,.96);
+    color: #1e293b;
+    border-radius: 24px;
+    padding: 18px 20px;
+    box-shadow: 0 20px 40px rgba(0,0,0,.4);
+    border: 4px solid #facc15;
+    max-width: 320px;
+    width: 100%;
+  }
+
+  .btn-game {
+    display: inline-block;
+    font-family: inherit;
+    font-size: 18px; font-weight: 900; color: #451a03;
+    background: linear-gradient(180deg, #fef08a, #eab308);
+    border: 0; border-bottom: 5px solid #a16207;
+    border-radius: 16px;
+    padding: 12px 28px;
+    cursor: pointer;
+    box-shadow: 0 8px 16px rgba(0,0,0,.2);
+    transition: transform 0.08s ease;
+  }
+  .btn-game:active { transform: translateY(3px); border-bottom-width: 2px; }
+
+  .blink { animation: pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <!-- 게임 화면 캔버스 -->
+  <canvas id="cv"></canvas>
+
+  <!-- 게임 전면 HUD 표시줄 -->
+  <div id="hud">
+    <span class="chip" id="chipTime">⏱ 0초</span>
+    <span class="chip" id="chipStar">⭐ 0</span>
+    <span class="chip" id="chipCoin">💰 0</span>
+    <span class="chip" id="chipShield">🛡 0</span>
+    <div class="flex-1"></div>
+    <span class="chip" id="chipBest">🏆 0</span>
+    <button id="micBtn" type="button" class="pointer-events-auto cursor-pointer font-extrabold bg-black/40 border-2 border-white/30 rounded-full px-3 py-1 hover:bg-black/60 transition" title="마이크 소리로 파닥이기">🎤 OFF</button>
+    <button id="muteBtn" type="button" class="pointer-events-auto cursor-pointer font-extrabold bg-black/40 border-2 border-white/30 rounded-full px-3 py-1 hover:bg-black/60 transition">🔊</button>
+  </div>
+
+  <!-- 마이크 음성 인지 게이지 바 -->
+  <div id="micMeter" class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/75 border border-yellow-400/60 rounded-full px-3 py-1 text-xs font-bold flex items-center gap-2 pointer-events-auto hidden backdrop-blur shadow-lg z-20">
+    <span class="text-yellow-300">🎤 볼륨:</span>
+    <div class="w-24 h-2.5 bg-gray-800 rounded-full overflow-hidden border border-white/30 relative">
+      <div id="micFill" class="h-full bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-500 w-0 transition-all duration-75"></div>
+      <div id="micThreshLine" class="absolute top-0 bottom-0 w-0.5 bg-white shadow-md" style="left: 30%;"></div>
+    </div>
+    <span class="text-slate-300 text-[10px]">감도</span>
+    <input type="range" id="micSens" min="5" max="80" value="30" class="w-14 h-1 accent-yellow-400 cursor-pointer" title="음성 인식 감도 조절">
+  </div>
+
+  <!-- 이벤트 알림 토스트 -->
+  <div id="toast"></div>
+
+  <!-- 타이틀 / 대기 화면 -->
+  <div class="overlay" id="titleScreen">
+    <div class="inline-flex items-center gap-2 mb-1">
+      <span class="bg-black text-red-500 border border-red-600 text-xs px-2.5 py-0.5 rounded-full font-black animate-bounce shadow">☠️ 지옥의 HELL MODE</span>
+    </div>
+    <h1 class="text-3xl font-black text-yellow-300 drop-shadow-[0_4px_6px_rgba(0,0,0,0.6)]">파닥파닥 병아리 🐤</h1>
+    <p class="text-xs font-bold text-slate-100 drop-shadow">바늘구멍 통과, 칼날 같은 낙하, 미친 속도의 까마귀 떼를 버텨내세요!</p>
+    
+    <div class="card my-2">
+      <div class="text-sm font-extrabold text-slate-700 leading-relaxed text-left space-y-1.5">
+        <p>💀 <b>바늘구멍 통과 간격</b> : 78px의 살벌한 극소 간격!</p>
+        <p>🐦 <b>까마귀 떼 연속 습격</b> : 사방에서 연속으로 날아옵니다!</p>
+        <p>🌪️ <b>초강력 난류 & 폭풍</b> : 병아리를 위아래로 휘몰아칩니다!</p>
+        <p>⚡ <b>폭발적인 중력 & 스피드</b> : 찰나의 순간에 떨어집니다!</p>
+      </div>
+    </div>
+
+    <div class="flex gap-2 justify-center w-full max-w-[320px]">
+      <button class="btn-game flex-1" id="startBtn" type="button">게임 시작</button>
+      <button class="btn-game flex-1 !from-amber-400 !to-orange-500 !border-amber-800" id="shopBtn" type="button">🛒 상점</button>
+    </div>
+    <div class="text-xs font-black text-white drop-shadow blink mt-1">화면 아무 데나 터치해도 바로 시작!</div>
+  </div>
+
+  <!-- 게임 오버 결과 오버레이 -->
+  <div class="overlay hide" id="overScreen">
+    <h1 id="overTitle" class="text-3xl font-black text-yellow-300 drop-shadow-[0_4px_6px_rgba(0,0,0,0.6)]">아차! 부딪혔어요!</h1>
+    
+    <div class="card my-2 text-center">
+      <div class="text-5xl my-1" id="overMedal">🥚</div>
+      <div class="text-sm font-black text-amber-800" id="overMedalName">아직 메달이 없어요</div>
+      <div class="text-5xl font-black text-amber-500 my-1" id="overScore">0점</div>
+      <div class="text-xs font-bold text-amber-600 my-1" id="overEarnCoin">+0 코인 획득! 💰</div>
+      <div class="text-xs font-extrabold text-slate-500 mt-1" id="overBest">최고 기록 0점</div>
+      <div class="text-sm font-black text-rose-500 mt-2" id="overRegret">한 번만 더 도전해볼까요?</div>
+    </div>
+
+    <div class="flex gap-2 justify-center w-full max-w-[320px]">
+      <button class="btn-game flex-1" id="againBtn" type="button">다시 도전</button>
+      <button class="btn-game flex-1 !from-amber-400 !to-orange-500 !border-amber-800" id="overShopBtn" type="button">🛒 상점</button>
+    </div>
+    <div class="text-xs font-black text-white drop-shadow blink mt-1">스페이스나 터치로 빠르게 재시작!</div>
+  </div>
+
+  <!-- 장식품 상점 레이어 -->
+  <div class="overlay hide" id="shopScreen">
+    <div class="card max-w-sm w-full flex flex-col max-h-[85vh]">
+      <div class="flex justify-between items-center border-b pb-2 mb-3">
+        <h2 class="text-xl font-black text-slate-800">🛒 병아리 장식 상점</h2>
+        <button id="closeShopBtn" type="button" class="text-xl font-black text-slate-400 hover:text-slate-700 px-2">✕</button>
+      </div>
+
+      <div class="bg-amber-100 rounded-xl p-2.5 mb-3 flex justify-between items-center border border-amber-300">
+        <span class="text-xs font-extrabold text-amber-900">보유 코인</span>
+        <span class="text-lg font-black text-amber-600" id="shopCoins">💰 0</span>
+      </div>
+
+      <div class="overflow-y-auto space-y-2 pr-1 flex-1 text-left" id="shopList">
+        <!-- 상점 아이템 리스트 dynamic render -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORE_BEST = "flappy_chick_best_score";
+  var STORE_MUTE = "flappy_chick_mute_state";
+  var STORE_COINS = "flappy_chick_total_coins";
+  var STORE_EQUIPPED = "flappy_chick_equipped_item";
+  var STORE_ITEMS = "flappy_chick_owned_items";
+
+  function loadNum(key, defaultValue) {
+    try {
+      var val = window.localStorage.getItem(key);
+      if (val === null) return defaultValue;
+      var num = parseInt(val, 10);
+      return isNaN(num) ? defaultValue : num;
+    } catch (e) { return defaultValue; }
+  }
+  function saveNum(key, val) {
+    try { window.localStorage.setItem(key, String(val)); } catch (e) {}
+  }
+
+  function loadJson(key, defaultValue) {
+    try {
+      var val = window.localStorage.getItem(key);
+      return val ? JSON.parse(val) : defaultValue;
+    } catch(e) { return defaultValue; }
+  }
+  function saveJson(key, val) {
+    try { window.localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+  }
+
+  /* DOM 요소 연결 */
+  var stage = document.getElementById("stage");
+  var cv = document.getElementById("cv");
+  var ctx = cv.getContext("2d");
+  var elTime = document.getElementById("chipTime");
+  var elStar = document.getElementById("chipStar");
+  var elCoin = document.getElementById("chipCoin");
+  var elShield = document.getElementById("chipShield");
+  var elBest = document.getElementById("chipBest");
+  var micBtn = document.getElementById("micBtn");
+  var muteBtn = document.getElementById("muteBtn");
+  var micMeter = document.getElementById("micMeter");
+  var micFill = document.getElementById("micFill");
+  var micThreshLine = document.getElementById("micThreshLine");
+  var micSens = document.getElementById("micSens");
+  var toastEl = document.getElementById("toast");
+  var titleScreen = document.getElementById("titleScreen");
+  var overScreen = document.getElementById("overScreen");
+  var shopScreen = document.getElementById("shopScreen");
+  var overTitle = document.getElementById("overTitle");
+  var overMedal = document.getElementById("overMedal");
+  var overMedalName = document.getElementById("overMedalName");
+  var overScore = document.getElementById("overScore");
+  var overEarnCoin = document.getElementById("overEarnCoin");
+  var overBest = document.getElementById("overBest");
+  var overRegret = document.getElementById("overRegret");
+  var startBtn = document.getElementById("startBtn");
+  var againBtn = document.getElementById("againBtn");
+  var shopBtn = document.getElementById("shopBtn");
+  var overShopBtn = document.getElementById("overShopBtn");
+  var closeShopBtn = document.getElementById("closeShopBtn");
+  var shopCoins = document.getElementById("shopCoins");
+  var shopList = document.getElementById("shopList");
+
+  var ITEMS = [
+    { id: "none", name: "기본 병아리", price: 0, icon: "🐣", desc: "순수한 기본 모습" },
+    { id: "ribbon", name: "빨간 리본", price: 15, icon: "🎀", desc: "머리에 달린 깜찍한 리본" },
+    { id: "sunglasses", name: "간지 선글라스", price: 30, icon: "🕶️", desc: "카리스마 폭발 시크 선글라스" },
+    { id: "crown", name: "황금 왕관", price: 60, icon: "👑", desc: "반짝이는 진짜 황금 왕관" },
+    { id: "gradcap", name: "박사 학사모", price: 100, icon: "🎓", desc: "스마트함을 자아내는 학사모" },
+    { id: "halo", name: "천사 엔젤링", price: 150, icon: "👼", desc: "머리 위에 떠 있는 빛나는 천사 고리" }
+  ];
+
+  var totalCoins = loadNum(STORE_COINS, 0);
+  var equippedItem = window.localStorage.getItem(STORE_EQUIPPED) || "none";
+  var ownedItems = loadJson(STORE_ITEMS, ["none"]);
+
+  var AC = null, masterGain = null;
+  var isMuted = loadNum(STORE_MUTE, 0) === 1;
+  muteBtn.textContent = isMuted ? "🔇" : "🔊";
+
+  function initAudio() {
+    if (!AC) {
+      var AudioCtor = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtor) return false;
+      try {
+        AC = new AudioCtor();
+        masterGain = AC.createGain();
+        masterGain.gain.value = 0.4;
+        masterGain.connect(AC.destination);
+      } catch (e) { AC = null; return false; }
+    }
+    if (AC.state === "suspended") {
+      AC.resume().catch(function(){});
+    }
+    return true;
+  }
+
+  function playTone(freq, duration, type, volume, delay, targetFreq) {
+    if (isMuted || !AC) return;
+    try {
+      var startTime = AC.currentTime + (delay || 0);
+      var osc = AC.createOscillator();
+      var gain = AC.createGain();
+      osc.type = type || "sine";
+      osc.frequency.setValueAtTime(freq, startTime);
+      if (targetFreq) {
+        osc.frequency.exponentialRampToValueAtTime(Math.max(20, targetFreq), startTime + duration);
+      }
+      gain.gain.setValueAtTime(0.001, startTime);
+      gain.gain.exponentialRampToValueAtTime(Math.max(0.001, volume || 0.2), startTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(startTime);
+      osc.stop(startTime + duration + 0.05);
+    } catch (e) {}
+  }
+
+  function playNoise(duration, volume, cutoff) {
+    if (isMuted || !AC) return;
+    try {
+      var bufferSize = Math.floor(AC.sampleRate * duration);
+      var buffer = AC.createBuffer(1, bufferSize, AC.sampleRate);
+      var output = buffer.getChannelData(0);
+      for (var i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      var whiteNoise = AC.createBufferSource();
+      whiteNoise.buffer = buffer;
+
+      var filter = AC.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(cutoff || 1000, AC.currentTime);
+
+      var gain = AC.createGain();
+      gain.gain.setValueAtTime(volume || 0.2, AC.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + duration);
+
+      whiteNoise.connect(filter);
+      filter.connect(gain);
+      gain.connect(masterGain);
+      whiteNoise.start();
+    } catch (e) {}
+  }
+
+  function soundFlap() { playTone(650, 0.08, "triangle", 0.18, 0, 320); }
+  function soundScore() { playTone(880, 0.1, "square", 0.15); playTone(1320, 0.12, "triangle", 0.1, 0.04); }
+  function soundPerfect() { playTone(1046, 0.1, "square", 0.16); playTone(1567, 0.15, "triangle", 0.15, 0.08); }
+  function soundStar() { playTone(987, 0.08, "sine", 0.2); playTone(1479, 0.14, "sine", 0.18, 0.06); }
+  function soundShieldGet() { playTone(523, 0.1, "sine", 0.2); playTone(784, 0.2, "sine", 0.2, 0.08); }
+  function soundShieldBreak() { playNoise(0.25, 0.25, 2000); playTone(220, 0.2, "sawtooth", 0.2, 0, 80); }
+  function soundHit() { playNoise(0.3, 0.3, 1500); playTone(160, 0.25, "sawtooth", 0.25, 0, 50); }
+  function soundStart() { playTone(523, 0.08, "square", 0.15); playTone(659, 0.08, "square", 0.15, 0.08); playTone(784, 0.15, "square", 0.15, 0.16); }
+  function soundBuy() { playTone(523, 0.08, "square", 0.2); playTone(659, 0.08, "square", 0.2, 0.06); playTone(784, 0.12, "triangle", 0.2, 0.12); }
+  function soundEquip() { playTone(880, 0.08, "sine", 0.2); playTone(1174, 0.1, "sine", 0.2, 0.06); }
+
+  function updateCoinDisplay() {
+    if (elCoin) elCoin.textContent = "💰 " + totalCoins;
+    if (shopCoins) shopCoins.textContent = "💰 " + totalCoins;
+  }
+  updateCoinDisplay();
+
+  function openShop() {
+    initAudio();
+    renderShopList();
+    if (shopScreen) shopScreen.classList.remove("hide");
+  }
+
+  function closeShop() {
+    if (shopScreen) shopScreen.classList.add("hide");
+  }
+
+  function renderShopList() {
+    if (!shopList) return;
+    shopList.innerHTML = "";
+    updateCoinDisplay();
+
+    ITEMS.forEach(function(item) {
+      var isOwned = ownedItems.indexOf(item.id) !== -1;
+      var isEquipped = equippedItem === item.id;
+
+      var div = document.createElement("div");
+      div.className = "flex items-center justify-between p-2.5 rounded-xl border border-slate-200 bg-slate-50";
+
+      var left = document.createElement("div");
+      left.className = "flex items-center gap-2.5";
+      left.innerHTML = '<span class="text-2xl">' + item.icon + '</span>' +
+        '<div>' +
+          '<div class="text-sm font-black text-slate-800">' + item.name + '</div>' +
+          '<div class="text-[11px] font-bold text-slate-500">' + item.desc + '</div>' +
+        '</div>';
+
+      var right = document.createElement("div");
+
+      if (isEquipped) {
+        right.innerHTML = '<span class="text-xs font-black text-emerald-600 bg-emerald-100 px-3 py-1.5 rounded-lg border border-emerald-300">착용 중</span>';
+      } else if (isOwned) {
+        var equipBtn = document.createElement("button");
+        equipBtn.type = "button";
+        equipBtn.className = "text-xs font-black text-amber-900 bg-amber-300 hover:bg-amber-400 px-3 py-1.5 rounded-lg border-b-2 border-amber-600 active:translate-y-0.5 cursor-pointer";
+        equipBtn.textContent = "착용하기";
+        equipBtn.onclick = function() {
+          equippedItem = item.id;
+          try { window.localStorage.setItem(STORE_EQUIPPED, item.id); } catch(e){}
+          soundEquip();
+          showToast(item.name + " 착용 완료!");
+          renderShopList();
+        };
+        right.appendChild(equipBtn);
+      } else {
+        var buyBtn = document.createElement("button");
+        buyBtn.type = "button";
+        var canAfford = totalCoins >= item.price;
+        buyBtn.className = "text-xs font-black px-3 py-1.5 rounded-lg border-b-2 cursor-pointer transition " +
+          (canAfford ? "text-amber-950 bg-yellow-400 hover:bg-yellow-300 border-amber-700 active:translate-y-0.5" : "text-slate-400 bg-slate-200 border-slate-300 opacity-60 cursor-not-allowed");
+        buyBtn.textContent = "구매 (💰 " + item.price + ")";
+        buyBtn.onclick = function() {
+          if (totalCoins < item.price) {
+            showToast("코인이 부족합니다! 💰");
+            return;
+          }
+          totalCoins -= item.price;
+          saveNum(STORE_COINS, totalCoins);
+          ownedItems.push(item.id);
+          saveJson(STORE_ITEMS, ownedItems);
+          equippedItem = item.id;
+          try { window.localStorage.setItem(STORE_EQUIPPED, item.id); } catch(e){}
+          soundBuy();
+          showToast(item.name + " 구매 & 착용 완료! 🎉");
+          renderShopList();
+        };
+        right.appendChild(buyBtn);
+      }
+
+      div.appendChild(left);
+      div.appendChild(right);
+      shopList.appendChild(div);
+    });
+  }
+
+  var micActive = false;
+  var micStream = null;
+  var micAnalyser = null;
+  var micDataArray = null;
+  var micCooldown = 0;
+  var micThreshold = 30;
+
+  if (micSens && micThreshLine) {
+    micSens.addEventListener("input", function(e) {
+      micThreshold = parseInt(e.target.value, 10);
+      micThreshLine.style.left = micThreshold + "%";
+    });
+  }
+
+  function toggleMic() {
+    if (micActive) {
+      micActive = false;
+      if (micStream) {
+        micStream.getTracks().forEach(function(track) { track.stop(); });
+        micStream = null;
+      }
+      micBtn.textContent = "🎤 OFF";
+      micBtn.classList.remove("bg-emerald-600/80");
+      micMeter.classList.add("hidden");
+      showToast("마이크 소리 반응 모드 OFF");
+    } else {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showToast("이 브라우저 환경에서는 마이크를 지원하지 않습니다.");
+        return;
+      }
+      initAudio();
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+        micStream = stream;
+        var source = AC.createMediaStreamSource(stream);
+        micAnalyser = AC.createAnalyser();
+        micAnalyser.fftSize = 256;
+        source.connect(micAnalyser);
+        micDataArray = new Uint8Array(micAnalyser.frequencyBinCount);
+        micActive = true;
+        micBtn.textContent = "🎤 ON";
+        micBtn.classList.add("bg-emerald-600/80");
+        micMeter.classList.remove("hidden");
+        showToast("🎤 마이크 연결 완료! 소리를 내면 점프합니다");
+      }).catch(function(err) {
+        showToast("마이크 사용 권한을 허용해주세요!");
+      });
+    }
+  }
+
+  var BW = 360;
+  var BH = 504;
+
+  function handleResize() {
+    if (!stage || !cv) return;
+    var rect = stage.getBoundingClientRect();
+    BW = Math.floor(rect.width) || 360;
+    BH = Math.floor(rect.height) || 504;
+    var dpr = window.devicePixelRatio || 1;
+    cv.width = BW * dpr;
+    cv.height = BH * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  if (window.ResizeObserver) {
+    new ResizeObserver(handleResize).observe(stage);
+  }
+  window.addEventListener("resize", handleResize);
+
+  var STATE_TITLE = 0, STATE_READY = 1, STATE_PLAY = 2, STATE_DYING = 3, STATE_OVER = 4;
+  var gameState = STATE_TITLE;
+
+  var bestScore = loadNum(STORE_BEST, 0);
+  elBest.textContent = "🏆 " + bestScore;
+
+  var GROUND_H = 84;
+  var PIPE_W = 62;
+  var BIRD_R = 16;
+
+  var bird = { x: 120, y: 300, vy: 0, rot: 0, pop: 1, wing: 0, alive: true, inv: 0 };
+  var pipes = [];
+  var stars = [];
+  var crows = [];
+  var particles = [];
+  var floatTexts = [];
+
+  var score = 0, combo = 0, bestCombo = 0, starCount = 0, shields = 0, passedPipes = 0;
+  var gameTime = 0, groundX = 0, screenShake = 0, hitStop = 0, flashWhite = 0, overWait = 0;
+  var extraSpeed = 0, windOn = false, starBoost = false, themeIdx = 0;
+  var windTimer = 0, windForce = 0;
+
+  var THEMES = [
+    { skyTop: [110, 195, 228], skyBot: [198, 238, 255], hill: [92, 190, 108], pipe: [86, 200, 96], ground: [226, 200, 130] },
+    { skyTop: [255, 142, 92], skyBot: [255, 214, 150], hill: [200, 120, 90], pipe: [232, 150, 60], ground: [214, 168, 110] },
+    { skyTop: [26, 38, 92], skyBot: [72, 88, 160], hill: [40, 60, 110], pipe: [78, 150, 200], ground: [70, 74, 120] }
+  ];
+
+  var clouds = [];
+  for (var i = 0; i < 5; i++) {
+    clouds.push({ x: Math.random() * 500, y: 40 + Math.random() * 200, s: 0.6 + Math.random() * 0.7, sp: 10 + Math.random() * 12 });
+  }
+
+  var toastTimer = null;
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 2000);
+  }
+
+  function updateHudUI() {
+    if (elTime) elTime.textContent = "⏱ " + Math.floor(gameTime) + "초";
+    if (elStar) elStar.textContent = "⭐ " + starCount;
+    if (elCoin) elCoin.textContent = "💰 " + totalCoins;
+    if (elShield) {
+      elShield.textContent = "🛡 " + shields;
+      if (shields > 0) elShield.classList.add("on");
+      else elShield.classList.remove("on");
+    }
+    if (elBest) elBest.textContent = "🏆 " + bestScore;
+  }
+
+  function checkRectOverlap(bx, by, br, rx, ry, rw, rh) {
+    var closestX = Math.max(rx, Math.min(bx, rx + rw));
+    var closestY = Math.max(ry, Math.min(by, ry + rh));
+    var dx = bx - closestX;
+    var dy = by - closestY;
+    return (dx * dx + dy * dy) < (br * br);
+  }
+
+  function createParticles(x, y, count, colors) {
+    for (var i = 0; i < count; i++) {
+      var angle = Math.random() * Math.PI * 2;
+      var speed = 80 + Math.random() * 160;
+      particles.push({
+        x: x, y: y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 20,
+        r: 2 + Math.random() * 3,
+        life: 0.5, maxLife: 0.5,
+        color: colors[Math.floor(Math.random() * colors.length)]
+      });
+    }
+  }
+
+  function addFloatText(x, y, text, color) {
+    floatTexts.push({ x: x, y: y, text: text, color: color, life: 0.8, maxLife: 0.8 });
+  }
+
+  function flapBird() {
+    bird.vy = -530;
+    bird.wing = 1;
+    bird.pop = 1.3;
+    soundFlap();
+    createParticles(bird.x - 10, bird.y + 6, 6, ["#ffffff", "#fef08a"]);
+  }
+
+  function resetGame() {
+    pipes = [];
+    stars = [];
+    crows = [];
+    particles = [];
+    floatTexts = [];
+
+    bird.x = Math.max(90, BW * 0.28);
+    bird.y = BH * 0.42;
+    bird.vy = 0;
+    bird.rot = 0;
+    bird.pop = 1;
+    bird.wing = 0;
+    bird.alive = true;
+    bird.inv = 0;
+
+    score = 0; combo = 0; bestCombo = 0; starCount = 0; shields = 0; passedPipes = 0;
+    gameTime = 0; screenShake = 0; hitStop = 0; flashWhite = 0; overWait = 0;
+    extraSpeed = 0; windOn = false; starBoost = false; themeIdx = 0;
+    windTimer = 1.5 + Math.random() * 2;
+    windForce = 0;
+
+    spawnPipe(BW + 40, BH * 0.42);
+    updateHudUI();
+  }
+
+  function startGame() {
+    initAudio();
+    resetGame();
+    gameState = STATE_PLAY;
+    if (titleScreen) titleScreen.classList.add("hide");
+    if (overScreen) overScreen.classList.add("hide");
+    if (shopScreen) shopScreen.classList.add("hide");
+    soundStart();
+  }
+
+  function triggerAction() {
+    if (gameState === STATE_TITLE) {
+      startGame();
+    } else if (gameState === STATE_PLAY) {
+      flapBird();
+    } else if (gameState === STATE_OVER && overWait <= 0) {
+      startGame();
+    }
+  }
+
+  function triggerDeath() {
+    if (gameState !== STATE_PLAY) return;
+    gameState = STATE_DYING;
+    bird.vy = -300;
+    soundHit();
+    screenShake = 20;
+    flashWhite = 0.8;
+  }
+
+  function triggerGameOver() {
+    gameState = STATE_OVER;
+    overWait = 0.35;
+
+    var earnedCoins = score * 2;
+    totalCoins += earnedCoins;
+    saveNum(STORE_COINS, totalCoins);
+
+    if (score > bestScore) {
+      bestScore = score;
+      saveNum(STORE_BEST, bestScore);
+      showToast("🎉 축하합니다! 최고 기록 달성! 🏆");
+    }
+
+    var medal = "🥚";
+    var medalName = "아직 메달이 없어요";
+    if (score >= 20) { medal = "💎"; medalName = "다이아몬드 메달"; }
+    else if (score >= 12) { medal = "🥇"; medalName = "금메달"; }
+    else if (score >= 6) { medal = "🥈"; medalName = "은메달"; }
+    else if (score >= 3) { medal = "🥉"; medalName = "동메달"; }
+
+    overMedal.textContent = medal;
+    overMedalName.textContent = medalName;
+    overScore.textContent = score + "점";
+    overEarnCoin.textContent = "+" + earnedCoins + " 코인 획득! 💰";
+    overBest.textContent = "최고 기록 " + bestScore + "점";
+
+    if (score === 0) overRegret.textContent = "방심은 금물! 다시 도전하세요!";
+    else if (score < 5) overRegret.textContent = "조금만 더 하면 메달을 획득할 수 있어요!";
+    else overRegret.textContent = "대단한 비행 실력이에요!";
+
+    updateHudUI();
+    if (overScreen) overScreen.classList.remove("hide");
+  }
+
+  function spawnPipe(x, forceY) {
+    var gap = Math.max(78, 135 - passedPipes * 4.2);
+    var groundY = BH - GROUND_H;
+    var minY = gap / 2 + 35;
+    var maxY = groundY - gap / 2 - 15;
+
+    var y = (typeof forceY === "number") ? forceY : minY + Math.random() * (maxY - minY);
+    y = Math.max(minY, Math.min(maxY, y));
+
+    var amp = 0;
+    if (passedPipes > 0 && Math.random() < 0.85) {
+      amp = 25 + Math.random() * 38;
+    }
+
+    var pipeObj = { x: x, baseY: y, y: y, gap: gap, amp: amp, phase: Math.random() * 6.28, scored: false, w: PIPE_W };
+    pipes.push(pipeObj);
+
+    if (passedPipes > 1 && Math.random() < 0.7) {
+      var crowCount = (passedPipes > 4 && Math.random() < 0.45) ? 2 : 1;
+      for (var c = 0; c < crowCount; c++) {
+        crows.push({
+          x: x + PIPE_W + 70 + c * 75 + Math.random() * 40,
+          y: y + (Math.random() - 0.5) * (gap * 1.2),
+          vx: -(420 + Math.min(passedPipes, 40) * 10),
+          r: 13,
+          wing: 0
+        });
+      }
+    }
+
+    if (passedPipes > 1 && Math.random() < 0.15) {
+      var off = (Math.random() < 0.5 ? -1 : 1) * (gap / 2 - 15);
+      stars.push({ pipe: pipeObj, off: off, x: x + PIPE_W / 2, y: y + off, got: false, spin: 0 });
+    }
+  }
+
+  function update(dt) {
+    if (screenShake > 0) screenShake = Math.max(0, screenShake - dt * 40);
+    if (flashWhite > 0) flashWhite = Math.max(0, flashWhite - dt * 2);
+    bird.pop += (1 - bird.pop) * Math.min(1, dt * 8);
+    bird.wing = Math.max(0, bird.wing - dt * 4);
+
+    for (var c = 0; c < clouds.length; c++) {
+      clouds[c].x -= clouds[c].sp * dt;
+      if (clouds[c].x < -100) clouds[c].x = BW + 100;
+    }
+
+    for (var p = particles.length - 1; p >= 0; p--) {
+      var pt = particles[p];
+      pt.life -= dt;
+      if (pt.life <= 0) { particles.splice(p, 1); continue; }
+      pt.x += pt.vx * dt;
+      pt.y += pt.vy * dt;
+    }
+
+    for (var t = floatTexts.length - 1; t >= 0; t--) {
+      var ft = floatTexts[t];
+      ft.life -= dt;
+      if (ft.life <= 0) { floatTexts.splice(t, 1); continue; }
+      ft.y -= 40 * dt;
+    }
+
+    if (gameState === STATE_TITLE) {
+      bird.y = BH * 0.44 + Math.sin(Date.now() * 0.003) * 10;
+      groundX -= 50 * dt;
+      return;
+    }
+
+    if (gameState === STATE_DYING) {
+      bird.vy += 2200 * dt;
+      bird.y += bird.vy * dt;
+      bird.rot = Math.min(1.5, bird.rot + dt * 5);
+      if (bird.y >= BH - GROUND_H - BIRD_R) {
+        bird.y = BH - GROUND_H - BIRD_R;
+        triggerGameOver();
+      }
+      return;
+    }
+
+    if (gameState === STATE_OVER) {
+      if (overWait > 0) overWait -= dt;
+      return;
+    }
+
+    if (gameState !== STATE_PLAY) return;
+
+    gameTime += dt;
+    updateHudUI();
+
+    if (micCooldown > 0) micCooldown -= dt;
+
+    if (micActive && micAnalyser && micDataArray) {
+      micAnalyser.getByteFrequencyData(micDataArray);
+      var sum = 0;
+      for (var m = 0; m < micDataArray.length; m++) {
+        sum += micDataArray[m];
+      }
+      var avgVol = Math.round((sum / micDataArray.length) / 2.55);
+      if (micFill) micFill.style.width = avgVol + "%";
+
+      if (avgVol >= micThreshold && micCooldown <= 0) {
+        micCooldown = 0.18;
+        triggerAction();
+      }
+    }
+
+    if (passedPipes > 10) themeIdx = 2;
+    else if (passedPipes > 4) themeIdx = 1;
+
+    bird.vy += 2200 * dt;
+
+    windTimer -= dt;
+    if (windTimer <= 0) {
+      if (windForce === 0) {
+        windForce = (Math.random() < 0.5 ? -1 : 1) * (450 + Math.random() * 350);
+        showToast(windForce > 0 ? "🌪️ 초강력 하강 폭풍!" : "🌪️ 초강력 수직 상승 기류!");
+        windTimer = 2.0;
+      } else {
+        windForce = 0;
+        windTimer = 1.8 + Math.random() * 2.2;
+      }
+    }
+
+    if (windForce !== 0) {
+      bird.vy += windForce * dt;
+    }
+
+    if (bird.vy > 900) bird.vy = 900;
+    bird.y += bird.vy * dt;
+    bird.rot = Math.max(-0.6, Math.min(1.5, bird.vy / 380));
+
+    if (bird.y < BIRD_R) {
+      bird.y = BIRD_R;
+      bird.vy = 0;
+    }
+
+    var speed = 280 + Math.min(passedPipes, 50) * 8.5 + extraSpeed;
+    groundX -= speed * dt;
+
+    for (var cr = crows.length - 1; cr >= 0; cr--) {
+      var crow = crows[cr];
+      crow.x += crow.vx * dt;
+      crow.wing += dt * 18;
+
+      var cdx = crow.x - bird.x;
+      var cdy = crow.y - bird.y;
+      if (cdx * cdx + cdy * cdy < (BIRD_R + crow.r - 2) * (BIRD_R + crow.r - 2)) {
+        if (shields > 0) {
+          shields--;
+          crows.splice(cr, 1);
+          screenShake = 16;
+          soundShieldBreak();
+          addFloatText(bird.x, bird.y - 30, "보호막 방어!", "#60a5fa");
+          updateHudUI();
+          continue;
+        } else {
+          triggerDeath();
+          return;
+        }
+      }
+
+      if (crow.x < -50) crows.splice(cr, 1);
+    }
+
+    var groundY = BH - GROUND_H;
+    if (bird.y >= groundY - BIRD_R) {
+      bird.y = groundY - BIRD_R;
+      triggerDeath();
+      return;
+    }
+
+    for (var i = pipes.length - 1; i >= 0; i--) {
+      var pp = pipes[i];
+      pp.x -= speed * dt;
+      if (pp.amp > 0) pp.y = pp.baseY + Math.sin(gameTime * 3.5 + pp.phase) * pp.amp;
+
+      if (!pp.scored && pp.x + pp.w < bird.x) {
+        pp.scored = true;
+        passedPipes++;
+        var distFromCenter = Math.abs(bird.y - pp.y);
+        var isPerfect = distFromCenter < pp.gap * 0.18;
+
+        if (isPerfect) {
+          combo++;
+          score += 2;
+          soundPerfect();
+          addFloatText(bird.x, bird.y - 20, "PERFECT! +2", "#fde047");
+          createParticles(bird.x, bird.y, 12, ["#fde047", "#ffffff"]);
+        } else {
+          combo = 0;
+          score += 1;
+          soundScore();
+          addFloatText(bird.x, bird.y - 20, "+1", "#ffffff");
+        }
+      }
+
+      var topH = pp.y - pp.gap / 2;
+      var botY = pp.y + pp.gap / 2;
+      if (checkRectOverlap(bird.x, bird.y, BIRD_R - 2, pp.x, 0, pp.w, topH) ||
+          checkRectOverlap(bird.x, bird.y, BIRD_R - 2, pp.x, botY, pp.w, groundY - botY)) {
+        if (shields > 0) {
+          shields--;
+          bird.vy = -350;
+          screenShake = 12;
+          soundShieldBreak();
+          addFloatText(bird.x, bird.y - 30, "보호막 방어!", "#60a5fa");
+          updateHudUI();
+        } else {
+          triggerDeath();
+          return;
+        }
+      }
+
+      if (pp.x < -80) pipes.splice(i, 1);
+    }
+
+    for (var s = stars.length - 1; s >= 0; s--) {
+      var st = stars[s];
+      st.x = st.pipe.x + st.pipe.w / 2;
+      st.y = st.pipe.y + st.off;
+      st.spin += dt * 4;
+
+      if (!st.got) {
+        var dx = st.x - bird.x, dy = st.y - bird.y;
+        if (dx * dx + dy * dy < 28 * 28) {
+          st.got = true;
+          starCount++;
+          score += 3;
+          totalCoins += 5;
+          saveNum(STORE_COINS, totalCoins);
+          soundStar();
+          addFloatText(st.x, st.y, "⭐+3 💰+5", "#fde047");
+          createParticles(st.x, st.y, 15, ["#fde047", "#ffffff"]);
+          if (starCount % 3 === 0) {
+            shields++;
+            soundShieldGet();
+            showToast("🛡️ 보호막 획득!");
+          }
+          updateHudUI();
+        }
+      }
+      if (st.x < -40 || st.got) {
+        stars.splice(s, 1);
+      }
+    }
+
+    var lastPipeX = pipes.length > 0 ? pipes[pipes.length - 1].x : 0;
+    if (lastPipeX < BW - 180) {
+      spawnPipe(BW + 20);
+    }
+  }
+
+  function render() {
+    ctx.save();
+    if (screenShake > 0) {
+      var rx = (Math.random() - 0.5) * screenShake;
+      var ry = (Math.random() - 0.5) * screenShake;
+      ctx.translate(rx, ry);
+    }
+
+    var theme = THEMES[themeIdx];
+
+    var skyG = ctx.createLinearGradient(0, 0, 0, BH);
+    skyG.addColorStop(0, "rgb(" + theme.skyTop.join(",") + ")");
+    skyG.addColorStop(1, "rgb(" + theme.skyBot.join(",") + ")");
+    ctx.fillStyle = skyG;
+    ctx.fillRect(0, 0, BW, BH);
+
+    if (windForce !== 0) {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+      for (var w = 0; w < 6; w++) {
+        var wx = (Date.now() * 0.8 + w * 70) % BW;
+        var wy = (w * 80 + Date.now() * (windForce > 0 ? 0.3 : -0.3)) % BH;
+        if (wy < 0) wy += BH;
+        ctx.fillRect(wx, wy, 40, 2);
+      }
+    }
+
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    for (var c = 0; c < clouds.length; c++) {
+      var cl = clouds[c];
+      ctx.beginPath();
+      ctx.arc(cl.x, cl.y, 18 * cl.s, 0, Math.PI * 2);
+      ctx.arc(cl.x + 14 * cl.s, cl.y - 8 * cl.s, 14 * cl.s, 0, Math.PI * 2);
+      ctx.arc(cl.x + 28 * cl.s, cl.y, 16 * cl.s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = "rgb(" + theme.hill.join(",") + ")";
+    ctx.beginPath();
+    var hOffset = (groundX * 0.3) % 180;
+    ctx.moveTo(0, BH);
+    for (var x = -hOffset - 180; x < BW + 180; x += 90) {
+      ctx.quadraticCurveTo(x + 45, BH - 200, x + 90, BH - 120);
+    }
+    ctx.lineTo(BW, BH);
+    ctx.fill();
+
+    for (var p = 0; p < pipes.length; p++) {
+      var pipe = pipes[p];
+      var topH = pipe.y - pipe.gap / 2;
+      var botY = pipe.y + pipe.gap / 2;
+      var groundY = BH - GROUND_H;
+
+      ctx.fillStyle = "rgb(" + theme.pipe.join(",") + ")";
+      ctx.fillRect(pipe.x, 0, pipe.w, topH);
+      ctx.fillRect(pipe.x, botY, pipe.w, groundY - botY);
+
+      ctx.fillStyle = "rgba(0,0,0,0.15)";
+      ctx.fillRect(pipe.x - 3, topH - 20, pipe.w + 6, 20);
+      ctx.fillRect(pipe.x - 3, botY, pipe.w + 6, 20);
+    }
+
+    for (var s = 0; s < stars.length; s++) {
+      var st = stars[s];
+      if (st.got) continue;
+      ctx.save();
+      ctx.translate(st.x, st.y);
+      ctx.rotate(st.spin);
+      ctx.fillStyle = "#facc15";
+      ctx.beginPath();
+      for (var i = 0; i < 5; i++) {
+        var a1 = (i * 72 - 90) * Math.PI / 180;
+        var a2 = (i * 72 + 36 - 90) * Math.PI / 180;
+        ctx.lineTo(Math.cos(a1) * 12, Math.sin(a1) * 12);
+        ctx.lineTo(Math.cos(a2) * 5, Math.sin(a2) * 5);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    for (var cr = 0; cr < crows.length; cr++) {
+      var crow = crows[cr];
+      ctx.save();
+      ctx.translate(crow.x, crow.y);
+      
+      ctx.fillStyle = "#1e293b";
+      ctx.beginPath();
+      ctx.arc(0, 0, crow.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#ef4444";
+      ctx.beginPath();
+      ctx.arc(-4, -3, 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#f97316";
+      ctx.beginPath();
+      ctx.moveTo(- crow.r, -1);
+      ctx.lineTo(- crow.r - 8, 2);
+      ctx.lineTo(- crow.r, 5);
+      ctx.fill();
+
+      var wY = Math.sin(crow.wing) * 8;
+      ctx.strokeStyle = "#0f172a";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(4, -10 + wY);
+      ctx.lineTo(10, 0);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    var gy = BH - GROUND_H;
+    ctx.fillStyle = "rgb(" + theme.ground.join(",") + ")";
+    ctx.fillRect(0, gy, BW, GROUND_H);
+
+    ctx.save();
+    ctx.translate(bird.x, bird.y);
+    ctx.rotate(bird.rot);
+    ctx.scale(bird.pop, bird.pop);
+
+    ctx.fillStyle = "#facc15";
+    ctx.beginPath();
+    ctx.arc(0, 0, BIRD_R, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#1e293b";
+    ctx.beginPath();
+    ctx.arc(6, -3, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(244, 63, 94, 0.5)";
+    ctx.beginPath();
+    ctx.arc(4, 4, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#f97316";
+    ctx.beginPath();
+    ctx.moveTo(10, -2);
+    ctx.lineTo(18, 2);
+    ctx.lineTo(10, 6);
+    ctx.fill();
+
+    ctx.fillStyle = "#eab308";
+    ctx.beginPath();
+    ctx.ellipse(-5, 2, 7, 4, -bird.wing * 0.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (equippedItem === "ribbon") {
+      ctx.fillStyle = "#ef4444";
+      ctx.beginPath();
+      ctx.arc(-6, -15, 5, 0, Math.PI * 2);
+      ctx.arc(2, -15, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#fde047";
+      ctx.beginPath();
+      ctx.arc(-2, -15, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (equippedItem === "sunglasses") {
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(2, -6, 12, 6);
+      ctx.strokeStyle = "#0f172a";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(2, -3);
+      ctx.lineTo(-6, -2);
+      ctx.stroke();
+    } else if (equippedItem === "crown") {
+      ctx.fillStyle = "#facc15";
+      ctx.beginPath();
+      ctx.moveTo(-10, -14);
+      ctx.lineTo(-12, -22);
+      ctx.lineTo(-5, -17);
+      ctx.lineTo(0, -24);
+      ctx.lineTo(5, -17);
+      ctx.lineTo(12, -22);
+      ctx.lineTo(10, -14);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#ef4444";
+      ctx.beginPath();
+      ctx.arc(0, -18, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (equippedItem === "gradcap") {
+      ctx.fillStyle = "#1e293b";
+      ctx.fillRect(-12, -18, 24, 4);
+      ctx.fillRect(-5, -14, 10, 3);
+      ctx.fillStyle = "#f59e0b";
+      ctx.beginPath();
+      ctx.arc(10, -16, 2, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (equippedItem === "halo") {
+      ctx.strokeStyle = "#fde047";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(0, -22, 10, 3, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (shields > 0) {
+      ctx.strokeStyle = "rgba(96, 165, 250, 0.8)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, BIRD_R + 6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    for (var pt = 0; pt < particles.length; pt++) {
+      var p = particles[pt];
+      ctx.globalAlpha = p.life / p.maxLife;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    for (var ft = 0; ft < floatTexts.length; ft++) {
+      var txt = floatTexts[ft];
+      ctx.globalAlpha = txt.life / txt.maxLife;
+      ctx.font = "900 18px sans-serif";
+      ctx.fillStyle = txt.color;
+      ctx.fillText(txt.text, txt.x, txt.y);
+    }
+    ctx.globalAlpha = 1;
+
+    if (flashWhite > 0) {
+      ctx.fillStyle = "rgba(255,255,255," + flashWhite + ")";
+      ctx.fillRect(0, 0, BW, BH);
+    }
+
+    ctx.restore();
+  }
+
+  if (startBtn) {
+    startBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      startGame();
+    });
+  }
+
+  if (againBtn) {
+    againBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      startGame();
+    });
+  }
+
+  if (shopBtn) shopBtn.addEventListener("click", function(e) { e.stopPropagation(); openShop(); });
+  if (overShopBtn) overShopBtn.addEventListener("click", function(e) { e.stopPropagation(); openShop(); });
+  if (closeShopBtn) closeShopBtn.addEventListener("click", function(e) { e.stopPropagation(); closeShop(); });
+
+  if (micBtn) {
+    micBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      toggleMic();
+    });
+  }
+
+  muteBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    isMuted = !isMuted;
+    muteBtn.textContent = isMuted ? "🔇" : "🔊";
+    saveNum(STORE_MUTE, isMuted ? 1 : 0);
+    if (!isMuted) { initAudio(); playTone(880, 0.1, "sine", 0.15); }
+  });
+
+  if (stage) {
+    stage.addEventListener("pointerdown", function (e) {
+      var target = e.target;
+      if (target && (target.tagName === "BUTTON" || target.tagName === "INPUT" || target.closest("#shopScreen"))) {
+        return;
+      }
+      triggerAction();
+    });
+  }
+
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW" || e.code === "Enter") {
+      e.preventDefault();
+      triggerAction();
+    }
+  });
+
+  var lastFrameTime = 0;
+  function gameLoop(time) {
+    requestAnimationFrame(gameLoop);
+    if (!lastFrameTime) lastFrameTime = time;
+    var dt = (time - lastFrameTime) / 1000;
+    lastFrameTime = time;
+
+    if (dt > 0.1) dt = 0.1;
+    update(dt);
+    render();
+  }
+
+  handleResize();
+  requestAnimationFrame(gameLoop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>강아지 산책 시뮬 🐶 - Puppy Care & Walk Simulator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  body {
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background:#1f130b;
+    color:#3d2314;
+    overflow:hidden;
+    height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:radial-gradient(circle at 50% 20%, #4a2d1a, #1f130b 80%);
+  }
+
+  #app {
+    position:relative;
+    width:100%;
+    max-width:460px;
+    height:100%;
+    max-height:860px;
+    display:flex;
+    flex-direction:column;
+    background:#fff5ea;
+    overflow:hidden;
+    box-shadow:0 20px 60px rgba(0,0,0,0.6);
+  }
+  @media (min-width:480px) and (min-height:800px) {
+    #app { border-radius:32px; height:94vh; }
+  }
+
+  /* Glassmorphism & Card Utilities */
+  .hud-card {
+    background:rgba(255, 248, 238, 0.92);
+    backdrop-filter:blur(8px);
+    border:2px solid rgba(227, 168, 111, 0.4);
+  }
+
+  .stat-bar-track {
+    background:#e0cfbe;
+    border:2px solid rgba(140,90,50,0.3);
+    border-radius:999px;
+    overflow:hidden;
+    position:relative;
+  }
+  .stat-bar-fill {
+    height:100%;
+    border-radius:999px;
+    transition:width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Low state pulsing warning */
+  .bar-low { animation:warningPulse 0.8s infinite alternate; }
+  @keyframes warningPulse {
+    0% { filter:drop-shadow(0 0 2px rgba(239, 68, 68, 0.8)); opacity:0.8; }
+    100% { filter:drop-shadow(0 0 8px rgba(239, 68, 68, 1)); opacity:1; }
+  }
+
+  @keyframes dogIdle {
+    0%, 100% { transform:translateY(0) scale(1); }
+    50% { transform:translateY(-8px) scale(1.02, 0.98); }
+  }
+  @keyframes dogTailWag {
+    0%, 100% { transform:rotate(0deg); }
+    25% { transform:rotate(-8deg); }
+    75% { transform:rotate(8deg); }
+  }
+  @keyframes dogEat {
+    0%, 100% { transform:scale(1) rotate(0deg); }
+    20% { transform:scale(1.15) rotate(-8deg); }
+    40% { transform:scale(0.92) rotate(6deg); }
+    60% { transform:scale(1.1) rotate(-4deg); }
+    80% { transform:scale(0.96) rotate(2deg); }
+  }
+  @keyframes dogPlay {
+    0%, 100% { transform:translateY(0) scale(1); }
+    30% { transform:translateY(-48px) rotate(-12deg) scale(1.05); }
+    60% { transform:translateY(-10px) rotate(8deg); }
+  }
+  @keyframes dogBath {
+    0%, 100% { transform:rotate(-4deg) scale(1); }
+    50% { transform:rotate(4deg) scale(1.04); }
+  }
+  @keyframes dogSick {
+    0%, 100% { transform:rotate(-6deg) translateY(2px); }
+    50% { transform:rotate(6deg) translateY(-2px); }
+  }
+  @keyframes dogSleep {
+    0%, 100% { transform:scale(1) translateY(2px); }
+    50% { transform:scale(1.02, 0.95) translateY(6px); }
+  }
+
+  .anim-idle { animation:dogIdle 2.2s ease-in-out infinite; }
+  .anim-eat { animation:dogEat 0.7s ease-in-out; }
+  .anim-play { animation:dogPlay 0.65s ease-in-out; }
+  .anim-bath { animation:dogBath 0.5s ease-in-out infinite; }
+  .anim-sick { animation:dogSick 0.8s ease-in-out infinite; }
+  .anim-sleep { animation:dogSleep 2.5s ease-in-out infinite; }
+
+  #speechBubble {
+    position:relative;
+    background:#ffffff;
+    color:#4a2810;
+    font-weight:800;
+    font-size:14px;
+    padding:8px 16px;
+    border-radius:18px;
+    border:3px solid #f2ab6d;
+    box-shadow:0 6px 16px rgba(130, 70, 20, 0.15);
+    line-height:1.3;
+    animation:bubblePopIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  #speechBubble::after {
+    content:"";
+    position:absolute;
+    left:50%;
+    bottom:-11px;
+    transform:translateX(-50%);
+    border-width:8px 8px 0 8px;
+    border-style:solid;
+    border-color:#f2ab6d transparent transparent transparent;
+  }
+  @keyframes bubblePopIn {
+    0% { transform:scale(0.6) translateY(10px); opacity:0; }
+    100% { transform:scale(1) translateY(0); opacity:1; }
+  }
+
+  .pop-particle {
+    position:absolute;
+    font-size:24px;
+    font-weight:900;
+    pointer-events:none;
+    z-index:30;
+    animation:floatUpAndFade 1.1s ease-out forwards;
+  }
+  @keyframes floatUpAndFade {
+    0% { transform:translate(-50%, 0) scale(0.6); opacity:0; }
+    20% { transform:translate(-50%, -15px) scale(1.2); opacity:1; }
+    100% { transform:translate(-50%, -90px) scale(1); opacity:0; }
+  }
+
+  /* Dynamic Day & Night Sky Gradient */
+  .sky-morning { background:linear-gradient(#ffdfb8, #ffe5c8, #bde3ff); }
+  .sky-day { background:linear-gradient(#9be1ff, #cbefff, #eef9ff); }
+  .sky-sunset { background:linear-gradient(#ff8c69, #ffab76, #ffd19a); }
+  .sky-night { background:linear-gradient(#1a1c38, #2a2e5c, #4a4063); }
+
+  /* Custom Action Buttons */
+  .action-btn {
+    transition:all 0.12s ease;
+    box-shadow:0 5px 0 rgba(0,0,0,0.18);
+  }
+  .action-btn:active {
+    transform:translateY(4px);
+    box-shadow:0 1px 0 rgba(0,0,0,0.18);
+  }
+  .action-btn.disabled {
+    filter:grayscale(0.6) opacity(0.6);
+    pointer-events:none;
+  }
+
+  /* Custom Scrollbars */
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-thumb { background:#e2a872; border-radius:4px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TOP HUD STATUS BAR -->
+  <header id="hud" class="hud-card z-20 p-3 border-b-2 border-amber-300 flex flex-col gap-2 shadow-sm">
+    <div class="flex items-center justify-between gap-2">
+      <div class="flex items-center gap-1.5">
+        <span id="chipDay" class="bg-amber-100 text-amber-900 border-2 border-amber-300 px-2.5 py-0.5 rounded-full text-xs font-black shadow-xs">
+          🌅 Day 1
+        </span>
+        <span id="chipTime" class="bg-blue-100 text-blue-900 border-2 border-blue-300 px-2 py-0.5 rounded-full text-xs font-bold">
+          ☀️ 낮
+        </span>
+        <span id="chipLv" class="bg-indigo-100 text-indigo-900 border-2 border-indigo-300 px-2.5 py-0.5 rounded-full text-xs font-black">
+          Lv.1
+        </span>
+      </div>
+
+      <!-- EXP Bar & Coins -->
+      <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+          <span class="text-xs">🪙</span>
+          <span id="txtCoins" class="text-xs font-black text-amber-800">0</span>
+        </div>
+        <div class="w-16 h-3 bg-amber-100 border border-amber-300 rounded-full overflow-hidden p-0.5">
+          <div id="fillExp" class="h-full bg-gradient-to-r from-amber-400 to-yellow-300 rounded-full transition-all duration-300" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Need Meter Grid -->
+    <div class="grid grid-cols-2 gap-x-3 gap-y-1.5 pt-1">
+      <!-- Food Meter -->
+      <div id="meterFood" class="flex items-center gap-1.5">
+        <span class="text-xs font-extrabold text-amber-800 w-12 flex-none">🍖 밥</span>
+        <div class="stat-bar-track flex-1 h-3.5">
+          <div id="fillFood" class="stat-bar-fill bg-gradient-to-r from-orange-400 to-amber-500" style="width:100%"></div>
+        </div>
+        <span id="numFood" class="text-xs font-bold text-amber-900 w-6 text-right">100</span>
+      </div>
+
+      <!-- Happiness Meter -->
+      <div id="meterHappy" class="flex items-center gap-1.5">
+        <span class="text-xs font-extrabold text-pink-700 w-12 flex-none">💖 행복</span>
+        <div class="stat-bar-track flex-1 h-3.5">
+          <div id="fillHappy" class="stat-bar-fill bg-gradient-to-r from-pink-400 to-rose-500" style="width:100%"></div>
+        </div>
+        <span id="numHappy" class="text-xs font-bold text-pink-900 w-6 text-right">100</span>
+      </div>
+
+      <!-- Energy Meter -->
+      <div id="meterEnergy" class="flex items-center gap-1.5">
+        <span class="text-xs font-extrabold text-blue-700 w-12 flex-none">⚡ 체력</span>
+        <div class="stat-bar-track flex-1 h-3.5">
+          <div id="fillEnergy" class="stat-bar-fill bg-gradient-to-r from-sky-400 to-blue-500" style="width:100%"></div>
+        </div>
+        <span id="numEnergy" class="text-xs font-bold text-blue-900 w-6 text-right">100</span>
+      </div>
+
+      <!-- Cleanliness Meter -->
+      <div id="meterClean" class="flex items-center gap-1.5">
+        <span class="text-xs font-extrabold text-emerald-700 w-12 flex-none">🧼 위생</span>
+        <div class="stat-bar-track flex-1 h-3.5">
+          <div id="fillClean" class="stat-bar-fill bg-gradient-to-r from-teal-300 to-emerald-500" style="width:100%"></div>
+        </div>
+        <span id="numClean" class="text-xs font-bold text-emerald-900 w-6 text-right">100</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN ROOM CONTAINER -->
+  <main id="room" class="relative flex-1 overflow-hidden flex flex-col justify-end transition-colors duration-1000">
+    <!-- Dynamic Room Wall Background -->
+    <div id="roomWall" class="absolute inset-0 bg-gradient-to-b from-amber-100 via-orange-100 to-amber-200 transition-all duration-1000"></div>
+
+    <!-- Window View -->
+    <div class="absolute left-6 top-6 w-28 h-28 bg-sky-200 border-4 border-white rounded-xl shadow-md overflow-hidden z-0">
+      <div id="skyView" class="w-full h-full sky-day transition-all duration-1000 relative">
+        <div id="celestialIcon" class="absolute right-2 top-2 text-xl transition-all duration-1000">☀️</div>
+        <div class="absolute bottom-0 w-full h-4 bg-emerald-400 rounded-t-full opacity-80"></div>
+      </div>
+      <!-- Window Frame Grids -->
+      <div class="absolute inset-0 border-r-2 border-b-2 border-white/70"></div>
+    </div>
+
+    <!-- Room Decor -->
+    <div class="absolute right-6 top-8 text-3xl opacity-90 drop-shadow-sm">🪴</div>
+    <div class="absolute left-36 top-8 text-2xl opacity-80">🖼️</div>
+    <div class="absolute left-6 bottom-24 text-2xl">🥣</div>
+    <div class="absolute right-8 bottom-24 text-2xl animate-bounce">🎾</div>
+
+    <!-- Room Wooden Floor & Cozy Rug -->
+    <div class="absolute bottom-0 left-0 right-0 h-1/3 bg-amber-800 border-t-4 border-amber-900/60 shadow-inner">
+      <div class="w-full h-full bg-[linear-gradient(90deg,transparent_28px,rgba(0,0,0,0.15)_28px)] bg-[size:30px_100%]"></div>
+    </div>
+    <div class="absolute bottom-4 left-1/2 -translate-x-1/2 w-4/5 h-24 bg-gradient-to-r from-pink-200 via-rose-200 to-pink-300 rounded-full shadow-md border-2 border-pink-300/50"></div>
+
+    <!-- DOG CHARACTER CONTAINER -->
+    <div id="dogContainer" class="relative z-10 flex flex-col items-center mb-10 cursor-pointer group">
+      <!-- Speech Bubble -->
+      <div id="speechBubble" class="mb-3 text-center pointer-events-none">
+        멍멍! 나랑 함께 놀자! 🐶
+      </div>
+
+      <!-- Dog Sprite & Equippable Hat Layer -->
+      <div id="dogSpriteWrap" class="relative flex flex-col items-center">
+        <!-- Accessory Overlay -->
+        <div id="dogHat" class="absolute -top-6 text-3xl z-10 transition-transform duration-200"></div>
+
+        <!-- Base Dog Emoji Avatar -->
+        <div id="dogEmoji" class="text-8xl select-none filter drop-shadow-lg transition-all duration-300 anim-idle">
+          🐶
+        </div>
+      </div>
+
+      <!-- Shadow -->
+      <div id="dogShadow" class="w-24 h-4 bg-black/20 rounded-full blur-xs mt-[-8px]"></div>
+    </div>
+
+    <!-- Particle Layer -->
+    <div id="fxLayer" class="absolute inset-0 pointer-events-none z-30"></div>
+  </main>
+
+  <!-- BOTTOM CONTROLS / ACTION BUTTONS -->
+  <footer id="actionControls" class="hud-card z-20 p-2 border-t-2 border-amber-300 grid grid-cols-3 gap-1.5">
+    <button id="btnFeed" class="action-btn bg-gradient-to-b from-amber-400 to-orange-500 text-white rounded-2xl py-2 flex flex-col items-center justify-center font-black text-xs border border-orange-300">
+      <span class="text-xl">🍖</span>
+      <span>밥주기</span>
+      <span class="text-[10px] opacity-80 font-normal">1번</span>
+    </button>
+
+    <button id="btnPlay" class="action-btn bg-gradient-to-b from-pink-400 to-rose-500 text-white rounded-2xl py-2 flex flex-col items-center justify-center font-black text-xs border border-pink-300">
+      <span class="text-xl">🎾</span>
+      <span>놀아주기</span>
+      <span class="text-[10px] opacity-80 font-normal">2번</span>
+    </button>
+
+    <button id="btnSleep" class="action-btn bg-gradient-to-b from-indigo-500 to-purple-600 text-white rounded-2xl py-2 flex flex-col items-center justify-center font-black text-xs border border-indigo-300">
+      <span class="text-xl">💤</span>
+      <span>재우기</span>
+      <span class="text-[10px] opacity-80 font-normal">3번</span>
+    </button>
+
+    <button id="btnWalk" class="action-btn bg-gradient-to-b from-emerald-400 to-green-600 text-white rounded-2xl py-2 flex flex-col items-center justify-center font-black text-xs border border-emerald-300">
+      <span class="text-xl">🦮</span>
+      <span>산책하기</span>
+      <span class="text-[10px] opacity-80 font-normal">4번</span>
+    </button>
+
+    <button id="btnBath" class="action-btn bg-gradient-to-b from-sky-400 to-blue-600 text-white rounded-2xl py-2 flex flex-col items-center justify-center font-black text-xs border border-blue-300">
+      <span class="text-xl">🧼</span>
+      <span>목욕하기</span>
+      <span class="text-[10px] opacity-80 font-normal">5번</span>
+    </button>
+
+    <button id="btnShop" class="action-btn bg-gradient-to-b from-purple-400 to-amber-600 text-white rounded-2xl py-2 flex flex-col items-center justify-center font-black text-xs border border-amber-300">
+      <span class="text-xl">🎀</span>
+      <span>드레스룸</span>
+      <span class="text-[10px] opacity-80 font-normal">상점</span>
+    </button>
+  </footer>
+
+  <!-- START SCREEN OVERLAY -->
+  <div id="startOverlay" class="absolute inset-0 z-50 bg-amber-50/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+    <div class="text-4xl font-black text-amber-900 mb-1 flex items-center gap-2">
+      <span>🐶</span> 강아지 산책 시뮬
+    </div>
+    <div class="text-sm font-bold text-amber-700 mb-4">귀여운 우리 강아지를 정성껏 돌보고 함께 산책해요!</div>
+
+    <div class="w-28 h-28 my-2 text-8xl animate-bounce drop-shadow-md">🐶</div>
+
+    <div class="bg-white/90 border-2 border-amber-300 rounded-2xl p-4 my-3 text-xs text-left text-amber-900 space-y-2 max-w-xs shadow-sm">
+      <p class="flex items-center gap-1.5"><span class="text-base">🍖</span> 밥, Play, 재우기, 산책, 목욕으로 욕구를 채워주세요.</p>
+      <p class="flex items-center gap-1.5"><span class="text-base">💤</span> 재우기를 통해 체력(⚡)을 듬뿍 회복할 수 있어요!</p>
+      <p class="flex items-center gap-1.5"><span class="text-base">🦮</span> 산책 모드에서 뼈다귀를 모으고 웅덩이를 피하세요!</p>
+      <p class="flex items-center gap-1.5"><span class="text-base">🪙</span> 코인을 모아 예쁜 액세서리를 장착해보세요.</p>
+      <p class="flex items-center gap-1.5"><span class="text-base">⚠️</span> 하나라도 상태가 0이 되면 강아지가 병원으로 가요!</p>
+    </div>
+
+    <button id="btnStartGame" class="mt-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xl px-10 py-3.5 rounded-full shadow-lg border-2 border-orange-300 transition-transform active:scale-95">
+      시작하기 ▶
+    </button>
+  </div>
+
+  <!-- GAME OVER OVERLAY -->
+  <div id="gameOverOverlay" class="hidden absolute inset-0 z-50 bg-rose-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center text-white">
+    <div class="text-7xl mb-3 animate-pulse">🤒</div>
+    <div class="text-3xl font-black text-rose-200 mb-1">강아지가 아파요…</div>
+    <div id="gameOverReason" class="text-sm text-rose-300 mb-4">돌봄 수치가 0이 되었습니다.</div>
+
+    <div class="bg-white/10 border border-white/20 rounded-2xl p-4 w-full max-w-xs mb-6 space-y-2">
+      <div class="flex justify-between text-sm">
+        <span class="text-rose-200">함께한 시간</span>
+        <span id="finalDay" class="font-black">1일째</span>
+      </div>
+      <div class="flex justify-between text-sm">
+        <span class="text-rose-200">달성 레벨</span>
+        <span id="finalLevel" class="font-black">Lv.1</span>
+      </div>
+      <div class="flex justify-between text-sm">
+        <span class="text-rose-200">최고 기록</span>
+        <span id="bestRecord" class="font-black text-amber-300">1일</span>
+      </div>
+    </div>
+
+    <button id="btnRetry" class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-lg px-8 py-3 rounded-full shadow-lg border border-teal-300 active:scale-95">
+      다시 돌보기 🔄
+    </button>
+  </div>
+
+  <!-- SHOP / DRESSROOM MODAL -->
+  <div id="shopModal" class="hidden absolute inset-0 z-40 bg-black/60 backdrop-blur-xs flex items-end justify-center">
+    <div class="bg-amber-50 w-full max-h-[80%] rounded-t-3xl p-5 flex flex-col border-t-4 border-amber-400 shadow-2xl">
+      <div class="flex items-center justify-between mb-3 border-b border-amber-200 pb-2">
+        <div class="text-lg font-black text-amber-900 flex items-center gap-1.5">
+          <span>🎀</span> 강아지 드레스룸
+        </div>
+        <button id="btnCloseShop" class="text-amber-800 text-xl font-bold bg-amber-200/60 rounded-full w-8 h-8 flex items-center justify-center">✕</button>
+      </div>
+
+      <div class="text-xs text-amber-700 mb-3 flex items-center justify-between bg-amber-100 p-2 rounded-xl">
+        <span>보유 코인: <b id="shopCoins" class="text-amber-900">0</b> 🪙</span>
+        <span>원하는 아이템을 클릭해 착용하세요!</span>
+      </div>
+
+      <!-- Shop Items Grid -->
+      <div class="grid grid-cols-3 gap-3 overflow-y-auto p-1">
+        <!-- Item 1: Party Hat -->
+        <div class="shop-item bg-white border-2 border-amber-200 rounded-2xl p-3 flex flex-col items-center text-center cursor-pointer hover:border-amber-400" data-id="hat_party" data-cost="10" data-icon="🥳">
+          <span class="text-4xl mb-1">🥳</span>
+          <span class="text-xs font-bold text-amber-900">파티 모자</span>
+          <span class="text-[11px] font-black text-amber-600 mt-1">10 🪙</span>
+        </div>
+
+        <!-- Item 2: Sunglasses -->
+        <div class="shop-item bg-white border-2 border-amber-200 rounded-2xl p-3 flex flex-col items-center text-center cursor-pointer hover:border-amber-400" data-id="hat_sunglasses" data-cost="20" data-icon="🕶️">
+          <span class="text-4xl mb-1">🕶️</span>
+          <span class="text-xs font-bold text-amber-900">선글라스</span>
+          <span class="text-[11px] font-black text-amber-600 mt-1">20 🪙</span>
+        </div>
+
+        <!-- Item 3: Crown -->
+        <div class="shop-item bg-white border-2 border-amber-200 rounded-2xl p-3 flex flex-col items-center text-center cursor-pointer hover:border-amber-400" data-id="hat_crown" data-cost="50" data-icon="👑">
+          <span class="text-4xl mb-1">👑</span>
+          <span class="text-xs font-bold text-amber-900">황금 왕관</span>
+          <span class="text-[11px] font-black text-amber-600 mt-1">50 🪙</span>
+        </div>
+
+        <!-- Item 4: Ribbon -->
+        <div class="shop-item bg-white border-2 border-amber-200 rounded-2xl p-3 flex flex-col items-center text-center cursor-pointer hover:border-amber-400" data-id="hat_ribbon" data-cost="15" data-icon="🎀">
+          <span class="text-4xl mb-1">🎀</span>
+          <span class="text-xs font-bold text-amber-900">예쁜 리본</span>
+          <span class="text-[11px] font-black text-amber-600 mt-1">15 🪙</span>
+        </div>
+
+        <!-- Item 5: Flower -->
+        <div class="shop-item bg-white border-2 border-amber-200 rounded-2xl p-3 flex flex-col items-center text-center cursor-pointer hover:border-amber-400" data-id="hat_flower" data-cost="25" data-icon="🌸">
+          <span class="text-4xl mb-1">🌸</span>
+          <span class="text-xs font-bold text-amber-900">벚꽃 핀</span>
+          <span class="text-[11px] font-black text-amber-600 mt-1">25 🪙</span>
+        </div>
+
+        <!-- Unequip Item -->
+        <div class="shop-item bg-amber-100 border-2 border-amber-300 rounded-2xl p-3 flex flex-col items-center text-center cursor-pointer" data-id="none" data-cost="0" data-icon="">
+          <span class="text-3xl mb-1">❌</span>
+          <span class="text-xs font-bold text-amber-900">착용 해제</span>
+          <span class="text-[11px] text-amber-700 mt-1">무료</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OUTDOOR WALK MINI-GAME MODAL -->
+  <div id="walkGameOverlay" class="hidden absolute inset-0 z-40 bg-emerald-900 flex flex-col">
+    <!-- Walk HUD Header -->
+    <div class="p-3 bg-emerald-800 text-white flex items-center justify-between border-b border-emerald-600 shadow-md">
+      <div class="flex items-center gap-2">
+        <span class="text-lg font-black">🦮 공원 산책 중</span>
+        <span id="walkTime" class="bg-emerald-900 px-2 py-0.5 rounded-full text-xs font-bold">15초 남음</span>
+      </div>
+      <div class="flex items-center gap-3 text-xs font-bold">
+        <span>🦴 <b id="walkBones">0</b></span>
+        <span>🪙 <b id="walkCoins">0</b></span>
+      </div>
+    </div>
+
+    <!-- Walk Mini Game Canvas Container -->
+    <div class="relative flex-1 bg-emerald-100 overflow-hidden">
+      <canvas id="walkCanvas" class="w-full h-full block"></canvas>
+      <div id="walkInstruction" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white text-xs px-4 py-2 rounded-full pointer-events-none transition-opacity duration-300">
+        ⬅️ ➡️ 방향키를 누르거나 화면을 드래그해 신나게 산책하세요!
+      </div>
+    </div>
+  </div>
+
+  <!-- INTERACTIVE BATH MINI-GAME MODAL -->
+  <div id="bathGameOverlay" class="hidden absolute inset-0 z-40 bg-gradient-to-b from-sky-400 via-sky-200 to-blue-300 flex flex-col items-center justify-between p-4">
+    <!-- Bath Header HUD -->
+    <div class="w-full bg-white/90 backdrop-blur-sm p-3 rounded-2xl shadow-md flex items-center justify-between border-2 border-sky-300">
+      <div class="flex items-center gap-2">
+        <span class="text-xl">🧼</span>
+        <span id="bathTitle" class="font-black text-sky-900 text-sm">목욕 시간: 강아지를 문질러주세요!</span>
+      </div>
+      <button id="btnCloseBath" class="text-sky-800 text-xs font-bold bg-sky-100 hover:bg-sky-200 rounded-full px-3 py-1 border border-sky-300">나가기</button>
+    </div>
+
+    <!-- Bathing Area Container -->
+    <div id="bathArea" class="relative w-full max-w-xs flex-1 my-3 bg-white/40 border-4 border-white/80 rounded-3xl overflow-hidden shadow-inner flex flex-col items-center justify-end p-4 touch-none cursor-pointer select-none">
+      <!-- Water Surface & Duck -->
+      <div class="absolute bottom-0 inset-x-0 h-1/2 bg-sky-400/50 backdrop-blur-xs border-t-2 border-white/60 flex justify-around items-start pt-2 pointer-events-none">
+        <span class="text-2xl animate-bounce">🐤</span>
+        <span class="text-xl animate-pulse">🫧</span>
+        <span class="text-2xl animate-bounce" style="animation-delay:0.3s">🧼</span>
+      </div>
+
+      <!-- Bath Dog Container -->
+      <div id="bathDogWrap" class="relative z-10 flex flex-col items-center mb-6 pointer-events-none">
+        <!-- Dirt / Mud Spots Overlay on Dog -->
+        <div id="bathDirt" class="absolute -top-2 inset-x-0 text-3xl text-center transition-opacity duration-300">
+          💩 🦠 💩
+        </div>
+        <!-- Dog Sprite in Bath -->
+        <div id="bathDogEmoji" class="text-8xl filter drop-shadow-md transition-transform duration-150">
+          🐶
+        </div>
+        <!-- Foam Overlay on Dog -->
+        <div id="bathFoam" class="absolute inset-0 flex items-center justify-center text-4xl opacity-0 transition-opacity duration-200">
+          🫧🫧🫧
+        </div>
+      </div>
+
+      <!-- Instruction / Hint Banner -->
+      <div id="bathHint" class="relative z-20 bg-white/90 text-sky-900 font-extrabold text-xs px-4 py-2 rounded-full shadow-md text-center border border-sky-300 mb-2 pointer-events-none">
+        🧽 화면 속 강아지를 마우스나 손가락으로 쓱쓱 문질러주세요!
+      </div>
+    </div>
+
+    <!-- Bath Progress & Shower Controls -->
+    <div class="w-full bg-white/90 backdrop-blur-sm p-3 rounded-2xl shadow-md border-2 border-sky-300 flex flex-col gap-2">
+      <div class="flex items-center justify-between text-xs font-black text-sky-900">
+        <span id="bathStatusLabel">🫧 거품 만들기</span>
+        <span id="bathPercentTxt">0%</span>
+      </div>
+      <div class="w-full h-4 bg-sky-100 rounded-full border border-sky-300 overflow-hidden p-0.5">
+        <div id="bathFillBar" class="h-full bg-gradient-to-r from-sky-400 to-blue-500 rounded-full transition-all duration-150" style="width:0%"></div>
+      </div>
+
+      <!-- Action Button (Rinse button unlocked when scrub complete) -->
+      <button id="btnRinseBath" class="hidden w-full bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-black text-sm py-2.5 rounded-xl shadow-md border border-teal-300 active:scale-95 animate-bounce">
+        🚿 샤워기로 거품 헹구기!
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Game State Enum & Active State
+const GameState = {
+  START: 'START',
+  PLAYING: 'PLAYING',
+  WALK_MINIGAME: 'WALK_MINIGAME',
+  OVER: 'OVER'
+};
+let currentState = GameState.START;
+
+// Web Audio API Synthesizer for SFX
+const sfx = {
+  ctx: null,
+  init() {
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) this.ctx = new AudioCtx();
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  },
+  playTone(freq, type = 'sine', duration = 0.1, gainVal = 0.1) {
+    if (!this.ctx) return;
+    try {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+      gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start();
+      osc.stop(this.ctx.currentTime + duration);
+    } catch(e) {}
+  },
+  bark() {
+    this.init();
+    if (!this.ctx) return;
+    this.playTone(320, 'triangle', 0.08, 0.2);
+    setTimeout(() => this.playTone(450, 'triangle', 0.12, 0.25), 80);
+  },
+  eat() {
+    this.init();
+    if (!this.ctx) return;
+    this.playTone(200, 'sine', 0.05, 0.15);
+    setTimeout(() => this.playTone(300, 'sine', 0.05, 0.15), 60);
+  },
+  sleep() {
+    this.init();
+    if (!this.ctx) return;
+    this.playTone(150, 'sine', 0.4, 0.1);
+  },
+  bath() {
+    this.init();
+    if (!this.ctx) return;
+    this.playTone(600 + Math.random() * 200, 'sine', 0.05, 0.08);
+  },
+  fanfare() {
+    this.init();
+    if (!this.ctx) return;
+    const notes = [261.63, 329.63, 392.00, 523.25];
+    notes.forEach((n, i) => {
+      setTimeout(() => this.playTone(n, 'triangle', 0.15, 0.2), i * 100);
+    });
+  }
+};
+
+/* Pet Core Stats */
+let food = 100;
+let happy = 100;
+let energy = 100;
+let clean = 100;
+
+let exp = 0;
+let level = 1;
+let coins = 0;
+let day = 1;
+let dayTimer = 0;
+const DAY_DURATION_SEC = 35; // 35 seconds per full day/night cycle
+
+let equippedHat = '';
+let inventory = new Set();
+let bestRecordDays = 1;
+
+let speechTimer = 0;
+let lastTimestamp = 0;
+let isSleeping = false;
+
+function loadBestRecord() {
+  try {
+    const saved = localStorage.getItem('puppySim_bestDay');
+    bestRecordDays = saved ? parseInt(saved, 10) : 1;
+  } catch(e) {
+    bestRecordDays = 1;
+  }
+}
+
+/* Walk Mini-game Dynamic Physics & Animation Variables */
+let walkCanvas, walkCtx;
+let walkDogX = 150;
+let targetDogX = 150;
+let walkDogVelX = 0;
+let walkDogTilt = 0;
+let walkBobTimer = 0;
+let walkRoadOffset = 0;
+let walkTimer = 15;
+let walkScoreBones = 0;
+let walkScoreCoins = 0;
+let walkObstacles = [];
+let walkScenery = [];
+let walkParticles = [];
+let walkAnimFrame;
+let keysPressed = {};
+
+function startWalkMiniGame() {
+  if (currentState !== GameState.PLAYING) return;
+  currentState = GameState.WALK_MINIGAME;
+
+  document.getElementById('walkGameOverlay').classList.remove('hidden');
+  walkCanvas = document.getElementById('walkCanvas');
+  walkCtx = walkCanvas.getContext('2d');
+
+  // Adjust Canvas Resolution
+  const rect = walkCanvas.parentElement.getBoundingClientRect();
+  walkCanvas.width = rect.width;
+  walkCanvas.height = rect.height;
+
+  walkDogX = walkCanvas.width / 2;
+  targetDogX = walkDogX;
+  walkDogVelX = 0;
+  walkDogTilt = 0;
+  walkBobTimer = 0;
+  walkRoadOffset = 0;
+
+  walkTimer = 15;
+  walkScoreBones = 0;
+  walkScoreCoins = 0;
+  walkObstacles = [];
+  walkParticles = [];
+  walkScenery = [];
+
+  // Generate initial park scenery trees & flowers on left and right sides
+  for (let i = 0; i < 10; i++) {
+    spawnSceneryItem(-i * (walkCanvas.height / 5));
+  }
+
+  document.getElementById('walkBones').textContent = '0';
+  document.getElementById('walkCoins').textContent = '0';
+
+  let lastWalkTime = performance.now();
+
+  function walkLoop(now) {
+    const dt = Math.min(0.05, (now - lastWalkTime) / 1000);
+    lastWalkTime = now;
+
+    if (currentState === GameState.WALK_MINIGAME) {
+      updateWalkGame(dt);
+      renderWalkGame();
+      walkAnimFrame = requestAnimationFrame(walkLoop);
+    }
+  }
+  walkAnimFrame = requestAnimationFrame(walkLoop);
+}
+
+function spawnSceneryItem(spawnY) {
+  const side = Math.random() < 0.5 ? 'left' : 'right';
+  const treeIcons = ['🌳', '🌲', '🌸', '🌻', '🌿', '🪴'];
+  const icon = treeIcons[Math.floor(Math.random() * treeIcons.length)];
+  const roadMargin = walkCanvas.width * 0.22;
+  
+  let x = side === 'left' 
+    ? Math.random() * (roadMargin - 30) + 10 
+    : walkCanvas.width - roadMargin + Math.random() * (roadMargin - 30) + 10;
+
+  walkScenery.push({
+    x: x,
+    y: spawnY !== undefined ? spawnY : -40,
+    icon: icon,
+    scale: 0.8 + Math.random() * 0.4
+  });
+}
+
+function updateWalkGame(dt) {
+  walkTimer -= dt;
+  document.getElementById('walkTime').textContent = `${Math.ceil(walkTimer)}초 남음`;
+
+  if (walkTimer <= 0) {
+    finishWalkMiniGame();
+    return;
+  }
+
+  // Continuous keyboard movement handling
+  const moveSpeed = 360 * dt;
+  if (keysPressed['ArrowLeft'] || keysPressed['a'] || keysPressed['A']) {
+    targetDogX -= moveSpeed;
+  }
+  if (keysPressed['ArrowRight'] || keysPressed['d'] || keysPressed['D']) {
+    targetDogX += moveSpeed;
+  }
+
+  // Keep target within trail limits
+  const minX = walkCanvas.width * 0.22 + 20;
+  const maxX = walkCanvas.width * 0.78 - 20;
+  targetDogX = Math.max(minX, Math.min(maxX, targetDogX));
+
+  // Smooth Lerp Position Interpolation
+  const prevX = walkDogX;
+  walkDogX += (targetDogX - walkDogX) * Math.min(1, 14 * dt);
+  
+  // Calculate horizontal velocity for dynamic tilt effect
+  walkDogVelX = (walkDogX - prevX) / dt;
+  const targetTilt = Math.max(-0.25, Math.min(0.25, walkDogVelX * 0.0012));
+  walkDogTilt += (targetTilt - walkDogTilt) * Math.min(1, 10 * dt);
+
+  // Vertical running/walking bounce oscillation
+  walkBobTimer += dt * 18;
+
+  // Forward scrolling background offset
+  const scrollSpeed = 220; // px per sec
+  walkRoadOffset = (walkRoadOffset + scrollSpeed * dt) % 60;
+
+  // Spawn Dust Particles while running
+  if (Math.abs(walkDogVelX) > 10 || Math.random() < 0.3) {
+    if (Math.random() < 0.25) {
+      walkParticles.push({
+        x: walkDogX + (Math.random() * 20 - 10),
+        y: walkCanvas.height - 40,
+        vy: 30 + Math.random() * 20,
+        vx: (Math.random() - 0.5) * 20,
+        radius: 2 + Math.random() * 3,
+        alpha: 0.7,
+        color: '#d1d5db',
+        life: 0.4
+      });
+    }
+  }
+
+  // Update Particles
+  for (let i = walkParticles.length - 1; i >= 0; i--) {
+    const p = walkParticles[i];
+    p.life -= dt;
+    p.y += p.vy * dt;
+    p.x += p.vx * dt;
+    p.alpha = Math.max(0, p.life / 0.4);
+    if (p.life <= 0) walkParticles.splice(i, 1);
+  }
+
+  // Scroll Scenery
+  for (let i = walkScenery.length - 1; i >= 0; i--) {
+    const s = walkScenery[i];
+    s.y += scrollSpeed * dt;
+    if (s.y > walkCanvas.height + 50) {
+      walkScenery.splice(i, 1);
+      spawnSceneryItem(-30);
+    }
+  }
+
+  // Spawn Collectibles & Obstacles
+  if (Math.random() < 0.045) {
+    const types = ['bone', 'coin', 'mud'];
+    const type = types[Math.floor(Math.random() * types.length)];
+    walkObstacles.push({
+      x: Math.random() * (maxX - minX) + minX,
+      y: -30,
+      type: type,
+      speed: scrollSpeed + (Math.random() * 40 - 20),
+      rot: Math.random() * Math.PI * 2,
+      bobOffset: Math.random() * 10
+    });
+  }
+
+  // Move and Check Obstacles
+  const dogY = walkCanvas.height - 65;
+  for (let i = walkObstacles.length - 1; i >= 0; i--) {
+    const obs = walkObstacles[i];
+    obs.y += obs.speed * dt;
+    obs.rot += dt * 2;
+
+    // Collision Check
+    const dist = Math.hypot(obs.x - walkDogX, obs.y - dogY);
+    if (dist < 36) {
+      if (obs.type === 'bone') {
+        walkScoreBones++;
+        sfx.eat();
+        document.getElementById('walkBones').textContent = walkScoreBones;
+        spawnBurstParticles(obs.x, obs.y, '🦴');
+      } else if (obs.type === 'coin') {
+        walkScoreCoins++;
+        sfx.fanfare();
+        document.getElementById('walkCoins').textContent = walkScoreCoins;
+        spawnBurstParticles(obs.x, obs.y, '🪙');
+      } else if (obs.type === 'mud') {
+        sfx.bark();
+        clean = Math.max(0, clean - 15);
+        spawnBurstParticles(obs.x, obs.y, '🌧️');
+      }
+      walkObstacles.splice(i, 1);
+      continue;
+    }
+
+    if (obs.y > walkCanvas.height + 40) {
+      walkObstacles.splice(i, 1);
+    }
+  }
+}
+
+function spawnBurstParticles(x, y, icon) {
+  for (let k = 0; k < 5; k++) {
+    walkParticles.push({
+      x: x,
+      y: y,
+      vx: (Math.random() - 0.5) * 120,
+      vy: (Math.random() - 0.5) * 120,
+      icon: icon,
+      alpha: 1,
+      life: 0.5
+    });
+  }
+}
+
+function renderWalkGame() {
+  walkCtx.clearRect(0, 0, walkCanvas.width, walkCanvas.height);
+
+  const w = walkCanvas.width;
+  const h = walkCanvas.height;
+
+  // 1. Draw Side Grass Fields
+  walkCtx.fillStyle = '#86efac';
+  walkCtx.fillRect(0, 0, w, h);
+
+  // Draw Park Walking Trail Path
+  const pathLeft = w * 0.22;
+  const pathRight = w * 0.78;
+  const pathWidth = pathRight - pathLeft;
+
+  // Trail Ground Texture
+  walkCtx.fillStyle = '#fde047';
+  walkCtx.fillRect(pathLeft, 0, pathWidth, h);
+
+  // Trail Border Grass Edges
+  walkCtx.fillStyle = '#4ade80';
+  walkCtx.fillRect(pathLeft - 6, 0, 8, h);
+  walkCtx.fillRect(pathRight - 2, 0, 8, h);
+
+  // 2. Dynamic Scrolling Path Dashes / Lines for Velocity Effect
+  walkCtx.strokeStyle = '#eab308';
+  walkCtx.lineWidth = 4;
+  walkCtx.setLineDash([24, 24]);
+  walkCtx.lineDashOffset = -walkRoadOffset;
+
+  walkCtx.beginPath();
+  walkCtx.moveTo(w * 0.5, -40);
+  walkCtx.lineTo(w * 0.5, h + 40);
+  walkCtx.stroke();
+  walkCtx.setLineDash([]); // reset
+
+  // 3. Render Side Scenery (Trees & Flowers)
+  walkScenery.forEach(s => {
+    walkCtx.save();
+    walkCtx.translate(s.x, s.y);
+    walkCtx.font = `${Math.round(28 * s.scale)}px sans-serif`;
+    walkCtx.textAlign = 'center';
+    walkCtx.textBaseline = 'middle';
+    walkCtx.fillText(s.icon, 0, 0);
+    walkCtx.restore();
+  });
+
+  // 4. Render Floating Collectibles & Mud
+  walkObstacles.forEach(obs => {
+    walkCtx.save();
+    const bob = Math.sin(walkBobTimer * 0.5 + obs.bobOffset) * 4;
+    walkCtx.translate(obs.x, obs.y + bob);
+
+    if (obs.type === 'bone' || obs.type === 'coin') {
+      walkCtx.rotate(Math.sin(obs.rot) * 0.2);
+    }
+
+    walkCtx.font = '30px sans-serif';
+    walkCtx.textAlign = 'center';
+    walkCtx.textBaseline = 'middle';
+
+    let icon = '🦴';
+    if (obs.type === 'coin') icon = '🪙';
+    if (obs.type === 'mud') icon = '🌧️';
+
+    // Drop Shadow for items
+    walkCtx.fillStyle = 'rgba(0,0,0,0.15)';
+    walkCtx.beginPath();
+    walkCtx.ellipse(0, 18 - bob, 14, 6, 0, 0, Math.PI * 2);
+    walkCtx.fill();
+
+    walkCtx.fillText(icon, 0, 0);
+    walkCtx.restore();
+  });
+
+  // 5. Render Particle FX (Dust & Pickup bursts)
+  walkParticles.forEach(p => {
+    walkCtx.save();
+    walkCtx.globalAlpha = p.alpha;
+    if (p.icon) {
+      walkCtx.font = '18px sans-serif';
+      walkCtx.fillText(p.icon, p.x, p.y);
+    } else {
+      walkCtx.fillStyle = p.color || '#e5e7eb';
+      walkCtx.beginPath();
+      walkCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      walkCtx.fill();
+    }
+    walkCtx.restore();
+  });
+
+  // 6. Render Player Dog with Smooth Bouncing, Tilting, and Shadow
+  const dogY = h - 65;
+  const bounceY = Math.abs(Math.sin(walkBobTimer)) * 8; // Dynamic leg/stride bounce
+
+  walkCtx.save();
+  walkCtx.translate(walkDogX, dogY - bounceY);
+  walkCtx.rotate(walkDogTilt);
+
+  // Soft Oval Shadow under dog
+  walkCtx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+  walkCtx.beginPath();
+  walkCtx.ellipse(0, 24 + bounceY * 0.8, 22, 7, 0, 0, Math.PI * 2);
+  walkCtx.fill();
+
+  // Dog Avatar Emoji
+  walkCtx.font = '52px sans-serif';
+  walkCtx.textAlign = 'center';
+  walkCtx.textBaseline = 'middle';
+
+  // Dynamic dog orientation based on velocity
+  let dogIcon = '🦮';
+  if (equippedHat) {
+    // Render equipped accessory on walking dog
+    walkCtx.font = '24px sans-serif';
+    walkCtx.fillText(equippedHat, 0, -28);
+    walkCtx.font = '52px sans-serif';
+  }
+
+  walkCtx.fillText(dogIcon, 0, 0);
+  walkCtx.restore();
+}
+
+function finishWalkMiniGame() {
+  cancelAnimationFrame(walkAnimFrame);
+  document.getElementById('walkGameOverlay').classList.add('hidden');
+  currentState = GameState.PLAYING;
+
+  // Rewards
+  happy = Math.min(100, happy + 30 + walkScoreBones * 5);
+  energy = Math.max(0, energy - 20);
+  food = Math.max(0, food - 15);
+  coins += walkScoreCoins + walkScoreBones * 2;
+  addExp(20 + walkScoreBones * 5);
+
+  sfx.fanfare();
+  say(`🦮 즐거운 산책 완료! (🦴+${walkScoreBones}, 🪙+${walkScoreCoins})`);
+}
+
+// Keyboard events for smooth movement
+window.addEventListener('keydown', (e) => {
+  if (currentState === GameState.WALK_MINIGAME) {
+    keysPressed[e.key] = true;
+  }
+});
+
+window.addEventListener('keyup', (e) => {
+  if (currentState === GameState.WALK_MINIGAME) {
+    keysPressed[e.key] = false;
+  }
+});
+
+// Continuous Drag / Touch control for walk game
+const walkGameOverlay = document.getElementById('walkGameOverlay');
+let isTouchingWalk = false;
+
+function handleWalkTouch(clientX) {
+  if (currentState === GameState.WALK_MINIGAME && walkCanvas) {
+    const rect = walkCanvas.getBoundingClientRect();
+    const touchX = clientX - rect.left;
+    targetDogX = touchX;
+  }
+}
+
+walkGameOverlay.addEventListener('touchstart', (e) => {
+  isTouchingWalk = true;
+  if (e.touches.length > 0) handleWalkTouch(e.touches[0].clientX);
+}, { passive: true });
+
+walkGameOverlay.addEventListener('touchmove', (e) => {
+  if (isTouchingWalk && e.touches.length > 0) {
+    handleWalkTouch(e.touches[0].clientX);
+  }
+}, { passive: true });
+
+walkGameOverlay.addEventListener('touchend', () => { isTouchingWalk = false; });
+
+walkGameOverlay.addEventListener('mousedown', (e) => {
+  isTouchingWalk = true;
+  handleWalkTouch(e.clientX);
+});
+
+walkGameOverlay.addEventListener('mousemove', (e) => {
+  if (isTouchingWalk) handleWalkTouch(e.clientX);
+});
+
+window.addEventListener('mouseup', () => { isTouchingWalk = false; });
+
+function saveBestRecord() {
+  if (day > bestRecordDays) {
+    bestRecordDays = day;
+    try { localStorage.setItem('puppySim_bestDay', String(day)); } catch(e){}
+  }
+}
+
+function resetGame() {
+  food = 100;
+  happy = 100;
+  energy = 100;
+  clean = 100;
+  exp = 0;
+  level = 1;
+  coins = 10;
+  day = 1;
+  dayTimer = 0;
+  equippedHat = '';
+  inventory.clear();
+
+  document.getElementById('dogHat').textContent = '';
+  document.getElementById('gameOverOverlay').classList.add('hidden');
+  document.getElementById('startOverlay').classList.add('hidden');
+  document.getElementById('shopModal').classList.add('hidden');
+  document.getElementById('walkGameOverlay').classList.add('hidden');
+
+  updateUI();
+  say("멍멍! 반가워! 🐶", 2);
+}
+
+function startGame() {
+  sfx.init();
+  resetGame();
+  currentState = GameState.PLAYING;
+  sfx.bark();
+}
+
+function say(msg, durationSec = 2) {
+  const bubble = document.getElementById('speechBubble');
+  bubble.textContent = msg;
+  bubble.style.animation = 'none';
+  void bubble.offsetWidth;
+  bubble.style.animation = 'bubblePopIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+  speechTimer = durationSec;
+}
+
+function createParticle(emoji, color = '#ff7b00') {
+  const fxLayer = document.getElementById('fxLayer');
+  if (fxLayer.childNodes.length > 20) fxLayer.removeChild(fxLayer.firstChild);
+
+  const p = document.createElement('div');
+  p.className = 'pop-particle';
+  p.textContent = emoji;
+  p.style.color = color;
+  p.style.left = (35 + Math.random() * 30) + '%';
+  p.style.bottom = (30 + Math.random() * 20) + '%';
+
+  fxLayer.appendChild(p);
+  setTimeout(() => { if (p.parentNode) p.parentNode.removeChild(p); }, 1100);
+}
+
+function doFeed() {
+  if (currentState !== GameState.PLAYING) return;
+  sfx.init();
+  sfx.eat();
+
+  food = Math.min(100, food + 30);
+  happy = Math.min(100, happy + 5);
+  clean = Math.max(0, clean - 4);
+  addExp(8);
+
+  triggerDogAnimation('anim-eat');
+  createParticle('🍖', '#d97706');
+  createParticle('😋', '#f59e0b');
+
+  const msgs = ["냠냠 맛있어! 🍖", "밥 주셔서 고마워요!", "꿀맛이다 멍!"];
+  say(msgs[Math.floor(Math.random() * msgs.length)]);
+}
+
+function doPlay() {
+  if (currentState !== GameState.PLAYING) return;
+  sfx.init();
+  sfx.bark();
+
+  happy = Math.min(100, happy + 35);
+  energy = Math.max(0, energy - 15);
+  food = Math.max(0, food - 10);
+  clean = Math.max(0, clean - 8);
+  addExp(12);
+  coins += 2;
+
+  triggerDogAnimation('anim-play');
+  createParticle('🎾', '#ec4899');
+  createParticle('💖', '#f43f5e');
+
+  const msgs = ["공놀이 너무 재미있어요! 🎾", "신난다! 더 던져주세요!", "멍멍! 💖"];
+  say(msgs[Math.floor(Math.random() * msgs.length)]);
+}
+
+function doSleep() {
+  if (currentState !== GameState.PLAYING || isSleeping) return;
+  sfx.init();
+  sfx.sleep();
+
+  isSleeping = true;
+  energy = Math.min(100, energy + 45);
+  food = Math.max(0, food - 8);
+  addExp(10);
+
+  triggerDogAnimation('anim-sleep');
+  document.getElementById('dogEmoji').textContent = '😴';
+  createParticle('💤', '#a855f7');
+  createParticle('⭐', '#eab308');
+
+  // Darken room during sleep
+  const roomWall = document.getElementById('roomWall');
+  const currentFilter = roomWall.style.filter;
+  roomWall.style.filter = 'brightness(0.35) saturate(0.6)';
+
+  say("쿨쿨... 푹 자면서 체력을 회복하는 중이에요 💤", 3);
+
+  setTimeout(() => {
+    isSleeping = false;
+    roomWall.style.filter = currentFilter;
+    if (currentState === GameState.PLAYING) {
+      document.getElementById('dogEmoji').textContent = '🐶';
+      sfx.bark();
+      say("잘 자고 일어났어요! 체력이 회복되었어요 ⚡", 2);
+    }
+  }, 2500);
+}
+
+let bathProgress = 0;
+let bathPhase = 'scrub'; // 'scrub' | 'rinse' | 'done'
+
+function startBathMiniGame() {
+  if (currentState !== GameState.PLAYING) return;
+  currentState = GameState.WALK_MINIGAME; // pause general decay while in minigame
+
+  bathProgress = 0;
+  bathPhase = 'scrub';
+
+  document.getElementById('bathGameOverlay').classList.remove('hidden');
+  document.getElementById('bathTitle').textContent = "목욕 시간: 강아지를 문질러주세요!";
+  document.getElementById('bathHint').textContent = "🧽 화면 속 강아지를 마우스나 손가락으로 쓱쓱 문질러주세요!";
+  document.getElementById('bathStatusLabel').textContent = "🫧 거품 만들기";
+  document.getElementById('bathPercentTxt').textContent = "0%";
+  document.getElementById('bathFillBar').style.width = "0%";
+  document.getElementById('bathDirt').style.opacity = "1";
+  document.getElementById('bathFoam').style.opacity = "0";
+  document.getElementById('btnRinseBath').classList.add('hidden');
+  document.getElementById('bathDogEmoji').textContent = '🐶';
+
+  sfx.init();
+  sfx.bath();
+}
+
+function handleBathScrub() {
+  if (bathPhase !== 'scrub') return;
+
+  bathProgress += 3;
+  if (Math.random() < 0.35) sfx.bath();
+
+  createParticle('🫧', '#38bdf8');
+
+  const foamOpacity = Math.min(1, bathProgress / 70);
+  const dirtOpacity = Math.max(0, 1 - bathProgress / 50);
+
+  document.getElementById('bathDirt').style.opacity = dirtOpacity;
+  document.getElementById('bathFoam').style.opacity = foamOpacity;
+
+  const currentPct = Math.min(100, Math.round(bathProgress));
+  document.getElementById('bathPercentTxt').textContent = `${currentPct}%`;
+  document.getElementById('bathFillBar').style.width = `${currentPct}%`;
+
+  // Wiggling animation while scrubbing
+  const dog = document.getElementById('bathDogEmoji');
+  dog.style.transform = `scale(1.1) rotate(${Math.sin(bathProgress) * 10}deg)`;
+  setTimeout(() => { dog.style.transform = 'scale(1) rotate(0deg)'; }, 150);
+
+  if (bathProgress >= 100) {
+    bathPhase = 'rinse';
+    document.getElementById('bathTitle').textContent = "목욕 시간: 물로 거품을 씻어내세요!";
+    document.getElementById('bathHint').textContent = "🚿 아래 [샤워기로 거품 헹구기] 버튼을 누르세요!";
+    document.getElementById('bathStatusLabel').textContent = "🚿 거품 헹구기 준비 완료!";
+    document.getElementById('btnRinseBath').classList.remove('hidden');
+    sfx.fanfare();
+  }
+}
+
+function handleBathRinse() {
+  if (bathPhase !== 'rinse') return;
+  bathPhase = 'done';
+
+  sfx.bath();
+  createParticle('💦', '#0284c7');
+  createParticle('✨', '#eab308');
+
+  document.getElementById('bathFoam').style.opacity = "0";
+  document.getElementById('bathDogEmoji').textContent = '✨🐶✨';
+
+  document.getElementById('bathHint').textContent = "🧼 개운하다 멍! 완전히 깨끗해졌어요!";
+  document.getElementById('bathPercentTxt').textContent = "100%";
+  document.getElementById('bathFillBar').style.width = "100%";
+
+  setTimeout(() => {
+    closeBathMiniGame(true);
+  }, 1200);
+}
+
+function closeBathMiniGame(completed = false) {
+  document.getElementById('bathGameOverlay').classList.add('hidden');
+  currentState = GameState.PLAYING;
+
+  if (completed) {
+    clean = 100;
+    happy = Math.min(100, happy + 20);
+    energy = Math.max(0, energy - 5);
+    coins += 5;
+    addExp(15);
+
+    sfx.fanfare();
+    sfx.bark();
+    say("시원하고 개운해요! 몸이 뽀송뽀송해졌어요 🧼✨", 3);
+  }
+}
+
+function triggerDogAnimation(animClass) {
+  const emoji = document.getElementById('dogEmoji');
+  emoji.className = `text-8xl select-none filter drop-shadow-lg transition-all duration-300 ${animClass}`;
+  setTimeout(() => {
+    if (currentState === GameState.PLAYING) {
+      emoji.className = 'text-8xl select-none filter drop-shadow-lg transition-all duration-300 anim-idle';
+    }
+  }, 700);
+}
+
+function addExp(amount) {
+  exp += amount;
+  const maxExp = level * 50;
+  if (exp >= maxExp) {
+    exp -= maxExp;
+    level++;
+    coins += 10;
+    sfx.fanfare();
+    createParticle('⭐', '#eab308');
+    createParticle('🎉', '#a855f7');
+    say(`⭐ 레벨 업! Lv.${level} 이 되었습니다!`);
+  }
+}
+
+function openShop() {
+  if (currentState !== GameState.PLAYING) return;
+  document.getElementById('shopCoins').textContent = coins;
+  document.getElementById('shopModal').classList.remove('hidden');
+}
+
+function closeShop() {
+  document.getElementById('shopModal').classList.add('hidden');
+}
+
+document.querySelectorAll('.shop-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const itemId = item.getAttribute('data-id');
+    const cost = parseInt(item.getAttribute('data-cost'), 10);
+    const icon = item.getAttribute('data-icon');
+
+    if (itemId === 'none') {
+      equippedHat = '';
+      document.getElementById('dogHat').textContent = '';
+      say("모자를 벗었습니다.");
+      closeShop();
+      return;
+    }
+
+    if (inventory.has(itemId) || coins >= cost) {
+      if (!inventory.has(itemId)) {
+        coins -= cost;
+        inventory.add(itemId);
+      }
+      equippedHat = icon;
+      document.getElementById('dogHat').textContent = icon;
+      sfx.fanfare();
+      say(`짜잔! ${icon} 아이템을 착용했어요!`);
+      closeShop();
+      updateUI();
+    } else {
+      say("코인이 부족해요! 산책해서 코인을 모아보세요 🪙");
+    }
+  });
+});
+
+function updateGame(dt) {
+  // Need Decay Rate Multiplier based on Day
+  const difficultyMult = 1 + (day - 1) * 0.1;
+
+  food -= 2.2 * difficultyMult * dt;
+  happy -= 2.0 * difficultyMult * dt;
+  energy -= 1.2 * difficultyMult * dt;
+  clean -= 1.5 * difficultyMult * dt;
+
+  // Clamp limits
+  food = Math.max(0, Math.min(100, food));
+  happy = Math.max(0, Math.min(100, happy));
+  energy = Math.max(0, Math.min(100, energy));
+  clean = Math.max(0, Math.min(100, clean));
+
+  // Time & Day Cycle
+  dayTimer += dt;
+  if (dayTimer >= DAY_DURATION_SEC) {
+    dayTimer -= DAY_DURATION_SEC;
+    day++;
+    coins += 5;
+    addExp(15);
+    sfx.fanfare();
+    createParticle('🌅', '#f97316');
+    say(`🌅 ${day}일째 아침이 밝았습니다!`);
+  }
+
+  // Update speech timer
+  if (speechTimer > 0) {
+    speechTimer -= dt;
+  }
+
+  // Check Game Over Condition
+  if (food <= 0) triggerGameOver("너무 배고파서 아파요… 🍖");
+  else if (happy <= 0) triggerGameOver("외로워서 슬퍼요… 💔");
+  else if (energy <= 0) triggerGameOver("체력이 소진되었습니다… ⚡");
+  else if (clean <= 0) triggerGameOver("위생 상태가 나빠졌어요… 🧼");
+}
+
+function triggerGameOver(reason) {
+  currentState = GameState.OVER;
+  saveBestRecord();
+
+  document.getElementById('gameOverReason').textContent = reason;
+  document.getElementById('finalDay').textContent = `${day}일째`;
+  document.getElementById('finalLevel').textContent = `Lv.${level}`;
+  document.getElementById('bestRecord').textContent = `${bestRecordDays}일`;
+
+  document.getElementById('dogEmoji').className = 'text-8xl select-none filter drop-shadow-lg anim-sick';
+  document.getElementById('dogEmoji').textContent = '🤒';
+
+  document.getElementById('gameOverOverlay').classList.remove('hidden');
+}
+
+function updateUI() {
+  // Update Numeric Values
+  document.getElementById('numFood').textContent = Math.round(food);
+  document.getElementById('numHappy').textContent = Math.round(happy);
+  document.getElementById('numEnergy').textContent = Math.round(energy);
+  document.getElementById('numClean').textContent = Math.round(clean);
+
+  // Update Progress Fill Bars
+  document.getElementById('fillFood').style.width = `${food}%`;
+  document.getElementById('fillHappy').style.width = `${happy}%`;
+  document.getElementById('fillEnergy').style.width = `${energy}%`;
+  document.getElementById('fillClean').style.width = `${clean}%`;
+
+  // Warning low animations
+  document.getElementById('meterFood').classList.toggle('bar-low', food < 25);
+  document.getElementById('meterHappy').classList.toggle('bar-low', happy < 25);
+  document.getElementById('meterEnergy').classList.toggle('bar-low', energy < 25);
+  document.getElementById('meterClean').classList.toggle('bar-low', clean < 25);
+
+  // EXP & Level
+  document.getElementById('chipDay').textContent = `🌅 Day ${day}`;
+  document.getElementById('chipLv').textContent = `Lv.${level}`;
+  document.getElementById('txtCoins').textContent = coins;
+
+  const maxExp = level * 50;
+  document.getElementById('fillExp').style.width = `${Math.min(100, (exp / maxExp) * 100)}%`;
+
+  // Environmental Day / Night Sky Cycle
+  const dayProgress = dayTimer / DAY_DURATION_SEC;
+  const skyView = document.getElementById('skyView');
+  const roomWall = document.getElementById('roomWall');
+  const celestialIcon = document.getElementById('celestialIcon');
+  const chipTime = document.getElementById('chipTime');
+
+  if (dayProgress < 0.25) {
+    skyView.className = 'w-full h-full sky-morning transition-all duration-1000 relative';
+    roomWall.style.filter = 'brightness(1.05) saturate(1.1)';
+    celestialIcon.textContent = '🌅';
+    chipTime.textContent = '🌅 아침';
+  } else if (dayProgress < 0.65) {
+    skyView.className = 'w-full h-full sky-day transition-all duration-1000 relative';
+    roomWall.style.filter = 'brightness(1) saturate(1)';
+    celestialIcon.textContent = '☀️';
+    chipTime.textContent = '☀️ 낮';
+  } else if (dayProgress < 0.85) {
+    skyView.className = 'w-full h-full sky-sunset transition-all duration-1000 relative';
+    roomWall.style.filter = 'brightness(0.9) saturate(1.2)';
+    celestialIcon.textContent = '🌇';
+    chipTime.textContent = '🌇 노을';
+  } else {
+    skyView.className = 'w-full h-full sky-night transition-all duration-1000 relative';
+    roomWall.style.filter = 'brightness(0.7) saturate(0.8)';
+    celestialIcon.textContent = '🌙';
+    chipTime.textContent = '🌙 밤';
+  }
+
+  // Dog Expression Mood Update
+  if (currentState === GameState.PLAYING) {
+    const dogEmoji = document.getElementById('dogEmoji');
+    if (isSleeping) dogEmoji.textContent = '😴';
+    else if (clean < 30) dogEmoji.textContent = '🐕‍🦺';
+    else if (food < 25 || happy < 25) dogEmoji.textContent = '😢';
+    else if (energy < 25) dogEmoji.textContent = '😴';
+    else dogEmoji.textContent = '🐶';
+  }
+}
+
+function gameLoop(timestamp) {
+  if (!lastTimestamp) lastTimestamp = timestamp;
+  let dt = (timestamp - lastTimestamp) / 1000;
+  lastTimestamp = timestamp;
+
+  if (dt > 0.1) dt = 0.1; // Cap tab switch pause lag
+
+  if (currentState === GameState.PLAYING) {
+    updateGame(dt);
+  }
+
+  if (currentState !== GameState.WALK_MINIGAME) {
+    updateUI();
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+/* Event Listeners */
+document.getElementById('btnStartGame').addEventListener('click', startGame);
+document.getElementById('btnRetry').addEventListener('click', startGame);
+
+document.getElementById('btnFeed').addEventListener('click', doFeed);
+document.getElementById('btnPlay').addEventListener('click', doPlay);
+document.getElementById('btnSleep').addEventListener('click', doSleep);
+document.getElementById('btnWalk').addEventListener('click', startWalkMiniGame);
+document.getElementById('btnBath').addEventListener('click', startBathMiniGame);
+document.getElementById('btnShop').addEventListener('click', openShop);
+document.getElementById('btnCloseShop').addEventListener('click', closeShop);
+
+const bathArea = document.getElementById('bathArea');
+bathArea.addEventListener('mousemove', (e) => {
+  if (e.buttons === 1) handleBathScrub();
+});
+bathArea.addEventListener('touchmove', handleBathScrub);
+bathArea.addEventListener('click', handleBathScrub);
+
+document.getElementById('btnRinseBath').addEventListener('click', handleBathRinse);
+document.getElementById('btnCloseBath').addEventListener('click', () => closeBathMiniGame(false));
+
+// Petting Dog
+document.getElementById('dogContainer').addEventListener('click', () => {
+  if (currentState !== GameState.PLAYING) return;
+  sfx.init();
+  sfx.bark();
+  happy = Math.min(100, happy + 3);
+  createParticle('💗', '#ec4899');
+  say("쓰다듬어주니 너무 좋아요! 🐾");
+});
+
+// Keyboard Shortcuts
+window.addEventListener('keydown', (e) => {
+  if (currentState === GameState.PLAYING) {
+    if (e.key === '1') doFeed();
+    if (e.key === '2') doPlay();
+    if (e.key === '3') doSleep();
+    if (e.key === '4') startWalkMiniGame();
+    if (e.key === '5') startBathMiniGame();
+  } else if (currentState === GameState.START || currentState === GameState.OVER) {
+    if (e.key === ' ' || e.key === 'Enter') startGame();
+  }
+});
+
+/* Initialize */
+loadBestRecord();
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>

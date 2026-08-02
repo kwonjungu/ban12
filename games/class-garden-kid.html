@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>우리 반 텃밭 키우기 🌱</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-gradient: linear-gradient(135deg, #a8e6cf 0%, #dcedc1 50%, #ffd3b6 100%);
+    --card-glass: rgba(255, 255, 255, 0.88);
+    --card-border: rgba(255, 255, 255, 0.95);
+    --primary-green: #2d6a4f;
+    --accent-green: #52b788;
+    --water-blue: #00b4d8;
+    --sun-amber: #f77f00;
+    --fert-lime: #70e000;
+    --shadow-soft: 0 12px 32px rgba(45, 106, 79, 0.15);
+    --shadow-inset: inset 0 2px 4px rgba(255, 255, 255, 0.8);
+    --font-title: 'Jua', sans-serif;
+    --font-body: 'Gowun Dodum', sans-serif;
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-body);
+    background: #c7edd7;
+    background: var(--bg-gradient);
+    color: #22333b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  #app {
+    position: relative;
+    width: 100%;
+    max-width: 440px;
+    height: 100%;
+    max-height: 900px;
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 3px solid rgba(255, 255, 255, 0.8);
+    display: flex;
+    flex-direction: column;
+    padding: 12px 14px;
+    gap: 10px;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.12);
+  }
+
+  @media (min-height: 680px) {
+    #app {
+      border-radius: 32px;
+      height: 96%;
+    }
+  }
+
+  #hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    z-index: 10;
+  }
+
+  .pill {
+    background: var(--card-glass);
+    border: 2px solid var(--card-border);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-family: var(--font-title);
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    box-shadow: var(--shadow-soft);
+    color: var(--primary-green);
+  }
+
+  .icon-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--card-glass);
+    border: 2px solid var(--card-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+    box-shadow: var(--shadow-soft);
+    transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  .icon-btn:active { transform: scale(0.88); }
+
+  #growthTrack {
+    height: 20px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.08);
+  }
+
+  #growthFill {
+    position: relative;
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #70e000, #38b000, #007200);
+    border-radius: 999px;
+    transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  #growthFill::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.4) 0%, transparent 60%);
+  }
+
+  #dexBox {
+    background: var(--card-glass);
+    border: 2px solid var(--card-border);
+    border-radius: 20px;
+    padding: 8px 10px;
+    box-shadow: var(--shadow-soft);
+  }
+
+  #dexHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    padding: 0 4px;
+  }
+
+  #dexTitle {
+    font-family: var(--font-title);
+    font-size: 13px;
+    color: var(--primary-green);
+    letter-spacing: 0.5px;
+  }
+
+  #dexCount {
+    font-family: var(--font-title);
+    font-size: 12px;
+    color: #555;
+    background: rgba(255,255,255,0.8);
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+
+  #dexRow {
+    display: flex;
+    gap: 5px;
+  }
+
+  .dex {
+    flex: 1 1 0;
+    min-width: 0;
+    aspect-ratio: 1 / 1.15;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.5);
+    border: 2px dashed rgba(82, 183, 136, 0.35);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(14px, 4.5vw, 22px);
+    color: rgba(45, 106, 79, 0.3);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  .dex b {
+    font-family: var(--font-title);
+    font-size: 9px;
+    display: none;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    color: #2b2d42;
+  }
+
+  .dex.got {
+    background: linear-gradient(180deg, #ffffff, #fff3b0);
+    border: 2px solid #ffb703;
+    color: #2d6a4f;
+    animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 4px 10px rgba(255, 183, 3, 0.25);
+  }
+
+  .dex.got b { display: block; }
+
+  @keyframes pop {
+    0% { transform: scale(0.4) rotate(-15deg); }
+    60% { transform: scale(1.15) rotate(5deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+
+  #stage {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 180px;
+    border-radius: 24px;
+    overflow: hidden;
+    border: 3px solid #ffffff;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08), inset 0 2px 6px rgba(0,0,0,0.05);
+  }
+
+  #sky {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, #72efdd, #5e60ce);
+    transition: background 0.5s ease;
+  }
+
+  .cloud {
+    position: absolute;
+    font-size: clamp(26px, 8vw, 38px);
+    opacity: 0.9;
+    will-change: transform;
+    filter: drop-shadow(0 4px 6px rgba(255,255,255,0.6));
+  }
+  #c1 { top: 8%; animation: drift 26s linear infinite; }
+  #c2 { top: 24%; animation: drift 36s linear infinite; animation-delay: -16s; font-size: clamp(20px, 6vw, 28px); opacity: 0.75; }
+  #c3 { top: 16%; animation: drift 30s linear infinite; animation-delay: -24s; font-size: clamp(22px, 7vw, 32px); opacity: 0.65; }
+
+  @keyframes drift {
+    from { transform: translateX(-90px); }
+    to { transform: translateX(500px); }
+  }
+
+  #sunny {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    font-size: clamp(34px, 10vw, 48px);
+    transition: transform 0.3s, filter 0.3s;
+    filter: drop-shadow(0 0 16px rgba(255, 214, 0, 0.85));
+    cursor: pointer;
+  }
+
+  #rainbow {
+    position: absolute;
+    top: 12px;
+    left: 18px;
+    font-size: 40px;
+    opacity: 0;
+    transition: opacity 1s ease;
+    filter: drop-shadow(0 4px 8px rgba(255,255,255,0.8));
+  }
+
+  #soil {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 38%;
+    background: linear-gradient(180deg, #8d5b4c 0%, #583123 100%);
+    border-top: 5px solid rgba(255,255,255,0.25);
+    transition: background 0.5s ease;
+  }
+
+  #grassLine {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 38%;
+    height: 14px;
+    background: repeating-linear-gradient(90deg, #70e000 0 10px, #38b000 10px 20px);
+    border-radius: 10px 10px 0 0;
+    box-shadow: 0 -2px 6px rgba(112, 224, 0, 0.4);
+  }
+
+  #plantWrap {
+    position: absolute;
+    left: 50%;
+    bottom: 28%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 5;
+    cursor: pointer;
+  }
+
+  #plant {
+    font-size: clamp(52px, 16vw, 80px);
+    line-height: 1;
+    transform-origin: bottom center;
+    filter: drop-shadow(0 10px 12px rgba(0,0,0,0.25));
+    animation: sway 3s ease-in-out infinite;
+    transition: filter 0.3s, font-size 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  @keyframes sway {
+    0%, 100% { transform: rotate(-4deg); }
+    50% { transform: rotate(4deg); }
+  }
+
+  #plant.wilting { animation: wilt 1.1s ease-in-out infinite; }
+  @keyframes wilt {
+    0%, 100% { transform: rotate(-16deg) translateY(5px); }
+    50% { transform: rotate(-8deg) translateY(0); }
+  }
+
+  #plant.happy { animation: bounce 0.5s ease; }
+  @keyframes bounce {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.28); }
+    100% { transform: scale(1); }
+  }
+
+  #bubble {
+    background: #ffffff;
+    border: 2px solid var(--accent-green);
+    border-radius: 18px;
+    padding: 6px 14px;
+    margin-bottom: 8px;
+    font-family: var(--font-title);
+    font-size: clamp(12px, 3.6vw, 15px);
+    color: var(--primary-green);
+    white-space: nowrap;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+    position: relative;
+    transition: all 0.2s ease;
+  }
+
+  #bubble::after {
+    content: "";
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    margin-left: -7px;
+    border: 7px solid transparent;
+    border-top-color: #ffffff;
+  }
+
+  #potPile {
+    position: absolute;
+    left: 50%;
+    bottom: calc(28% - 12px);
+    transform: translateX(-50%);
+    width: 80px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.25);
+    filter: blur(2px);
+    z-index: 4;
+  }
+
+  /* Pest Layer */
+  .pest {
+    position: absolute;
+    font-size: 28px;
+    cursor: pointer;
+    z-index: 8;
+    animation: bugWiggle 0.5s infinite alternate;
+    filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));
+  }
+  @keyframes bugWiggle {
+    from { transform: scale(1) rotate(-10deg); }
+    to { transform: scale(1.15) rotate(10deg); }
+  }
+
+  #fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 10; }
+  
+  #dangerVeil {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 6;
+    box-shadow: inset 0 0 50px 15px rgba(229, 57, 53, 0);
+    transition: box-shadow 0.2s linear;
+  }
+
+  .drop { position: absolute; font-size: 24px; animation: fall 0.85s linear forwards; }
+  @keyframes fall {
+    from { transform: translateY(0) scale(0.6); opacity: 0; }
+    30% { opacity: 1; }
+    to { transform: translateY(160px) scale(1.1); opacity: 0; }
+  }
+
+  .spark { position: absolute; font-size: 22px; animation: sparkle 0.9s ease-out forwards; }
+  @keyframes sparkle {
+    from { transform: scale(0.2) translateY(0); opacity: 1; }
+    to { transform: scale(1.6) translateY(-50px); opacity: 0; }
+  }
+
+  .conf { position: absolute; font-size: 28px; animation: confetti 1.6s ease-out forwards; }
+  @keyframes confetti {
+    from { transform: translate(0,0) rotate(0); opacity: 1; }
+    to { transform: translate(var(--dx), var(--dy)) rotate(360deg); opacity: 0; }
+  }
+
+  .popTextFx {
+    position: absolute;
+    font-family: var(--font-title);
+    font-size: 18px;
+    color: var(--primary-green);
+    text-shadow: 0 2px 4px rgba(255,255,255,0.9);
+    animation: floatUp 1s ease-out forwards;
+  }
+  @keyframes floatUp {
+    from { opacity: 1; transform: translateY(0) scale(0.8); }
+    to { opacity: 0; transform: translateY(-45px) scale(1.25); }
+  }
+
+  #sunFlash {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 80% 20%, rgba(255,238,88,0.85), transparent 70%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease-out;
+    z-index: 7;
+  }
+
+  #gauges {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    background: var(--card-glass);
+    border: 2px solid var(--card-border);
+    border-radius: 20px;
+    padding: 10px 14px;
+    box-shadow: var(--shadow-soft);
+  }
+
+  .gRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .gIcon {
+    font-size: clamp(18px, 5vw, 22px);
+    width: 1.3em;
+    text-align: center;
+  }
+
+  .gTrack {
+    position: relative;
+    flex: 1;
+    height: 18px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.06);
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);
+  }
+
+  .gFill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 50%;
+    border-radius: 999px;
+    transition: width 0.12s linear;
+  }
+
+  #waterFill { background: linear-gradient(90deg, #4ea8de, #0077b6); }
+  #sunFill { background: linear-gradient(90deg, #ffb703, #fb8500); }
+  #fertFill { background: linear-gradient(90deg, #9ef01a, #38b000); }
+
+  .gSafe {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 25%;
+    width: 50%;
+    border-left: 2px dashed rgba(45, 106, 79, 0.5);
+    border-right: 2px dashed rgba(45, 106, 79, 0.5);
+    background: rgba(82, 183, 136, 0.25);
+    pointer-events: none;
+  }
+
+  .gTag {
+    font-family: var(--font-title);
+    font-size: 12px;
+    width: 60px;
+    text-align: right;
+    color: var(--primary-green);
+  }
+
+  #controls {
+    display: flex;
+    justify-content: center;
+    gap: clamp(10px, 4vw, 18px);
+    padding: 2px 0;
+  }
+
+  .bigBtn {
+    flex: 1;
+    max-width: 125px;
+    height: clamp(76px, 20vw, 92px);
+    border-radius: 22px;
+    border: 2px solid rgba(255,255,255,0.6);
+    cursor: pointer;
+    font-family: var(--font-title);
+    color: #ffffff;
+    font-size: clamp(13px, 3.6vw, 16px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.1s;
+    touch-action: manipulation;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+
+  .bigBtn span {
+    font-size: clamp(26px, 7.5vw, 34px);
+    line-height: 1;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  }
+
+  #btnWater {
+    background: linear-gradient(180deg, #48cae4, #0077b6);
+    box-shadow: 0 6px 0 #023e8a, 0 8px 16px rgba(0,119,182,0.3);
+  }
+  #btnSun {
+    background: linear-gradient(180deg, #ffb703, #fb8500);
+    box-shadow: 0 6px 0 #d00000, 0 8px 16px rgba(251,133,0,0.3);
+  }
+  #btnFert {
+    background: linear-gradient(180deg, #9ef01a, #38b000);
+    box-shadow: 0 6px 0 #007200, 0 8px 16px rgba(56,176,0,0.3);
+  }
+
+  .bigBtn:active {
+    transform: translateY(4px);
+  }
+  #btnWater:active { box-shadow: 0 2px 0 #023e8a; }
+  #btnSun:active { box-shadow: 0 2px 0 #d00000; }
+  #btnFert:active { box-shadow: 0 2px 0 #007200; }
+
+  #tip {
+    text-align: center;
+    font-family: var(--font-title);
+    font-size: clamp(12px, 3.3vw, 14px);
+    color: var(--primary-green);
+    opacity: 0.9;
+  }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px;
+    background: linear-gradient(180deg, rgba(168,230,207,0.92) 0%, rgba(220,237,193,0.95) 100%);
+    backdrop-filter: blur(12px);
+  }
+
+  .overlay.hidden { display: none; }
+
+  .ovCard {
+    background: #ffffff;
+    border: 4px solid #ffffff;
+    border-radius: 32px;
+    padding: 22px;
+    width: 100%;
+    max-width: 350px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.18);
+  }
+
+  .bigTitle {
+    font-family: var(--font-title);
+    font-size: clamp(26px, 7.5vw, 34px);
+    line-height: 1.2;
+    color: var(--primary-green);
+  }
+
+  .sub {
+    font-size: clamp(13px, 3.6vw, 15px);
+    color: #4a5568;
+    margin-top: 8px;
+    line-height: 1.5;
+  }
+
+  .classInputBox {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-align: left;
+  }
+  .classInputBox label {
+    font-family: var(--font-title);
+    font-size: 13px;
+    color: var(--primary-green);
+  }
+  .classInputBox input {
+    padding: 10px 14px;
+    border-radius: 14px;
+    border: 2px solid rgba(82, 183, 136, 0.4);
+    font-family: var(--font-title);
+    font-size: 15px;
+    outline: none;
+    background: #f8f9fa;
+    color: #2b2d42;
+    transition: border-color 0.2s;
+  }
+  .classInputBox input:focus {
+    border-color: var(--accent-green);
+    background: #ffffff;
+  }
+
+  .howto {
+    margin-top: 12px;
+    background: #f1f9f5;
+    border: 2px dashed rgba(82, 183, 136, 0.4);
+    border-radius: 18px;
+    padding: 12px;
+    font-size: clamp(12px, 3.3vw, 13px);
+    line-height: 1.7;
+    text-align: left;
+    color: #2d6a4f;
+  }
+
+  .goBtn {
+    margin-top: 16px;
+    width: 100%;
+    padding: 14px 10px;
+    border: none;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #52b788, #2d6a4f);
+    color: #ffffff;
+    font-family: var(--font-title);
+    font-size: clamp(17px, 4.8vw, 20px);
+    cursor: pointer;
+    box-shadow: 0 6px 0 #1b4332, 0 8px 16px rgba(45,106,79,0.3);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .goBtn:active { transform: translateY(4px); box-shadow: 0 2px 0 #1b4332; }
+
+  .best {
+    margin-top: 12px;
+    font-family: var(--font-title);
+    font-size: 13px;
+    color: #718096;
+  }
+
+  #startArt { font-size: clamp(52px, 16vw, 72px); margin-bottom: 4px; animation: sway 2.6s ease-in-out infinite; }
+  
+  #resultDex {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  #resultDex div {
+    background: linear-gradient(180deg, #ffffff, #fff3b0);
+    border: 2px solid #ffb703;
+    border-radius: 14px;
+    padding: 8px 12px;
+    font-size: 22px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+  }
+
+  /* Popups */
+  #pop {
+    position: absolute;
+    inset: 0;
+    z-index: 25;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  #pop.hidden { display: none; }
+  
+  #popCard {
+    background: rgba(255,255,255,0.98);
+    border: 4px solid #ffffff;
+    border-radius: 28px;
+    padding: 20px 26px;
+    text-align: center;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.22);
+    animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    max-width: 310px;
+  }
+  @keyframes popIn {
+    from { transform: scale(0.4); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  #popEmoji { font-size: 60px; line-height: 1.1; }
+  #popText { font-family: var(--font-title); font-size: clamp(18px, 5.2vw, 22px); margin-top: 6px; color: var(--primary-green); }
+  #popSub { font-size: 13px; color: #4a5568; margin-top: 4px; line-height: 1.4; }
+
+  @media (max-height: 650px) {
+    #app { gap: 6px; padding: 8px; }
+    .bigBtn { height: 68px; border-radius: 18px; }
+    .bigBtn span { font-size: 22px; }
+    #stage { min-height: 140px; }
+    #dexTitle { font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="pill">🌱 성장 <span id="growthNum">0</span>%</div>
+    <div class="pill">⭐ <span id="scoreNum">0</span>점</div>
+    <button class="icon-btn" id="btnAudio" title="음향 온/오프">🔊</button>
+  </div>
+
+  <div id="growthTrack"><div id="growthFill"></div></div>
+
+  <!-- Vegetable Dex -->
+  <div id="dexBox">
+    <div id="dexHeader">
+      <div id="dexTitle">📗 <span id="classTitleTag">우리 반</span> 텃밭 도감</div>
+      <div id="dexCount">0 / 8 수확</div>
+    </div>
+    <div id="dexRow"></div>
+  </div>
+
+  <!-- Stage Screen -->
+  <div id="stage">
+    <div id="sky">
+      <div class="cloud" id="c1">☁️</div>
+      <div class="cloud" id="c2">☁️</div>
+      <div class="cloud" id="c3">☁️</div>
+    </div>
+    <div id="rainbow">🌈</div>
+    <div id="sunny">☀️</div>
+    <div id="soil"></div>
+    <div id="grassLine"></div>
+    <div id="potPile"></div>
+    
+    <div id="plantWrap">
+      <div id="bubble">안녕! 잘 부탁해 😊</div>
+      <div id="plant">🌱</div>
+    </div>
+
+    <div id="sunFlash"></div>
+    <div id="dangerVeil"></div>
+    <div id="fx"></div>
+  </div>
+
+  <!-- Gauges -->
+  <div id="gauges">
+    <div class="gRow">
+      <div class="gIcon">💧</div>
+      <div class="gTrack"><div class="gFill" id="waterFill"></div><div class="gSafe"></div></div>
+      <div class="gTag" id="waterTag">적정</div>
+    </div>
+    <div class="gRow">
+      <div class="gIcon">☀️</div>
+      <div class="gTrack"><div class="gFill" id="sunFill"></div><div class="gSafe"></div></div>
+      <div class="gTag" id="sunTag">적정</div>
+    </div>
+    <div class="gRow">
+      <div class="gIcon">🧪</div>
+      <div class="gTrack"><div class="gFill" id="fertFill"></div></div>
+      <div class="gTag" id="fertTag">영양 100%</div>
+    </div>
+  </div>
+
+  <!-- Controls Deck -->
+  <div id="controls">
+    <button class="bigBtn" id="btnWater"><span>💧</span>물 주기</button>
+    <button class="bigBtn" id="btnSun"><span>☀️</span>햇빛 주기</button>
+    <button class="bigBtn" id="btnFert"><span>🧪</span>비료 주기</button>
+  </div>
+
+  <div id="tip">초록 안전지대에 막대를 맞추면 쑥쑥 자라요!</div>
+
+  <!-- Start Overlay -->
+  <div class="overlay" id="startScreen">
+    <div id="startArt">🌱</div>
+    <div class="ovCard">
+      <div class="bigTitle">우리 반<br>텃밭 키우기</div>
+      <div class="sub">물, 햇빛, 비료를 골고루 주어<br>싱싱한 채소들을 완육해보세요! 🥕</div>
+      
+      <div class="classInputBox">
+        <label for="classNameInput">🏫 학급 이름</label>
+        <input type="text" id="classNameInput" value="3학년 1반" maxlength="12" placeholder="예: 3학년 1반">
+      </div>
+
+      <div class="howto">
+        💧 물 · ☀️ 햇빛 · 🧪 비료 버튼으로 관리하기<br>
+        ⌨️ 키보드: ←(물), →(햇빛), ↑(비료)<br>
+        🐛 해충이 나타나면 터치해서 퇴치하세요!<br>
+        ⚠️ 게이지가 넘치거나 모자라면 시들어 버려요.
+      </div>
+      <button class="goBtn" id="btnStart">🌻 씨앗 심기</button>
+      <div class="best" id="bestStart">최고 점수 0점</div>
+    </div>
+  </div>
+
+  <!-- Result Overlay -->
+  <div class="overlay hidden" id="resultScreen">
+    <div class="ovCard">
+      <div style="font-size:52px">🏆</div>
+      <div class="bigTitle">텃밭 대성공!</div>
+      <div class="sub" id="resultSub">모든 채소를 멋지게 완육했어요!</div>
+      <div id="resultDex"></div>
+      <div class="sub" id="resultScore" style="margin-top:12px; font-family:var(--font-title); font-size:20px; color:var(--primary-green);">⭐ 0점</div>
+      <button class="goBtn" id="btnRestart">🔁 다시 심기</button>
+      <div class="best" id="bestResult">최고 점수 0점</div>
+    </div>
+  </div>
+
+  <!-- Harvest / Pop Modal -->
+  <div id="pop" class="hidden">
+    <div id="popCard">
+      <div id="popEmoji">🥕</div>
+      <div id="popText">수확!</div>
+      <div id="popSub">도감에 추가됐어요!</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var audioCtx = null;
+  var audioMuted = false;
+
+  function initAudio() {
+    if (!audioCtx) {
+      var AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) audioCtx = new AudioContext();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  }
+
+  function playSound(type) {
+    if (audioMuted || !audioCtx) return;
+    try {
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      var now = audioCtx.currentTime;
+
+      if (type === 'water') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(420, now);
+        osc.frequency.exponentialRampToValueAtTime(840, now + 0.15);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      } else if (type === 'sun') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(523.25, now);
+        osc.frequency.setValueAtTime(659.25, now + 0.08);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      } else if (type === 'fert') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(261.63, now);
+        osc.frequency.exponentialRampToValueAtTime(523.25, now + 0.25);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      } else if (type === 'harvest') {
+        var notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach(function(freq, i) {
+          var o = audioCtx.createOscillator();
+          var g = audioCtx.createGain();
+          o.type = 'triangle';
+          o.connect(g);
+          g.connect(audioCtx.destination);
+          o.frequency.setValueAtTime(freq, now + i * 0.08);
+          g.gain.setValueAtTime(0.3, now + i * 0.08);
+          g.gain.exponentialRampToValueAtTime(0.01, now + i * 0.08 + 0.25);
+          o.start(now + i * 0.08);
+          o.stop(now + i * 0.08 + 0.25);
+        });
+      } else if (type === 'pest') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.linearRampToValueAtTime(160, now + 0.1);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        osc.start(now);
+        osc.stop(now + 0.1);
+      } else if (type === 'wilt') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(220, now);
+        osc.frequency.linearRampToValueAtTime(90, now + 0.4);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+        osc.start(now);
+        osc.stop(now + 0.4);
+      }
+    } catch (e) {}
+  }
+
+  var VEG = [
+    { e:'🥕', n:'당근', tip:'비타민 A가 풍부하여 눈 건강에 좋아요!' },
+    { e:'🍅', n:'토마토', tip:'리코펜 성분이 몸을 건강하게 만들어 줘요!' },
+    { e:'🌽', n:'옥수수', tip:'식이섬유가 많아 소화를 도와줘요!' },
+    { e:'🍓', n:'딸기', tip:'비타민 C가 많아 피로를 풀어줘요!' },
+    { e:'🥒', n:'오이', tip:'수분이 많아 갈증 해소에 최고예요!' },
+    { e:'🎃', n:'호박', tip:'몸의 붓기를 빼주고 따뜻하게 해줘요!' },
+    { e:'🍆', n:'가지', tip:'보라색 안토시아닌이 몸을 보호해요!' },
+    { e:'🍉', n:'수박', tip:'시원한 수분이 여름철 더위를 날려줘요!' }
+  ];
+  var GOAL = VEG.length;
+
+  var SAFE_LO = 25, SAFE_HI = 75;
+  var PERF_LO = 40, PERF_HI = 65;
+  var DECAY = 2.0;
+  var GIVE  = 12;
+  var GROW  = 4.5;
+  var GROW_PERFECT = 7.0;
+  var WILT_FAST = 8, WILT_SLOW = 3, WILT_HEAL = 25;
+
+  var state = 'start';
+  var growth, water, sun, fertilizer, wilt, score, vegIndex, collected;
+  var popTime = 0, popNext = 'seed';
+  var best = 0;
+  var lastPress = 0;
+  var className = "우리 반";
+  var pests = [];
+  var pestSpawnTimer = 0;
+
+  function $(id){ return document.getElementById(id); }
+  var elGrowthNum = $('growthNum'), elScoreNum = $('scoreNum');
+  var elGrowthFill = $('growthFill');
+  var elDexRow = $('dexRow'), elDexCount = $('dexCount');
+  var elSky = $('sky'), elSoil = $('soil'), elSunny = $('sunny'), elRainbow = $('rainbow');
+  var elPlant = $('plant'), elBubble = $('bubble'), elPlantWrap = $('plantWrap');
+  var elWaterFill = $('waterFill'), elSunFill = $('sunFill'), elFertFill = $('fertFill');
+  var elWaterTag = $('waterTag'), elSunTag = $('sunTag'), elFertTag = $('fertTag');
+  var elFx = $('fx'), elVeil = $('dangerVeil'), elFlash = $('sunFlash');
+  var elStart = $('startScreen'), elResult = $('resultScreen'), elPop = $('pop');
+  var elPopEmoji = $('popEmoji'), elPopText = $('popText'), elPopSub = $('popSub');
+  var elResultDex = $('resultDex'), elResultScore = $('resultScore'), elResultSub = $('resultSub');
+  var elBestStart = $('bestStart'), elBestResult = $('bestResult');
+  var elTip = $('tip'), elClassTitleTag = $('classTitleTag'), elClassNameInput = $('classNameInput');
+  var elBtnAudio = $('btnAudio');
+
+  function loadBest(){
+    try {
+      var v = window.localStorage.getItem('classGardenBest_v2');
+      var n = parseInt(v, 10);
+      if(!isNaN(n) && n > 0) best = n;
+      var c = window.localStorage.getItem('classGardenName');
+      if (c) { className = c; elClassNameInput.value = c; }
+    } catch(err){ best = 0; }
+  }
+  function saveBest(){
+    try {
+      window.localStorage.setItem('classGardenBest_v2', String(best));
+      window.localStorage.setItem('classGardenName', className);
+    } catch(err){}
+  }
+
+  function buildDex(){
+    elDexRow.innerHTML = '';
+    for(var i=0; i<GOAL; i++){
+      var d = document.createElement('div');
+      d.className = 'dex';
+      d.id = 'dex' + i;
+      d.textContent = '?';
+      elDexRow.appendChild(d);
+    }
+  }
+
+  function refreshDex(){
+    elClassTitleTag.textContent = className;
+    elDexCount.textContent = collected.length + ' / ' + GOAL + ' 수확';
+    for(var i=0; i<GOAL; i++){
+      var d = $('dex' + i);
+      if(!d) continue;
+      if(collected.indexOf(i) >= 0){
+        d.className = 'dex got';
+        d.innerHTML = VEG[i].e + '<b>' + VEG[i].n + '</b>';
+      } else {
+        d.className = 'dex';
+        d.textContent = '?';
+      }
+    }
+  }
+
+  function addFx(cls, txt, x, y, extra){
+    var s = document.createElement('div');
+    s.className = cls;
+    s.textContent = txt;
+    s.style.left = x + '%';
+    s.style.top = y + '%';
+    if(extra) s.setAttribute('style', s.getAttribute('style') + ';' + extra);
+    elFx.appendChild(s);
+    window.setTimeout(function(){ if(s.parentNode) s.parentNode.removeChild(s); }, 1400);
+  }
+
+  function rainFx(){
+    for(var i=0; i<6; i++){
+      addFx('drop', '💧', 32 + Math.random()*36, 4 + Math.random()*18);
+    }
+  }
+
+  function sunFx(){
+    for(var i=0; i<6; i++){
+      addFx('spark', '✨', 30 + Math.random()*40, 40 + Math.random()*20);
+    }
+    elFlash.style.opacity = '0.9';
+    window.setTimeout(function(){ elFlash.style.opacity = '0'; }, 100);
+  }
+
+  function fertFx(){
+    for(var i=0; i<6; i++){
+      addFx('spark', '🍃', 35 + Math.random()*30, 50 + Math.random()*20);
+    }
+  }
+
+  function confettiFx(emoji){
+    for(var i=0; i<18; i++){
+      var dx = (Math.random()*2 - 1) * 140;
+      var dy = -(70 + Math.random()*140);
+      addFx('conf', i % 3 === 0 ? '⭐' : emoji, 48, 45, '--dx:' + dx + 'px;--dy:' + dy + 'px');
+    }
+  }
+
+  function showPopText(txt, x, y){
+    var el = document.createElement('div');
+    el.className = 'popTextFx';
+    el.textContent = txt;
+    el.style.left = x + '%';
+    el.style.top = y + '%';
+    elFx.appendChild(el);
+    window.setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 1000);
+  }
+
+  function clearPests(){
+    pests.forEach(function(p){ if(p.parentNode) p.parentNode.removeChild(p); });
+    pests = [];
+  }
+
+  function spawnPest(){
+    if(state !== 'play' || pests.length >= 2) return;
+    var p = document.createElement('div');
+    p.className = 'pest';
+    p.textContent = Math.random() > 0.5 ? '🐛' : '🐌';
+    var left = 20 + Math.random() * 60;
+    var top = 40 + Math.random() * 30;
+    p.style.left = left + '%';
+    p.style.top = top + '%';
+    
+    p.addEventListener('pointerdown', function(e){
+      e.stopPropagation();
+      e.preventDefault();
+      playSound('pest');
+      showPopText('+30 퇴치!', left, top);
+      score += 30;
+      elScoreNum.textContent = score;
+      if(p.parentNode) p.parentNode.removeChild(p);
+      pests = pests.filter(function(item){ return item !== p; });
+    });
+
+    $('stage').appendChild(p);
+    pests.push(p);
+  }
+
+  function newSeed(){
+    growth = 0; water = 50; sun = 50; fertilizer = 100; wilt = 0;
+    clearPests();
+    elPlant.classList.remove('wilting');
+  }
+
+  function resetAll(){
+    initAudio();
+    className = elClassNameInput.value.trim() || "우리 반";
+    score = 0; vegIndex = 0; collected = [];
+    newSeed();
+    refreshDex();
+    state = 'play';
+    elStart.classList.add('hidden');
+    elResult.classList.add('hidden');
+    elPop.classList.add('hidden');
+  }
+
+  function showPopModal(emoji, text, sub, seconds, next){
+    elPopEmoji.textContent = emoji;
+    elPopText.textContent = text;
+    elPopSub.textContent = sub;
+    elPop.classList.remove('hidden');
+    popTime = seconds;
+    popNext = next;
+    state = 'pop';
+  }
+
+  function harvest(){
+    playSound('harvest');
+    var bonus = 100 + Math.max(0, Math.round(70 - wilt)) + Math.round(fertilizer * 0.5);
+    score += bonus;
+    if(collected.indexOf(vegIndex) < 0) collected.push(vegIndex);
+    refreshDex();
+    confettiFx(VEG[vegIndex].e);
+    
+    var vegInfo = VEG[vegIndex];
+    showPopModal(vegInfo.e, '수확 성공! ' + vegInfo.n, vegInfo.tip + '\n+' + bonus + '점!', 2.2,
+                 collected.length >= GOAL ? 'end' : 'seed');
+  }
+
+  function losePlant(){
+    playSound('wilt');
+    elPlant.classList.remove('wilting');
+    showPopModal('🥀', '앗, 시들어 버렸어요…', '괜찮아요! 다시 정성껏 가꿔봐요 🌱', 1.8, 'seed');
+  }
+
+  function endPop(){
+    elPop.classList.add('hidden');
+    if(popNext === 'end'){
+      showResult();
+    } else {
+      if(collected.indexOf(vegIndex) >= 0){
+        var next = vegIndex;
+        for(var i=0; i<GOAL; i++){
+          var idx = (vegIndex + 1 + i) % GOAL;
+          if(collected.indexOf(idx) < 0){ next = idx; break; }
+        }
+        vegIndex = next;
+      }
+      newSeed();
+      state = 'play';
+    }
+  }
+
+  function showResult(){
+    if(score > best){ best = score; saveBest(); }
+    elResultDex.innerHTML = '';
+    for(var i=0; i<collected.length; i++){
+      var d = document.createElement('div');
+      d.textContent = VEG[collected[i]].e;
+      elResultDex.appendChild(d);
+    }
+    elResultSub.textContent = className + ' 텃밭에서 ' + collected.length + '개 채소를 모두 완성했어요! 👏';
+    elResultScore.textContent = '⭐ 최종 점수: ' + score + '점';
+    elBestResult.textContent = '최고 점수 ' + best + '점';
+    elResult.classList.remove('hidden');
+    state = 'result';
+  }
+
+  function giveWater(){
+    if(state !== 'play') return;
+    initAudio();
+    var now = Date.now();
+    if(now - lastPress < 50) return;
+    lastPress = now;
+    water = Math.min(100, water + GIVE);
+    playSound('water');
+    rainFx();
+  }
+
+  function giveSun(){
+    if(state !== 'play') return;
+    initAudio();
+    var now = Date.now();
+    if(now - lastPress < 50) return;
+    lastPress = now;
+    sun = Math.min(100, sun + GIVE);
+    playSound('sun');
+    sunFx();
+  }
+
+  function giveFert(){
+    if(state !== 'play') return;
+    initAudio();
+    var now = Date.now();
+    if(now - lastPress < 50) return;
+    lastPress = now;
+    if(fertilizer < 100) {
+      fertilizer = Math.min(100, fertilizer + 25);
+      playSound('fert');
+      fertFx();
+      showPopText('비료 충전!', 50, 50);
+    }
+  }
+
+  function bindPress(el, fn){
+    el.addEventListener('pointerdown', function(e){ e.preventDefault(); fn(); });
+    el.addEventListener('click', function(e){ e.preventDefault(); });
+  }
+
+  bindPress($('btnWater'), giveWater);
+  bindPress($('btnSun'), giveSun);
+  bindPress($('btnFert'), giveFert);
+
+  elPlantWrap.addEventListener('click', function(){
+    if(state === 'play') {
+      playSound('fert');
+      elPlant.classList.remove('happy');
+      void elPlant.offsetWidth;
+      elPlant.classList.add('happy');
+    }
+  });
+
+  elBtnAudio.addEventListener('click', function(){
+    initAudio();
+    audioMuted = !audioMuted;
+    elBtnAudio.textContent = audioMuted ? '🔇' : '🔊';
+  });
+
+  $('btnStart').addEventListener('click', function(){ resetAll(); });
+  $('btnRestart').addEventListener('click', function(){ resetAll(); });
+
+  document.addEventListener('keydown', function(e){
+    var k = e.key;
+    if([' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].indexOf(k) >= 0){
+      e.preventDefault();
+    }
+    if(e.repeat) return;
+    if(state === 'start' || state === 'result'){
+      if(k === ' ' || k === 'Enter'){ resetAll(); }
+      return;
+    }
+    if(k === 'ArrowLeft' || k === 'a' || k === 'A') giveWater();
+    else if(k === 'ArrowRight' || k === 'd' || k === 'D') giveSun();
+    else if(k === 'ArrowUp' || k === 'w' || k === 'W') giveFert();
+  });
+
+  function update(dt){
+    water = Math.max(0, Math.min(100, water - DECAY * dt));
+    sun   = Math.max(0, Math.min(100, sun   - DECAY * dt));
+    fertilizer = Math.max(0, fertilizer - (DECAY * 0.4) * dt);
+
+    var wOk = (water >= SAFE_LO && water <= SAFE_HI);
+    var sOk = (sun   >= SAFE_LO && sun   <= SAFE_HI);
+    var wBad = (water > 88 || water < 12);
+    var sBad = (sun   > 88 || sun   < 12);
+
+    pestSpawnTimer += dt;
+    if(pestSpawnTimer > 10) {
+      pestSpawnTimer = 0;
+      if(Math.random() < 0.3) spawnPest();
+    }
+
+    var pestPenalty = pests.length * 5;
+
+    if(wOk && sOk){
+      var rate = GROW;
+      if(water >= PERF_LO && water <= PERF_HI && sun >= PERF_LO && sun <= PERF_HI){
+        rate = GROW_PERFECT;
+      }
+      if(fertilizer > 30) rate *= 1.35;
+      
+      growth += rate * dt;
+      wilt = Math.max(0, wilt - (WILT_HEAL - pestPenalty) * dt);
+    } else if(wBad || sBad){
+      wilt += (WILT_FAST + pestPenalty) * dt;
+      growth = Math.max(0, growth - 1.2 * dt);
+    } else {
+      wilt += (WILT_SLOW + pestPenalty) * dt;
+    }
+
+    if(wilt >= 100){ wilt = 100; losePlant(); return; }
+    if(growth >= 100){ growth = 100; harvest(); return; }
+  }
+
+  function getMessage(){
+    if(pests.length > 0) return '벌레를 터치해서 잡아줘! 🐛';
+    if(wilt > 60) return '힘들어... 도와줘! 😵';
+    if(water > 88) return '물이 너무 많아요! 🌊';
+    if(sun   > 88) return '햇빛이 너무 뜨거워요! 🥵';
+    if(water < 12) return '목이 너무 말라요... 💧';
+    if(sun   < 12) return '너무 어두워요... 🌑';
+    if(water > SAFE_HI) return '물은 이제 그만! 💦';
+    if(sun   > SAFE_HI) return '햇빛은 이제 그만! 😎';
+    if(water < SAFE_LO) return '물 좀 주세요! 💧';
+    if(sun   < SAFE_LO) return '햇빛 좀 쬐어주세요! ☀️';
+    if(fertilizer < 25) return '비료를 주면 신나게 자라요! 🧪';
+    if(water >= PERF_LO && water <= PERF_HI && sun >= PERF_LO && sun <= PERF_HI) return '완벽해요! 쑥쑥 자라는 중 🎵';
+    return '기분이 좋아요! 😊';
+  }
+
+  function getPlantEmoji(){
+    if(wilt > 65) return '🥀';
+    if(growth < 25) return '🌱';
+    if(growth < 55) return '🌿';
+    if(growth < 85) return '🥬';
+    return VEG[vegIndex].e;
+  }
+
+  var lastPlantEmoji = '';
+  function render(){
+    var g = Math.floor(growth);
+    elGrowthNum.textContent = g;
+    elScoreNum.textContent = score;
+    elGrowthFill.style.width = growth + '%';
+
+    elWaterFill.style.width = water + '%';
+    elSunFill.style.width = sun + '%';
+    elFertFill.style.width = fertilizer + '%';
+
+    elWaterTag.textContent = (water > SAFE_HI) ? '과다' : (water < SAFE_LO ? '부족' : '적정');
+    elSunTag.textContent   = (sun   > SAFE_HI) ? '과다' : (sun   < SAFE_LO ? '부족' : '적정');
+    elFertTag.textContent  = Math.round(fertilizer) + '%';
+
+    // Dynamic sky & soil colors
+    elSky.style.background = 'linear-gradient(180deg, hsl(' + (195 - sun*0.1) + ',75%,' + (55 + sun*0.18) + '%), hsl(180,70%,' + (75 + sun*0.1) + '%))';
+    elSoil.style.background = 'hsl(24,38%,' + (42 - water*0.16) + '%)';
+    elSunny.style.opacity = (0.35 + sun/100 * 0.65).toFixed(2);
+    elSunny.style.transform = 'scale(' + (0.8 + sun/100 * 0.3) + ')';
+    
+    if(growth > 60 && water >= PERF_LO && water <= PERF_HI && sun >= PERF_LO && sun <= PERF_HI) {
+      elRainbow.style.opacity = '0.9';
+    } else {
+      elRainbow.style.opacity = '0';
+    }
+
+    var em = getPlantEmoji();
+    if(em !== lastPlantEmoji){
+      lastPlantEmoji = em;
+      elPlant.textContent = em;
+      elPlant.classList.remove('happy');
+      void elPlant.offsetWidth;
+      elPlant.classList.add('happy');
+    }
+
+    var scale = 0.68 + (growth / 100) * 0.72;
+    elPlant.style.fontSize = 'calc(clamp(52px, 16vw, 80px) * ' + scale.toFixed(2) + ')';
+    
+    if(wilt > 30){
+      elPlant.classList.add('wilting');
+      elPlant.style.filter = 'grayscale(' + Math.min(0.85, wilt/120).toFixed(2) + ') drop-shadow(0 10px 12px rgba(0,0,0,0.25))';
+    } else {
+      elPlant.classList.remove('wilting');
+      elPlant.style.filter = 'drop-shadow(0 10px 12px rgba(0,0,0,0.25))';
+    }
+
+    elVeil.style.boxShadow = 'inset 0 0 50px 15px rgba(229, 57, 53, ' + (wilt/100 * 0.6).toFixed(2) + ')';
+    elBubble.textContent = getMessage();
+  }
+
+  function idleRender(){
+    elWaterFill.style.width = '50%';
+    elSunFill.style.width = '50%';
+    elFertFill.style.width = '100%';
+  }
+
+  var lastTime = 0;
+  function loop(now){
+    window.requestAnimationFrame(loop);
+    if(document.hidden){ lastTime = 0; return; }
+    if(!lastTime){ lastTime = now; return; }
+    var dt = (now - lastTime) / 1000;
+    lastTime = now;
+    if(dt > 0.05) dt = 0.05;
+
+    if(state === 'play'){
+      update(dt);
+      render();
+    } else if(state === 'pop'){
+      popTime -= dt;
+      render();
+      if(popTime <= 0) endPop();
+    }
+  }
+
+  document.addEventListener('visibilitychange', function(){ lastTime = 0; });
+
+  loadBest();
+  buildDex();
+  score = 0; vegIndex = 0; collected = [];
+  newSeed();
+  refreshDex();
+  idleRender();
+  elBestStart.textContent = '최고 점수 ' + best + '점';
+  window.requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

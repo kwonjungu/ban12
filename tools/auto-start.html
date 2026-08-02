@@ -1,0 +1,121 @@
+<script>
+/* ── 캡처용 자동 시작 스크립트 (원본 파일은 건드리지 않고 사본에만 주입) ── */
+(function () {
+  var KEYS = {
+    ' ':        { code: 'Space',      keyCode: 32 },
+    'Enter':    { code: 'Enter',      keyCode: 13 },
+    'ArrowLeft':{ code: 'ArrowLeft',  keyCode: 37 },
+    'ArrowRight':{code: 'ArrowRight', keyCode: 39 },
+    'ArrowUp':  { code: 'ArrowUp',    keyCode: 38 },
+    'd':        { code: 'KeyD',       keyCode: 68 },
+    'f':        { code: 'KeyF',       keyCode: 70 },
+    'j':        { code: 'KeyJ',       keyCode: 74 },
+    'k':        { code: 'KeyK',       keyCode: 75 }
+  };
+
+  function key(type, k) {
+    var m = KEYS[k] || { code: k, keyCode: 0 };
+    var e = new KeyboardEvent(type, { key: k, code: m.code, bubbles: true, cancelable: true });
+    try {
+      Object.defineProperty(e, 'keyCode', { get: function () { return m.keyCode; } });
+      Object.defineProperty(e, 'which',   { get: function () { return m.keyCode; } });
+    } catch (_) {}
+    document.dispatchEvent(e);
+    window.dispatchEvent(e);
+    if (document.body) document.body.dispatchEvent(e);
+  }
+  function tap(k) { key('keydown', k); key('keyup', k); }
+
+  function poke(el, x, y) {
+    if (!el) return;
+    var r = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+    var cx = x != null ? x : (r ? r.left + r.width / 2 : 0);
+    var cy = y != null ? y : (r ? r.top + r.height / 2 : 0);
+    var o = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, button: 0,
+              pointerId: 1, isPrimary: true, pointerType: 'mouse' };
+    ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(function (t) {
+      try {
+        var E = t.indexOf('pointer') === 0 ? PointerEvent : MouseEvent;
+        el.dispatchEvent(new E(t, o));
+      } catch (_) {
+        try { el.dispatchEvent(new MouseEvent(t.replace('pointer', 'mouse'), o)); } catch (__) {}
+      }
+    });
+    try {
+      var t0 = new Touch({ identifier: 1, target: el, clientX: cx, clientY: cy });
+      el.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, cancelable: true, touches: [t0], targetTouches: [t0], changedTouches: [t0] }));
+      el.dispatchEvent(new TouchEvent('touchend',   { bubbles: true, cancelable: true, touches: [],  targetTouches: [],  changedTouches: [t0] }));
+    } catch (_) {}
+    if (typeof el.click === 'function') { try { el.click(); } catch (_) {} }
+  }
+
+  var RX = /시작|스타트|start|play|플레이|게임|출발|입장|모드|도전|고고|▶|🚀|🎮/i;
+
+  function startButtons() {
+    var sel = 'button, a, [role="button"], .btn, [onclick], [id*="start" i], [class*="start" i], [id*="btn" i]';
+    var all = [];
+    try { all = [].slice.call(document.querySelectorAll(sel)); } catch (_) {}
+    return all.filter(function (el) {
+      var r = el.getBoundingClientRect();
+      if (r.width < 24 || r.height < 14) return false;
+      var st = getComputedStyle(el);
+      if (st.display === 'none' || st.visibility === 'hidden' || parseFloat(st.opacity) < 0.05) return false;
+      var txt = (el.textContent || '') + ' ' + (el.id || '') + ' ' + (el.className || '');
+      return RX.test(txt);
+    });
+  }
+
+  function startAll() {
+    startButtons().slice(0, 3).forEach(function (el) { poke(el); });
+    tap(' '); tap('Enter');
+    var stage = document.querySelector('canvas') || document.body;
+    poke(stage);
+  }
+
+  var frame = 0;
+  var STOP = 15;          // 이 프레임 뒤로는 조작을 멈춘다 → 일시적인 토스트·이펙트가 사라진 뒤 캡처됨
+  var timer = null;
+
+  function bot() {
+    frame++;
+    if (frame > STOP) { clearInterval(timer); return; }
+
+    // 시작 화면이 아직 남아 있으면 계속 시작 시도
+    if (frame < 10 && startButtons().length) startAll();
+
+    // 살아남기 위한 최소한의 조작
+    if (frame % 3 === 0) tap(' ');
+    var dir = (Math.floor(frame / 4) % 2) ? 'ArrowRight' : 'ArrowLeft';
+    key('keydown', dir);
+    setTimeout(function () { key('keyup', dir); }, 60);
+
+    // 마우스를 화면 가운데 근처에서 좌우로 흔든다 (드래그·조준형 게임 대응)
+    var w = innerWidth, h = innerHeight;
+    var mx = w / 2 + Math.sin(frame / 2) * (w / 6);
+    var my = h * 0.62;
+    var o = { bubbles: true, cancelable: true, clientX: mx, clientY: my, pointerId: 1, isPrimary: true };
+    try {
+      document.dispatchEvent(new PointerEvent('pointermove', o));
+      document.dispatchEvent(new MouseEvent('mousemove', o));
+    } catch (_) {}
+
+    // 클릭형 게임: 작은 대상(두더지·음식 등)만 골라서 눌러본다. 큰 컨테이너는 건드리지 않는다.
+    if (frame % 4 === 1) {
+      var el = document.elementFromPoint(mx, my);
+      if (el && el !== document.body && el !== document.documentElement) {
+        var r = el.getBoundingClientRect();
+        if (r.width > 0 && r.width < 220 && r.height < 220) poke(el, mx, my);
+      }
+    }
+  }
+
+  function go() {
+    setTimeout(function () {
+      startAll();
+      timer = setInterval(bot, 180);
+    }, 250);
+  }
+  if (document.readyState === 'complete') go();
+  else window.addEventListener('load', go);
+})();
+</script>

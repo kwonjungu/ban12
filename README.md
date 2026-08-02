@@ -114,6 +114,11 @@ https://kwonjungu.github.io/ban12/
 
 ## ➕ 새 게임 추가하는 법
 
+> 📘 **자세한 절차는 [ADDING-GAMES.md](ADDING-GAMES.md) 를 보세요.**
+> 특히 **썸네일은 반드시 `tools/capture-thumbnails.ps1` 로** 만들어야 카드가 어긋나지 않습니다.
+
+아래는 요약이에요.
+
 새로 만든 게임을 목록에 올리는 방법이에요. **딱 두 단계**예요.
 
 ### 1단계. 게임 파일 넣기

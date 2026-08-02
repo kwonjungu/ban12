@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>로블록스 타워 오브 (Roblox Tower Obby)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Noto+Sans+KR:wght@700;900&display=swap" rel="stylesheet">
+    <!-- Three.js 3D Engine -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Fredoka One', 'Noto Sans KR', sans-serif;
+            background-color: #131722;
+        }
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        /* Roblox Style Glass Panel UI */
+        .roblox-panel {
+            background: rgba(20, 24, 38, 0.85);
+            backdrop-filter: blur(10px);
+            border: 3px solid rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), inset 0 2px 0 rgba(255, 255, 255, 0.2);
+        }
+        .roblox-btn {
+            background: linear-gradient(180deg, #00e676 0%, #00b0ff 100%);
+            border: none;
+            border-bottom: 5px solid #0077c2;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+            transition: all 0.1s ease;
+            cursor: pointer;
+        }
+        .roblox-btn:active {
+            transform: translateY(3px);
+            border-bottom-width: 2px;
+        }
+        .roblox-btn-red {
+            background: linear-gradient(180deg, #ff5252 0%, #ff1744 100%);
+            border-bottom-color: #b2102f;
+        }
+        .roblox-btn-gold {
+            background: linear-gradient(180deg, #ffd700 0%, #ff9100 100%);
+            border-bottom-color: #c76a00;
+            color: #3e1f00;
+        }
+        .roblox-btn-purple {
+            background: linear-gradient(180deg, #e040fb 0%, #7c4dff 100%);
+            border-bottom-color: #512da8;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 15px rgba(0, 230, 118, 0.6); }
+            50% { box-shadow: 0 0 30px rgba(0, 230, 118, 1); }
+        }
+        .glow-pulse {
+            animation: pulse-glow 2s infinite;
+        }
+        /* Color Swatch Options */
+        .color-opt {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.4);
+            cursor: pointer;
+            transition: transform 0.15s ease, border-color 0.15s ease;
+        }
+        .color-opt:hover, .color-opt.active {
+            transform: scale(1.15);
+            border-color: #ffffff;
+            box-shadow: 0 0 10px rgba(255,255,255,0.8);
+        }
+        /* Mobile Controls */
+        #joystick-zone {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+        }
+        #joystick-knob {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            position: absolute;
+        }
+        #jump-btn-mobile {
+            position: absolute;
+            bottom: 40px;
+            right: 30px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #00e676 0%, #00a152 100%);
+            border: 4px solid #ffffff;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.4);
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: white;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="select-none overflow-hidden">
+    <div id="canvas-container"></div>
+
+    <!-- Toast Notification Overlay -->
+    <div id="toast-container" class="fixed top-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-300 opacity-0 -translate-y-4">
+        <div class="roblox-panel px-6 py-3 border-2 border-yellow-400 text-yellow-300 font-bold text-sm md:text-base flex items-center gap-2 shadow-2xl">
+            <i class="fa-solid fa-bell text-yellow-400 text-lg"></i>
+            <span id="toast-msg">안내 메시지</span>
+        </div>
+    </div>
+
+    <!-- Start Screen: Character Customization -->
+    <div id="customizer-screen" class="absolute inset-0 z-20 flex flex-col justify-between p-4 md:p-6 pointer-events-none">
+        <!-- Title Banner -->
+        <div class="pointer-events-auto max-w-md mx-auto text-center roblox-panel px-6 py-3 border-b-4 border-yellow-400 glow-pulse">
+            <h1 class="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-pink-400 to-cyan-300 tracking-wider">
+                ROBLOX TOWER OBBY
+            </h1>
+            <p class="text-xs text-yellow-200 mt-1"><i class="fa-solid fa-paintbrush mr-1"></i>나만의 로블록스 캐릭터 스타일링</p>
+        </div>
+
+        <!-- Customizer Options Panel -->
+        <div class="pointer-events-auto self-center md:self-start md:ml-6 roblox-panel p-5 w-full max-w-md max-h-[55vh] overflow-y-auto text-white border-2 border-cyan-400 my-auto shadow-2xl">
+            <h2 class="text-lg font-black text-cyan-300 mb-3 flex items-center gap-2 border-b border-slate-700 pb-2">
+                <i class="fa-solid fa-user-gear"></i> 캐릭터 커스터마이징
+            </h2>
+
+            <!-- Skin Color -->
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-slate-300 mb-2">피부색 (Skin Color)</label>
+                <div class="flex gap-2 flex-wrap" id="skin-colors">
+                    <button class="color-opt active" style="background:#ffcc00;" data-color="0xffcc00"></button>
+                    <button class="color-opt" style="background:#f1c27d;" data-color="0xf1c27d"></button>
+                    <button class="color-opt" style="background:#e0ac69;" data-color="0xe0ac69"></button>
+                    <button class="color-opt" style="background:#ffffff;" data-color="0xffffff"></button>
+                    <button class="color-opt" style="background:#8d5524;" data-color="0x8d5524"></button>
+                    <button class="color-opt" style="background:#80d8ff;" data-color="0x80d8ff"></button>
+                    <button class="color-opt" style="background:#ff80ab;" data-color="0xff80ab"></button>
+                </div>
+            </div>
+
+            <!-- Shirt Color -->
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-slate-300 mb-2">상의 색상 (Shirt)</label>
+                <div class="flex gap-2 flex-wrap" id="shirt-colors">
+                    <button class="color-opt active" style="background:#0077ff;" data-color="0x0077ff"></button>
+                    <button class="color-opt" style="background:#ff1744;" data-color="0xff1744"></button>
+                    <button class="color-opt" style="background:#00e676;" data-color="0x00e676"></button>
+                    <button class="color-opt" style="background:#aa00ff;" data-color="0xaa00ff"></button>
+                    <button class="color-opt" style="background:#ff9100;" data-color="0xff9100"></button>
+                    <button class="color-opt" style="background:#263238;" data-color="0x263238"></button>
+                </div>
+            </div>
+
+            <!-- Pants Color -->
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-slate-300 mb-2">하의 색상 (Pants)</label>
+                <div class="flex gap-2 flex-wrap" id="pants-colors">
+                    <button class="color-opt active" style="background:#00cc44;" data-color="0x00cc44"></button>
+                    <button class="color-opt" style="background:#1565c0;" data-color="0x1565c0"></button>
+                    <button class="color-opt" style="background:#37474f;" data-color="0x37474f"></button>
+                    <button class="color-opt" style="background:#d50000;" data-color="0xd50000"></button>
+                    <button class="color-opt" style="background:#ffffff;" data-color="0xffffff"></button>
+                </div>
+            </div>
+
+            <!-- Face Expressions -->
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-slate-300 mb-2">표정 (Face)</label>
+                <div class="grid grid-cols-2 gap-2 text-xs" id="face-options">
+                    <button class="roblox-btn py-1.5 px-2 rounded-lg font-bold border-2 border-yellow-400 text-yellow-300" data-face="smile">
+                        😊 기본 미소
+                    </button>
+                    <button class="roblox-btn py-1.5 px-2 rounded-lg font-bold text-slate-200" data-face="glasses">
+                        🕶️ 선글라스
+                    </button>
+                    <button class="roblox-btn py-1.5 px-2 rounded-lg font-bold text-slate-200" data-face="wink">
+                        😉 윙크 표정
+                    </button>
+                    <button class="roblox-btn py-1.5 px-2 rounded-lg font-bold text-slate-200" data-face="angry">
+                        😡 열정 모드
+                    </button>
+                </div>
+            </div>
+
+            <!-- Hats & Accessories -->
+            <div class="mb-2">
+                <label class="block text-xs font-bold text-slate-300 mb-2">모자 / 악세서리 (Hat)</label>
+                <div class="grid grid-cols-2 gap-2 text-xs" id="hat-options">
+                    <button class="roblox-btn py-1.5 px-2 rounded-lg font-bold text-slate-200" data-hat="none">
+                        ❌ 없음
+                    </button>
+                    <button class="roblox-btn py-1.5 px-2 rounded-lg font-bold border-2 border-yellow-400 text-yellow-300" data-hat="crown">
+                        👑 골드 왕관
+                    </button>
+                    <button class="roblox-btn py-1.5 px-2 rounded-lg font-bold text-slate-200" data-hat="tophat">
+                        🎩 신사 모자
+                    </button>
+                    <button class="roblox-btn py-1.5 px-2 rounded-lg font-bold text-slate-200" data-hat="headphones">
+                        🎧 게이밍 헤드폰
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Start Game Button -->
+        <div class="pointer-events-auto max-w-md mx-auto w-full">
+            <button id="btn-start-game" class="roblox-btn roblox-btn-gold w-full py-4 rounded-2xl text-xl md:text-2xl font-black shadow-2xl flex items-center justify-center gap-3 transform hover:scale-105 transition">
+                <i class="fa-solid fa-play text-2xl"></i>
+                <span>타워 도전 시작! (START)</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- HUD Overlay (Game In-Progress UI) -->
+    <div id="hud" class="absolute inset-0 pointer-events-none z-10 p-2 md:p-4 flex flex-col justify-between hidden">
+        <!-- Top Info Bar -->
+        <div class="flex items-center justify-center gap-2 md:gap-4 w-full max-w-4xl mx-auto flex-wrap sm:flex-nowrap">
+            <!-- Stage Status -->
+            <div class="roblox-panel px-3 py-1.5 md:px-4 md:py-2 border-2 border-cyan-400 flex items-center gap-2 text-white">
+                <i class="fa-solid fa-layer-group text-cyan-400 text-sm md:text-lg"></i>
+                <div>
+                    <div class="text-[9px] md:text-[10px] text-cyan-300 font-bold uppercase tracking-wider">STAGE</div>
+                    <div id="stage-display" class="font-black text-sm md:text-lg text-yellow-300 leading-none">1 / 6</div>
+                </div>
+            </div>
+
+            <!-- Timer Clock -->
+            <div class="roblox-panel px-3 py-1.5 md:px-4 md:py-2 border-2 border-pink-500 flex items-center gap-2 text-white">
+                <i class="fa-regular fa-clock text-pink-400 text-sm md:text-lg animate-pulse"></i>
+                <div>
+                    <div class="text-[9px] md:text-[10px] text-pink-300 font-bold uppercase tracking-wider">TIME</div>
+                    <div id="time-val" class="font-black text-sm md:text-lg text-white leading-none">00:00</div>
+                </div>
+            </div>
+
+            <!-- Coins Balance -->
+            <div class="roblox-panel px-3 py-1.5 md:px-4 md:py-2 border-2 border-yellow-400 flex items-center gap-2 text-white">
+                <i class="fa-solid fa-coins text-yellow-400 text-sm md:text-lg animate-bounce"></i>
+                <div>
+                    <div class="text-[9px] md:text-[10px] text-yellow-300 font-bold uppercase tracking-wider">COINS</div>
+                    <div id="coin-count" class="font-black text-sm md:text-lg text-yellow-300 leading-none">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Middle Active Coils Display -->
+        <div id="active-coils" class="self-start flex flex-col gap-2 mt-2"></div>
+
+        <!-- Mobile Controls -->
+        <div id="mobile-controls" class="hidden md:hidden pointer-events-auto">
+            <div id="joystick-zone">
+                <div id="joystick-knob"></div>
+            </div>
+            <button id="jump-btn-mobile">
+                <i class="fa-solid fa-arrow-up"></i>
+            </button>
+        </div>
+
+        <!-- Bottom Action Buttons -->
+        <div class="pointer-events-auto flex justify-between items-end w-full max-w-4xl mx-auto">
+            <button id="btn-reset" class="roblox-btn roblox-btn-red px-4 py-2.5 rounded-xl font-black text-white text-sm flex items-center gap-2 shadow-lg">
+                <i class="fa-solid fa-rotate-left"></i>
+                <span>재도전 (Reset)</span>
+            </button>
+            <button id="btn-shop" class="roblox-btn roblox-btn-gold px-6 py-3 rounded-xl font-black text-amber-950 text-base flex items-center gap-2 shadow-lg glow-pulse">
+                <i class="fa-solid fa-store text-lg"></i>
+                <span>코일 상점 (Shop)</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Power-Up Shop Modal -->
+    <div id="shop-modal" class="fixed inset-0 bg-black/75 backdrop-blur-md z-30 hidden flex items-center justify-center p-4">
+        <div class="roblox-panel w-full max-w-xl p-6 text-white border-2 border-cyan-400 relative">
+            <!-- Close Button -->
+            <button id="btn-close-shop" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl font-bold">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h2 class="text-2xl font-black text-yellow-300 mb-1 flex items-center gap-2">
+                <i class="fa-solid fa-cart-shopping"></i> 로블록스 코일 상점
+            </h2>
+            <p class="text-xs text-slate-300 mb-5">코인을 사용하여 강력한 능력을 얻고 타워를 더 쉽게 클리어하세요!</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+                <!-- Speed Coil -->
+                <div class="bg-slate-800/80 rounded-2xl p-4 border-2 border-red-500/50 flex flex-col items-center text-center">
+                    <div class="w-14 h-14 rounded-full bg-red-500/20 border-2 border-red-500 flex items-center justify-center text-2xl text-red-400 mb-2">
+                        <i class="fa-solid fa-bolt"></i>
+                    </div>
+                    <div class="font-bold text-base text-red-400">스피드 코일</div>
+                    <div class="text-[11px] text-slate-300 mt-1 mb-3">이동 속도 2배 증가!</div>
+                    <button id="buy-speed-coil" class="mt-auto roblox-btn roblox-btn-gold px-3 py-2 rounded-xl text-xs font-black w-full flex items-center justify-center gap-1">
+                        <i class="fa-solid fa-coins"></i> 30
+                    </button>
+                </div>
+
+                <!-- Gravity Coil -->
+                <div class="bg-slate-800/80 rounded-2xl p-4 border-2 border-cyan-500/50 flex flex-col items-center text-center">
+                    <div class="w-14 h-14 rounded-full bg-cyan-500/20 border-2 border-cyan-500 flex items-center justify-center text-2xl text-cyan-400 mb-2">
+                        <i class="fa-solid fa-feather"></i>
+                    </div>
+                    <div class="font-bold text-base text-cyan-400">그래비티 코일</div>
+                    <div class="text-[11px] text-slate-300 mt-1 mb-3">점프 높이 2배 증가!</div>
+                    <button id="buy-gravity-coil" class="mt-auto roblox-btn roblox-btn-gold px-3 py-2 rounded-xl text-xs font-black w-full flex items-center justify-center gap-1">
+                        <i class="fa-solid fa-coins"></i> 50
+                    </button>
+                </div>
+
+                <!-- Fusion Coil -->
+                <div class="bg-slate-800/80 rounded-2xl p-4 border-2 border-purple-500/50 flex flex-col items-center text-center">
+                    <div class="w-14 h-14 rounded-full bg-purple-500/20 border-2 border-purple-500 flex items-center justify-center text-2xl text-purple-400 mb-2">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    </div>
+                    <div class="font-bold text-base text-purple-400">퓨전 코일</div>
+                    <div class="text-[11px] text-slate-300 mt-1 mb-3">속도 + 점프 최고 극대화</div>
+                    <button id="buy-fusion-coil" class="mt-auto roblox-btn roblox-btn-gold px-3 py-2 rounded-xl text-xs font-black w-full flex items-center justify-center gap-1">
+                        <i class="fa-solid fa-coins"></i> 100
+                    </button>
+                </div>
+            </div>
+
+            <!-- Skip Stage Option -->
+            <div class="bg-indigo-900/40 border border-indigo-500/40 rounded-xl p-3 flex items-center justify-between">
+                <div>
+                    <div class="font-bold text-indigo-300 text-sm"><i class="fa-solid fa-forward mr-1"></i> 스테이지 스킵</div>
+                    <div class="text-xs text-slate-400">현재 통과하기 힘든 난관을 스킵하고 다음층 이동</div>
+                </div>
+                <button id="buy-stage-skip" class="roblox-btn px-4 py-2 rounded-xl text-xs font-bold text-white">
+                    <i class="fa-solid fa-coins mr-1"></i> 40 코인
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Victory Modal -->
+    <div id="victory-modal" class="fixed inset-0 bg-black/80 backdrop-blur-lg z-40 hidden flex items-center justify-center p-4">
+        <div class="roblox-panel w-full max-w-md p-8 text-white text-center border-4 border-yellow-400 glow-pulse">
+            <div class="text-6xl text-yellow-300 mb-3 animate-bounce">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            <h2 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-pink-400 to-cyan-300 mb-2">
+                타워 클리어 성공!
+            </h2>
+            <p class="text-slate-300 mb-6 text-sm">축하합니다! 로블록스 타워 정상에 도달하셨습니다.</p>
+
+            <div class="bg-slate-900/80 rounded-2xl p-4 mb-6 text-left space-y-2 border border-slate-700">
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400"><i class="fa-regular fa-clock mr-2"></i>클리어 타임:</span>
+                    <span id="final-time" class="font-bold text-yellow-300 text-lg">00:00</span>
+                </div>
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400"><i class="fa-solid fa-coins mr-2"></i>획득한 총 코인:</span>
+                    <span id="final-coins" class="font-bold text-yellow-300 text-lg">0</span>
+                </div>
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400"><i class="fa-solid fa-crown mr-2"></i>칭호:</span>
+                    <span class="font-bold text-cyan-300">타워 마스터 👑</span>
+                </div>
+            </div>
+
+            <button id="btn-rebirth" class="roblox-btn roblox-btn-gold px-8 py-3.5 rounded-2xl text-xl font-black w-full shadow-xl">
+                <i class="fa-solid fa-rotate-right mr-2"></i>다시 도전하기 (Rebirth)
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Web Audio Synthesizer for Sound Effects
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+            }
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+            playJump() {
+                this.init();
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(450, this.ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+            playDeath() {
+                this.init();
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(350, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+            playCoin() {
+                this.init();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(987.77, now);
+                osc.frequency.setValueAtTime(1318.51, now + 0.08);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(now + 0.25);
+            }
+            playCheckpoint() {
+                this.init();
+                if (!this.ctx) return;
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime + i * 0.06);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + i * 0.06 + 0.2);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + i * 0.06);
+                    osc.stop(this.ctx.currentTime + i * 0.06 + 0.2);
+                });
+            }
+            playVictory() {
+                this.init();
+                if (!this.ctx) return;
+                const notes = [440, 554.37, 659.25, 880, 1108.73];
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime + i * 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + i * 0.12 + 0.4);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + i * 0.12);
+                    osc.stop(this.ctx.currentTime + i * 0.12 + 0.4);
+                });
+            }
+        }
+        const sfx = new SoundFX();
+
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x131722);
+        scene.fog = new THREE.FogExp2(0x131722, 0.008);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
+        dirLight.position.set(40, 80, 30);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 250;
+        const d = 50;
+        dirLight.shadow.camera.left = -d;
+        dirLight.shadow.camera.right = d;
+        dirLight.shadow.camera.top = d;
+        dirLight.shadow.camera.bottom = -d;
+        scene.add(dirLight);
+
+        function createRobloxFaceTexture(faceType = 'smile', skinColorHex = 0xffcc00) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = '#' + skinColorHex.toString(16).padStart(6, '0');
+            ctx.fillRect(0, 0, 256, 256);
+
+            ctx.fillStyle = '#000000';
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 10;
+            ctx.lineCap = 'round';
+
+            if (faceType === 'glasses') {
+                ctx.fillStyle = '#111111';
+                ctx.beginPath();
+                ctx.roundRect(45, 75, 70, 45, 10);
+                ctx.roundRect(141, 75, 70, 45, 10);
+                ctx.fill();
+                ctx.fillRect(115, 85, 26, 10);
+                
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(55, 85); ctx.lineTo(85, 110);
+                ctx.moveTo(151, 85); ctx.lineTo(181, 110);
+                ctx.stroke();
+
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 12;
+                ctx.beginPath();
+                ctx.arc(128, 145, 50, 0.1 * Math.PI, 0.9 * Math.PI, false);
+                ctx.stroke();
+            } else if (faceType === 'wink') {
+                ctx.beginPath();
+                ctx.arc(80, 95, 18, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(75, 90, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 12;
+                ctx.beginPath();
+                ctx.moveTo(150, 95); ctx.lineTo(185, 95);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(128, 145, 50, 0.1 * Math.PI, 0.9 * Math.PI, false);
+                ctx.stroke();
+            } else if (faceType === 'angry') {
+                ctx.lineWidth = 12;
+                ctx.beginPath();
+                ctx.moveTo(60, 75); ctx.lineTo(100, 95);
+                ctx.moveTo(196, 75); ctx.lineTo(156, 95);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(80, 105, 16, 0, Math.PI * 2);
+                ctx.arc(176, 105, 16, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(128, 165, 45, 1.1 * Math.PI, 1.9 * Math.PI, false);
+                ctx.stroke();
+            } else {
+                ctx.beginPath();
+                ctx.arc(80, 95, 18, 0, Math.PI * 2);
+                ctx.arc(176, 95, 18, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(75, 90, 6, 0, Math.PI * 2);
+                ctx.arc(171, 90, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 12;
+                ctx.beginPath();
+                ctx.arc(128, 145, 55, 0.1 * Math.PI, 0.9 * Math.PI, false);
+                ctx.stroke();
+            }
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        class RobloxCharacter {
+            constructor() {
+                this.group = new THREE.Group();
+
+                this.skinColor = 0xffcc00;
+                this.shirtColor = 0x0077ff;
+                this.pantsColor = 0x00cc44;
+                this.faceType = 'smile';
+                this.hatType = 'crown';
+
+                this.skinMat = new THREE.MeshStandardMaterial({ color: this.skinColor, roughness: 0.3 });
+                this.shirtMat = new THREE.MeshStandardMaterial({ color: this.shirtColor, roughness: 0.4 });
+                this.pantsMat = new THREE.MeshStandardMaterial({ color: this.pantsColor, roughness: 0.4 });
+                
+                const faceTex = createRobloxFaceTexture(this.faceType, this.skinColor);
+                this.headMat = [
+                    this.skinMat, this.skinMat, this.skinMat, this.skinMat,
+                    new THREE.MeshStandardMaterial({ map: faceTex, roughness: 0.3 }),
+                    this.skinMat
+                ];
+
+                // Head
+                this.head = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), this.headMat);
+                this.head.position.y = 2.4;
+                this.head.castShadow = true;
+                this.group.add(this.head);
+
+                // Torso
+                this.torso = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 0.7), this.shirtMat);
+                this.torso.position.y = 1.1;
+                this.torso.castShadow = true;
+                this.group.add(this.torso);
+
+                // Left Arm
+                this.leftArmGroup = new THREE.Group();
+                this.leftArmGroup.position.set(-0.95, 1.7, 0);
+                this.leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.3, 0.5), this.skinMat);
+                this.leftArm.position.y = -0.65;
+                this.leftArm.castShadow = true;
+                this.leftArmGroup.add(this.leftArm);
+                this.group.add(this.leftArmGroup);
+
+                // Right Arm
+                this.rightArmGroup = new THREE.Group();
+                this.rightArmGroup.position.set(0.95, 1.7, 0);
+                this.rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.3, 0.5), this.skinMat);
+                this.rightArm.position.y = -0.65;
+                this.rightArm.castShadow = true;
+                this.rightArmGroup.add(this.rightArm);
+                this.group.add(this.rightArmGroup);
+
+                // Left Leg
+                this.leftLegGroup = new THREE.Group();
+                this.leftLegGroup.position.set(-0.38, 0.4, 0);
+                this.leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.65, 1.2, 0.65), this.pantsMat);
+                this.leftLeg.position.y = -0.6;
+                this.leftLeg.castShadow = true;
+                this.leftLegGroup.add(this.leftLeg);
+                this.group.add(this.leftLegGroup);
+
+                // Right Leg
+                this.rightLegGroup = new THREE.Group();
+                this.rightLegGroup.position.set(0.38, 0.4, 0);
+                this.rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.65, 1.2, 0.65), this.pantsMat);
+                this.rightLeg.position.y = -0.6;
+                this.rightLeg.castShadow = true;
+                this.rightLegGroup.add(this.rightLeg);
+                this.group.add(this.rightLegGroup);
+
+                // Hat Accessories Group
+                this.hatMeshGroup = new THREE.Group();
+                this.head.add(this.hatMeshGroup);
+                this.updateHatMesh();
+
+                this.coilMesh = null;
+
+                // 캐릭터 크기를 더욱 작고 귀여운 미니 스케일로 축소 (50% 미니 아바타)
+                this.group.scale.set(0.45, 0.45, 0.45);
+
+                scene.add(this.group);
+            }
+
+            setSkinColor(colorHex) {
+                this.skinColor = colorHex;
+                this.skinMat.color.setHex(colorHex);
+                this.updateFace();
+            }
+
+            setShirtColor(colorHex) {
+                this.shirtColor = colorHex;
+                this.shirtMat.color.setHex(colorHex);
+            }
+
+            setPantsColor(colorHex) {
+                this.pantsColor = colorHex;
+                this.pantsMat.color.setHex(colorHex);
+            }
+
+            setFaceType(type) {
+                this.faceType = type;
+                this.updateFace();
+            }
+
+            updateFace() {
+                const faceTex = createRobloxFaceTexture(this.faceType, this.skinColor);
+                this.head.material[4] = new THREE.MeshStandardMaterial({ map: faceTex, roughness: 0.3 });
+            }
+
+            setHatType(type) {
+                this.hatType = type;
+                this.updateHatMesh();
+            }
+
+            updateHatMesh() {
+                while(this.hatMeshGroup.children.length > 0){
+                    this.hatMeshGroup.remove(this.hatMeshGroup.children[0]);
+                }
+
+                if (this.hatType === 'crown') {
+                    const crownGeom = new THREE.CylinderGeometry(0.7, 0.6, 0.4, 8);
+                    const goldMat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.8, roughness: 0.2 });
+                    const crown = new THREE.Mesh(crownGeom, goldMat);
+                    crown.position.y = 0.8;
+                    
+                    for (let i = 0; i < 4; i++) {
+                        const jewel = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), new THREE.MeshStandardMaterial({ color: 0xff1744 }));
+                        const angle = (i * Math.PI) / 2;
+                        jewel.position.set(Math.cos(angle)*0.65, 0.8, Math.sin(angle)*0.65);
+                        this.hatMeshGroup.add(jewel);
+                    }
+                    this.hatMeshGroup.add(crown);
+                } else if (this.hatType === 'tophat') {
+                    const blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
+                    const redRibbonMat = new THREE.MeshStandardMaterial({ color: 0xff1744 });
+
+                    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 0.08, 16), blackMat);
+                    brim.position.y = 0.62;
+                    this.hatMeshGroup.add(brim);
+
+                    const topMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.6, 0.9, 16), blackMat);
+                    topMesh.position.y = 1.05;
+                    this.hatMeshGroup.add(topMesh);
+
+                    const ribbon = new THREE.Mesh(new THREE.CylinderGeometry(0.66, 0.61, 0.2, 16), redRibbonMat);
+                    ribbon.position.y = 0.72;
+                    this.hatMeshGroup.add(ribbon);
+                } else if (this.hatType === 'headphones') {
+                    const bandMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, metalness: 0.5 });
+                    const cupMat = new THREE.MeshStandardMaterial({ color: 0x212121 });
+
+                    const band = new THREE.Mesh(new THREE.TorusGeometry(0.68, 0.08, 8, 16, Math.PI), bandMat);
+                    band.rotation.x = Math.PI;
+                    band.position.y = 0.4;
+                    this.hatMeshGroup.add(band);
+
+                    const cupL = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.15, 12), cupMat);
+                    cupL.rotation.z = Math.PI / 2;
+                    cupL.position.set(-0.65, 0.1, 0);
+                    this.hatMeshGroup.add(cupL);
+
+                    const cupR = cupL.clone();
+                    cupR.position.x = 0.65;
+                    this.hatMeshGroup.add(cupR);
+                }
+            }
+
+            setCoilVisual(type) {
+                if (this.coilMesh) {
+                    this.rightArmGroup.remove(this.coilMesh);
+                    this.coilMesh = null;
+                }
+                if (!type) return;
+
+                let color = 0xff1744;
+                if (type === 'gravity') color = 0x00e5ff;
+                if (type === 'fusion') color = 0xd500f9;
+
+                const coilGroup = new THREE.Group();
+                const geom = new THREE.TorusGeometry(0.35, 0.08, 12, 24);
+                const mat = new THREE.MeshStandardMaterial({
+                    color: color,
+                    emissive: color,
+                    emissiveIntensity: 0.5,
+                    metalness: 0.8,
+                    roughness: 0.2
+                });
+
+                for (let i = 0; i < 4; i++) {
+                    const ring = new THREE.Mesh(geom, mat);
+                    ring.rotation.x = Math.PI / 2;
+                    ring.position.y = -0.3 - (i * 0.18);
+                    coilGroup.add(ring);
+                }
+
+                this.coilMesh = coilGroup;
+                this.rightArmGroup.add(this.coilMesh);
+            }
+
+            animateWalk(time, isMoving) {
+                if (isMoving) {
+                    const speed = 12;
+                    const angle = Math.sin(time * speed) * 0.6;
+                    this.leftArmGroup.rotation.x = angle;
+                    this.rightArmGroup.rotation.x = -angle;
+                    this.leftLegGroup.rotation.x = -angle;
+                    this.rightLegGroup.rotation.x = angle;
+                } else {
+                    this.leftArmGroup.rotation.x = 0;
+                    this.rightArmGroup.rotation.x = 0;
+                    this.leftLegGroup.rotation.x = 0;
+                    this.rightLegGroup.rotation.x = 0;
+                }
+            }
+        }
+
+        const player = new RobloxCharacter();
+
+        const gameState = {
+            coins: 0,
+            currentStage: 1,
+            maxStage: 6,
+            startTime: Date.now(),
+            hasSpeedCoil: false,
+            hasGravityCoil: false,
+            hasFusionCoil: false,
+            checkpointPos: new THREE.Vector3(0, 3, 0),
+            isGrounded: false,
+            velocity: new THREE.Vector3(),
+            speedMultiplier: 1.0,
+            jumpMultiplier: 1.0,
+            gameEnded: false,
+            isCustomizing: true
+        };
+
+        const platforms = [];
+        const coins = [];
+        const animatedHazards = [];
+
+        const matGround = new THREE.MeshStandardMaterial({ color: 0x333a42, roughness: 0.8 });
+        const matCheckpoint = new THREE.MeshStandardMaterial({ color: 0x00e676, emissive: 0x00a152, emissiveIntensity: 0.3 });
+        const matHazard = new THREE.MeshStandardMaterial({ color: 0xff1744, emissive: 0xd50000, emissiveIntensity: 0.8 });
+
+        function createPlatform(x, y, z, w, h, d, colorMat, isHazard = false, isCheckpoint = false, stageNum = 1) {
+            const geom = new THREE.BoxGeometry(w, h, d);
+            const mesh = new THREE.Mesh(geom, colorMat);
+            mesh.position.set(x, y, z);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            scene.add(mesh);
+
+            const platObj = {
+                mesh: mesh,
+                w: w, h: h, d: d,
+                isHazard: isHazard,
+                isCheckpoint: isCheckpoint,
+                stageNum: stageNum,
+                isDisappearing: false,
+                active: true
+            };
+
+            platforms.push(platObj);
+            return platObj;
+        }
+
+        function createCoin(x, y, z) {
+            const geom = new THREE.CylinderGeometry(0.6, 0.6, 0.2, 16);
+            geom.rotateX(Math.PI / 2);
+            const mat = new THREE.MeshStandardMaterial({
+                color: 0xffd700,
+                metalness: 0.9,
+                roughness: 0.1,
+                emissive: 0xffaa00,
+                emissiveIntensity: 0.4
+            });
+            const mesh = new THREE.Mesh(geom, mat);
+            mesh.position.set(x, y, z);
+            mesh.castShadow = true;
+            scene.add(mesh);
+
+            coins.push({ mesh: mesh, collected: false, initialY: y });
+        }
+
+        function buildRobloxTower() {
+            // Spawn Ground (Wider base)
+            createPlatform(0, -1, 0, 40, 2, 40, matGround, false, true, 0);
+
+            // Pillar Aesthetics
+            for (let i = 0; i < 4; i++) {
+                const angle = (i * Math.PI) / 2;
+                const pillar = new THREE.Mesh(
+                    new THREE.CylinderGeometry(2, 2, 220, 16),
+                    new THREE.MeshStandardMaterial({ color: 0x222834, roughness: 0.5 })
+                );
+                pillar.position.set(Math.cos(angle) * 28, 110, Math.sin(angle) * 28);
+                scene.add(pillar);
+            }
+
+            // STAGE 1: Yellow Steps & Red Lasers (Wider Platforms)
+            const stage1Color = new THREE.MeshStandardMaterial({ color: 0xffeb3b, roughness: 0.3 });
+            let yAcc = 3;
+            for (let i = 0; i < 8; i++) {
+                const angle = i * 0.65;
+                const radius = 15;
+                const px = Math.cos(angle) * radius;
+                const pz = Math.sin(angle) * radius;
+                createPlatform(px, yAcc, pz, 7.5, 1.0, 7.5, stage1Color, false, false, 1);
+
+                if (i % 2 === 1) {
+                    createPlatform(px, yAcc + 1.0, pz, 7.5, 0.4, 1.0, matHazard, true, false, 1);
+                }
+
+                if (i % 3 === 0) createCoin(px, yAcc + 2.2, pz);
+                yAcc += 3.5;
+            }
+
+            // Stage 1 Checkpoint (Wider)
+            createPlatform(0, yAcc, 15, 12, 1.2, 12, matCheckpoint, false, true, 1);
+            yAcc += 4.5;
+
+            // STAGE 2: Blinking Translucent Glass (Wider Platforms)
+            const stage2Color = new THREE.MeshStandardMaterial({
+                color: 0x00e5ff,
+                transparent: true,
+                opacity: 0.8,
+                roughness: 0.1
+            });
+
+            for (let i = 0; i < 7; i++) {
+                const px = (i % 2 === 0 ? 1 : -1) * (8 + (i * 1.5));
+                const pz = Math.cos(i) * 12;
+                const plat = createPlatform(px, yAcc, pz, 7.0, 0.8, 7.0, stage2Color, false, false, 2);
+
+                plat.isDisappearing = true;
+                plat.blinkTimer = i * 0.8;
+
+                if (i % 2 === 0) createCoin(px, yAcc + 2.2, pz);
+                yAcc += 4.8;
+            }
+
+            // Stage 2 Checkpoint
+            createPlatform(-15, yAcc, 0, 12, 1.2, 12, matCheckpoint, false, true, 2);
+            yAcc += 4.5;
+
+            // STAGE 3: Rotating Sweeper Bars (Wider Platforms)
+            const stage3Color = new THREE.MeshStandardMaterial({ color: 0xaa00ff, roughness: 0.3 });
+            for (let i = 0; i < 6; i++) {
+                const angle = i * 0.95;
+                const px = Math.cos(angle) * 14;
+                const pz = Math.sin(angle) * 14;
+
+                createPlatform(px, yAcc, pz, 8.5, 1.0, 8.5, stage3Color, false, false, 3);
+
+                const sweeperGeom = new THREE.BoxGeometry(9.5, 0.8, 0.8);
+                const sweeperMesh = new THREE.Mesh(sweeperGeom, matHazard);
+                sweeperMesh.position.set(px, yAcc + 1.0, pz);
+                scene.add(sweeperMesh);
+
+                const hazardObj = {
+                    mesh: sweeperMesh,
+                    w: 9.5, h: 0.8, d: 0.8,
+                    isHazard: true,
+                    updateFn: (dt, time) => {
+                        sweeperMesh.rotation.y = time * 2;
+                    }
+                };
+                platforms.push(hazardObj);
+                animatedHazards.push(hazardObj);
+
+                createCoin(px, yAcc + 2.8, pz);
+                yAcc += 5.2;
+            }
+
+            // Stage 3 Checkpoint
+            createPlatform(0, yAcc, -15, 12, 1.2, 12, matCheckpoint, false, true, 3);
+            yAcc += 4.5;
+
+            // STAGE 4: Sliding Hazard Pushers (Wider Platforms)
+            const stage4Color = new THREE.MeshStandardMaterial({ color: 0xff6d00, roughness: 0.3 });
+            for (let i = 0; i < 5; i++) {
+                const zPos = -12 + (i * 6);
+                const plat = createPlatform((i % 2 === 0 ? 5 : -5), yAcc, zPos, 8.0, 1.0, 7.0, stage4Color, false, false, 4);
+
+                const wallGeom = new THREE.BoxGeometry(2.0, 3.5, 5.0);
+                const wallMesh = new THREE.Mesh(wallGeom, matHazard);
+                wallMesh.position.set(plat.mesh.position.x, yAcc + 2.2, zPos);
+                scene.add(wallMesh);
+
+                const slideObj = {
+                    mesh: wallMesh,
+                    w: 2.0, h: 3.5, d: 5.0,
+                    isHazard: true,
+                    startX: plat.mesh.position.x,
+                    updateFn: (dt, time) => {
+                        wallMesh.position.x = slideObj.startX + Math.sin(time * 2.5 + i) * 3.5;
+                    }
+                };
+                platforms.push(slideObj);
+                animatedHazards.push(slideObj);
+
+                createCoin(plat.mesh.position.x, yAcc + 2.5, zPos);
+                yAcc += 5.5;
+            }
+
+            // Stage 4 Checkpoint
+            createPlatform(14, yAcc, 14, 12, 1.2, 12, matCheckpoint, false, true, 4);
+            yAcc += 4.5;
+
+            // STAGE 5: Super Bounce Trampolines (Wider Platforms)
+            const stage5Color = new THREE.MeshStandardMaterial({ color: 0x00c853, roughness: 0.2 });
+            for (let i = 0; i < 5; i++) {
+                const px = Math.sin(i * 1.5) * 15;
+                const pz = Math.cos(i * 1.5) * 15;
+                const bouncePlat = createPlatform(px, yAcc, pz, 8.0, 1.0, 8.0, stage5Color, false, false, 5);
+                bouncePlat.isBouncePad = true;
+
+                createCoin(px, yAcc + 2.8, pz);
+                yAcc += 6.5;
+            }
+
+            // STAGE 6: VICTORY TOP ROOF PLATFORM (Wider)
+            createPlatform(0, yAcc, 0, 32, 2.5, 32, new THREE.MeshStandardMaterial({
+                color: 0xffd700,
+                metalness: 0.8,
+                roughness: 0.2,
+                emissive: 0xffaa00,
+                emissiveIntensity: 0.2
+            }), false, true, 6);
+
+            // Gold Winner Trophy
+            const trophyGroup = new THREE.Group();
+            const cupGeom = new THREE.CylinderGeometry(2.5, 1.2, 3.5, 16);
+            const goldMat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9, roughness: 0.1 });
+            const cup = new THREE.Mesh(cupGeom, goldMat);
+            cup.position.y = yAcc + 3.5;
+            trophyGroup.add(cup);
+
+            const baseGeom = new THREE.BoxGeometry(3.2, 1.2, 3.2);
+            const base = new THREE.Mesh(baseGeom, new THREE.MeshStandardMaterial({ color: 0x111111 }));
+            base.position.y = yAcc + 1.2;
+            trophyGroup.add(base);
+
+            scene.add(trophyGroup);
+            gameState.trophy = trophyGroup;
+        }
+
+        buildRobloxTower();
+
+        const keys = {};
+        let cameraAngleX = 0;
+        let cameraAngleY = 0.3;
+        let isMouseDown = false;
+        let previousMouseX = 0;
+        let previousMouseY = 0;
+
+        let joystickActive = false;
+        let joystickVector = { x: 0, y: 0 };
+
+        window.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            if (e.code === 'Space') {
+                jumpPlayer();
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
+
+        // Mouse Drag Camera Orbit
+        window.addEventListener('mousedown', (e) => {
+            if (e.target.closest('#hud') || e.target.closest('#shop-modal') || e.target.closest('#victory-modal') || e.target.closest('#customizer-screen')) return;
+            isMouseDown = true;
+            previousMouseX = e.clientX;
+            previousMouseY = e.clientY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isMouseDown) return;
+            const deltaX = e.clientX - previousMouseX;
+            const deltaY = e.clientY - previousMouseY;
+
+            cameraAngleX -= deltaX * 0.005;
+            cameraAngleY = Math.max(0.05, Math.min(Math.PI / 2.2, cameraAngleY + deltaY * 0.005));
+
+            previousMouseX = e.clientX;
+            previousMouseY = e.clientY;
+        });
+
+        window.addEventListener('mouseup', () => isMouseDown = false);
+
+        // Mobile Touch Joystick
+        const joystickZone = document.getElementById('joystick-zone');
+        const joystickKnob = document.getElementById('joystick-knob');
+        const jumpBtnMobile = document.getElementById('jump-btn-mobile');
+
+        if (joystickZone) {
+            joystickZone.addEventListener('touchstart', (e) => {
+                joystickActive = true;
+                updateJoystick(e.touches[0]);
+            }, { passive: false });
+
+            joystickZone.addEventListener('touchmove', (e) => {
+                if (joystickActive) {
+                    updateJoystick(e.touches[0]);
+                }
+            }, { passive: false });
+
+            const endJoystick = () => {
+                joystickActive = false;
+                joystickVector = { x: 0, y: 0 };
+                joystickKnob.style.transform = `translate(0px, 0px)`;
+            };
+
+            joystickZone.addEventListener('touchend', endJoystick);
+            joystickZone.addEventListener('touchcancel', endJoystick);
+        }
+
+        function updateJoystick(touch) {
+            const rect = joystickZone.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            let dx = touch.clientX - centerX;
+            let dy = touch.clientY - centerY;
+            const maxRadius = rect.width / 2;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist > maxRadius) {
+                dx = (dx / dist) * maxRadius;
+                dy = (dy / dist) * maxRadius;
+            }
+
+            joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+            joystickVector.x = dx / maxRadius;
+            joystickVector.y = dy / maxRadius;
+        }
+
+        if (jumpBtnMobile) {
+            jumpBtnMobile.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                jumpPlayer();
+            });
+        }
+
+        function jumpPlayer() {
+            if (gameState.isGrounded) {
+                const baseJumpPower = 0.38;
+                gameState.velocity.y = baseJumpPower * gameState.jumpMultiplier;
+                gameState.isGrounded = false;
+                sfx.playJump();
+            }
+        }
+
+        function respawnAtCheckpoint() {
+            sfx.playDeath();
+            player.group.position.copy(gameState.checkpointPos);
+            gameState.velocity.set(0, 0, 0);
+
+            showToast("⚠️ 오프! 체크포인트에서 부활했습니다.");
+        }
+
+        function showToast(msg) {
+            const container = document.getElementById('toast-container');
+            const toastMsg = document.getElementById('toast-msg');
+            if (!container || !toastMsg) return;
+
+            toastMsg.innerText = msg;
+            container.classList.remove('opacity-0', '-translate-y-4');
+            container.classList.add('opacity-100', 'translate-y-0');
+
+            setTimeout(() => {
+                container.classList.remove('opacity-100', 'translate-y-0');
+                container.classList.add('opacity-0', '-translate-y-4');
+            }, 2500);
+        }
+
+        // Physics Updates
+        function updatePhysics(dt, time) {
+            if (gameState.gameEnded) return;
+
+            animatedHazards.forEach(h => {
+                if (h.updateFn) h.updateFn(dt, time);
+            });
+
+            platforms.forEach(p => {
+                if (p.isDisappearing) {
+                    p.blinkTimer += dt;
+                    const cycle = Math.sin(p.blinkTimer * 3);
+                    p.mesh.material.opacity = cycle > 0 ? 0.85 : 0.15;
+                    p.active = cycle > -0.2;
+                }
+            });
+
+            let moveX = 0;
+            let moveZ = 0;
+
+            if (keys['KeyW'] || keys['ArrowUp']) moveZ -= 1;
+            if (keys['KeyS'] || keys['ArrowDown']) moveZ += 1;
+            if (keys['KeyA'] || keys['ArrowLeft']) moveX -= 1;
+            if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
+
+            if (joystickActive) {
+                moveX = joystickVector.x;
+                moveZ = joystickVector.y;
+            }
+
+            const inputLen = Math.hypot(moveX, moveZ);
+            const isMoving = inputLen > 0.1;
+
+            if (isMoving && !gameState.isCustomizing) {
+                const normX = moveX / (inputLen || 1);
+                const normZ = moveZ / (inputLen || 1);
+
+                const sinCam = Math.sin(cameraAngleX);
+                const cosCam = Math.cos(cameraAngleX);
+
+                const dirX = normX * cosCam + normZ * sinCam;
+                const dirZ = -normX * sinCam + normZ * cosCam;
+
+                const speed = 0.22 * gameState.speedMultiplier;
+                player.group.position.x += dirX * speed;
+                player.group.position.z += dirZ * speed;
+
+                const targetAngle = Math.atan2(dirX, dirZ);
+                player.group.rotation.y = targetAngle;
+            }
+
+            player.animateWalk(time, isMoving && !gameState.isCustomizing);
+
+            const gravity = 0.015;
+            gameState.velocity.y -= gravity;
+            player.group.position.y += gameState.velocity.y;
+
+            const playerPos = player.group.position;
+            const playerRadius = 0.22;
+            const playerHeight = 0.65;
+
+            gameState.isGrounded = false;
+
+            platforms.forEach(plat => {
+                if (!plat.active) return;
+
+                const boxMin = new THREE.Vector3(
+                    plat.mesh.position.x - plat.w / 2,
+                    plat.mesh.position.y - plat.h / 2,
+                    plat.mesh.position.z - plat.d / 2
+                );
+                const boxMax = new THREE.Vector3(
+                    plat.mesh.position.x + plat.w / 2,
+                    plat.mesh.position.y + plat.h / 2,
+                    plat.mesh.position.z + plat.d / 2
+                );
+
+                if (
+                    playerPos.x + playerRadius > boxMin.x &&
+                    playerPos.x - playerRadius < boxMax.x &&
+                    playerPos.z + playerRadius > boxMin.z &&
+                    playerPos.z - playerRadius < boxMax.z
+                ) {
+                    if (
+                        playerPos.y >= boxMax.y - 0.4 &&
+                        playerPos.y <= boxMax.y + 0.3 &&
+                        gameState.velocity.y <= 0
+                    ) {
+                        playerPos.y = boxMax.y;
+                        gameState.velocity.y = 0;
+                        gameState.isGrounded = true;
+
+                        if (plat.isHazard) {
+                            respawnAtCheckpoint();
+                            return;
+                        }
+
+                        if (plat.isBouncePad) {
+                            gameState.velocity.y = 0.55;
+                            sfx.playJump();
+                        }
+
+                        if (plat.isCheckpoint && plat.stageNum > 0) {
+                            if (plat.stageNum > gameState.currentStage) {
+                                gameState.currentStage = plat.stageNum;
+                                gameState.checkpointPos.copy(plat.mesh.position).add(new THREE.Vector3(0, 2, 0));
+                                sfx.playCheckpoint();
+                                showToast(`✨ 스테이지 ${gameState.currentStage} 체크포인트 달성!`);
+                                updateHUD();
+
+                                if (gameState.currentStage === gameState.maxStage) {
+                                    triggerVictory();
+                                }
+                            }
+                        }
+                    } else if (
+                        playerPos.y + playerHeight > boxMin.y &&
+                        playerPos.y < boxMax.y
+                    ) {
+                        if (plat.isHazard) {
+                            respawnAtCheckpoint();
+                            return;
+                        }
+                    }
+                }
+            });
+
+            // Coin Pickups
+            coins.forEach(c => {
+                if (c.collected) return;
+
+                c.mesh.rotation.z = time * 3;
+                c.mesh.position.y = c.initialY + Math.sin(time * 4) * 0.2;
+
+                const dist = playerPos.distanceTo(c.mesh.position);
+                if (dist < 1.8) {
+                    c.collected = true;
+                    scene.remove(c.mesh);
+                    gameState.coins += 10;
+                    sfx.playCoin();
+                    updateHUD();
+                    showToast("🪙 +10 코인 획득!");
+                }
+            });
+
+            // Fall Death Reset
+            if (playerPos.y < -15) {
+                respawnAtCheckpoint();
+            }
+
+            if (gameState.trophy) {
+                gameState.trophy.rotation.y = time * 1.5;
+            }
+
+            // Camera View
+            if (gameState.isCustomizing) {
+                const orbitRadius = 3.8;
+                const camX = playerPos.x + Math.sin(time * 0.5) * orbitRadius;
+                const camZ = playerPos.z + Math.cos(time * 0.5) * orbitRadius;
+                camera.position.set(camX, playerPos.y + 0.7, camZ);
+                camera.lookAt(playerPos.x, playerPos.y + 0.4, playerPos.z);
+            } else {
+                const camDistance = 8.5;
+                const camX = playerPos.x + camDistance * Math.sin(cameraAngleX) * Math.cos(cameraAngleY);
+                const camY = playerPos.y + 1.0 + camDistance * Math.sin(cameraAngleY);
+                const camZ = playerPos.z + camDistance * Math.cos(cameraAngleX) * Math.cos(cameraAngleY);
+
+                camera.position.set(camX, camY, camZ);
+                camera.lookAt(playerPos.x, playerPos.y + 0.5, playerPos.z);
+            }
+        }
+
+        const customizerScreen = document.getElementById('customizer-screen');
+        const hudEl = document.getElementById('hud');
+        const mobileControlsEl = document.getElementById('mobile-controls');
+
+        function setupColorPicker(containerId, callback) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            const buttons = container.querySelectorAll('.color-opt');
+            buttons.forEach(btn => {
+                btn.onclick = () => {
+                    buttons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const colorVal = parseInt(btn.getAttribute('data-color'));
+                    callback(colorVal);
+                };
+            });
+        }
+
+        setupColorPicker('skin-colors', (color) => player.setSkinColor(color));
+        setupColorPicker('shirt-colors', (color) => player.setShirtColor(color));
+        setupColorPicker('pants-colors', (color) => player.setPantsColor(color));
+
+        const faceBtns = document.querySelectorAll('#face-options button');
+        faceBtns.forEach(btn => {
+            btn.onclick = () => {
+                faceBtns.forEach(b => b.classList.remove('border-2', 'border-yellow-400', 'text-yellow-300'));
+                btn.classList.add('border-2', 'border-yellow-400', 'text-yellow-300');
+                player.setFaceType(btn.getAttribute('data-face'));
+            };
+        });
+
+        const hatBtns = document.querySelectorAll('#hat-options button');
+        hatBtns.forEach(btn => {
+            btn.onclick = () => {
+                hatBtns.forEach(b => b.classList.remove('border-2', 'border-yellow-400', 'text-yellow-300'));
+                btn.classList.add('border-2', 'border-yellow-400', 'text-yellow-300');
+                player.setHatType(btn.getAttribute('data-hat'));
+            };
+        });
+
+        // Start Game Listener
+        document.getElementById('btn-start-game').onclick = () => {
+            sfx.playCheckpoint();
+            gameState.isCustomizing = false;
+            gameState.startTime = Date.now();
+
+            customizerScreen.classList.add('hidden');
+            hudEl.classList.remove('hidden');
+            mobileControlsEl.classList.remove('hidden');
+
+            showToast("🎮 로블록스 타워 오브 시작! 정상을 향해 올라가세요!");
+        };
+
+        const coinCountEl = document.getElementById('coin-count');
+        const stageDisplayEl = document.getElementById('stage-display');
+        const timeValEl = document.getElementById('time-val');
+        const activeCoilsEl = document.getElementById('active-coils');
+
+        function updateHUD() {
+            if (coinCountEl) coinCountEl.innerText = gameState.coins;
+            if (stageDisplayEl) stageDisplayEl.innerText = `${gameState.currentStage} / ${gameState.maxStage}`;
+
+            if (activeCoilsEl) {
+                activeCoilsEl.innerHTML = '';
+                if (gameState.hasSpeedCoil) {
+                    activeCoilsEl.innerHTML += `<div class="roblox-panel px-3 py-1.5 text-xs text-red-400 font-bold border-red-500"><i class="fa-solid fa-bolt mr-1"></i>스피드 코일</div>`;
+                }
+                if (gameState.hasGravityCoil) {
+                    activeCoilsEl.innerHTML += `<div class="roblox-panel px-3 py-1.5 text-xs text-cyan-400 font-bold border-cyan-500"><i class="fa-solid fa-feather mr-1"></i>그래비티 코일</div>`;
+                }
+                if (gameState.hasFusionCoil) {
+                    activeCoilsEl.innerHTML += `<div class="roblox-panel px-3 py-1.5 text-xs text-purple-400 font-bold border-purple-500"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>퓨전 코일</div>`;
+                }
+            }
+        }
+
+        const shopModal = document.getElementById('shop-modal');
+        document.getElementById('btn-shop').onclick = () => shopModal.classList.remove('hidden');
+        document.getElementById('btn-close-shop').onclick = () => shopModal.classList.add('hidden');
+
+        document.getElementById('btn-reset').onclick = () => {
+            respawnAtCheckpoint();
+        };
+
+        document.getElementById('buy-speed-coil').onclick = () => {
+            if (gameState.coins >= 30) {
+                gameState.coins -= 30;
+                gameState.hasSpeedCoil = true;
+                gameState.speedMultiplier = Math.max(gameState.speedMultiplier, 1.8);
+                player.setCoilVisual('speed');
+                updateHUD();
+                showToast("⚡ 스피드 코일 장착 완료!");
+                shopModal.classList.add('hidden');
+            } else {
+                showToast("❌ 코인이 부족합니다! (필요: 30 코인)");
+            }
+        };
+
+        document.getElementById('buy-gravity-coil').onclick = () => {
+            if (gameState.coins >= 50) {
+                gameState.coins -= 50;
+                gameState.hasGravityCoil = true;
+                gameState.jumpMultiplier = Math.max(gameState.jumpMultiplier, 1.8);
+                player.setCoilVisual('gravity');
+                updateHUD();
+                showToast("🪶 그래비티 코일 장착 완료!");
+                shopModal.classList.add('hidden');
+            } else {
+                showToast("❌ 코인이 부족합니다! (필요: 50 코인)");
+            }
+        };
+
+        document.getElementById('buy-fusion-coil').onclick = () => {
+            if (gameState.coins >= 100) {
+                gameState.coins -= 100;
+                gameState.hasFusionCoil = true;
+                gameState.speedMultiplier = 2.2;
+                gameState.jumpMultiplier = 2.2;
+                player.setCoilVisual('fusion');
+                updateHUD();
+                showToast("✨ 퓨전 코일 장착 완료! (속도 + 점프 극대화)");
+                shopModal.classList.add('hidden');
+            } else {
+                showToast("❌ 코인이 부족합니다! (필요: 100 코인)");
+            }
+        };
+
+        document.getElementById('buy-stage-skip').onclick = () => {
+            if (gameState.coins >= 40) {
+                if (gameState.currentStage < gameState.maxStage) {
+                    gameState.coins -= 40;
+                    gameState.currentStage++;
+
+                    const targetPlat = platforms.find(p => p.stageNum === gameState.currentStage && p.isCheckpoint);
+                    if (targetPlat) {
+                        gameState.checkpointPos.copy(targetPlat.mesh.position).add(new THREE.Vector3(0, 2, 0));
+                        player.group.position.copy(gameState.checkpointPos);
+                    }
+                    updateHUD();
+                    showToast(`⏩ 스테이지 ${gameState.currentStage}로 스킵했습니다!`);
+                    shopModal.classList.add('hidden');
+
+                    if (gameState.currentStage === gameState.maxStage) {
+                        triggerVictory();
+                    }
+                } else {
+                    showToast("이미 최고 스테이지입니다!");
+                }
+            } else {
+                showToast("❌ 코인이 부족합니다! (필요: 40 코인)");
+            }
+        };
+
+        function triggerVictory() {
+            gameState.gameEnded = true;
+            sfx.playVictory();
+
+            const elapsedSecs = Math.floor((Date.now() - gameState.startTime) / 1000);
+            const mins = String(Math.floor(elapsedSecs / 60)).padStart(2, '0');
+            const secs = String(elapsedSecs % 60).padStart(2, '0');
+
+            document.getElementById('final-time').innerText = `${mins}:${secs}`;
+            document.getElementById('final-coins').innerText = gameState.coins;
+
+            document.getElementById('victory-modal').classList.remove('hidden');
+        }
+
+        document.getElementById('btn-rebirth').onclick = () => {
+            gameState.coins += 50;
+            gameState.currentStage = 1;
+            gameState.gameEnded = false;
+            gameState.startTime = Date.now();
+            gameState.checkpointPos.set(0, 3, 0);
+
+            player.group.position.copy(gameState.checkpointPos);
+            gameState.velocity.set(0, 0, 0);
+
+            document.getElementById('victory-modal').classList.add('hidden');
+            updateHUD();
+            showToast("🔄 리버스 완료! +50 보너스 코인 획득!");
+        };
+
+        // Render Loop
+        let lastTime = performance.now();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const now = performance.now();
+            const dt = Math.min((now - lastTime) / 1000, 0.1);
+            lastTime = now;
+            const time = now / 1000;
+
+            if (!gameState.gameEnded && !gameState.isCustomizing) {
+                const elapsedSecs = Math.max(0, Math.floor((Date.now() - gameState.startTime) / 1000));
+                const mins = String(Math.floor(elapsedSecs / 60)).padStart(2, '0');
+                const secs = String(elapsedSecs % 60).padStart(2, '0');
+                const timeEl = document.getElementById('time-val');
+                if (timeEl) {
+                    timeEl.innerText = `${mins}:${secs}`;
+                }
+            }
+
+            updatePhysics(dt, time);
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Initialize HUD & Start Game Engine
+        updateHUD();
+        animate();
+    </script>
+</body>
+</html>
