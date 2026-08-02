@@ -151,7 +151,14 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
 @keyframes phbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
 .thumb .ph .pname{position:relative;font-size:13px;font-weight:900;color:#fff;letter-spacing:-.02em;text-align:center;padding:0 14px;text-shadow:0 2px 6px rgba(0,0,0,.5);line-height:1.3}
 .thumb .ph em{position:relative;z-index:2;font-style:normal;font-size:10.5px;font-weight:900;color:#fff;letter-spacing:.08em;background:rgba(11,11,16,.55);border:2px solid rgba(255,255,255,.45);padding:5px 11px;border-radius:999px}
-.thumb iframe{position:absolute;top:0;left:0;width:1280px;height:800px;border:0;transform-origin:top left;transform:scale(var(--s,.25));pointer-events:none;opacity:0;transition:opacity .45s ease}
+/* 실제 게임 화면 캡처 (기본 썸네일) */
+.thumb .shot{
+  position:absolute;inset:0;z-index:2;width:100%;height:100%;object-fit:cover;display:block;
+  opacity:0;transition:opacity .35s ease
+}
+.thumb .shot.in{opacity:1}
+.thumb.ready .shot{opacity:0}
+.thumb iframe{position:absolute;top:0;left:0;z-index:3;width:1280px;height:800px;border:0;transform-origin:top left;transform:scale(var(--s,.25));pointer-events:none;opacity:0;transition:opacity .45s ease}
 .thumb.ready iframe{opacity:1}
 .thumb.ready .ph{opacity:0;transition-delay:.15s}
 .play{
@@ -423,7 +430,7 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
 
     <div class="previews-note">
       <span aria-hidden="true">👀</span>
-      <span>카드에 보이는 건 <b>진짜 게임의 시작 화면</b>이에요. 한 번에 6개까지만 켜지고 화면 밖으로 나가면 자동으로 꺼져요. 느리면 <b>게임 화면 끄기</b>를 누르세요.</span>
+      <span>카드 그림은 <b>게임을 실제로 실행해서 찍은 화면</b>이에요. 마우스를 올리면 그 카드 하나만 <b>진짜로 움직이기</b> 시작해요.</span>
     </div>
 
     <div class="toolbar">
@@ -646,13 +653,17 @@ const promptBlock = text =>
 /* 썸네일 바탕화면 색은 파일명에서 만든 해시로 게임마다 다르게 (캐릭터 사진 대신) */
 const hueOf = s => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
 
-/* 미리보기가 뜨기 전에 보여줄 "게임 시작 화면" 대용 정적 화면 */
-const phMarkup = g =>
-  `<div class="ph" style="--h:${hueOf(g.f)}">
-     <span class="pico" aria-hidden="true">${g.e}</span>
-     <span class="pname">${esc(g.t)}</span>
-     <em>게임 화면 불러오는 중…</em>
-   </div>`;
+/* 캡처 이미지 경로: assets/shots/<폴더>__<파일이름>.jpg */
+const shotOf = (dir, file) => `assets/shots/${dir}__${file.replace(/\.html$/, '')}.jpg`;
+
+/* 캡처가 없을 때 뒤에 깔리는 대체 화면 + 그 위에 실제 게임 화면 캡처 */
+const phMarkup = (key, emoji, title, shot) =>
+  `<div class="ph" style="--h:${hueOf(key)}">
+     <span class="pico" aria-hidden="true">${emoji}</span>
+     <span class="pname">${esc(title)}</span>
+     <em>게임 화면</em>
+   </div>
+   <img class="shot" src="${shot}" alt="" loading="lazy" decoding="async" onerror="this.remove()" />`;
 
 const grid = document.getElementById('grid');
 grid.innerHTML = GAMES.map(g => {
@@ -661,7 +672,7 @@ grid.innerHTML = GAMES.map(g => {
   return `<article class="card" data-k="${g.k}" data-g="${g.g}">
     <a class="card-main" href="games/${g.f}" target="_blank" rel="noopener">
       <div class="thumb" data-src="games/${g.f}">
-        ${phMarkup(g)}
+        ${phMarkup(g.f, g.e, g.t, shotOf('games', g.f))}
         <div class="badges">
           <span class="badge ${kindCls}">${kindLabel}</span>
           <span class="badge bg">묶음 ${g.g.toUpperCase()}</span>
@@ -687,7 +698,7 @@ const HERO = ['space-egg.html','3d-healthy-snack-bear.html','healthy-snack-canva
   .map(f => GAMES.find(g => g.f === f)).filter(Boolean);
 document.getElementById('collage').innerHTML = HERO.map((g, i) =>
   `<div class="sticker s${i + 1}">${i === 0 ? '<span class="tape"></span>' : ''}
-     <div class="thumb" data-src="games/${g.f}">${phMarkup(g)}</div>
+     <div class="thumb" data-src="games/${g.f}">${phMarkup(g.f, g.e, g.t, shotOf('games', g.f))}</div>
    </div>`).join('');
 
 /* ─────────── 썸네일 = 진짜 게임 화면 ───────────
@@ -695,8 +706,8 @@ document.getElementById('collage').innerHTML = HERO.map((g, i) =>
    · 화면 밖으로 나가면 iframe 을 제거해 rAF 루프를 정지시킨다
    · 터치 기기(hover 없음)에서는 아예 켜지 않는다
 ------------------------------------------------ */
-const MAX_LIVE = 6;
-const live = [];                                    // LRU 큐 (오래된 것이 앞)
+const MAX_LIVE = 1;   // 마우스를 올린 카드 하나만 실제로 돌린다
+const live = [];
 let previewOn = true;
 try { previewOn = localStorage.getItem('bg_preview') !== 'off'; } catch (_) {}
 
@@ -752,22 +763,41 @@ function loadThumb(th){
   }, 12000);
 }
 
+/* 캡처 이미지가 기본이고, 마우스를 올린 카드만 실제로 게임을 돌린다.
+   IntersectionObserver 로 화면 밖 카드는 확실히 정리한다. */
 const io = new IntersectionObserver(entries => {
-  entries.forEach(en => {
-    const th = en.target;
-    if (en.isIntersecting) loadThumb(th);
-    else unloadThumb(th);
-  });
-}, {rootMargin:'250px 0px'});
+  entries.forEach(en => { if (!en.isIntersecting) unloadThumb(en.target); });
+}, {rootMargin:'120px 0px'});
 
 const thumbs = [...document.querySelectorAll('.thumb')];
-function startPreviews(){ thumbs.forEach(th => io.observe(th)); }
-function stopPreviews(){ thumbs.forEach(th => { io.unobserve(th); unloadThumb(th); }); }
+let hoverTimer = null;
+
+function armThumb(th){
+  if (!previewOn || !th) return;
+  clearTimeout(hoverTimer);
+  hoverTimer = setTimeout(() => loadThumb(th), 320);   // 스쳐 지나갈 때는 안 켜지게
+}
+function disarmThumb(th){
+  clearTimeout(hoverTimer);
+  if (th) unloadThumb(th);
+}
+function bindHover(th){
+  if (th._bound) return;
+  th._bound = true;
+  const host = th.closest('.card, .idea, .sticker') || th;
+  host.addEventListener('mouseenter', () => armThumb(th));
+  host.addEventListener('mouseleave', () => disarmThumb(th));
+  host.addEventListener('focusin',  () => armThumb(th));
+  host.addEventListener('focusout', () => disarmThumb(th));
+  io.observe(th);
+}
+function startPreviews(){ thumbs.forEach(bindHover); }
+function stopPreviews(){ clearTimeout(hoverTimer); thumbs.forEach(unloadThumb); }
 
 const pvBtn = document.getElementById('pvtoggle');
 function renderToggle(){
   pvBtn.setAttribute('aria-pressed', String(previewOn));
-  pvBtn.textContent = previewOn ? '▶️ 게임 화면 켜짐' : '⏸️ 게임 화면 꺼짐';
+  pvBtn.textContent = previewOn ? '▶️ 올리면 게임 실행' : '⏸️ 캡처 화면만 보기';
 }
 renderToggle();
 if (previewOn) startPreviews();
@@ -827,11 +857,7 @@ const ideaCard = v => {
   const path = `examples/${v.slug}.html`;
   return `<article class="idea">
     <div class="thumb ex" data-src="${path}">
-      <div class="ph" style="--h:${hueOf(v.slug)}">
-        <span class="pico" aria-hidden="true">${v.ico}</span>
-        <span class="pname">${esc(v.t)}</span>
-        <em>완성 예시 불러오는 중…</em>
-      </div>
+      ${phMarkup(v.slug, v.ico, v.t, shotOf('examples', v.slug))}
       <div class="badges"><span class="badge bx">완성 예시</span></div>
     </div>
     <div class="idea-top">
@@ -871,11 +897,7 @@ document.getElementById('newgrid').innerHTML = NEWGAMES.map(g => `
   <article class="card" data-k="${g.k}">
     <a class="card-main" href="games/${g.f}" target="_blank" rel="noopener">
       <div class="thumb" data-src="games/${g.f}">
-        <div class="ph" style="--h:${hueOf(g.f)}">
-          <span class="pico" aria-hidden="true">${g.e}</span>
-          <span class="pname">${esc(g.t)}</span>
-          <em>게임 화면 불러오는 중…</em>
-        </div>
+        ${phMarkup(g.f, g.e, g.t, shotOf('games', g.f))}
         <div class="badges">
           <span class="badge ${g.k === '3d' ? 'b3d' : ''}">${g.k === '3d' ? '3D' : '2D'}</span>
           <span class="badge bx">NEW</span>
@@ -898,7 +920,7 @@ document.getElementById('newgrid').innerHTML = NEWGAMES.map(g => `
 /* 나중에 그려진 카드들도 같은 미리보기 시스템에 태운다 */
 document.querySelectorAll('.idea .thumb, #newgrid .thumb').forEach(th => {
   thumbs.push(th);
-  if (previewOn) io.observe(th);
+  if (previewOn) bindHover(th);
 });
 
 document.getElementById('slots').innerHTML = Array.from({length:8}, () =>
