@@ -165,12 +165,42 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
 .badge.b3d{background:var(--cyan)}
 .badge.bcv{background:var(--pink-deep);color:#fff}
 .badge.bg{background:var(--lime)}
-.card-body{padding:16px 17px 18px;display:flex;flex-direction:column;gap:7px;flex:1}
+.card-main{display:flex;flex-direction:column;flex:1;text-decoration:none;color:inherit;min-width:0}
+.card-body{padding:16px 17px 14px;display:flex;flex-direction:column;gap:7px;flex:1}
 .card-body h3{margin:0;font-size:19px;letter-spacing:-.035em;font-weight:900;line-height:1.28}
 .card-body .cdesc{margin:0;font-size:13.5px;font-weight:600;color:rgba(11,11,16,.62);line-height:1.55}
 .card-foot{margin-top:auto;padding-top:12px;display:flex;align-items:center;gap:10px;justify-content:space-between;font-size:12px;font-weight:800}
 .card-foot .ctrl{color:rgba(11,11,16,.5);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card-foot .go{color:var(--violet);flex:none}
+
+/* 카드 아래 코드 액션 바 */
+.card-actions{display:flex;gap:7px;padding:11px 14px 14px;border-top:var(--bw-s) dashed rgba(11,11,16,.18)}
+.act{
+  font:inherit;font-size:12.5px;font-weight:800;letter-spacing:-.02em;cursor:pointer;text-decoration:none;text-align:center;
+  flex:1 1 0;min-width:0;padding:9px 6px;border-radius:11px;border:var(--bw-s) solid var(--ink);background:#fff;color:var(--ink);
+  display:flex;align-items:center;justify-content:center;gap:4px;transition:.13s;white-space:nowrap
+}
+.act:hover{transform:translate(-2px,-2px);box-shadow:3px 3px 0 var(--ink)}
+.act.primary{background:var(--lime)}
+.act.done{background:var(--cyan)}
+
+/* 코드 보기 모달 */
+.codal{position:fixed;inset:0;z-index:200;display:none;padding:18px}
+.codal.on{display:grid;place-items:center}
+.codal .veil{position:absolute;inset:0;background:rgba(11,11,16,.72);backdrop-filter:blur(4px)}
+.codal .box{
+  position:relative;width:min(1000px,100%);max-height:calc(100dvh - 36px);display:flex;flex-direction:column;
+  background:var(--ink-2);border:var(--bw) solid var(--ink);border-radius:20px;box-shadow:var(--shadow-lg);overflow:hidden
+}
+.codal .bar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:14px 16px;background:var(--ink);border-bottom:var(--bw-s) solid #33334a}
+.codal .bar h3{margin:0;font-size:15px;font-weight:900;color:var(--paper);letter-spacing:-.02em;flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.codal .bar .act{flex:0 0 auto;padding:8px 13px;font-size:12.5px}
+.codal .bar .close{background:#fff}
+.codal pre{
+  margin:0;flex:1;overflow:auto;padding:18px;font-size:12.5px;line-height:1.65;color:#DDE3EA;
+  font-family:ui-monospace,SFMono-Regular,Consolas,"D2Coding",monospace;tab-size:2
+}
+.codal .hint{padding:10px 16px;background:#0F0F17;color:rgba(246,243,234,.6);font-size:12px;font-weight:600;border-top:var(--bw-s) solid #2a2a3d}
 
 .previews-note{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border:var(--bw-s) dashed var(--ink);border-radius:16px;padding:12px 16px;font-size:13px;font-weight:700;margin-bottom:var(--s3);color:rgba(11,11,16,.85)}
 
@@ -398,6 +428,20 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
 
 </main>
 
+<div class="codal" id="codal" role="dialog" aria-modal="true" aria-labelledby="codal-title">
+  <div class="veil" data-close></div>
+  <div class="box">
+    <div class="bar">
+      <h3 id="codal-title">코드</h3>
+      <button class="act primary" type="button" id="codal-copy">📋 전체 복사</button>
+      <a class="act" id="codal-dl" href="#" download>⬇ 저장</a>
+      <button class="act close" type="button" data-close>✕ 닫기</button>
+    </div>
+    <pre id="codal-pre" tabindex="0"><code></code></pre>
+    <div class="hint">이 게임은 <b>HTML 파일 하나</b>로 되어 있어요. 코드를 복사해서 AI에게 붙여넣고 <b>"이 코드에서 ~~를 바꿔줘"</b> 라고 말해 보세요.</div>
+  </div>
+</div>
+
 <footer class="foot">
   <div class="foot-in">
     <div>
@@ -594,21 +638,28 @@ const grid = document.getElementById('grid');
 grid.innerHTML = GAMES.map(g => {
   const kindLabel = g.k === '3d' ? '3D' : g.k === 'canvas' ? 'CANVAS' : '2D';
   const kindCls   = g.k === '3d' ? 'b3d' : g.k === 'canvas' ? 'bcv' : '';
-  return `<a class="card" href="games/${g.f}" target="_blank" rel="noopener" data-k="${g.k}" data-g="${g.g}">
-    <div class="thumb" data-src="games/${g.f}">
-      ${phMarkup(g)}
-      <div class="badges">
-        <span class="badge ${kindCls}">${kindLabel}</span>
-        <span class="badge bg">묶음 ${g.g.toUpperCase()}</span>
+  return `<article class="card" data-k="${g.k}" data-g="${g.g}">
+    <a class="card-main" href="games/${g.f}" target="_blank" rel="noopener">
+      <div class="thumb" data-src="games/${g.f}">
+        ${phMarkup(g)}
+        <div class="badges">
+          <span class="badge ${kindCls}">${kindLabel}</span>
+          <span class="badge bg">묶음 ${g.g.toUpperCase()}</span>
+        </div>
+        <span class="play">▶ 플레이</span>
       </div>
-      <span class="play">▶ 플레이</span>
+      <div class="card-body">
+        <h3>${g.e} ${esc(g.t)}</h3>
+        <p class="cdesc">${esc(g.d)}</p>
+        <div class="card-foot"><span class="ctrl">${esc(g.c)}</span><span class="go">열기 →</span></div>
+      </div>
+    </a>
+    <div class="card-actions">
+      <button class="act primary" type="button" data-copy="games/${g.f}">📋 코드 복사</button>
+      <button class="act" type="button" data-view="games/${g.f}" data-title="${esc(g.t)}">&lt;/&gt; 코드 보기</button>
+      <a class="act" href="games/${g.f}" download>⬇ 저장</a>
     </div>
-    <div class="card-body">
-      <h3>${g.e} ${esc(g.t)}</h3>
-      <p class="cdesc">${esc(g.d)}</p>
-      <div class="card-foot"><span class="ctrl">${esc(g.c)}</span><span class="go">열기 →</span></div>
-    </div>
-  </a>`;
+  </article>`;
 }).join('');
 
 /* 히어로에도 캐릭터 대신 진짜 게임 화면 3개 */
@@ -768,6 +819,91 @@ document.getElementById('ideas').innerHTML = IDEAS.map(v => `
 
 document.getElementById('slots').innerHTML = Array.from({length:8}, () =>
   `<div class="slot"><div><div class="plus" aria-hidden="true">+</div><div class="lb">비어 있는 자리</div><div class="sb">여기에 내 게임</div></div></div>`).join('');
+
+/* ─────────── 게임 코드 복사 / 보기 ─────────── */
+const srcCache = new Map();
+async function loadSource(path){
+  if (srcCache.has(path)) return srcCache.get(path);
+  const res = await fetch(path, {cache:'no-store'});
+  if (!res.ok) throw new Error(res.status);
+  const text = await res.text();
+  srcCache.set(path, text);
+  return text;
+}
+
+async function writeClipboard(text){
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch (_) {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (_) {}
+    ta.remove();
+    return ok;
+  }
+}
+
+function flashBtn(btn, msg, keep){
+  const old = btn.dataset.label || btn.textContent;
+  btn.dataset.label = old;
+  btn.textContent = msg;
+  btn.classList.add('done');
+  clearTimeout(btn._t);
+  btn._t = setTimeout(() => { btn.textContent = old; btn.classList.remove('done'); }, keep || 1800);
+}
+
+const codal    = document.getElementById('codal');
+const codalPre = document.querySelector('#codal-pre code');
+const codalTtl = document.getElementById('codal-title');
+const codalCp  = document.getElementById('codal-copy');
+const codalDl  = document.getElementById('codal-dl');
+let codalPath = '';
+let lastFocus = null;
+
+function openCodal(){ lastFocus = document.activeElement; codal.classList.add('on'); document.body.style.overflow = 'hidden'; codalCp.focus(); }
+function closeCodal(){ codal.classList.remove('on'); document.body.style.overflow = ''; if (lastFocus) lastFocus.focus(); }
+codal.addEventListener('click', e => { if (e.target.closest('[data-close]')) closeCodal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && codal.classList.contains('on')) closeCodal(); });
+
+codalCp.addEventListener('click', async () => {
+  const ok = await writeClipboard(codalPre.textContent);
+  flashBtn(codalCp, ok ? '복사됐어요 ✓' : '복사 실패 ✕');
+});
+
+document.addEventListener('click', async e => {
+  const cp = e.target.closest('[data-copy]');
+  const vw = e.target.closest('[data-view]');
+  if (!cp && !vw) return;
+  e.preventDefault();
+  const btn  = cp || vw;
+  const path = btn.dataset.copy || btn.dataset.view;
+
+  if (location.protocol === 'file:') {
+    flashBtn(btn, '서버로 열어야 해요', 2600);
+    return;
+  }
+
+  flashBtn(btn, '불러오는 중…', 60000);
+  let text;
+  try { text = await loadSource(path); }
+  catch (_) { flashBtn(btn, '불러오지 못했어요', 2600); return; }
+
+  if (cp) {
+    const ok = await writeClipboard(text);
+    flashBtn(btn, ok ? `복사됐어요 ✓ (${(text.length / 1024).toFixed(0)}KB)` : '복사 실패 ✕', 2200);
+  } else {
+    clearTimeout(btn._t);
+    btn.textContent = btn.dataset.label || '</> 코드 보기';
+    btn.classList.remove('done');
+    codalPath = path;
+    codalTtl.textContent = `${btn.dataset.title || path}  ·  ${path.split('/').pop()}`;
+    codalPre.textContent = text;
+    codalDl.href = path;
+    codalDl.setAttribute('download', path.split('/').pop());
+    openCodal();
+  }
+});
 
 /* ─────────── 복사 버튼 ─────────── */
 document.addEventListener('click', async e => {
