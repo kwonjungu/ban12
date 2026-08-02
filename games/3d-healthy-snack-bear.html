@@ -1117,6 +1117,10 @@
 
           // Missed item falling off table
           if (item.y < -0.5) {
+            // 건강한 간식을 놓치면 하트가 1개 줄어든다 (정크푸드는 놓쳐도 괜찮음)
+            if (!item.isJunk) {
+              loseLife();
+            }
             scene.remove(item.mesh);
             fallingItems.splice(i, 1);
           }
