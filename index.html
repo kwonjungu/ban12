@@ -95,12 +95,11 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
 .stat span{font-size:11.5px;font-weight:800;color:rgba(11,11,16,.6);letter-spacing:.04em}
 
 .collage{position:relative;height:340px}
-.sticker{position:absolute;border:var(--bw) solid var(--ink);border-radius:20px;overflow:hidden;box-shadow:var(--shadow);background:#fff}
-.sticker img{display:block;width:100%;height:100%;object-fit:cover}
-.sticker.s1{width:58%;left:3%;top:5%;transform:rotate(-6deg);z-index:3;animation:bob 6s ease-in-out infinite}
-.sticker.s2{width:45%;right:1%;top:2%;transform:rotate(7deg);z-index:2;animation:bob 7.5s ease-in-out infinite .6s}
-.sticker.s3{width:43%;right:9%;bottom:2%;transform:rotate(-4deg);z-index:4;animation:bob 6.8s ease-in-out infinite 1.2s}
-.sticker.s4{width:32%;left:1%;bottom:6%;transform:rotate(9deg);z-index:1;animation:bob 8s ease-in-out infinite .3s}
+.sticker{position:absolute;border:var(--bw) solid var(--ink);border-radius:18px;overflow:hidden;box-shadow:var(--shadow);background:#12121a}
+.sticker .thumb{aspect-ratio:auto;height:100%;border-bottom:0}
+.sticker.s1{width:62%;left:2%;top:6%;aspect-ratio:16/10;transform:rotate(-5deg);z-index:3;animation:bob 6s ease-in-out infinite}
+.sticker.s2{width:50%;right:0;top:0;aspect-ratio:16/10;transform:rotate(6deg);z-index:2;animation:bob 7.5s ease-in-out infinite .6s}
+.sticker.s3{width:52%;right:6%;bottom:2%;aspect-ratio:16/10;transform:rotate(-3deg);z-index:4;animation:bob 6.8s ease-in-out infinite 1.2s}
 @keyframes bob{0%,100%{translate:0 0}50%{translate:0 -12px}}
 .tape{position:absolute;z-index:10;background:rgba(255,255,255,.72);border:2px solid rgba(11,11,16,.25);width:74px;height:22px;top:-9px;left:50%;margin-left:-37px;transform:rotate(-4deg)}
 
@@ -136,9 +135,22 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
 .card[hidden]{display:none}
 .card:hover{transform:translate(-4px,-4px);box-shadow:var(--shadow-lg)}
 .thumb{position:relative;width:100%;aspect-ratio:16/10;background:#1a1a22;border-bottom:var(--bw) solid var(--ink);overflow:hidden}
-.thumb .ph{position:absolute;inset:0;z-index:1;display:grid;place-items:center;background-size:cover;background-position:center;transition:opacity .45s ease}
-.thumb .ph::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(11,11,16,.12),rgba(11,11,16,.62))}
-.thumb .ph em{position:relative;z-index:2;font-style:normal;font-size:11.5px;font-weight:900;color:#fff;letter-spacing:.08em;background:rgba(11,11,16,.7);border:2px solid rgba(255,255,255,.55);padding:6px 12px;border-radius:999px}
+/* 미리보기가 뜨기 전에도 "게임 화면"처럼 보이는 정적 화면 */
+.thumb .ph{
+  position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, hsl(var(--h) 70% 42%), hsl(var(--h) 65% 18%) 70%, #12121a);
+  transition:opacity .45s ease;overflow:hidden
+}
+.thumb .ph::before{
+  content:"";position:absolute;inset:0;opacity:.16;
+  background-image:linear-gradient(hsl(var(--h) 90% 80%) 1px,transparent 1px),linear-gradient(90deg,hsl(var(--h) 90% 80%) 1px,transparent 1px);
+  background-size:26px 26px;mask-image:radial-gradient(120% 80% at 50% 25%,#000,transparent 78%)
+}
+.thumb .ph .pico{position:relative;font-size:46px;line-height:1;filter:drop-shadow(0 4px 10px rgba(0,0,0,.45));animation:phbob 3.2s ease-in-out infinite}
+@keyframes phbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+.thumb .ph .pname{position:relative;font-size:13px;font-weight:900;color:#fff;letter-spacing:-.02em;text-align:center;padding:0 14px;text-shadow:0 2px 6px rgba(0,0,0,.5);line-height:1.3}
+.thumb .ph em{position:relative;z-index:2;font-style:normal;font-size:10.5px;font-weight:900;color:#fff;letter-spacing:.08em;background:rgba(11,11,16,.55);border:2px solid rgba(255,255,255,.45);padding:5px 11px;border-radius:999px}
 .thumb iframe{position:absolute;top:0;left:0;width:1280px;height:800px;border:0;transform-origin:top left;transform:scale(var(--s,.25));pointer-events:none;opacity:0;transition:opacity .45s ease}
 .thumb.ready iframe{opacity:1}
 .thumb.ready .ph{opacity:0;transition-delay:.15s}
@@ -221,8 +233,11 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
 
 /* ── empty tab ─────────────────────── */
 .empty-hero{text-align:center;padding:var(--s5) 20px var(--s4)}
-.empty-hero .mascot{width:132px;height:132px;border-radius:34px;border:var(--bw) solid var(--ink);box-shadow:var(--shadow-lg);margin:0 auto var(--s3);overflow:hidden;transform:rotate(-4deg)}
-.empty-hero .mascot img{width:100%;height:100%;object-fit:cover;display:block}
+.empty-hero .mascot{
+  width:132px;height:132px;border-radius:34px;border:var(--bw) solid var(--ink);box-shadow:var(--shadow-lg);
+  margin:0 auto var(--s3);transform:rotate(-4deg);background:var(--lime);
+  display:grid;place-items:center;font-size:62px;line-height:1
+}
 .empty-hero h2{font-size:clamp(28px,5vw,50px);letter-spacing:-.05em;font-weight:900;margin:0 0 var(--s2);line-height:1.08}
 .empty-hero .mark{background:var(--lime);border:var(--bw) solid var(--ink);border-radius:14px;padding:0 12px;display:inline-block;transform:rotate(-1.5deg)}
 .empty-hero p{margin:0 auto;max-width:44ch;font-size:16px;line-height:1.78;font-weight:600;color:rgba(11,11,16,.66)}
@@ -253,9 +268,6 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
   .tabbtn{flex:1 1 0;min-width:0;text-align:center;padding:10px 6px;font-size:13px}
   .tabbtn .n{display:none}
   .pvtoggle{margin-left:0;width:100%}
-}
-@media (hover:none){
-  .thumb iframe{display:none}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -300,12 +312,7 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
           <div class="stat"><b>∞</b><span>만들 수 있는 것</span></div>
         </div>
       </div>
-      <div class="collage" aria-hidden="true">
-        <div class="sticker s1"><span class="tape"></span><img src="assets/char-penguin.jpg" alt="" loading="lazy" width="720" height="720" /></div>
-        <div class="sticker s2"><img src="assets/char-apple.jpg" alt="" loading="lazy" width="720" height="720" /></div>
-        <div class="sticker s3"><img src="assets/char-redpanda.jpg" alt="" loading="lazy" width="720" height="720" /></div>
-        <div class="sticker s4"><img src="assets/char-banana.jpg" alt="" loading="lazy" width="720" height="720" /></div>
-      </div>
+      <div class="collage" id="collage" aria-hidden="true"></div>
     </div>
   </section>
 
@@ -318,7 +325,7 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
 
     <div class="previews-note">
       <span aria-hidden="true">👀</span>
-      <span>썸네일은 <b>진짜 게임 화면</b>이에요. 한 번에 6개까지만 켜지고, 화면 밖으로 나가면 자동으로 꺼져요. 느리면 <b>미리보기 끄기</b>를 누르세요.</span>
+      <span>카드에 보이는 건 <b>진짜 게임의 시작 화면</b>이에요. 한 번에 6개까지만 켜지고 화면 밖으로 나가면 자동으로 꺼져요. 느리면 <b>게임 화면 끄기</b>를 누르세요.</span>
     </div>
 
     <div class="toolbar">
@@ -382,7 +389,7 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
   <!-- ══════════ TAB 3 ══════════ -->
   <section class="panel" id="panel-next" role="tabpanel" aria-labelledby="tab-next" tabindex="0">
     <div class="empty-hero">
-      <div class="mascot"><img src="assets/char-greenboy.jpg" alt="" loading="lazy" width="720" height="720" /></div>
+      <div class="mascot" aria-hidden="true">🌱</div>
       <h2>여기는 아직 <span class="mark">비어 있어요</span></h2>
       <p>오늘 수업에서 만든 게임이 하나씩 여기에 채워질 거예요.<br />내 게임이 이 자리에 걸리는 날까지 — 한 단계씩!</p>
     </div>
@@ -403,8 +410,6 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
 
 <script>
 /* ─────────── 데이터 ─────────── */
-const CHARS = ['char-apple','char-banana','char-greenboy','char-schoolgirl','char-girl','char-neon','char-redpanda','char-penguin'];
-
 const GAMES = [
   {f:'3d-healthy-snack-bear.html',      t:'3D 건강 간식을 모아라!',       d:'곰돌이 셰프의 3D 주방 간식 받기',   c:'← → 이동 · 스페이스 시작', k:'3d', g:'a', e:'🐻'},
   {f:'3d-catch-food.html',              t:'맛있는 음식을 잡아라! 3D',      d:'3D 바구니로 떨어지는 음식 받기',    c:'← → 이동 · 드래그', k:'3d', g:'a', e:'🧺'},
@@ -574,13 +579,24 @@ const promptBlock = text =>
   `<div class="prompt"><button class="copy" type="button" aria-label="프롬프트 복사">복사</button><span class="ptxt">${esc(text)}</span></div>`;
 
 /* ─────────── 게임 카드 ─────────── */
+/* 썸네일 바탕화면 색은 파일명에서 만든 해시로 게임마다 다르게 (캐릭터 사진 대신) */
+const hueOf = s => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+
+/* 미리보기가 뜨기 전에 보여줄 "게임 시작 화면" 대용 정적 화면 */
+const phMarkup = g =>
+  `<div class="ph" style="--h:${hueOf(g.f)}">
+     <span class="pico" aria-hidden="true">${g.e}</span>
+     <span class="pname">${esc(g.t)}</span>
+     <em>게임 화면 불러오는 중…</em>
+   </div>`;
+
 const grid = document.getElementById('grid');
-grid.innerHTML = GAMES.map((g, i) => {
+grid.innerHTML = GAMES.map(g => {
   const kindLabel = g.k === '3d' ? '3D' : g.k === 'canvas' ? 'CANVAS' : '2D';
   const kindCls   = g.k === '3d' ? 'b3d' : g.k === 'canvas' ? 'bcv' : '';
   return `<a class="card" href="games/${g.f}" target="_blank" rel="noopener" data-k="${g.k}" data-g="${g.g}">
     <div class="thumb" data-src="games/${g.f}">
-      <div class="ph" style="background-image:url('assets/${CHARS[i % CHARS.length]}.jpg')"><em>미리보기 준비 중…</em></div>
+      ${phMarkup(g)}
       <div class="badges">
         <span class="badge ${kindCls}">${kindLabel}</span>
         <span class="badge bg">묶음 ${g.g.toUpperCase()}</span>
@@ -595,6 +611,14 @@ grid.innerHTML = GAMES.map((g, i) => {
   </a>`;
 }).join('');
 
+/* 히어로에도 캐릭터 대신 진짜 게임 화면 3개 */
+const HERO = ['space-egg.html','3d-healthy-snack-bear.html','healthy-snack-canvas.html']
+  .map(f => GAMES.find(g => g.f === f)).filter(Boolean);
+document.getElementById('collage').innerHTML = HERO.map((g, i) =>
+  `<div class="sticker s${i + 1}">${i === 0 ? '<span class="tape"></span>' : ''}
+     <div class="thumb" data-src="games/${g.f}">${phMarkup(g)}</div>
+   </div>`).join('');
+
 /* ─────────── 썸네일 = 진짜 게임 화면 ───────────
    · 최대 6개까지만 동시에 살려 둔다 (LRU)
    · 화면 밖으로 나가면 iframe 을 제거해 rAF 루프를 정지시킨다
@@ -602,8 +626,8 @@ grid.innerHTML = GAMES.map((g, i) => {
 ------------------------------------------------ */
 const MAX_LIVE = 6;
 const live = [];                                    // LRU 큐 (오래된 것이 앞)
-const canPreview = window.matchMedia('(hover:hover) and (pointer:fine)').matches;
-let previewOn = canPreview && localStorage.getItem('bg_preview') !== 'off';
+let previewOn = true;
+try { previewOn = localStorage.getItem('bg_preview') !== 'off'; } catch (_) {}
 
 function fitThumb(th){
   th.style.setProperty('--s', (th.clientWidth / 1280).toFixed(4));
@@ -621,7 +645,7 @@ function unloadThumb(th){
   const i = live.indexOf(th);
   if (i > -1) live.splice(i, 1);
   const em = th.querySelector('.ph em');
-  if (em) em.textContent = '미리보기 준비 중…';
+  if (em) em.textContent = '게임 화면 불러오는 중…';
 }
 
 function loadThumb(th){
@@ -640,7 +664,7 @@ function loadThumb(th){
       const doc = f.contentDocument;
       if (doc && !doc.querySelector('canvas, #gameArea, #game, .game-container, body > div')) ok = false;
     } catch (_) { /* 크로스 오리진이면 검사 생략 */ }
-    if (!ok) { th.querySelector('.ph em').textContent = '미리보기를 불러오지 못했어요'; return; }
+    if (!ok) { th.querySelector('.ph em').textContent = '▶ 눌러서 플레이하기'; return; }
     th.classList.add('ready');
     fitThumb(th);
     clearTimeout(th._t);
@@ -653,7 +677,7 @@ function loadThumb(th){
   live.push(th);
 
   th._t = setTimeout(() => {
-    if (!th.classList.contains('ready')) th.querySelector('.ph em').textContent = '미리보기를 불러오지 못했어요';
+    if (!th.classList.contains('ready')) th.querySelector('.ph em').textContent = '▶ 눌러서 플레이하기';
   }, 12000);
 }
 
@@ -672,25 +696,16 @@ function stopPreviews(){ thumbs.forEach(th => { io.unobserve(th); unloadThumb(th
 const pvBtn = document.getElementById('pvtoggle');
 function renderToggle(){
   pvBtn.setAttribute('aria-pressed', String(previewOn));
-  pvBtn.textContent = previewOn ? '▶️ 미리보기 켜짐' : '⏸️ 미리보기 꺼짐';
+  pvBtn.textContent = previewOn ? '▶️ 게임 화면 켜짐' : '⏸️ 게임 화면 꺼짐';
 }
-if (!canPreview) {
-  previewOn = false;
-  pvBtn.disabled = true;
-  pvBtn.style.opacity = '.5';
-  pvBtn.style.cursor = 'default';
-  pvBtn.textContent = '📱 이 기기에선 미리보기 없음';
-  pvBtn.setAttribute('aria-pressed', 'false');
-} else {
+renderToggle();
+if (previewOn) startPreviews();
+pvBtn.addEventListener('click', () => {
+  previewOn = !previewOn;
+  try { localStorage.setItem('bg_preview', previewOn ? 'on' : 'off'); } catch (_) {}
   renderToggle();
-  if (previewOn) startPreviews();
-  pvBtn.addEventListener('click', () => {
-    previewOn = !previewOn;
-    localStorage.setItem('bg_preview', previewOn ? 'on' : 'off');
-    renderToggle();
-    previewOn ? startPreviews() : stopPreviews();
-  });
-}
+  previewOn ? startPreviews() : stopPreviews();
+});
 
 /* ─────────── 필터 ─────────── */
 document.getElementById('chips').addEventListener('click', e => {
@@ -783,8 +798,8 @@ function selectTab(b, focus){
     x.tabIndex = on ? 0 : -1;
   });
   document.querySelectorAll('.panel').forEach(p => p.classList.toggle('on', p.id === 'panel-' + b.dataset.tab));
-  // 게임 탭을 떠나면 살아 있는 미리보기를 모두 정지
-  if (b.dataset.tab !== 'games') { thumbs.forEach(unloadThumb); }
+  // 게임 탭을 떠나면 목록의 게임 화면을 정지 (히어로 3개는 계속 보이므로 유지)
+  if (b.dataset.tab !== 'games') { grid.querySelectorAll('.thumb').forEach(unloadThumb); }
   else if (previewOn) { startPreviews(); }
   if (focus) b.focus();
   window.scrollTo({top:0, behavior:'smooth'});

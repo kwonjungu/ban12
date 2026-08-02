@@ -31,15 +31,7 @@ bangok-vibe-coding/
 ├── README.md             ← 지금 읽고 있는 파일
 ├── .nojekyll             ← GitHub Pages 설정용 (비어 있는 파일, 지우지 마세요)
 ├── .gitignore
-├── assets/               ← 카드 배경으로 쓰는 캐릭터 그림 8장
-│   ├── char-apple.jpg
-│   ├── char-banana.jpg
-│   ├── char-girl.jpg
-│   ├── char-greenboy.jpg
-│   ├── char-neon.jpg
-│   ├── char-penguin.jpg
-│   ├── char-redpanda.jpg
-│   └── char-schoolgirl.jpg
+├── examples/             ← 다음에 만들 게임의 "완성 예시" 9개 (먼저 플레이해 보세요)
 └── games/                ← 게임 18개 (HTML 파일 하나 = 게임 하나)
     ├── 3d-healthy-snack-bear.html
     ├── 3d-catch-food.html
@@ -164,7 +156,7 @@ const GAMES = [
 - 작은따옴표(`'`)로 감싸는 걸 잊지 마세요.
 - 게임 개수가 늘어나면 화면 위쪽의 숫자 `18` 도 함께 바꿔 주면 더 좋아요.
   (`<div class="stat"><b>18</b><span>GAMES</span></div>` 와 탭의 `<span class="n">18</span>`)
-- 카드 배경 그림은 순서대로 자동으로 정해지니까 따로 준비하지 않아도 돼요. 😀
+- 카드에 보이는 그림은 **게임 파일의 시작 화면을 그대로 불러온 것**이라, 따로 준비할 게 없어요. 😀
 
 수정한 뒤에는 GitHub 에 올리면(push) 몇 분 안에 웹사이트에도 새 게임이 나타나요!
 
