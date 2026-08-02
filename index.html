@@ -184,6 +184,51 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
 .act.primary{background:var(--lime)}
 .act.done{background:var(--cyan)}
 
+/* ── 재미나이 바로가기 (항상 위에 떠 있음) ── */
+.gemfab{
+  position:fixed;right:20px;bottom:20px;z-index:150;
+  display:flex;flex-direction:column-reverse;align-items:flex-end;gap:9px
+}
+.gemfab .main{
+  display:flex;align-items:center;gap:10px;text-decoration:none;cursor:pointer;
+  background:linear-gradient(120deg,#4C8DFF,#8B5CF6 55%,#EC4899);color:#fff;
+  border:var(--bw) solid var(--ink);border-radius:999px;padding:13px 21px 13px 16px;
+  font:inherit;font-size:15px;font-weight:900;letter-spacing:-.03em;
+  box-shadow:var(--shadow);transition:transform .15s ease, box-shadow .15s ease
+}
+.gemfab .main:hover{transform:translate(-3px,-3px);box-shadow:var(--shadow-lg)}
+.gemfab .main:active{transform:translate(0,0);box-shadow:3px 3px 0 var(--ink)}
+.gemfab .spark{
+  width:30px;height:30px;flex:none;border-radius:50%;background:#fff;
+  display:grid;place-items:center;font-size:16px;border:2px solid var(--ink);
+  animation:gemspin 4s ease-in-out infinite
+}
+@keyframes gemspin{0%,100%{transform:rotate(0) scale(1)}50%{transform:rotate(18deg) scale(1.12)}}
+.gemfab .sub{
+  display:flex;flex-direction:column;gap:7px;align-items:flex-end;
+  opacity:0;transform:translateY(10px) scale(.94);transform-origin:bottom right;
+  pointer-events:none;transition:.18s ease
+}
+.gemfab.open .sub{opacity:1;transform:none;pointer-events:auto}
+.gemfab .sub a{
+  display:flex;align-items:center;gap:8px;text-decoration:none;white-space:nowrap;
+  background:#fff;color:var(--ink);border:var(--bw-s) solid var(--ink);border-radius:999px;
+  padding:9px 15px;font-size:13px;font-weight:800;box-shadow:3px 3px 0 var(--ink);transition:.13s
+}
+.gemfab .sub a:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 var(--ink)}
+.gemfab .sub a b{font-size:15px;line-height:1}
+.gemfab .tip{
+  background:var(--ink);color:var(--paper);border-radius:12px;padding:8px 13px;
+  font-size:11.5px;font-weight:700;max-width:230px;line-height:1.5;box-shadow:3px 3px 0 rgba(11,11,16,.35)
+}
+.gemfab .tip b{color:var(--lime)}
+@media (max-width:640px){
+  .gemfab{right:12px;bottom:12px}
+  .gemfab .main{padding:11px 17px 11px 13px;font-size:13.5px}
+  .gemfab .spark{width:26px;height:26px;font-size:14px}
+  .gemfab .tip{display:none}
+}
+
 /* 코드 보기 모달 */
 .codal{position:fixed;inset:0;z-index:200;display:none;padding:18px}
 .codal.on{display:grid;place-items:center}
@@ -465,6 +510,19 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
   </section>
 
 </main>
+
+<div class="gemfab" id="gemfab">
+  <button class="main" type="button" id="gemfab-btn" aria-expanded="false" aria-controls="gemfab-sub">
+    <span class="spark" aria-hidden="true">✨</span>
+    <span>재미나이 열기</span>
+  </button>
+  <div class="sub" id="gemfab-sub">
+    <div class="tip">복사한 프롬프트를 <b>붙여넣고 엔터!</b><br />한 번에 한 단계씩이에요 🙂</div>
+    <a href="https://gemini.google.com/app" target="_blank" rel="noopener"><b>💬</b> 재미나이 (Gemini)</a>
+    <a href="https://aistudio.google.com/prompts/new_chat" target="_blank" rel="noopener"><b>🧪</b> AI 스튜디오</a>
+    <a href="#panel-prompts" data-goprompt><b>📋</b> 프롬프트 가지러 가기</a>
+  </div>
+</div>
 
 <div class="codal" id="codal" role="dialog" aria-modal="true" aria-labelledby="codal-title">
   <div class="veil" data-close></div>
@@ -975,6 +1033,30 @@ document.querySelector('.tabs').addEventListener('keydown', e => {
     selectTab(tabBtns[(i + (e.key === 'ArrowRight' ? 1 : tabBtns.length - 1)) % tabBtns.length], true);
   } else if (e.key === 'Home') { e.preventDefault(); selectTab(tabBtns[0], true); }
   else if (e.key === 'End')   { e.preventDefault(); selectTab(tabBtns[tabBtns.length - 1], true); }
+});
+
+/* ─────────── 재미나이 바로가기 (항상 위에) ─────────── */
+const gemfab = document.getElementById('gemfab');
+const gemBtn = document.getElementById('gemfab-btn');
+let gemOpen = false;
+function setGem(open){
+  gemOpen = open;
+  gemfab.classList.toggle('open', open);
+  gemBtn.setAttribute('aria-expanded', String(open));
+}
+gemBtn.addEventListener('click', () => setGem(!gemOpen));
+document.addEventListener('click', e => { if (gemOpen && !gemfab.contains(e.target)) setGem(false); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && gemOpen) setGem(false); });
+gemfab.addEventListener('click', e => {
+  const go = e.target.closest('[data-goprompt]');
+  if (!go) return;
+  e.preventDefault();
+  setGem(false);
+  selectTab(document.getElementById('tab-prompts'));
+});
+/* 프롬프트를 복사하면 바로가기를 자동으로 펼쳐서 "이제 여기로 가!" 를 알려준다 */
+document.addEventListener('click', e => {
+  if (e.target.closest('.copy')) { setGem(true); clearTimeout(gemfab._t); gemfab._t = setTimeout(() => setGem(false), 6000); }
 });
 
 /* 탭이 백그라운드로 가면 미리보기 정지 (배터리·발열) */
