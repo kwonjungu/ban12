@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>예쁜 주방 건강 간식 받기 게임 - 반응형 버전</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap');
+        
+        * {
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Gowun Dodum', sans-serif;
+            touch-action: manipulation;
+            overscroll-behavior: none;
+        }
+
+        /* 주방 격자 패턴 배경 */
+        .kitchen-bg {
+            background-color: #ecfdf5;
+            background-image: 
+                radial-gradient(#a7f3d0 1.5px, transparent 1.5px), 
+                radial-gradient(#a7f3d0 1.5px, #ecfdf5 1.5px);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+        }
+
+        @media (min-width: 640px) {
+            .kitchen-bg {
+                background-size: 28px 28px;
+                background-position: 0 0, 14px 14px;
+            }
+        }
+
+        /* 식탁 체크 패턴 */
+        .table-cloth {
+            background-color: #ffffff;
+            background-image: linear-gradient(90deg, rgba(167, 243, 208, 0.4) 50%, transparent 50%),
+                              linear-gradient(rgba(167, 243, 208, 0.4) 50%, transparent 50%);
+            background-size: 14px 14px;
+        }
+
+        /* 점수 획득 텍스트 애니메이션 효과 */
+        .score-popup {
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.9), 0 0 16px rgba(255, 255, 255, 0.8);
+        }
+
+        /* 화면 흔들림 애니메이션 */
+        @keyframes stage-shake {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            15% { transform: translate(-8px, 6px) rotate(-1.5deg); }
+            30% { transform: translate(8px, -6px) rotate(1.5deg); }
+            45% { transform: translate(-6px, -8px) rotate(-1deg); }
+            60% { transform: translate(6px, 8px) rotate(1deg); }
+            75% { transform: translate(-3px, 3px) rotate(-0.5deg); }
+        }
+
+        .shake-effect {
+            animation: stage-shake 0.45s ease-in-out;
+        }
+
+        /* 충격파 Ring 애니메이션 */
+        @keyframes shockwave-expand {
+            0% { transform: translate(-50%, -50%) scale(0.1); opacity: 1; border-width: 8px; }
+            50% { opacity: 0.9; }
+            100% { transform: translate(-50%, -50%) scale(3.5); opacity: 0; border-width: 1px; }
+        }
+
+        .shockwave-ring {
+            position: absolute;
+            border-radius: 50%;
+            border-style: solid;
+            border-color: #f97316;
+            box-shadow: 0 0 25px #ef4444, inset 0 0 15px #eab308;
+            pointer-events: none;
+            animation: shockwave-expand 0.55s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+        }
+
+        /* 파티클 확산 애니메이션 */
+        @keyframes particle-fly {
+            0% { transform: translate(-50%, -50%) scale(0.6) rotate(0deg); opacity: 1; }
+            100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.4) rotate(360deg); opacity: 0; }
+        }
+
+        .nuke-particle {
+            position: absolute;
+            pointer-events: none;
+            font-size: clamp(1.2rem, 4vw, 2rem);
+            animation: particle-fly 0.7s cubic-bezier(0.1, 0.7, 0.1, 1) forwards;
+        }
+
+        /* 광물 산산조각 파괴 애니메이션 */
+        @keyframes shard-explode {
+            0% {
+                transform: translate(-50%, -50%) scale(1.2) rotate(0deg);
+                opacity: 1;
+                filter: brightness(1.5) drop-shadow(0 0 10px #ef4444);
+            }
+            30% {
+                transform: translate(calc(-50% + var(--dx) * 0.4), calc(-50% + var(--dy) * 0.4 - 15px)) scale(1.3) rotate(var(--rot1));
+                opacity: 1;
+            }
+            100% {
+                transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy) + 120px)) scale(0.1) rotate(var(--rot2));
+                opacity: 0;
+            }
+        }
+
+        .gem-shard-particle {
+            position: absolute;
+            pointer-events: none;
+            animation: shard-explode 0.9s cubic-bezier(0.1, 0.8, 0.2, 1) forwards;
+        }
+
+        @keyframes gem-crack-pop {
+            0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+            30% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+            70% { transform: translate(-50%, -50%) scale(1.6) rotate(-8deg); opacity: 0.9; }
+            100% { transform: translate(-50%, -50%) scale(2.0); opacity: 0; }
+        }
+
+        .gem-crack-text {
+            position: absolute;
+            pointer-events: none;
+            animation: gem-crack-pop 0.7s ease-out forwards;
+        }
+
+        /* 터치 액티브 피드백 */
+        .touch-active {
+            cursor: grabbing !important;
+        }
+    </style>
+</head>
+<body class="kitchen-bg w-full h-[100dvh] flex items-center justify-center p-1 sm:p-3 md:p-4 select-none overflow-hidden">
+
+    <!-- 메인 게임 카드 (반응형: 모바일 ~ 데스크톱까지 동적 비율 대응) -->
+    <div id="game-card" class="w-full max-w-4xl h-[100dvh] sm:h-[92vh] max-h-[850px] bg-emerald-50/85 sm:rounded-3xl shadow-2xl border-0 sm:border-4 border-emerald-200 relative flex flex-col justify-between overflow-hidden">
+        
+        <!-- 게임 상단 주방 선반 & 점수표 (z-30) -->
+        <div class="w-full bg-emerald-200/90 px-2.5 py-1.5 sm:px-4 sm:py-2.5 flex justify-between items-center border-b-2 border-emerald-300/50 backdrop-blur-md z-30 shadow-sm shrink-0">
+            <div class="flex items-center space-x-1 sm:space-x-2.5">
+                <span class="text-xl sm:text-2xl md:text-3xl">🌿</span>
+                <span class="font-bold text-emerald-950 text-sm sm:text-lg md:text-xl truncate max-w-[120px] sm:max-w-none">건강 주방</span>
+                <span id="level-badge" class="bg-amber-400 text-amber-950 text-[11px] sm:text-xs md:text-sm font-black px-2 sm:px-3 py-0.5 rounded-full shadow border border-amber-300">Lv.1</span>
+            </div>
+            <!-- 점수 표시 영역 -->
+            <div id="score-card" class="bg-white/95 px-2.5 py-1 sm:px-4 sm:py-1.5 rounded-full border-2 border-emerald-400 shadow-md flex items-center space-x-1 sm:space-x-2 transition-transform duration-150">
+                <span class="text-base sm:text-xl md:text-2xl">⭐</span>
+                <span id="score-display" class="font-black text-emerald-950 text-base sm:text-lg md:text-2xl">0점</span>
+            </div>
+        </div>
+
+        <!-- 5가지 수집 광물 현황판 (모바일 반응형 그리드 layout) -->
+        <div class="w-full bg-emerald-950/95 py-1.5 px-1.5 sm:px-3 z-30 shadow-md text-white shrink-0 border-b border-emerald-800/60">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-1 sm:gap-2">
+                <span class="font-bold text-amber-300 text-[10px] sm:text-xs shrink-0 self-start sm:self-auto">✨ 전설의 광물 수집:</span>
+                
+                <div class="w-full flex justify-between items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar">
+                    <div id="gem-opal" class="flex-1 min-w-[55px] sm:min-w-0 opacity-30 grayscale transition-all duration-300 flex items-center justify-center space-x-0.5 sm:space-x-1 bg-black/40 px-1 py-0.5 sm:py-1 rounded-lg border border-white/20 text-center">
+                        <span class="text-xs sm:text-base">🔮</span>
+                        <span class="text-[9px] sm:text-xs font-semibold truncate">오팔</span>
+                    </div>
+                    <div id="gem-alexandrite" class="flex-1 min-w-[55px] sm:min-w-0 opacity-30 grayscale transition-all duration-300 flex items-center justify-center space-x-0.5 sm:space-x-1 bg-black/40 px-1 py-0.5 sm:py-1 rounded-lg border border-white/20 text-center">
+                        <span class="text-xs sm:text-base">💜</span>
+                        <span class="text-[9px] sm:text-xs font-semibold truncate">알렉스</span>
+                    </div>
+                    <div id="gem-topaz" class="flex-1 min-w-[55px] sm:min-w-0 opacity-30 grayscale transition-all duration-300 flex items-center justify-center space-x-0.5 sm:space-x-1 bg-black/40 px-1 py-0.5 sm:py-1 rounded-lg border border-white/20 text-center">
+                        <span class="text-xs sm:text-base">🟡</span>
+                        <span class="text-[9px] sm:text-xs font-semibold truncate">토파즈</span>
+                    </div>
+                    <div id="gem-ruby" class="flex-1 min-w-[55px] sm:min-w-0 opacity-30 grayscale transition-all duration-300 flex items-center justify-center space-x-0.5 sm:space-x-1 bg-black/40 px-1 py-0.5 sm:py-1 rounded-lg border border-white/20 text-center">
+                        <span class="text-xs sm:text-base">🔴</span>
+                        <span class="text-[9px] sm:text-xs font-semibold truncate">루비</span>
+                    </div>
+                    <div id="gem-diamond" class="flex-1 min-w-[55px] sm:min-w-0 opacity-30 grayscale transition-all duration-300 flex items-center justify-center space-x-0.5 sm:space-x-1 bg-black/40 px-1 py-0.5 sm:py-1 rounded-lg border border-white/20 text-center">
+                        <span class="text-xs sm:text-base">💎</span>
+                        <span class="text-[9px] sm:text-xs font-semibold truncate">다이아</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 주방 안내 문구 (반응형) -->
+        <div class="absolute top-[88px] sm:top-28 inset-x-0 flex justify-center pointer-events-none z-20 px-2">
+            <div id="status-badge" class="bg-white/95 backdrop-blur-sm px-2.5 py-1 sm:px-4 sm:py-1.5 rounded-full border border-emerald-300 shadow-md transition-colors duration-300 text-center max-w-[98%]">
+                <p id="status-text" class="text-[11px] sm:text-sm font-semibold text-emerald-900 leading-snug">
+                    5가지 광물(각 0.99%)을 모으세요! (핵폭탄 23% - 피격 시 광물 파괴!)
+                </p>
+            </div>
+        </div>
+
+        <!-- 게임 스테이지 (간식 & 바구니 영역) -->
+        <div id="game-stage" class="relative w-full flex-1 overflow-hidden touch-none cursor-grab">
+            <!-- 핵 폭발 플래시 오버레이 -->
+            <div id="flash-overlay" class="absolute inset-0 bg-amber-500/80 pointer-events-none z-30 opacity-0 transition-opacity duration-75"></div>
+
+            <!-- 시야 가림 오버레이 (해로운 음식 획득 시) -->
+            <div id="fog-overlay" class="absolute inset-0 bg-slate-950/95 backdrop-blur-md z-20 flex flex-col items-center justify-center text-white font-bold opacity-0 pointer-events-none transition-opacity duration-300 p-4 text-center">
+                <span class="text-4xl sm:text-6xl md:text-7xl mb-2 animate-bounce">⚡🏃‍♂️</span>
+                <span class="text-lg sm:text-2xl md:text-3xl text-amber-300 font-extrabold animate-pulse mb-1">초광속 폭풍 발생!</span>
+                <span class="text-xs sm:text-base text-slate-200 mt-1 max-w-xs sm:max-w-md">화면이 안 보여도 손가락으로 가늠하여 맞추어 보세요!<br><span class="text-emerald-300 font-bold text-sm sm:text-lg">간식을 먹을 수 있습니다! 🎯</span></span>
+                <span class="text-xs sm:text-sm text-rose-300 font-bold mt-3 bg-rose-950/80 px-3 py-1 rounded-full border border-rose-500/40">-25점 감점 & 5초간 시야 제한</span>
+            </div>
+
+            <!-- 레벨 업 폭발 오버레이 -->
+            <div id="level-up-overlay" class="absolute inset-0 bg-amber-500/20 pointer-events-none z-25 opacity-0 transition-opacity duration-300 flex flex-col items-center justify-center text-center p-4">
+                <div class="bg-amber-400 text-amber-950 text-xl sm:text-3xl md:text-4xl font-black px-4 py-2.5 sm:px-6 sm:py-3 rounded-2xl border-4 border-amber-200 shadow-2xl animate-bounce max-w-sm sm:max-w-none">
+                    🚀 LEVEL UP! <span id="level-up-num">Lv.2</span> 🚀
+                    <div class="text-xs sm:text-base md:text-lg font-extrabold text-red-900 mt-1">⚡ 낙하 속도 200배 폭발 상승 & 광석 확률 -0.08% ⚡</div>
+                </div>
+            </div>
+
+            <!-- 게임 클리어 / 승리 오버레이 -->
+            <div id="win-overlay" class="absolute inset-0 bg-emerald-950/95 backdrop-blur-md z-[35] opacity-0 pointer-events-none transition-opacity duration-500 flex flex-col items-center justify-center p-4 text-center">
+                <div class="text-5xl sm:text-7xl md:text-8xl mb-2 animate-bounce">🏆💎✨</div>
+                <h2 class="text-2xl sm:text-4xl md:text-5xl font-black text-amber-300 mb-1 sm:mb-2 drop-shadow-md">GAME CLEAR!</h2>
+                <p class="text-sm sm:text-lg md:text-xl text-emerald-100 font-bold mb-4 max-w-md">
+                    5가지 전설의 광물을 모두 수집하였습니다!<br>
+                    <span id="final-score-text" class="text-amber-400 text-base sm:text-2xl font-black">최종 점수: 0점</span>
+                </p>
+                <button id="btn-restart" class="bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-amber-950 font-black text-base sm:text-xl md:text-2xl px-5 py-2.5 sm:px-6 sm:py-3 rounded-2xl shadow-xl border-b-4 border-amber-600 active:border-b-0 active:translate-y-1 transition-all cursor-pointer">
+                    🔄 다시 도전하기
+                </button>
+            </div>
+
+            <!-- 떨어지는 간식이 생성되는 컨테이너 -->
+            <div id="snack-container" class="absolute inset-0 pointer-events-none overflow-hidden z-10"></div>
+
+            <!-- 바구니 컨테이너 -->
+            <div id="basket-container" class="absolute bottom-1 sm:bottom-3 z-[25] text-4xl sm:text-6xl md:text-7xl transition-transform duration-100 ease-out cursor-pointer filter drop-shadow-lg leading-none select-none">
+                🧺
+            </div>
+        </div>
+
+        <!-- 하단 식탁 카운터 & 터치 컨트롤러 (반응형) -->
+        <div class="table-cloth w-full p-2 sm:p-3 md:p-4 border-t-2 sm:border-t-4 border-emerald-300/80 flex flex-col justify-between items-center z-30 shadow-inner shrink-0">
+            <div class="text-[10px] sm:text-xs text-emerald-900 font-bold bg-white/90 px-2.5 py-0.5 rounded-full shadow-sm mb-1.5 sm:mb-2 text-center">
+                화면 드래그 / 키보드 [◀][▶] / 아래 터치 버튼 조작
+            </div>
+            
+            <!-- 터치 버튼 -->
+            <div class="flex space-x-3 sm:space-x-6 w-full justify-center px-1 sm:px-4">
+                <button id="btn-left" class="flex-1 max-w-[130px] sm:max-w-[180px] bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-black py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-md border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 transition-all text-lg sm:text-2xl flex items-center justify-center touch-none">
+                    ◀
+                </button>
+                <button id="btn-right" class="flex-1 max-w-[130px] sm:max-w-[180px] bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-black py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-md border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 transition-all text-lg sm:text-2xl flex items-center justify-center touch-none">
+                    ▶
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        window.addEventListener('load', () => {
+            const stage = document.getElementById('game-stage');
+            const gameCard = document.getElementById('game-card');
+            const snackContainer = document.getElementById('snack-container');
+            const basketContainer = document.getElementById('basket-container');
+            const scoreDisplay = document.getElementById('score-display');
+            const scoreCard = document.getElementById('score-card');
+            const fogOverlay = document.getElementById('fog-overlay');
+            const levelUpOverlay = document.getElementById('level-up-overlay');
+            const levelUpNum = document.getElementById('level-up-num');
+            const levelBadge = document.getElementById('level-badge');
+            const statusBadge = document.getElementById('status-badge');
+            const statusText = document.getElementById('status-text');
+            const btnLeft = document.getElementById('btn-left');
+            const btnRight = document.getElementById('btn-right');
+            const btnRestart = document.getElementById('btn-restart');
+
+            let basketX = 0;
+            let speed = 8;
+            let score = 0;
+            let fogTimer = null;
+            let levelTimer = null;
+
+            // 난이도 및 속도 조절 변수
+            let currentLevel = 1;
+            let levelSpeedMultiplier = 1; // 1000점당 200배 가속 적용
+            let speedMultiplier = 1; // 디버프용 속도 배율
+            let isGameCleared = false;
+
+            // 광물 정보 및 수집 상태
+            const mineralGems = [
+                { id: 'opal', name: '오팔', emoji: '🔮' },
+                { id: 'alexandrite', name: '알렉산드라이트', emoji: '💜' },
+                { id: 'topaz', name: '토파즈', emoji: '🟡' },
+                { id: 'ruby', name: '루비', emoji: '🔴' },
+                { id: 'diamond', name: '다이아몬드', emoji: '💎' }
+            ];
+
+            const collectedGems = {
+                opal: false,
+                alexandrite: false,
+                topaz: false,
+                ruby: false,
+                diamond: false
+            };
+
+            // 간식 구성
+            const healthySnacks = ['🍎', '🥦', '🥛', '🍌'];
+            const junkSnacks = ['🍔', '🍕', '🍩', '🍟', '🥤'];
+            const nukeEmoji = '☢️';
+            const activeSnacks = [];
+            let lastSpawnTime = 0;
+            const spawnInterval = 750;
+
+            const keys = { left: false, right: false };
+            let isDraggingStage = false;
+
+            function collectGem(gem) {
+                if (!gem) return;
+                collectedGems[gem.id] = true;
+
+                const gemEl = document.getElementById(`gem-${gem.id}`);
+                if (gemEl) {
+                    gemEl.classList.remove('opacity-30', 'grayscale');
+                    gemEl.classList.add('opacity-100', 'scale-105', 'bg-amber-400/40', 'border-amber-300');
+                }
+
+                checkVictory();
+            }
+
+            function checkVictory() {
+                const allCollected = Object.values(collectedGems).every(val => val === true);
+                if (allCollected && !isGameCleared) {
+                    isGameCleared = true;
+                    triggerGameVictory();
+                }
+            }
+
+            function triggerGameVictory() {
+                const winOverlay = document.getElementById('win-overlay');
+                const finalScoreText = document.getElementById('final-score-text');
+                if (finalScoreText) finalScoreText.innerText = `최종 점수: ${score}점`;
+                if (winOverlay) {
+                    winOverlay.classList.remove('opacity-0', 'pointer-events-none');
+                    winOverlay.classList.add('opacity-100');
+                }
+            }
+
+            function resetGame() {
+                score = 0;
+                currentLevel = 1;
+                levelSpeedMultiplier = 1;
+                speedMultiplier = 1;
+                isGameCleared = false;
+
+                Object.keys(collectedGems).forEach(key => {
+                    collectedGems[key] = false;
+                    const gemEl = document.getElementById(`gem-${key}`);
+                    if (gemEl) {
+                        gemEl.className = 'flex-1 min-w-[55px] sm:min-w-0 opacity-30 grayscale transition-all duration-300 flex items-center justify-center space-x-0.5 sm:space-x-1 bg-black/40 px-1 py-0.5 sm:py-1 rounded-lg border border-white/20 text-center';
+                    }
+                });
+
+                const winOverlay = document.getElementById('win-overlay');
+                if (winOverlay) {
+                    winOverlay.classList.remove('opacity-100');
+                    winOverlay.classList.add('opacity-0', 'pointer-events-none');
+                }
+
+                if (levelBadge) levelBadge.innerText = 'Lv.1';
+                updateStatusText();
+                updateScoreDisplay();
+            }
+
+            if (btnRestart) {
+                btnRestart.addEventListener('click', resetGame);
+            }
+
+            function initBasketPosition() {
+                if (!stage || !basketContainer) return;
+                const stageWidth = stage.clientWidth;
+                const basketWidth = basketContainer.clientWidth || 55;
+                basketX = (stageWidth - basketWidth) / 2;
+                updateBasketDOM();
+            }
+
+            function clampBasketPosition() {
+                if (!stage || !basketContainer) return;
+                const stageWidth = stage.clientWidth;
+                const basketWidth = basketContainer.clientWidth || 55;
+                
+                if (basketX < 0) basketX = 0;
+                if (basketX > stageWidth - basketWidth) {
+                    basketX = stageWidth - basketWidth;
+                }
+            }
+
+            function updateBasketDOM() {
+                if (basketContainer) {
+                    basketContainer.style.left = `${basketX}px`;
+                }
+            }
+
+            function getCurrentGemProb() {
+                // Lv.1: 0.99%, Lv.2: 0.91%, Lv.3: 0.83% ... (단계 올라갈수록 0.08%씩 감소)
+                const baseProb = 0.0099;
+                const reduction = (currentLevel - 1) * 0.0008;
+                return Math.max(0.0001, baseProb - reduction);
+            }
+
+            function updateStatusText() {
+                if (!statusText) return;
+                const gemProbPct = (getCurrentGemProb() * 100).toFixed(2);
+                statusText.innerText = `5가지 광물(각 ${gemProbPct}%)을 모으세요! (핵폭탄 23% - 피격 시 광물 파괴!)`;
+            }
+
+            function updateScoreDisplay() {
+                if (scoreDisplay) scoreDisplay.innerText = `${score}점`;
+                if (scoreCard) {
+                    scoreCard.classList.add('scale-110', 'bg-yellow-100');
+                    setTimeout(() => scoreCard.classList.remove('scale-110', 'bg-yellow-100'), 200);
+                }
+                checkLevelUp();
+            }
+
+            function checkLevelUp() {
+                const targetLevel = Math.floor(score / 1000) + 1;
+                if (targetLevel !== currentLevel) {
+                    if (targetLevel > currentLevel) {
+                        triggerLevelUpEffect(targetLevel);
+                    }
+                    currentLevel = targetLevel;
+                    // 1000점이 넘을 때마다 낙하 속도 200배 상승
+                    levelSpeedMultiplier = 1 + (currentLevel - 1) * 200;
+                    if (levelBadge) levelBadge.innerText = `Lv.${currentLevel}`;
+                    updateStatusText();
+                }
+            }
+
+            function triggerLevelUpEffect(newLevel) {
+                if (!levelUpOverlay || !levelUpNum) return;
+                levelUpNum.innerText = `Lv.${newLevel}`;
+                levelUpOverlay.classList.remove('opacity-0');
+                levelUpOverlay.classList.add('opacity-100');
+
+                if (gameCard) {
+                    gameCard.classList.remove('shake-effect');
+                    void gameCard.offsetWidth;
+                    gameCard.classList.add('shake-effect');
+                }
+
+                if (levelTimer) clearTimeout(levelTimer);
+                levelTimer = setTimeout(() => {
+                    levelUpOverlay.classList.remove('opacity-100');
+                    levelUpOverlay.classList.add('opacity-0');
+                }, 1500);
+            }
+
+            function showScoreEffect(x, y, text = '+10', isNegative = false) {
+                const effect = document.createElement('div');
+                const textColor = isNegative ? 'text-rose-500 font-extrabold' : 'text-emerald-500 font-black';
+                effect.className = `absolute score-popup ${textColor} text-xl sm:text-3xl pointer-events-none z-40 transition-all duration-500 ease-out transform -translate-x-1/2 select-none drop-shadow-md whitespace-nowrap`;
+                effect.innerText = text;
+                effect.style.left = `${x}px`;
+                effect.style.top = `${y}px`;
+                stage.appendChild(effect);
+
+                basketContainer.classList.add('scale-110');
+                setTimeout(() => basketContainer.classList.remove('scale-110'), 120);
+
+                setTimeout(() => {
+                    effect.style.top = `${y - 35}px`;
+                    effect.style.opacity = '0';
+                }, 20);
+
+                setTimeout(() => {
+                    if (effect.parentNode) effect.parentNode.removeChild(effect);
+                }, 600);
+            }
+
+            function triggerNukeExplosion(x, y) {
+                if (gameCard) {
+                    gameCard.classList.remove('shake-effect');
+                    void gameCard.offsetWidth;
+                    gameCard.classList.add('shake-effect');
+                    setTimeout(() => gameCard.classList.remove('shake-effect'), 450);
+                }
+
+                const flashOverlay = document.getElementById('flash-overlay');
+                if (flashOverlay) {
+                    flashOverlay.style.opacity = '1';
+                    setTimeout(() => { flashOverlay.style.opacity = '0'; }, 120);
+                }
+
+                const shockwave = document.createElement('div');
+                shockwave.className = 'shockwave-ring z-[35]';
+                shockwave.style.left = `${x}px`;
+                shockwave.style.top = `${y}px`;
+                shockwave.style.width = '70px';
+                shockwave.style.height = '70px';
+                stage.appendChild(shockwave);
+                setTimeout(() => { if (shockwave.parentNode) shockwave.parentNode.removeChild(shockwave); }, 550);
+
+                const particleEmojis = ['💥', '🔥', '💣', '⚡', '💨', '✨'];
+                const particleCount = 16;
+                for (let i = 0; i < particleCount; i++) {
+                    const p = document.createElement('div');
+                    p.className = 'nuke-particle z-40 select-none filter drop-shadow-lg';
+                    p.innerText = particleEmojis[Math.floor(Math.random() * particleEmojis.length)];
+                    
+                    const angle = (Math.PI * 2 / particleCount) * i + (Math.random() * 0.4 - 0.2);
+                    const dist = 70 + Math.random() * 100;
+                    const dx = Math.cos(angle) * dist;
+                    const dy = Math.sin(angle) * dist;
+
+                    p.style.left = `${x}px`;
+                    p.style.top = `${y}px`;
+                    p.style.setProperty('--dx', `${dx}px`);
+                    p.style.setProperty('--dy', `${dy}px`);
+
+                    stage.appendChild(p);
+                    setTimeout(() => { if (p.parentNode) p.parentNode.removeChild(p); }, 700);
+                }
+            }
+
+            function triggerWarpSpeedDebuff() {
+                if (!fogOverlay) return;
+                fogOverlay.classList.remove('opacity-0', 'pointer-events-none');
+                fogOverlay.classList.add('opacity-100');
+
+                if (fogTimer) clearTimeout(fogTimer);
+                fogTimer = setTimeout(() => {
+                    fogOverlay.classList.remove('opacity-100');
+                    fogOverlay.classList.add('opacity-0', 'pointer-events-none');
+                }, 5000);
+            }
+
+            function resetCollectedGemsWithAnimation(x, y) {
+                let lostCount = 0;
+
+                mineralGems.forEach((gem, idx) => {
+                    if (collectedGems[gem.id]) {
+                        collectedGems[gem.id] = false;
+                        lostCount++;
+
+                        const gemEl = document.getElementById(`gem-${gem.id}`);
+                        if (gemEl) {
+                            gemEl.classList.add('animate-pulse', 'bg-rose-600/60', 'border-rose-400');
+                            setTimeout(() => {
+                                gemEl.className = 'flex-1 min-w-[55px] sm:min-w-0 opacity-30 grayscale transition-all duration-300 flex items-center justify-center space-x-0.5 sm:space-x-1 bg-black/40 px-1 py-0.5 sm:py-1 rounded-lg border border-white/20 text-center';
+                            }, 700);
+                        }
+
+                        const shardCount = 6;
+                        const shardSymbols = [gem.emoji, '💥', '✨', '🔻', '⚡', '💔'];
+
+                        for (let i = 0; i < shardCount; i++) {
+                            const shard = document.createElement('div');
+                            shard.className = 'gem-shard-particle text-xl sm:text-3xl z-50 select-none';
+                            shard.innerText = shardSymbols[i % shardSymbols.length];
+                            shard.style.left = `${x}px`;
+                            shard.style.top = `${y}px`;
+
+                            const angle = (Math.PI * 2 / shardCount) * i + (Math.random() * 0.5 - 0.25) + (idx * 0.4);
+                            const distance = 70 + Math.random() * 90;
+                            const dx = Math.cos(angle) * distance;
+                            const dy = Math.sin(angle) * distance - 40;
+
+                            shard.style.setProperty('--dx', `${dx}px`);
+                            shard.style.setProperty('--dy', `${dy}px`);
+                            shard.style.setProperty('--rot1', `${(Math.random() - 0.5) * 360}deg`);
+                            shard.style.setProperty('--rot2', `${(Math.random() - 0.5) * 1080}deg`);
+
+                            stage.appendChild(shard);
+
+                            setTimeout(() => {
+                                if (shard.parentNode) shard.parentNode.removeChild(shard);
+                            }, 900);
+                        }
+                    }
+                });
+
+                if (lostCount > 0) {
+                    const crackEffect = document.createElement('div');
+                    crackEffect.className = 'gem-crack-text text-2xl sm:text-4xl font-black text-rose-500 drop-shadow-[0_0_12px_rgba(239,68,68,0.9)] z-50 select-none whitespace-nowrap';
+                    crackEffect.innerText = '💎💔 SHATTERED!';
+                    crackEffect.style.left = `${x}px`;
+                    crackEffect.style.top = `${y - 25}px`;
+                    stage.appendChild(crackEffect);
+
+                    setTimeout(() => {
+                        if (crackEffect.parentNode) crackEffect.parentNode.removeChild(crackEffect);
+                    }, 700);
+
+                    showScoreEffect(x, y - 45, `💔 광물 ${lostCount}개 산산조각!`, true);
+                }
+            }
+
+            function spawnSnack() {
+                if (!stage || !snackContainer || isGameCleared) return;
+
+                const stageWidth = stage.clientWidth;
+                const rand = Math.random();
+                let snackType = 'healthy';
+                let emoji = '';
+                let gemData = null;
+
+                // 1. 핵폭탄 확률 23% (0.00 ~ 0.23)
+                // 2. 5가지 전설 광물 (현재 레벨별 개별 확률 gemProb)
+                const gemProb = getCurrentGemProb();
+                const totalGemProb = gemProb * 5; // 5가지 광물 총합
+
+                if (rand < 0.23) {
+                    snackType = 'nuke';
+                    emoji = nukeEmoji;
+                } else if (rand < 0.23 + totalGemProb) { 
+                    snackType = 'gem';
+                    const gemOffset = rand - 0.23;
+                    const gemIndex = Math.min(4, Math.max(0, Math.floor(gemOffset / gemProb)));
+                    gemData = mineralGems[gemIndex];
+                    emoji = gemData.emoji;
+                } else if (rand < 0.60) {
+                    snackType = 'junk';
+                    emoji = junkSnacks[Math.floor(Math.random() * junkSnacks.length)];
+                } else {
+                    snackType = 'healthy';
+                    emoji = healthySnacks[Math.floor(Math.random() * healthySnacks.length)];
+                }
+                
+                const snackEl = document.createElement('div');
+                snackEl.className = 'absolute text-2xl sm:text-4xl md:text-5xl select-none filter drop-shadow-md leading-none';
+                snackEl.innerText = emoji;
+                
+                const x = Math.random() * (stageWidth - 45) + 5;
+                const y = -45;
+                const baseFallSpeed = 2.0 + Math.random() * 3.5;
+
+                snackEl.style.left = `${x}px`;
+                snackEl.style.top = `${y}px`;
+
+                snackContainer.appendChild(snackEl);
+
+                activeSnacks.push({
+                    element: snackEl,
+                    x: x,
+                    y: y,
+                    baseSpeed: baseFallSpeed,
+                    rotation: (Math.random() - 0.5) * 20,
+                    rotSpeed: (Math.random() - 0.5) * 3,
+                    type: snackType,
+                    gemData: gemData
+                });
+            }
+
+            function updateSnacks() {
+                if (!stage) return;
+                const stageHeight = stage.clientHeight;
+                const basketWidth = basketContainer.clientWidth || 55;
+                const bottomLimit = stageHeight + 200;
+
+                for (let i = activeSnacks.length - 1; i >= 0; i--) {
+                    const snack = activeSnacks[i];
+                    
+                    const oldY = snack.y;
+                    const effectiveSpeed = snack.baseSpeed * speedMultiplier * levelSpeedMultiplier;
+                    snack.y += effectiveSpeed;
+                    const newY = snack.y;
+
+                    snack.rotation += snack.rotSpeed;
+                    
+                    snack.element.style.top = `${snack.y}px`;
+                    snack.element.style.transform = `rotate(${snack.rotation}deg)`;
+
+                    const snackWidth = 35;
+                    const snackHeight = 35;
+                    const snackCenterX = snack.x + snackWidth / 2;
+
+                    const basketLeft = basketX;
+                    const basketRight = basketX + basketWidth;
+                    const basketTopY = stageHeight - (window.innerWidth < 640 ? 50 : 65);
+
+                    const passedBasketY = (oldY + snackHeight < basketTopY) && (newY + snackHeight >= basketTopY);
+                    const isInsideBasketY = (newY + snackHeight >= basketTopY) && (snack.y <= stageHeight - 5);
+                    const isXOverlap = (snackCenterX >= basketLeft - 8) && (snackCenterX <= basketRight + 8);
+
+                    if ((passedBasketY || isInsideBasketY) && isXOverlap) {
+                        if (snack.type === 'nuke') {
+                            score = 0;
+                            updateScoreDisplay();
+
+                            triggerNukeExplosion(snackCenterX, basketTopY);
+                            resetCollectedGemsWithAnimation(snackCenterX, basketTopY);
+                            showScoreEffect(snackCenterX, basketTopY - 15, '💥 0점 리셋!', true);
+                            
+                            statusBadge.className = 'bg-amber-500 text-white px-3 py-1 rounded-full shadow-lg animate-bounce transition-colors duration-300 text-center max-w-[98%]';
+                            statusText.innerText = '☢️ 핵 폭발! 점수 0점 리셋 & 수집 광물 모두 파괴! 💥';
+                            statusText.className = 'text-[11px] sm:text-sm font-bold text-white leading-snug';
+
+                            setTimeout(() => {
+                                statusBadge.className = 'bg-white/95 backdrop-blur-sm px-2.5 py-1 sm:px-4 sm:py-1.5 rounded-full border border-emerald-300 shadow-md transition-colors duration-300 text-center max-w-[98%]';
+                                statusText.className = 'text-[11px] sm:text-sm font-semibold text-emerald-900 leading-snug';
+                                updateStatusText();
+                            }, 2200);
+                        } else if (snack.type === 'gem') {
+                            score += 50;
+                            updateScoreDisplay();
+
+                            if (snack.gemData) {
+                                collectGem(snack.gemData);
+                            }
+                            showScoreEffect(snackCenterX, basketTopY - 15, `💎 +50 (${snack.gemData ? snack.gemData.name : '광물'})`, false);
+                        } else if (snack.type === 'junk') {
+                            score = Math.max(0, score - 25);
+                            updateScoreDisplay();
+
+                            showScoreEffect(snackCenterX, basketTopY - 15, '-25', true);
+                            triggerWarpSpeedDebuff();
+                        } else {
+                            const points = Math.round(snack.baseSpeed * 10);
+                            score += points;
+                            updateScoreDisplay();
+
+                            showScoreEffect(snackCenterX, basketTopY - 15, `+${points}`, false);
+                        }
+
+                        if (snack.element.parentNode) {
+                            snack.element.parentNode.removeChild(snack.element);
+                        }
+                        activeSnacks.splice(i, 1);
+                        continue;
+                    }
+
+                    if (snack.y >= bottomLimit) {
+                        if (snack.element.parentNode) {
+                            snack.element.parentNode.removeChild(snack.element);
+                        }
+                        activeSnacks.splice(i, 1);
+                    }
+                }
+            }
+
+            function moveLoop(timestamp) {
+                if (stage && basketContainer) {
+                    let moved = false;
+
+                    if (keys.left) {
+                        basketX -= speed;
+                        moved = true;
+                    }
+                    if (keys.right) {
+                        basketX += speed;
+                        moved = true;
+                    }
+
+                    if (moved) {
+                        clampBasketPosition();
+                        updateBasketDOM();
+                    }
+
+                    if (!lastSpawnTime || timestamp - lastSpawnTime > spawnInterval) {
+                        spawnSnack();
+                        lastSpawnTime = timestamp;
+                    }
+
+                    updateSnacks();
+                }
+                requestAnimationFrame(moveLoop);
+            }
+
+            // 1. 키보드 컨트롤
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                    e.preventDefault();
+                    keys.left = true;
+                }
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                    e.preventDefault();
+                    keys.right = true;
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                    e.preventDefault();
+                    keys.left = false;
+                }
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                    e.preventDefault();
+                    keys.right = false;
+                }
+            });
+
+            // 2. 터치 & 마우스 드래그 컨트롤
+            const handleTouchMove = (clientX) => {
+                if (!stage || !basketContainer) return;
+                const stageRect = stage.getBoundingClientRect();
+                const basketWidth = basketContainer.clientWidth || 55;
+                
+                basketX = (clientX - stageRect.left) - (basketWidth / 2);
+                clampBasketPosition();
+                updateBasketDOM();
+            };
+
+            stage.addEventListener('touchstart', (e) => {
+                isDraggingStage = true;
+                stage.classList.add('touch-active');
+                if (e.touches && e.touches[0]) {
+                    handleTouchMove(e.touches[0].clientX);
+                }
+            }, { passive: true });
+
+            stage.addEventListener('touchmove', (e) => {
+                if (isDraggingStage && e.touches && e.touches[0]) {
+                    handleTouchMove(e.touches[0].clientX);
+                }
+            }, { passive: true });
+
+            stage.addEventListener('touchend', () => {
+                isDraggingStage = false;
+                stage.classList.remove('touch-active');
+            });
+
+            stage.addEventListener('mousedown', (e) => {
+                isDraggingStage = true;
+                stage.classList.add('touch-active');
+                handleTouchMove(e.clientX);
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (isDraggingStage) {
+                    handleTouchMove(e.clientX);
+                }
+            });
+
+            window.addEventListener('mouseup', () => {
+                isDraggingStage = false;
+                if (stage) stage.classList.remove('touch-active');
+            });
+
+            // 3. 터치 버튼
+            const addTouchListeners = (btn, direction) => {
+                const startMove = (e) => {
+                    e.preventDefault();
+                    keys[direction] = true;
+                };
+                const stopMove = (e) => {
+                    e.preventDefault();
+                    keys[direction] = false;
+                };
+
+                btn.addEventListener('touchstart', startMove, { passive: false });
+                btn.addEventListener('touchend', stopMove, { passive: false });
+                btn.addEventListener('mousedown', startMove);
+                btn.addEventListener('mouseup', stopMove);
+                btn.addEventListener('mouseleave', stopMove);
+            };
+
+            if (btnLeft && btnRight) {
+                addTouchListeners(btnLeft, 'left');
+                addTouchListeners(btnRight, 'right');
+            }
+
+            // 4. 화면 크기 변경 (Resize & Dynamic Viewport) 대응
+            window.addEventListener('resize', () => {
+                speed = window.innerWidth < 640 ? 6 : 9;
+                clampBasketPosition();
+                updateBasketDOM();
+            });
+
+            // 초기 구동
+            speed = window.innerWidth < 640 ? 6 : 9;
+            initBasketPosition();
+            updateStatusText();
+            requestAnimationFrame(moveLoop);
+        });
+    </script>
+</body>
+</html>

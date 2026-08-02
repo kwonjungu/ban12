@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>아기자기 주방 음식 담기 게임 🧺</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Jua', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* 모바일 터치 및 바운스 스크롤 방지 */
+        html, body {
+            touch-action: none;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            position: fixed;
+        }
+
+        /* 주방 파스텔 연두색 체크 타일 배경 */
+        .kitchen-bg {
+            background-color: #d8f3dc;
+            background-image: 
+                radial-gradient(#b7e4c7 15%, transparent 16%),
+                radial-gradient(#b7e4c7 15%, transparent 16%);
+            background-size: 40px 40px;
+            background-position: 0 0, 20px 20px;
+        }
+
+        /* 식탁 체크무늬 */
+        .tablecloth-bg {
+            background-color: #f72585;
+            background: repeating-linear-gradient(
+                45deg,
+                #ffb703,
+                #ffb703 15px,
+                #fb8500 15px,
+                #fb8500 30px
+            );
+            box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.15);
+        }
+
+        /* 피격 시 화면 흔들림 효과 */
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            20% { transform: translate(-8px, 4px) rotate(-2deg); }
+            40% { transform: translate(8px, -4px) rotate(2deg); }
+            60% { transform: translate(-6px, -2px) rotate(-1deg); }
+            80% { transform: translate(6px, 2px) rotate(1deg); }
+        }
+
+        .shake-effect {
+            animation: shake 0.35s ease-in-out;
+        }
+
+        /* 바구니 튕김 애니메이션 */
+        @keyframes bounce-basket {
+            0% { transform: scale(1, 1); }
+            40% { transform: scale(1.25, 0.8); }
+            70% { transform: scale(0.9, 1.15); }
+            100% { transform: scale(1, 1); }
+        }
+
+        .basket-bounce {
+            animation: bounce-basket 0.25s ease-out;
+        }
+
+        /* 정크푸드 디버프 보라색 글로우 효과 */
+        .junk-debuff-glow {
+            filter: drop-shadow(0 0 18px rgba(147, 51, 234, 0.95)) hue-rotate(260deg);
+        }
+
+        /* */
+        /* 무적 보호막 블루 글로우 효과 */
+        .invincible-glow {
+            filter: drop-shadow(0 0 25px rgba(59, 130, 246, 1)) drop-shadow(0 0 15px rgba(147, 51, 234, 0.9));
+            animation: pulse-shield 0.3s infinite alternate ease-in-out;
+        }
+
+        @keyframes pulse-shield {
+            0% { transform: scale(1) rotate(-3deg); }
+            100% { transform: scale(1.15) rotate(3deg); }
+        }
+
+        /* 망고 스피드 부스트 황금 오라 글로우 효과 */
+        .speed-boost-glow {
+            filter: drop-shadow(0 0 25px rgba(255, 215, 0, 1)) drop-shadow(0 0 10px rgba(255, 165, 0, 0.8));
+            animation: pulse-aura 0.4s infinite alternate ease-in-out;
+        }
+
+        @keyframes pulse-aura {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.1); }
+        }
+
+        /* 점수 float 팝업 애니메이션 */
+        @keyframes float-up {
+            0% { opacity: 1; transform: translateY(0) scale(0.8); }
+            50% { opacity: 1; transform: translateY(-40px) scale(1.15); }
+            100% { opacity: 0; transform: translateY(-85px) scale(1); }
+        }
+
+        .score-popup {
+            position: absolute;
+            font-size: 1.8rem;
+            font-weight: bold;
+            pointer-events: none;
+            animation: float-up 0.9s forwards ease-out;
+            z-index: 50;
+            white-space: nowrap;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 거대 망고 글로우 후광 효과 */
+        .mango-glow {
+            filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.9));
+        }
+
+        /* 하트 애니메이션 */
+        @keyframes heart-break {
+            0% { transform: scale(1.3); }
+            50% { transform: scale(0.8); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .heart-anim {
+            display: inline-block;
+            animation: heart-break 0.3s ease-out;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col justify-between kitchen-bg relative">
+
+    <!-- 정크푸드 피격 시 빨간/어두운 반짝임 효과 -->
+    <div id="dark-overlay" class="absolute inset-0 bg-red-900 opacity-0 pointer-events-none z-40 transition-opacity duration-200"></div>
+
+    <!-- 게임 오버 레이어 모달 -->
+    <div id="game-over-modal" class="hidden absolute inset-0 bg-black/70 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-white px-4">
+        <div class="bg-white text-gray-800 rounded-3xl p-6 sm:p-8 max-w-xs sm:max-w-sm w-full text-center shadow-2xl border-4 border-red-400">
+            <div class="text-5xl sm:text-6xl mb-2 sm:mb-3 animate-bounce">💔</div>
+            <h2 class="text-2xl sm:text-3xl font-black text-red-600 mb-1 sm:mb-2">게임 오버!</h2>
+            <p class="text-sm sm:text-lg font-bold text-gray-600 mb-3 sm:mb-4">건강한 식습관 완성 실패! 🥗</p>
+            
+            <div class="bg-amber-50 rounded-2xl p-3 sm:p-4 mb-4 sm:mb-6 border border-amber-200">
+                <span class="text-xs sm:text-sm text-gray-500 block">최종 점수</span>
+                <span id="final-score" class="text-3xl sm:text-4xl font-extrabold text-amber-500">0</span>
+            </div>
+
+            <div class="space-y-2 sm:space-y-3">
+                <p class="text-xs text-gray-500 hidden sm:block animate-pulse">
+                    [ <span class="font-bold text-emerald-600">스페이스 키</span> ] 를 눌러 다시 시작
+                </p>
+                <button id="btn-restart" class="w-full bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white text-lg sm:text-xl font-bold py-2.5 sm:py-3 rounded-2xl shadow-lg border-2 border-emerald-300 transition-all">
+                    🔄 다시 시작하기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="w-full flex justify-between items-start px-3 sm:px-6 pt-2 sm:pt-4 pointer-events-none z-10">
+        <!-- 아치 창문 -->
+        <div class="w-16 h-24 sm:w-24 sm:h-32 bg-sky-200 border-2 sm:border-4 border-white rounded-t-full shadow-inner flex items-center justify-center relative overflow-hidden hidden md:flex">
+            <div class="absolute w-full h-1 bg-white top-1/2"></div>
+            <div class="absolute h-full w-1 bg-white left-1/2"></div>
+            <span class="text-xl sm:text-3xl animate-bounce">☀️</span>
+        </div>
+
+        <!-- 점수 및 타이틀 스코어보드 -->
+        <div class="bg-white/95 backdrop-blur border-2 sm:border-4 border-emerald-400 rounded-2xl sm:rounded-3xl px-4 sm:px-8 py-2 sm:py-3 shadow-lg flex flex-col items-center pointer-events-auto mx-auto md:mx-0 max-w-[95vw] sm:max-w-none">
+            <h1 class="text-lg sm:text-2xl md:text-3xl font-extrabold text-emerald-700 flex items-center gap-1 sm:gap-2 text-center whitespace-nowrap">
+                <span>🥗</span> <span class="truncate">아기자기 주방 음식 담기</span> <span>🥭</span>
+            </h1>
+
+            <!-- 하트 라이프 표시 영역 -->
+            <div class="flex items-center gap-1 my-0.5 sm:my-1 text-xl sm:text-2xl" id="lives-container">
+                <span id="heart-1" class="heart-anim">❤️</span>
+                <span id="heart-2" class="heart-anim">❤️</span>
+                <span id="heart-3" class="heart-anim">❤️</span>
+            </div>
+
+            <div class="flex items-center gap-4 sm:gap-6 mt-0.5 sm:mt-1">
+                <div class="text-center">
+                    <span class="text-[9px] sm:text-xs text-gray-500 block leading-tight">SCORE</span>
+                    <span id="score-text" class="text-xl sm:text-3xl md:text-4xl font-extrabold text-amber-500">0</span>
+                </div>
+                <div class="h-5 sm:h-8 w-0.5 bg-gray-200"></div>
+                <div class="text-center">
+                    <span class="text-[9px] sm:text-xs text-gray-500 block leading-tight">HIGH SCORE</span>
+                    <span id="high-score-text" class="text-lg sm:text-2xl md:text-3xl font-bold text-emerald-600">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 주방 선반 소품 -->
+        <div class="bg-amber-700/80 h-4 w-32 rounded-lg shadow-md relative hidden md:block mt-6">
+            <div class="absolute -top-8 left-3 text-2xl">🪴</div>
+            <div class="absolute -top-7 left-12 text-xl">🧂</div>
+            <div class="absolute -top-7 left-20 text-xl">🍯</div>
+        </div>
+    </div>
+
+    <div id="game-stage" class="relative flex-1 w-full overflow-hidden touch-none select-none">
+        <div id="items-layer" class="absolute inset-0 pointer-events-none"></div>
+    </div>
+
+    <div class="relative w-full py-2 sm:py-3 tablecloth-bg border-t-4 sm:border-t-8 border-amber-600 flex flex-col items-center justify-start z-20 touch-none pb-safe">
+        <!-- 바구니 (이동 대상) -->
+        <div id="basket" class="absolute -top-12 sm:-top-16 left-1/2 -translate-x-1/2 text-5xl sm:text-7xl cursor-grab active:cursor-grabbing transition-transform duration-75 flex items-center justify-center filter drop-shadow-xl select-none min-w-[70px] min-h-[70px]">
+            <span id="basket-emoji" class="inline-block">🧺</span>
+        </div>
+
+        <!-- 모바일/터치 조작 안내 및 버튼 -->
+        <div class="w-full max-w-xl px-2 sm:px-4 mt-5 sm:mt-8 flex justify-between items-center text-white gap-1.5 sm:gap-3">
+            <!-- 왼쪽 스킬 & 이동 조작 영역 -->
+            <div class="flex-1 max-w-[115px] sm:max-w-[150px] flex flex-col gap-1.5 items-center">
+                <button id="btn-skill" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 active:from-indigo-800 active:to-purple-800 text-yellow-300 font-black py-1.5 sm:py-2 px-1 rounded-xl shadow-lg border-2 border-yellow-300 active:scale-95 text-xs sm:text-sm md:text-base touch-none flex items-center justify-center min-h-[40px] sm:min-h-[44px] whitespace-nowrap">
+                    🛡️ 능력 (-100)
+                </button>
+                <button id="btn-left" class="w-full bg-amber-600 active:bg-amber-800 text-white font-bold py-1.5 sm:py-2.5 px-1 rounded-xl shadow-md border border-amber-300 active:scale-95 text-xs sm:text-base md:text-lg touch-none min-h-[38px] sm:min-h-[44px]">
+                    ◀ 왼쪽
+                </button>
+            </div>
+
+            <!-- 모바일 전용 망고 크기 조절 터치 버튼 -->
+            <div class="flex flex-col sm:flex-row items-center gap-1 bg-amber-900/50 p-1.5 rounded-2xl border border-amber-300/40 shrink-0">
+                <button id="btn-mango-down" class="bg-amber-700 active:bg-amber-900 text-amber-100 font-bold py-1 px-2 sm:px-3 rounded-xl border border-amber-400 text-[10px] sm:text-xs active:scale-90 whitespace-nowrap min-h-[30px]">
+                    🥭- (A)
+                </button>
+                <button id="btn-mango-up" class="bg-amber-500 active:bg-amber-700 text-white font-bold py-1 px-2 sm:px-3 rounded-xl border border-amber-200 text-[10px] sm:text-xs active:scale-90 whitespace-nowrap min-h-[30px]">
+                    🥭+ (Z)
+                </button>
+            </div>
+
+            <!-- 오른쪽 스킬 & 이동 조작 영역 -->
+            <div class="flex-1 max-w-[115px] sm:max-w-[150px] flex flex-col gap-1.5 items-center">
+                <button id="btn-meteor" class="w-full bg-gradient-to-r from-red-600 to-orange-600 active:from-red-800 active:to-orange-800 text-yellow-300 font-black py-1.5 sm:py-2 px-1 rounded-xl shadow-lg border-2 border-yellow-300 active:scale-95 text-xs sm:text-sm md:text-base touch-none flex items-center justify-center min-h-[40px] sm:min-h-[44px] whitespace-nowrap">
+                    ☄️ 메테오 (-200)
+                </button>
+                <button id="btn-right" class="w-full bg-amber-600 active:bg-amber-800 text-white font-bold py-1.5 sm:py-2.5 px-1 rounded-xl shadow-md border border-amber-300 active:scale-95 text-xs sm:text-base md:text-lg touch-none min-h-[38px] sm:min-h-[44px]">
+                    오른쪽 ▶
+                </button>
+            </div>
+        </div>
+        <div class="mt-1 text-[10px] sm:text-xs text-amber-100 opacity-90 hidden sm:block text-center px-2">
+            [← / →] 이동 | [X] 무적(-100pt) | [C] 메테오(-200pt) | [Z] 망고 크기 UP | [A] 망고 크기 DOWN | [스페이스] 재시작
+        </div>
+    </div>
+
+    <script>
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioCtx();
+        }
+
+        // 메테오 발동 폭발음
+        function playMeteorSound() {
+            try {
+                initAudio();
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(30, now + 0.6);
+                gain.gain.setValueAtTime(0.6, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.6);
+            } catch (e) {}
+        }
+
+        // 획득 사운드 (건강 간식 & 망고)
+        function playCatchSound(isMango = false) {
+            try {
+                initAudio();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sine';
+                const now = audioCtx.currentTime;
+
+                if (isMango) {
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(1200, now + 0.35);
+                    gain.gain.setValueAtTime(0.5, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.35);
+                } else {
+                    osc.frequency.setValueAtTime(520, now);
+                    osc.frequency.exponentialRampToValueAtTime(1040, now + 0.12);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.12);
+                }
+            } catch (e) {}
+        }
+
+        // 정크푸드 감점 및 속도 둔화 사운드
+        function playJunkSound() {
+            try {
+                initAudio();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sawtooth';
+                const now = audioCtx.currentTime;
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.linearRampToValueAtTime(80, now + 0.25);
+
+                gain.gain.setValueAtTime(0.35, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            } catch (e) {}
+        }
+
+        // 무적 보호막 발동 사운드
+        function playShieldSound() {
+            try {
+                initAudio();
+                const now = audioCtx.currentTime;
+                [440, 554.37, 659.25, 880].forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                    gain.gain.setValueAtTime(0.3, now + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.08 + 0.2);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now + idx * 0.08);
+                    osc.stop(now + idx * 0.08 + 0.2);
+                });
+            } catch (e) {}
+        }
+
+        // 하트 손실 경고음
+        function playMissSound() {
+            try {
+                initAudio();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'triangle';
+                const now = audioCtx.currentTime;
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(150, now + 0.25);
+
+                gain.gain.setValueAtTime(0.35, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            } catch (e) {}
+        }
+
+        // 게임 오버 팡파르음
+        function playGameOverSound() {
+            try {
+                initAudio();
+                const now = audioCtx.currentTime;
+                [280, 240, 200, 150].forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+                    gain.gain.setValueAtTime(0.2, now + idx * 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.12 + 0.15);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now + idx * 0.12);
+                    osc.stop(now + idx * 0.12 + 0.15);
+                });
+            } catch (e) {}
+        }
+
+        const HEALTHY_FOODS = ['🍎', '🥦', '🥛', '🍌'];
+        const JUNK_FOODS = ['🍩', '🍟', '🍬'];
+        const MANGO = '🥭';
+
+        let score = 0;
+        let lives = 3;
+        let isGameOver = false;
+        let highScore = localStorage.getItem('kitchen_high_score') || 0;
+        let mangoSizeRem = 10; // 망고 기본 크기 (rem)
+
+        // 바구니 속도 및 상태 변수
+        let baseBasketSpeed = 10;
+        let slowdownTimer = null;
+        let isSlowed = false;
+
+        let speedBoostTimer = null;
+        let isSpeedBoosted = false; // 망고 스피드 4배 부스트 유무
+
+        let isInvincible = false;   // 5초 무적 상태 유무
+        let invincibleTimer = null;
+
+        const scoreText = document.getElementById('score-text');
+        const highScoreText = document.getElementById('high-score-text');
+        const finalScoreText = document.getElementById('final-score');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const btnRestart = document.getElementById('btn-restart');
+
+        highScoreText.textContent = highScore;
+
+        const basket = document.getElementById('basket');
+        const basketEmoji = document.getElementById('basket-emoji');
+        const gameStage = document.getElementById('game-stage');
+        const itemsLayer = document.getElementById('items-layer');
+        const darkOverlay = document.getElementById('dark-overlay');
+        const btnSkill = document.getElementById('btn-skill');
+        const btnMeteor = document.getElementById('btn-meteor');
+
+        let basketX = window.innerWidth / 2;
+        const keys = { Left: false, Right: false };
+        let activeFoods = [];
+        let spawnTimer = 0;
+
+        // 바구니 위치 동기화 (화면 해상도별 실시간 반응형 처리)
+        function updateBasketPosition() {
+            const stageWidth = gameStage.clientWidth || window.innerWidth;
+            const basketWidth = basket.offsetWidth || 80;
+            const minX = basketWidth / 2;
+            const maxX = stageWidth - basketWidth / 2;
+
+            if (basketX < minX) basketX = minX;
+            if (basketX > maxX) basketX = maxX;
+
+            basket.style.left = `${basketX}px`;
+        }
+
+        // 하트 UI 동기화
+        function updateLivesUI() {
+            for (let i = 1; i <= 3; i++) {
+                const heartEl = document.getElementById(`heart-${i}`);
+                if (i <= lives) {
+                    heartEl.textContent = '❤️';
+                    heartEl.classList.remove('opacity-30', 'scale-75');
+                } else {
+                    heartEl.textContent = '🖤';
+                    heartEl.classList.add('opacity-30', 'scale-75');
+                }
+            }
+        }
+
+        // 정크푸드 디버프 (속도 50% 감축) 적용
+        function applySpeedSlowdown() {
+            // 스피드 부스트 상태 해제
+            if (isSpeedBoosted) {
+                isSpeedBoosted = false;
+                if (speedBoostTimer) clearTimeout(speedBoostTimer);
+                basketEmoji.classList.remove('speed-boost-glow');
+            }
+
+            isSlowed = true;
+            basketEmoji.classList.add('junk-debuff-glow');
+
+            if (slowdownTimer) clearTimeout(slowdownTimer);
+
+            // 3초 후 원래 속도 복구
+            slowdownTimer = setTimeout(() => {
+                isSlowed = false;
+                basketEmoji.classList.remove('junk-debuff-glow');
+            }, 3000);
+        }
+
+        // 망고 버프 (속도 4배 상승!) 적용 (5초간 지속)
+        function applySpeedBoost() {
+            // 슬로우 상태 해제
+            if (isSlowed) {
+                isSlowed = false;
+                if (slowdownTimer) clearTimeout(slowdownTimer);
+                basketEmoji.classList.remove('junk-debuff-glow');
+            }
+
+            isSpeedBoosted = true;
+            basketEmoji.classList.add('speed-boost-glow');
+
+            if (speedBoostTimer) clearTimeout(speedBoostTimer);
+
+            // 5초간 4배 스피드 유지 후 정상 속도 복귀
+            speedBoostTimer = setTimeout(() => {
+                isSpeedBoosted = false;
+                basketEmoji.classList.remove('speed-boost-glow');
+            }, 5000);
+        }
+
+        // 능력 (100포인트 감소 & 5초 무적) 발동
+        function activateInvincibility() {
+            if (isGameOver) return;
+
+            if (score < 100) {
+                createScorePopup(basketX - 60, Math.max(20, gameStage.clientHeight - 200), '❌ 점수가 부족합니다! (100pt 필요)', 'text-red-500 font-bold text-lg sm:text-xl');
+                return;
+            }
+
+            // 100점 차감
+            score -= 100;
+            scoreText.textContent = score;
+
+            isInvincible = true;
+            basketEmoji.classList.add('invincible-glow');
+            playShieldSound();
+
+            createScorePopup(basketX - 60, Math.max(20, gameStage.clientHeight - 200), '🛡️ 5초간 무적 상태!', 'text-indigo-500 font-black text-2xl sm:text-3xl');
+
+            if (invincibleTimer) clearTimeout(invincibleTimer);
+
+            // 5초 후 무적 해제
+            invincibleTimer = setTimeout(() => {
+                isInvincible = false;
+                basketEmoji.classList.remove('invincible-glow');
+            }, 5000);
+        }
+
+        // 메테오 (200포인트 차감 & 맵 내 모든 정크푸드 파괴) 발동
+        function activateMeteor() {
+            if (isGameOver) return;
+
+            if (score < 200) {
+                createScorePopup(basketX - 60, Math.max(20, gameStage.clientHeight - 200), '❌ 점수가 부족합니다! (200pt 필요)', 'text-red-500 font-bold text-lg sm:text-xl');
+                return;
+            }
+
+            // 200점 차감
+            score -= 200;
+            scoreText.textContent = score;
+
+            playMeteorSound();
+
+            // 화면 강력 흔들림 효과
+            document.body.classList.remove('shake-effect');
+            void document.body.offsetWidth;
+            document.body.classList.add('shake-effect');
+
+            // 메테오 낙하 visual 연출
+            triggerMeteorVisual();
+
+            // 맵 안의 모든 정크푸드 전멸
+            let destroyedCount = 0;
+            for (let i = activeFoods.length - 1; i >= 0; i--) {
+                const food = activeFoods[i];
+                if (food.isJunk) {
+                    destroyedCount++;
+                    createExplosionEffect(food.x, food.y);
+                    if (food.element.parentNode) {
+                        food.element.parentNode.removeChild(food.element);
+                    }
+                    activeFoods.splice(i, 1);
+                }
+            }
+
+            createScorePopup(basketX - 70, Math.max(20, gameStage.clientHeight - 200), `☄️ 메테오! 정크푸드 ${destroyedCount}개 전멸!`, 'text-red-500 font-black text-2xl sm:text-3xl');
+        }
+
+        // 메테오 거대 운석 낙하 연출
+        function triggerMeteorVisual() {
+            const meteorEl = document.createElement('div');
+            meteorEl.className = 'absolute z-30 pointer-events-none transition-all duration-500 text-7xl sm:text-9xl filter drop-shadow-[0_0_35px_rgba(239,68,68,1)]';
+            meteorEl.textContent = '☄️';
+            meteorEl.style.left = '50%';
+            meteorEl.style.top = '-150px';
+            meteorEl.style.transform = 'translateX(-50%) rotate(45deg)';
+
+            gameStage.appendChild(meteorEl);
+
+            requestAnimationFrame(() => {
+                meteorEl.style.top = '40%';
+                meteorEl.style.transform = 'translate(-50%, -50%) scale(1.6) rotate(90deg)';
+            });
+
+            setTimeout(() => {
+                if (meteorEl.parentNode) meteorEl.parentNode.removeChild(meteorEl);
+            }, 550);
+        }
+
+        // 정크푸드 위치 폭발 이펙트 💥
+        function createExplosionEffect(x, y) {
+            const exp = document.createElement('div');
+            exp.className = 'absolute text-4xl pointer-events-none animate-ping z-30';
+            exp.textContent = '💥';
+            exp.style.left = `${x}px`;
+            exp.style.top = `${y}px`;
+            gameStage.appendChild(exp);
+
+            setTimeout(() => {
+                if (exp.parentNode) exp.parentNode.removeChild(exp);
+            }, 500);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            initAudio();
+            if (e.key === 'ArrowLeft') keys.Left = true;
+            if (e.key === 'ArrowRight') keys.Right = true;
+
+            // X키: 무적 능력 발동
+            if (e.key === 'x' || e.key === 'X') {
+                activateInvincibility();
+            }
+
+            // C키: 메테오 능력 발동
+            if (e.key === 'c' || e.key === 'C') {
+                activateMeteor();
+            }
+
+            // Z키: 망고 확대 (+3rem)
+            if (e.key === 'z' || e.key === 'Z') {
+                mangoSizeRem += 3;
+                activeFoods.forEach(food => {
+                    if (food.isMango) {
+                        food.element.style.fontSize = `${mangoSizeRem}rem`;
+                    }
+                });
+                createScorePopup(basketX - 50, Math.max(20, gameStage.clientHeight - 200), `🥭 망고 크기 UP! (${mangoSizeRem}rem)`, 'text-amber-500 font-bold text-2xl');
+            }
+
+            // A키: 망고 축소 (-3rem, 최소 2.5rem)
+            if (e.key === 'a' || e.key === 'A') {
+                mangoSizeRem = Math.max(2.5, mangoSizeRem - 3);
+                activeFoods.forEach(food => {
+                    if (food.isMango) {
+                        food.element.style.fontSize = `${mangoSizeRem}rem`;
+                    }
+                });
+                createScorePopup(basketX - 50, Math.max(20, gameStage.clientHeight - 200), `🥭 망고 크기 DOWN! (${mangoSizeRem}rem)`, 'text-amber-600 font-bold text-2xl');
+            }
+
+            // 스페이스 키: 재시작
+            if (e.code === 'Space' || e.key === ' ') {
+                e.preventDefault();
+                if (isGameOver) restartGame();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft') keys.Left = false;
+            if (e.key === 'ArrowRight') keys.Right = false;
+        });
+
+        // 모바일 터치 버튼 조작
+        const btnLeft = document.getElementById('btn-left');
+        const btnRight = document.getElementById('btn-right');
+
+        if (btnSkill) {
+            const handleSkill = (e) => {
+                e.preventDefault();
+                initAudio();
+                activateInvincibility();
+            };
+            btnSkill.addEventListener('touchstart', handleSkill, { passive: false });
+            btnSkill.addEventListener('click', handleSkill);
+        }
+
+        if (btnMeteor) {
+            const handleMeteor = (e) => {
+                e.preventDefault();
+                initAudio();
+                activateMeteor();
+            };
+            btnMeteor.addEventListener('touchstart', handleMeteor, { passive: false });
+            btnMeteor.addEventListener('click', handleMeteor);
+        }
+
+        const startLeft = (e) => { e.preventDefault(); initAudio(); keys.Left = true; };
+        const endLeft = (e) => { e.preventDefault(); keys.Left = false; };
+        const startRight = (e) => { e.preventDefault(); initAudio(); keys.Right = true; };
+        const endRight = (e) => { e.preventDefault(); keys.Right = false; };
+
+        btnLeft.addEventListener('touchstart', startLeft);
+        btnLeft.addEventListener('touchend', endLeft);
+        btnLeft.addEventListener('mousedown', startLeft);
+        btnLeft.addEventListener('mouseup', endLeft);
+
+        btnRight.addEventListener('touchstart', startRight);
+        btnRight.addEventListener('touchend', endRight);
+        btnRight.addEventListener('mousedown', startRight);
+        btnRight.addEventListener('mouseup', endRight);
+
+        // 모바일 터치 망고 크기 버튼
+        const btnMangoUp = document.getElementById('btn-mango-up');
+        const btnMangoDown = document.getElementById('btn-mango-down');
+
+        if (btnMangoUp) {
+            const handleMangoUp = (e) => {
+                e.preventDefault();
+                initAudio();
+                mangoSizeRem += 3;
+                activeFoods.forEach(food => {
+                    if (food.isMango) food.element.style.fontSize = `${mangoSizeRem}rem`;
+                });
+                createScorePopup(basketX - 50, Math.max(20, gameStage.clientHeight - 200), `🥭 망고 크기 UP! (${mangoSizeRem}rem)`, 'text-amber-500 font-bold text-xl sm:text-2xl');
+            };
+            btnMangoUp.addEventListener('touchstart', handleMangoUp, { passive: false });
+            btnMangoUp.addEventListener('click', handleMangoUp);
+        }
+
+        if (btnMangoDown) {
+            const handleMangoDown = (e) => {
+                e.preventDefault();
+                initAudio();
+                mangoSizeRem = Math.max(2.5, mangoSizeRem - 3);
+                activeFoods.forEach(food => {
+                    if (food.isMango) food.element.style.fontSize = `${mangoSizeRem}rem`;
+                });
+                createScorePopup(basketX - 50, Math.max(20, gameStage.clientHeight - 200), `🥭 망고 크기 DOWN! (${mangoSizeRem}rem)`, 'text-amber-600 font-bold text-xl sm:text-2xl');
+            };
+            btnMangoDown.addEventListener('touchstart', handleMangoDown, { passive: false });
+            btnMangoDown.addEventListener('click', handleMangoDown);
+        }
+
+        btnRestart.addEventListener('click', () => {
+            initAudio();
+            restartGame();
+        });
+
+        // Touch & Mouse drag logic
+        let isDragging = false;
+
+        const handleDragStart = (e) => {
+            if (!isGameOver) {
+                isDragging = true;
+                initAudio();
+                const pageX = e.touches ? e.touches[0].clientX : e.clientX;
+                basketX = pageX;
+                updateBasketPosition();
+            }
+        };
+
+        const handleDragMove = (e) => {
+            if (isDragging && !isGameOver) {
+                if (e.touches && e.cancelable) e.preventDefault();
+                const pageX = e.touches ? e.touches[0].clientX : e.clientX;
+                basketX = pageX;
+                updateBasketPosition();
+            }
+        };
+
+        const handleDragEnd = () => { isDragging = false; };
+
+        gameStage.addEventListener('mousedown', handleDragStart);
+        window.addEventListener('mousemove', handleDragMove);
+        window.addEventListener('mouseup', handleDragEnd);
+
+        gameStage.addEventListener('touchstart', handleDragStart, { passive: false });
+        window.addEventListener('touchmove', handleDragMove, { passive: false });
+        window.addEventListener('touchend', handleDragEnd);
+
+        basket.addEventListener('touchstart', handleDragStart, { passive: false });
+        basket.addEventListener('mousedown', handleDragStart);
+
+        // 음식 스폰 함수 (10% 확률로 거대 망고 등장)
+        function spawnFood() {
+            if (isGameOver) return;
+
+            const stageWidth = gameStage.clientWidth;
+            const randVal = Math.random();
+
+            let emoji = '';
+            let isJunk = false;
+            let isMango = false;
+
+            if (randVal < 0.10) {
+                // 10% 확률: 거대 황금 망고 🥭 (+20점, 체력+1, 4배 속도, 사과 200개 Shower)
+                emoji = MANGO;
+                isMango = true;
+            } else if (randVal < 0.40) {
+                // 30% 확률: 정크푸드 (-10점, 속도 50% 감축 디버프)
+                emoji = JUNK_FOODS[Math.floor(Math.random() * JUNK_FOODS.length)];
+                isJunk = true;
+            } else {
+                // 60% 확률: 건강 간식 (+10점)
+                emoji = HEALTHY_FOODS[Math.floor(Math.random() * HEALTHY_FOODS.length)];
+            }
+
+            const foodEl = document.createElement('div');
+            foodEl.className = 'absolute select-none transition-transform duration-75';
+            foodEl.textContent = emoji;
+
+            let startX = 0;
+            let startY = -60;
+
+            if (isMango) {
+                foodEl.style.fontSize = `${mangoSizeRem}rem`;
+                foodEl.classList.add('mango-glow');
+                startX = Math.random() * Math.max(10, stageWidth - 200);
+                startY = -200;
+            } else {
+                foodEl.style.fontSize = '2.5rem';
+                startX = 10 + Math.random() * (stageWidth - 60);
+                startY = -50;
+            }
+
+            foodEl.style.left = `${startX}px`;
+            foodEl.style.top = `${startY}px`;
+
+            itemsLayer.appendChild(foodEl);
+
+            activeFoods.push({
+                element: foodEl,
+                emoji: emoji,
+                isJunk: isJunk,
+                isMango: isMango,
+                x: startX,
+                y: startY,
+                speed: isMango ? 2.2 : (2.5 + Math.random() * 2.5),
+                rot: (Math.random() - 0.5) * 2,
+                currentRot: 0
+            });
+        }
+
+        // 망고 획득 시 사과 200개 폭포 연출 (DocumentFragment 기반 성능 최적화)
+        function triggerAppleShower(count = 200) {
+            const stageWidth = gameStage.clientWidth;
+            const frag = document.createDocumentFragment();
+            for (let i = 0; i < count; i++) {
+                const foodEl = document.createElement('div');
+                foodEl.className = 'absolute select-none transition-transform duration-75';
+                foodEl.textContent = '🍎';
+                foodEl.style.fontSize = '2.5rem';
+
+                const startX = 10 + Math.random() * Math.max(10, stageWidth - 60);
+                // Y 위치를 위쪽으로 넓게 분산(-50 ~ -2000)시켜 연속된 사과 폭포 구현
+                const startY = -50 - (Math.random() * 2000);
+
+                foodEl.style.left = `${startX}px`;
+                foodEl.style.top = `${startY}px`;
+
+                frag.appendChild(foodEl);
+
+                activeFoods.push({
+                    element: foodEl,
+                    emoji: '🍎',
+                    isJunk: false,
+                    isMango: false,
+                    isBonus: true, // 보너스 사과 (바닥에 떨어져도 하트 차감 X)
+                    x: startX,
+                    y: startY,
+                    speed: 2.5 + Math.random() * 4.5,
+                    rot: (Math.random() - 0.5) * 3,
+                    currentRot: 0
+                });
+            }
+            itemsLayer.appendChild(frag);
+        }
+
+        // 정크푸드(도넛 등) 획득 시 정크푸드 20개 폭난 연출
+        function triggerJunkShower(count = 20) {
+            const stageWidth = gameStage.clientWidth;
+            const frag = document.createDocumentFragment();
+            for (let i = 0; i < count; i++) {
+                const foodEl = document.createElement('div');
+                foodEl.className = 'absolute select-none transition-transform duration-75';
+                const junkEmoji = JUNK_FOODS[Math.floor(Math.random() * JUNK_FOODS.length)];
+                foodEl.textContent = junkEmoji;
+                foodEl.style.fontSize = '2.5rem';
+
+                const startX = 10 + Math.random() * Math.max(10, stageWidth - 60);
+                const startY = -50 - (Math.random() * 600); // 상단에서 연속적으로 낙하
+
+                foodEl.style.left = `${startX}px`;
+                foodEl.style.top = `${startY}px`;
+
+                frag.appendChild(foodEl);
+
+                activeFoods.push({
+                    element: foodEl,
+                    emoji: junkEmoji,
+                    isJunk: true,
+                    isJunkShower: true, // 추가 폭난 연출 방지용 플래그
+                    isMango: false,
+                    x: startX,
+                    y: startY,
+                    speed: 3 + Math.random() * 4,
+                    rot: (Math.random() - 0.5) * 4,
+                    currentRot: 0
+                });
+            }
+            itemsLayer.appendChild(frag);
+        }
+
+        // 점수/알림 팝업 생성
+        function createScorePopup(x, y, text, colorClass) {
+            const pop = document.createElement('div');
+            pop.className = `score-popup ${colorClass}`;
+            pop.textContent = text;
+            pop.style.left = `${x}px`;
+            pop.style.top = `${y}px`;
+            gameStage.appendChild(pop);
+
+            // 좌우 잘림 방지
+            const maxLeft = gameStage.clientWidth - pop.offsetWidth - 8;
+            if (maxLeft > 8) pop.style.left = `${Math.min(Math.max(8, x), maxLeft)}px`;
+
+            setTimeout(() => {
+                if (pop.parentNode) pop.parentNode.removeChild(pop);
+            }, 900);
+        }
+
+        // 바구니 튕김 애니메이션
+        function triggerBasketBounce() {
+            basketEmoji.classList.remove('basket-bounce');
+            void basketEmoji.offsetWidth;
+            basketEmoji.classList.add('basket-bounce');
+        }
+
+        // 정크푸드 피격 시 연출
+        function triggerJunkImpact() {
+            document.body.classList.remove('shake-effect');
+            void document.body.offsetWidth;
+            document.body.classList.add('shake-effect');
+
+            darkOverlay.style.opacity = '0.4';
+            setTimeout(() => { darkOverlay.style.opacity = '0'; }, 300);
+        }
+
+        // 건강 간식 놓쳤을 때 하트 차감 처리
+        function loseLife() {
+            if (isGameOver) return;
+
+            lives--;
+            updateLivesUI();
+            playMissSound();
+
+            darkOverlay.style.opacity = '0.3';
+            setTimeout(() => { darkOverlay.style.opacity = '0'; }, 200);
+
+            if (lives <= 0) {
+                triggerGameOver();
+            }
+        }
+
+        // 게임 오버 처리
+        function triggerGameOver() {
+            isGameOver = true;
+            playGameOverSound();
+            finalScoreText.textContent = score;
+            gameOverModal.classList.remove('hidden');
+        }
+
+        // 게임 재시작 처리
+        function restartGame() {
+            score = 0;
+            lives = 3;
+            isGameOver = false;
+
+            if (slowdownTimer) clearTimeout(slowdownTimer);
+            if (speedBoostTimer) clearTimeout(speedBoostTimer);
+            if (invincibleTimer) clearTimeout(invincibleTimer);
+            isSlowed = false;
+            isSpeedBoosted = false;
+            isInvincible = false;
+            basketEmoji.classList.remove('junk-debuff-glow', 'speed-boost-glow', 'invincible-glow');
+
+            scoreText.textContent = '0';
+            updateLivesUI();
+
+            for (let food of activeFoods) {
+                if (food.element.parentNode) {
+                    food.element.parentNode.removeChild(food.element);
+                }
+            }
+            activeFoods = [];
+            spawnTimer = 0;
+
+            gameOverModal.classList.add('hidden');
+            basketX = window.innerWidth / 2;
+            updateBasketPosition();
+        }
+
+        function gameLoop() {
+            if (!isGameOver) {
+                // 1. 바구니 이동 (4배 스피드 부스트 > 50% 슬로우 > 기본)
+                let currentSpeed = baseBasketSpeed;
+                if (isSpeedBoosted) {
+                    currentSpeed = baseBasketSpeed * 4; // ⚡ 4배 속도!
+                } else if (isSlowed) {
+                    currentSpeed = baseBasketSpeed / 2;  // 🐌 50% 속도
+                }
+
+                if (keys.Left) basketX -= currentSpeed;
+                if (keys.Right) basketX += currentSpeed;
+                updateBasketPosition();
+
+                // 2. 간식 생성 타이머
+                spawnTimer++;
+                if (spawnTimer > 40) {
+                    spawnFood();
+                    spawnTimer = 0;
+                }
+
+                // 바구니 충돌 영역 동적 측정
+                const stageHeight = gameStage.clientHeight;
+                const basketWidth = basket.offsetWidth || 80;
+                const basketRectX = basketX - (basketWidth / 2);
+                const catchYThreshold = stageHeight - (window.innerWidth < 640 ? 45 : 55);
+
+                // 3. 간식 낙하 및 충돌 체크
+                for (let i = activeFoods.length - 1; i >= 0; i--) {
+                    const food = activeFoods[i];
+                    food.y += food.speed;
+                    food.currentRot += food.rot;
+
+                    food.element.style.top = `${food.y}px`;
+                    food.element.style.transform = `rotate(${food.currentRot}deg)`;
+
+                    const foodWidth = food.isMango ? (mangoSizeRem * 16) : 40;
+                    const foodHeight = food.isMango ? (mangoSizeRem * 16) : 45;
+                    const foodCenterX = food.x + foodWidth / 2;
+                    const foodBottomY = food.y + foodHeight;
+
+                    const isHorizontallyOverlapping = (foodCenterX >= basketRectX - 25) && (foodCenterX <= basketRectX + basketWidth + 25);
+                    const isVerticallyOverlapping = (foodBottomY >= catchYThreshold) && (food.y <= stageHeight + 20);
+
+                    if (isHorizontallyOverlapping && isVerticallyOverlapping) {
+                        // 바구니 획득!
+                        if (food.isJunk) {
+                            if (isInvincible) {
+                                // 무적 상태일 때 정크푸드 방어!
+                                playCatchSound(false);
+                                triggerBasketBounce();
+                                createScorePopup(basketX - 30, catchYThreshold - 60, '🛡️ 방어!', 'text-indigo-500 font-bold text-2xl');
+                            } else {
+                                score = Math.max(0, score - 10);
+                                playJunkSound();
+                                triggerJunkImpact();
+                                applySpeedSlowdown();
+                                // 떨어지는 정크푸드(isJunkShower)는 연쇄 폭난 없이 10점만 감점
+                                if (!food.isJunkShower) {
+                                    triggerJunkShower(20); // 최초 정크푸드일 때만 20개 습격!
+                                    createScorePopup(basketX - 60, catchYThreshold - 60, '-10 🍩 💣 정크푸드 20개 습격!', 'text-red-500 font-bold text-xl sm:text-2xl');
+                                } else {
+                                    createScorePopup(basketX - 30, catchYThreshold - 60, '-10 🍩', 'text-red-500 font-bold text-xl sm:text-2xl');
+                                }
+                            }
+                        } else if (food.isMango) {
+                            score += 20;
+                            let restoredHeartText = '';
+                            if (lives < 3) {
+                                lives++;
+                                updateLivesUI();
+                                restoredHeartText = ' (+❤️)';
+                            }
+                            playCatchSound(true);
+                            triggerBasketBounce();
+                            applySpeedBoost(); // 🚀 망고 4배 속도 부스트 발동!
+                            triggerAppleShower(200); // 🍎 사과 200개 샤워 발동!
+                            createScorePopup(basketX - 70, catchYThreshold - 100, `🥭 +20${restoredHeartText}! ⚡ 4배 스피드! 🍎 사과 200개!`, 'text-amber-500 text-2xl font-black');
+                        } else {
+                            score += 10;
+                            playCatchSound(false);
+                            triggerBasketBounce();
+                            createScorePopup(basketX - 20, catchYThreshold - 60, '+10 🥗', 'text-emerald-500 font-bold');
+                        }
+
+                        // 점수 갱신
+                        scoreText.textContent = score;
+                        if (score > highScore) {
+                            highScore = score;
+                            highScoreText.textContent = highScore;
+                            localStorage.setItem('kitchen_high_score', highScore);
+                        }
+
+                        // 요소 삭제
+                        if (food.element.parentNode) food.element.parentNode.removeChild(food.element);
+                        activeFoods.splice(i, 1);
+                    } else if (food.y > stageHeight + 30) {
+                        // 바닥 떨어짐 처리 (무적 상태 시 하트 차감 없음)
+                        if (!food.isJunk && !food.isMango && !food.isBonus) {
+                            if (!isInvincible) {
+                                loseLife();
+                            }
+                        }
+                        if (food.element.parentNode) food.element.parentNode.removeChild(food.element);
+                        activeFoods.splice(i, 1);
+                    }
+                }
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 게임 시작
+        window.onload = () => {
+            updateBasketPosition();
+            updateLivesUI();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>

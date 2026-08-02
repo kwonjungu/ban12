@@ -1,0 +1,1604 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>알록달록 3D 간식 어드벤처 🐻🌈✨ (주방받기 & 숲속탐험)</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Three.js 3D Engine CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  
+  <!-- Google Fonts (Jua) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      font-family: 'Jua', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0f172a;
+    }
+
+    #game-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      display: block;
+    }
+
+    #ui-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .interactive {
+      pointer-events: auto;
+    }
+
+    @keyframes rainbow-text {
+      0% { color: #ef4444; text-shadow: 0 0 8px rgba(239, 68, 68, 0.6); }
+      20% { color: #f59e0b; text-shadow: 0 0 8px rgba(245, 158, 11, 0.6); }
+      40% { color: #10b981; text-shadow: 0 0 8px rgba(16, 185, 129, 0.6); }
+      60% { color: #06b6d4; text-shadow: 0 0 8px rgba(6, 182, 212, 0.6); }
+      80% { color: #8b5cf6; text-shadow: 0 0 8px rgba(139, 92, 246, 0.6); }
+      100% { color: #ec4899; text-shadow: 0 0 8px rgba(236, 72, 153, 0.6); }
+    }
+
+    .rainbow-text-anim {
+      animation: rainbow-text 3s infinite linear;
+    }
+
+    @keyframes rainbow-glow {
+      0% { box-shadow: 0 0 15px #f43f5e, inset 0 0 10px #f43f5e; border-color: #f43f5e; }
+      25% { box-shadow: 0 0 15px #eab308, inset 0 0 10px #eab308; border-color: #eab308; }
+      50% { box-shadow: 0 0 15px #10b981, inset 0 0 10px #10b981; border-color: #10b981; }
+      75% { box-shadow: 0 0 15px #3b82f6, inset 0 0 10px #3b82f6; border-color: #3b82f6; }
+      100% { box-shadow: 0 0 15px #a855f7, inset 0 0 10px #a855f7; border-color: #a855f7; }
+    }
+
+    .rainbow-border-glow {
+      animation: rainbow-glow 2.5s infinite linear;
+    }
+
+    .taco-mode-active {
+      animation: rainbow-glow 0.6s infinite linear !important;
+    }
+
+    .btn-3d {
+      transition: all 0.08s ease;
+    }
+    .btn-3d:active {
+      transform: translateY(3px) scale(0.95);
+    }
+  </style>
+</head>
+<body class="relative flex flex-col justify-between items-center select-none overflow-hidden">
+
+  <!-- 3D Canvas -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- Floating UI Overlay -->
+  <div id="ui-layer" class="flex flex-col justify-between items-center p-3 md:p-5">
+    
+    <!-- Top Bar for MODE 1 (Kitchen Catch) -->
+    <header id="mode1-header" class="hidden w-full max-w-xl bg-white/85 backdrop-blur-md rounded-3xl p-3 md:p-4 border-4 border-amber-300 shadow-2xl flex justify-between items-center interactive mt-1 transition-all rainbow-border-glow">
+      <div class="flex items-center space-x-2.5">
+        <span class="text-3xl md:text-4xl drop-shadow animate-bounce">🍓</span>
+        <div class="text-left">
+          <div class="flex items-center space-x-1">
+            <span class="text-[10px] md:text-xs bg-gradient-to-r from-amber-400 to-pink-500 text-white font-black px-2.5 py-0.5 rounded-full shadow">👑 최고 <span id="best-score">0</span></span>
+          </div>
+          <p class="text-xs text-pink-600 font-bold mt-0.5">점수</p>
+          <p id="score" class="text-2xl md:text-3xl font-black text-purple-900 leading-none drop-shadow">0</p>
+        </div>
+      </div>
+
+      <div class="text-center flex flex-col items-center">
+        <h1 class="text-base md:text-xl font-black rainbow-text-anim tracking-wider drop-shadow-sm">
+          알록달록 3D 주방 간식 모아! 🐻
+        </h1>
+        <div class="flex items-center gap-1.5 mt-1">
+          <span id="level-badge" class="text-xs bg-gradient-to-r from-cyan-400 to-blue-500 text-white px-3 py-0.5 rounded-full font-bold shadow-md">LV.1 새싹 셰프 🐻</span>
+          <span id="taco-status-badge" class="hidden text-xs bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-500 text-white font-black px-2.5 py-0.5 rounded-full border border-white shadow-lg animate-pulse">🌮 무적 TACO TIME!</span>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2">
+        <button id="cam-reset-btn-1" class="bg-indigo-600/80 hover:bg-indigo-700 text-white text-xs px-2.5 py-1.5 rounded-xl border border-white/40 interactive btn-3d font-bold">
+          🎥 시점 리셋
+        </button>
+        <button id="mode1-back-btn" class="bg-slate-800/80 hover:bg-slate-900 text-white text-xs px-3 py-1.5 rounded-xl border border-white/40 interactive btn-3d">
+          🏠 홈
+        </button>
+        <div class="text-right">
+          <p class="text-[10px] text-purple-600 font-bold">기회</p>
+          <p id="lives" class="text-base md:text-xl font-black text-rose-500">💖 💖 💖</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- Top Bar for MODE 2 (Forest Treasure Search) -->
+    <header id="mode2-header" class="hidden w-full max-w-xl bg-slate-900/85 backdrop-blur-md rounded-3xl p-3 border-4 border-emerald-400 shadow-2xl flex flex-col interactive mt-1 text-white">
+      <div class="flex justify-between items-center w-full mb-2">
+        <div class="flex items-center space-x-2">
+          <span class="text-3xl animate-bounce">🌲</span>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h2 class="text-lg md:text-xl font-black text-emerald-300">찾아봐요 간식의 숲! 🔍</h2>
+              <span id="forest-stage-badge" class="text-xs bg-amber-400 text-slate-950 font-black px-2.5 py-0.5 rounded-full shadow">STAGE 1</span>
+            </div>
+            <p class="text-[11px] text-emerald-100 font-bold">화면을 드래그해서 360° 시점을 돌리며 간식을 찾아보세요!</p>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <button id="cam-reset-btn-2" class="bg-indigo-600/80 hover:bg-indigo-700 text-white text-xs px-2.5 py-1.5 rounded-xl border border-white/40 interactive btn-3d font-bold">
+            🎥 시점 리셋
+          </button>
+          <button id="mode2-back-btn" class="bg-rose-500 hover:bg-rose-600 text-white text-xs px-3 py-1.5 rounded-xl border border-white/40 interactive btn-3d font-bold">
+            🏠 나가기
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-black/40 rounded-2xl p-2 border border-emerald-500/40 flex justify-around items-center text-xs flex-wrap gap-1" id="forest-goals-container">
+        <!-- Goal items injected via JS -->
+      </div>
+    </header>
+
+    <!-- Score Popups Container -->
+    <div id="popup-container" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+
+    <!-- LOBBY & MODE SELECTION MODAL -->
+    <div id="lobby-modal" class="absolute inset-0 bg-slate-950/90 backdrop-blur-xl z-50 flex flex-col justify-center items-center text-center p-4 text-white interactive overflow-y-auto">
+      <div class="text-6xl md:text-7xl mb-2 animate-bounce flex space-x-2">
+        <span>🐻</span><span>🌈</span><span>🌲</span><span>🌮</span>
+      </div>
+      <h1 class="text-3xl md:text-5xl font-black rainbow-text-anim mb-1 drop-shadow-lg">
+        알록달록 3D 간식 어드벤처
+      </h1>
+      <p class="text-xs md:text-sm text-pink-200 mb-6 font-bold max-w-md">
+        플레이할 3D 모드를 선택해주세요!
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-xl w-full">
+        <!-- Mode 1 Card -->
+        <div id="select-mode-1" class="bg-gradient-to-br from-pink-500/30 to-purple-600/30 border-2 border-pink-400/60 hover:border-pink-300 rounded-3xl p-5 flex flex-col justify-between items-center cursor-pointer transition-all hover:scale-105 active:scale-95 shadow-2xl backdrop-blur-md group">
+          <div class="text-5xl mb-2 group-hover:scale-110 transition-transform">🍳🐻🍎</div>
+          <h3 class="text-xl font-black text-amber-300 mb-1">모드 1: 3D 주방 간식 모아!</h3>
+          <p class="text-xs text-pink-100 font-bold mb-4">
+            3축(X·Y·Z) 전 공간 이동 및 점프! 팔/다리가 무빙하는 곰돌이와 떨어지는 건강 간식을 집어넣으세요! (Y키 무적)
+          </p>
+          <button class="bg-gradient-to-r from-pink-500 to-purple-600 text-white font-black px-6 py-2.5 rounded-full text-sm shadow-lg btn-3d w-full">
+            주방 모드 시작! 🚀
+          </button>
+        </div>
+
+        <!-- Mode 2 Card -->
+        <div id="select-mode-2" class="bg-gradient-to-br from-emerald-500/30 to-teal-600/30 border-2 border-emerald-400/60 hover:border-emerald-300 rounded-3xl p-5 flex flex-col justify-between items-center cursor-pointer transition-all hover:scale-105 active:scale-95 shadow-2xl backdrop-blur-md group">
+          <div class="text-5xl mb-2 group-hover:scale-110 transition-transform">🌲🔍🍓</div>
+          <h3 class="text-xl font-black text-emerald-300 mb-1">모드 2: 찾아봐요 간식의 숲</h3>
+          <p class="text-xs text-emerald-100 font-bold mb-4">
+            울창한 3D 판타지 숲속 탐험! 나무 뒤, 바위 틈, 버섯 밑에 숨은 비밀 간식을 찾아 터치하세요!
+          </p>
+          <button class="bg-gradient-to-r from-emerald-400 to-teal-600 text-slate-950 font-black px-6 py-2.5 rounded-full text-sm shadow-lg btn-3d w-full">
+            숲속 탐험 시작! 🔍
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mode 1 Game Over Modal -->
+    <div id="game-over-modal" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-lg z-50 flex flex-col justify-center items-center text-center p-6 text-white interactive">
+      <div class="text-7xl mb-4 animate-bounce">💔🐻🌈</div>
+      <h2 class="text-3xl md:text-5xl font-black text-rose-400 mb-2 drop-shadow-lg">게임 오버!</h2>
+      <p id="final-level-title" class="text-lg font-bold text-amber-300 mb-4">최종 달성 칭호: LV.1 새싹 셰프</p>
+      
+      <div class="bg-white/10 rounded-3xl px-8 py-4 mb-6 border-2 border-pink-500/40 backdrop-blur-md">
+        <p class="text-xs text-gray-300 uppercase tracking-widest mb-1">최종 점수</p>
+        <p id="final-score" class="text-4xl md:text-5xl font-black rainbow-text-anim">0점</p>
+      </div>
+
+      <div class="flex gap-3">
+        <button id="restart-btn" class="bg-gradient-to-r from-emerald-400 to-cyan-500 text-slate-950 font-black px-8 py-3.5 rounded-full text-lg shadow-2xl border-2 border-white transition-all btn-3d">
+          다시 도전! 🔄
+        </button>
+        <button id="mode1-to-lobby-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-black px-6 py-3.5 rounded-full text-lg shadow-2xl border border-white/50 transition-all btn-3d">
+          로비로 🏠
+        </button>
+      </div>
+    </div>
+
+    <!-- Mode 2 Forest Victory Modal -->
+    <div id="forest-clear-modal" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-lg z-50 flex flex-col justify-center items-center text-center p-6 text-white interactive">
+      <div class="text-7xl mb-4 animate-bounce">🏆🐻🌲</div>
+      <h2 id="forest-clear-title" class="text-3xl md:text-5xl font-black text-emerald-400 mb-2 drop-shadow-lg">STAGE 1 탐험 성공!</h2>
+      <p id="forest-clear-subtitle" class="text-base md:text-lg font-bold text-amber-300 mb-4">숲속에 숨겨진 모든 건강 간식을 다 찾아냈어요!</p>
+
+      <div class="bg-emerald-950/60 border-2 border-emerald-400/60 rounded-3xl p-5 max-w-sm w-full mb-6 text-center">
+        <p class="text-xs text-emerald-200 mb-1">수집 완료 간식 보물</p>
+        <p class="text-2xl font-black text-white" id="forest-clear-time-text">🎉 100% 탐험 완료!</p>
+      </div>
+
+      <div class="flex gap-3">
+        <button id="forest-next-btn" class="bg-gradient-to-r from-emerald-400 to-teal-500 text-slate-950 font-black px-8 py-3.5 rounded-full text-lg shadow-2xl border-2 border-white transition-all btn-3d">
+          다음 숲 탐험하기 🌲
+        </button>
+        <button id="mode2-to-lobby-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-black px-6 py-3.5 rounded-full text-lg shadow-2xl border border-white/50 transition-all btn-3d">
+          로비로 🏠
+        </button>
+      </div>
+    </div>
+
+    <!-- 2D Top-Down Hint Minimap Modal -->
+    <div id="forest-hint-modal" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex flex-col justify-center items-center text-center p-4 text-white interactive">
+      <div class="bg-slate-900/90 border-2 border-emerald-400 rounded-3xl p-4 max-w-sm w-full flex flex-col items-center shadow-2xl">
+        <div class="flex justify-between items-center w-full mb-2">
+          <h3 class="text-lg font-black text-emerald-300 flex items-center gap-1">
+            <span>🧭</span> 2D 숲속 조감도 지도
+          </h3>
+          <button id="btn-close-hint" class="bg-rose-500 hover:bg-rose-600 text-white text-xs px-2.5 py-1 rounded-lg font-bold btn-3d">
+            ✕ 닫기
+          </button>
+        </div>
+        <p class="text-[11px] text-slate-300 mb-3">위에서 내려다본 2D 지도입니다. 🌲나무기둥 위치와 🐻곰돌이, 숨겨진 간식 간의 거리(m)를 확인해보세요!</p>
+        
+        <!-- 2D Top-Down Canvas -->
+        <canvas id="forest-hint-canvas" width="260" height="260" class="bg-slate-950 rounded-2xl border border-emerald-500/40 shadow-inner mb-3"></canvas>
+        
+        <!-- Object Distance List -->
+        <div id="forest-hint-list" class="w-full max-h-36 overflow-y-auto space-y-1.5 pr-1">
+          <!-- Dynamically populated snack list -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Controls -->
+    <div id="mobile-controls" class="hidden w-full max-w-lg flex justify-between items-end px-2 mb-2 interactive gap-2">
+      
+      <!-- 4-Way D-Pad -->
+      <div class="grid grid-cols-3 gap-1 w-36 h-36 bg-slate-900/50 p-1.5 rounded-3xl backdrop-blur-md border border-white/30 shadow-xl">
+        <div></div>
+        <button id="btn-up" class="bg-gradient-to-b from-indigo-500 to-purple-600 active:from-purple-600 text-white font-black text-xl rounded-xl border border-indigo-300 btn-3d flex items-center justify-center select-none touch-none">
+          ▲
+        </button>
+        <div></div>
+
+        <button id="btn-left" class="bg-gradient-to-r from-pink-500 to-rose-600 active:from-rose-600 text-white font-black text-xl rounded-xl border border-pink-300 btn-3d flex items-center justify-center select-none touch-none">
+          ◀
+        </button>
+        <div class="flex items-center justify-center text-xs text-white/60 font-bold">3D</div>
+        <button id="btn-right" class="bg-gradient-to-l from-pink-500 to-rose-600 active:from-rose-600 text-white font-black text-xl rounded-xl border border-pink-300 btn-3d flex items-center justify-center select-none touch-none">
+          ▶
+        </button>
+
+        <div></div>
+        <button id="btn-down" class="bg-gradient-to-t from-indigo-500 to-purple-600 active:from-purple-600 text-white font-black text-xl rounded-xl border border-indigo-300 btn-3d flex items-center justify-center select-none touch-none">
+          ▼
+        </button>
+        <div></div>
+      </div>
+
+      <!-- Jump & Taco Buttons for Mode 1 -->
+      <div id="mode1-action-btns" class="flex flex-col gap-2">
+        <button id="btn-jump" class="bg-gradient-to-r from-emerald-400 to-teal-500 active:from-teal-500 text-slate-950 font-black text-base px-5 py-3 rounded-2xl border-2 border-white shadow-xl btn-3d flex items-center justify-center select-none touch-none gap-1">
+          <span class="text-xl">🦘</span>
+          <span>점프!</span>
+        </button>
+
+        <button id="btn-taco" class="bg-gradient-to-r from-amber-400 via-pink-500 to-cyan-400 text-slate-900 font-black text-xs px-4 py-2.5 rounded-2xl border-2 border-white shadow-xl btn-3d flex items-center justify-center select-none touch-none gap-1">
+          <span class="text-xl">🌮</span>
+          <span class="font-extrabold text-[11px] text-white drop-shadow">Y 무적!</span>
+        </button>
+      </div>
+
+      <!-- Mode 2 Forest Helper Hint Button -->
+      <div id="mode2-action-btns" class="hidden flex flex-col gap-2">
+        <button id="btn-forest-hint" class="bg-gradient-to-r from-amber-400 to-emerald-400 text-slate-950 font-black text-sm px-5 py-3.5 rounded-2xl border-2 border-white shadow-xl btn-3d flex items-center justify-center select-none touch-none gap-1">
+          <span class="text-xl">💡</span>
+          <span>힌트 구하기</span>
+        </button>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    // --- Global UI Elements ---
+    const canvas = document.getElementById('game-canvas');
+    const popupContainer = document.getElementById('popup-container');
+    const lobbyModal = document.getElementById('lobby-modal');
+    const selectMode1 = document.getElementById('select-mode-1');
+    const selectMode2 = document.getElementById('select-mode-2');
+    const mobileControls = document.getElementById('mobile-controls');
+
+    // Controls Buttons
+    const btnUp = document.getElementById('btn-up');
+    const btnDown = document.getElementById('btn-down');
+    const btnLeft = document.getElementById('btn-left');
+    const btnRight = document.getElementById('btn-right');
+    const btnJump = document.getElementById('btn-jump');
+    const btnTaco = document.getElementById('btn-taco');
+    const camResetBtn1 = document.getElementById('cam-reset-btn-1');
+    const camResetBtn2 = document.getElementById('cam-reset-btn-2');
+
+    // Mode 1 UI
+    const mode1Header = document.getElementById('mode1-header');
+    const scoreEl = document.getElementById('score');
+    const bestScoreEl = document.getElementById('best-score');
+    const livesEl = document.getElementById('lives');
+    const levelBadge = document.getElementById('level-badge');
+    const tacoStatusBadge = document.getElementById('taco-status-badge');
+    const gameOverModal = document.getElementById('game-over-modal');
+    const restartBtn = document.getElementById('restart-btn');
+    const finalScoreEl = document.getElementById('final-score');
+    const finalLevelTitle = document.getElementById('final-level-title');
+    const mode1BackBtn = document.getElementById('mode1-back-btn');
+    const mode1ToLobbyBtn = document.getElementById('mode1-to-lobby-btn');
+    const mode1ActionBtns = document.getElementById('mode1-action-btns');
+
+    // Mode 2 UI
+    const mode2Header = document.getElementById('mode2-header');
+    const forestStageBadge = document.getElementById('forest-stage-badge');
+    const forestGoalsContainer = document.getElementById('forest-goals-container');
+    const forestClearModal = document.getElementById('forest-clear-modal');
+    const forestClearTitle = document.getElementById('forest-clear-title');
+    const forestNextBtn = document.getElementById('forest-next-btn');
+    const mode2BackBtn = document.getElementById('mode2-back-btn');
+    const mode2ToLobbyBtn = document.getElementById('mode2-to-lobby-btn');
+    const mode2ActionBtns = document.getElementById('mode2-action-btns');
+    const btnForestHint = document.getElementById('btn-forest-hint');
+
+    let currentMode = null;
+    let isGameStarted = false;
+    let isGameOver = false;
+    let score = 0;
+    let bestScore = parseInt(localStorage.getItem('3d_kitchen_best_score') || '0', 10);
+    let lives = 3;
+    let level = 1;
+
+    let isInvincible = false;
+    let tacoTimer = 0;
+
+    const MOVE_SPEED = 0.22;
+    const BOUNDS_X = 4.2;
+    const BOUNDS_Z_MIN = -0.5;
+    const BOUNDS_Z_MAX = 4.2;
+    const JUMP_IMPULSE = 0.35;
+    const GRAVITY = -0.022;
+
+    let targetBearX = 0, bearX = 0, prevBearX = 0;
+    let targetBearZ = 2.5, bearZ = 2.5, prevBearZ = 2.5;
+    let bearY = 0, bearVelY = 0, isJumping = false;
+    let bearRotY = 0, targetBearRotY = 0;
+    let bearSquashY = 1.0, bearSquashXZ = 1.0, landingSquashTimer = 0;
+    let catchEmotionTimer = 0, hurtEmotionTimer = 0;
+
+    const activeKeys = { left: false, right: false, up: false, down: false };
+
+    let cameraYaw = 0;
+    let cameraPitch = 0;
+    let isPointerDown = false;
+    let isCameraDragging = false;
+    let pointerStartX = 0, pointerStartY = 0;
+    let lastPointerX = 0, lastPointerY = 0;
+
+    const mouse = new THREE.Vector2();
+    const raycaster = new THREE.Raycaster();
+    let cameraShakeIntensity = 0;
+
+    let scene, camera, renderer;
+    let kitchenGroup, forestGroup;
+    let bearGroup, bearModelWrapper, chefHatGroup, leftArmGroup, rightArmGroup, leftLegGroup, rightLegGroup;
+    let invincibilityShieldMesh;
+    const fallingItems = [];
+    const particleSystems = [];
+
+    if (bestScoreEl) bestScoreEl.textContent = bestScore;
+
+    let audioCtx = null;
+    function initAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playSound(type) {
+      try {
+        initAudio();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const now = audioCtx.currentTime;
+
+        if (type === 'catch') {
+          osc.type = 'sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.exponentialRampToValueAtTime(900, now + 0.1);
+          gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+          osc.connect(gain); gain.connect(audioCtx.destination); osc.start(now); osc.stop(now + 0.1);
+        } else if (type === 'junk') {
+          osc.type = 'sawtooth'; osc.frequency.setValueAtTime(220, now); osc.frequency.exponentialRampToValueAtTime(80, now + 0.25);
+          gain.gain.setValueAtTime(0.35, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+          osc.connect(gain); gain.connect(audioCtx.destination); osc.start(now); osc.stop(now + 0.25);
+        } else if (type === 'jump') {
+          osc.type = 'sine'; osc.frequency.setValueAtTime(250, now); osc.frequency.exponentialRampToValueAtTime(500, now + 0.12);
+          gain.gain.setValueAtTime(0.25, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+          osc.connect(gain); gain.connect(audioCtx.destination); osc.start(now); osc.stop(now + 0.12);
+        } else if (type === 'discover') {
+          osc.type = 'triangle'; osc.frequency.setValueAtTime(523, now); osc.frequency.exponentialRampToValueAtTime(1046, now + 0.2);
+          gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+          osc.connect(gain); gain.connect(audioCtx.destination); osc.start(now); osc.stop(now + 0.2);
+        } else if (type === 'fanfare') {
+          [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+            const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+            o.type = 'triangle'; o.frequency.setValueAtTime(freq, now + idx * 0.08);
+            g.gain.setValueAtTime(0.25, now + idx * 0.08); g.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.08 + 0.2);
+            o.connect(g); g.connect(audioCtx.destination); o.start(now + idx * 0.08); o.stop(now + idx * 0.08 + 0.2);
+          });
+        } else if (type === 'taco') {
+          [440, 554, 659, 880].forEach((freq, idx) => {
+            const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+            o.type = 'square'; o.frequency.setValueAtTime(freq, now + idx * 0.05);
+            g.gain.setValueAtTime(0.15, now + idx * 0.05); g.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.05 + 0.15);
+            o.connect(g); g.connect(audioCtx.destination); o.start(now + idx * 0.05); o.stop(now + idx * 0.05 + 0.15);
+          });
+        }
+      } catch (e) {}
+    }
+
+    function initThreeJS() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0f172a);
+      scene.fog = new THREE.FogExp2(0x0f172a, 0.025);
+
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(0, 6.5, 10.5);
+      camera.lookAt(0, 1.0, 1.5);
+
+      renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: "high-performance" });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xfffbeb, 0.9);
+      dirLight.position.set(5, 14, 8);
+      dirLight.castShadow = true;
+      scene.add(dirLight);
+
+      kitchenGroup = new THREE.Group();
+      forestGroup = new THREE.Group();
+      scene.add(kitchenGroup);
+      scene.add(forestGroup);
+      forestGroup.visible = false;
+
+      createTableEnvironment();
+      create3DBearCharacter();
+    }
+
+    function createTableEnvironment() {
+      const tableGeo = new THREE.BoxGeometry(11, 0.5, 16);
+      const tableMat = new THREE.MeshStandardMaterial({ color: 0xca8a04, roughness: 0.6 });
+      const tableMesh = new THREE.Mesh(tableGeo, tableMat);
+      tableMesh.position.set(0, -0.25, -2);
+      tableMesh.receiveShadow = true;
+      kitchenGroup.add(tableMesh);
+
+      const wallGeo = new THREE.PlaneGeometry(30, 20);
+      const wallMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
+      const wallMesh = new THREE.Mesh(wallGeo, wallMat);
+      wallMesh.position.set(0, 8, -8);
+      kitchenGroup.add(wallMesh);
+    }
+
+    function create3DBearCharacter() {
+      bearGroup = new THREE.Group();
+      bearModelWrapper = new THREE.Group();
+      bearGroup.add(bearModelWrapper);
+
+      const furMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.8 });
+      const snoutMat = new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.7 });
+      const blackMat = new THREE.MeshStandardMaterial({ color: 0x1c1917, roughness: 0.3 });
+      const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
+
+      // 1. Bear Head
+      const headGeo = new THREE.SphereGeometry(1.0, 32, 32);
+      const headMesh = new THREE.Mesh(headGeo, furMat);
+      headMesh.scale.set(1.15, 0.95, 1.15);
+      headMesh.castShadow = true;
+      bearModelWrapper.add(headMesh);
+
+      // 2. Bear Ears & Inner Ears
+      const earGeo = new THREE.SphereGeometry(0.38, 24, 24);
+      const leftEar = new THREE.Mesh(earGeo, furMat); leftEar.position.set(-0.9, 0.75, 0); leftEar.castShadow = true; bearModelWrapper.add(leftEar);
+      const rightEar = new THREE.Mesh(earGeo, furMat); rightEar.position.set(0.9, 0.75, 0); rightEar.castShadow = true; bearModelWrapper.add(rightEar);
+
+      const innerEarGeo = new THREE.SphereGeometry(0.2, 16, 16);
+      const leftInnerEar = new THREE.Mesh(innerEarGeo, snoutMat); leftInnerEar.position.set(-0.9, 0.75, 0.2); bearModelWrapper.add(leftInnerEar);
+      const rightInnerEar = new THREE.Mesh(innerEarGeo, snoutMat); rightInnerEar.position.set(0.9, 0.75, 0.2); bearModelWrapper.add(rightInnerEar);
+
+      // 3. Bear Snout, Nose & Eyes
+      const snoutGeo = new THREE.SphereGeometry(0.48, 24, 24);
+      const snoutMesh = new THREE.Mesh(snoutGeo, snoutMat); snoutMesh.position.set(0, -0.15, 0.8); snoutMesh.scale.set(1.2, 0.8, 0.9); bearModelWrapper.add(snoutMesh);
+
+      const noseGeo = new THREE.SphereGeometry(0.18, 16, 16);
+      const nose = new THREE.Mesh(noseGeo, blackMat); nose.position.set(0, 0, 1.22); bearModelWrapper.add(nose);
+
+      const eyeGeo = new THREE.SphereGeometry(0.12, 16, 16);
+      const leftEye = new THREE.Mesh(eyeGeo, blackMat); leftEye.position.set(-0.4, 0.25, 0.98); bearModelWrapper.add(leftEye);
+      const rightEye = new THREE.Mesh(eyeGeo, blackMat); rightEye.position.set(0.4, 0.25, 0.98); bearModelWrapper.add(rightEye);
+
+      // 4. Chef Hat 👨‍🍳
+      chefHatGroup = new THREE.Group();
+      const hatBaseGeo = new THREE.CylinderGeometry(0.55, 0.5, 0.35, 24);
+      const hatBase = new THREE.Mesh(hatBaseGeo, whiteMat); hatBase.position.set(0, 0.95, 0);
+      const hatTopGeo = new THREE.SphereGeometry(0.7, 24, 24);
+      const hatTop = new THREE.Mesh(hatTopGeo, whiteMat); hatTop.position.set(0, 1.4, 0); hatTop.scale.set(1.1, 0.7, 1.1);
+      chefHatGroup.add(hatBase); chefHatGroup.add(hatTop);
+      chefHatGroup.position.set(0, 0.1, 0); chefHatGroup.rotation.z = -0.1;
+      bearModelWrapper.add(chefHatGroup);
+
+      // 5. Catching Bowl Rim
+      const bowlRimGeo = new THREE.TorusGeometry(0.45, 0.07, 16, 32);
+      const bowlRimMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.3 });
+      const bowlRim = new THREE.Mesh(bowlRimGeo, bowlRimMat);
+      bowlRim.rotation.x = Math.PI / 2; bowlRim.position.set(0, 0.6, 0);
+      bearModelWrapper.add(bowlRim);
+
+      // 6. Limbs (Arms & Legs)
+      leftArmGroup = new THREE.Group();
+      rightArmGroup = new THREE.Group();
+      leftLegGroup = new THREE.Group();
+      rightLegGroup = new THREE.Group();
+
+      const limbGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.6, 12);
+      const leftArm = new THREE.Mesh(limbGeo, furMat); leftArm.position.y = -0.3; leftArmGroup.add(leftArm);
+      const rightArm = new THREE.Mesh(limbGeo, furMat); rightArm.position.y = -0.3; rightArmGroup.add(rightArm);
+      const leftLeg = new THREE.Mesh(limbGeo, furMat); leftLeg.position.y = -0.3; leftLegGroup.add(leftLeg);
+      const rightLeg = new THREE.Mesh(limbGeo, furMat); rightLeg.position.y = -0.3; rightLegGroup.add(rightLeg);
+
+      leftArmGroup.position.set(-0.95, 0.1, 0);
+      rightArmGroup.position.set(0.95, 0.1, 0);
+      leftLegGroup.position.set(-0.45, -0.7, 0);
+      rightLegGroup.position.set(0.45, -0.7, 0);
+
+      bearModelWrapper.add(leftArmGroup);
+      bearModelWrapper.add(rightArmGroup);
+      bearModelWrapper.add(leftLegGroup);
+      bearModelWrapper.add(rightLegGroup);
+
+      // 7. Invincibility Shield
+      const shieldGeo = new THREE.SphereGeometry(1.6, 24, 24);
+      const shieldMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xf59e0b, emissiveIntensity: 0.8, transparent: true, opacity: 0.45, wireframe: true });
+      invincibilityShieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
+      invincibilityShieldMesh.visible = false;
+      bearGroup.add(invincibilityShieldMesh);
+
+      bearGroup.position.set(0, 0.8, 2.5);
+      scene.add(bearGroup);
+    }
+
+    function create3DSnackMesh(type) {
+      const group = new THREE.Group();
+      if (type === 'BLUEBERRY') {
+        const geo = new THREE.SphereGeometry(0.3, 16, 16);
+        const mat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.3 });
+        const berry = new THREE.Mesh(geo, mat); berry.castShadow = true; group.add(berry);
+      } else if (type === 'STRAWBERRY') {
+        const geo = new THREE.ConeGeometry(0.35, 0.6, 16);
+        const mat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.4 });
+        const berry = new THREE.Mesh(geo, mat); berry.rotation.x = Math.PI; berry.castShadow = true; group.add(berry);
+      } else if (type === 'HONEY_JAR') {
+        const jarGeo = new THREE.CylinderGeometry(0.35, 0.38, 0.6, 16);
+        const jarMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.2 });
+        const jar = new THREE.Mesh(jarGeo, jarMat); jar.castShadow = true; group.add(jar);
+      } else if (type === 'WATERMELON') {
+        const geo = new THREE.CylinderGeometry(0.45, 0.45, 0.2, 16, 1, false, 0, Math.PI);
+        const mat = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.5 });
+        const melon = new THREE.Mesh(geo, mat); melon.rotation.z = Math.PI / 2; melon.castShadow = true; group.add(melon);
+      } else if (type === 'GOLDEN_APPLE') {
+        const geo = new THREE.SphereGeometry(0.4, 16, 16);
+        const mat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.8, roughness: 0.2, emissive: 0xeab308, emissiveIntensity: 0.5 });
+        const apple = new THREE.Mesh(geo, mat); apple.castShadow = true; group.add(apple);
+      } else if (type === 'DONUT') {
+        const geo = new THREE.TorusGeometry(0.32, 0.16, 16, 24);
+        const mat = new THREE.MeshStandardMaterial({ color: 0xec4899, roughness: 0.4 });
+        const donut = new THREE.Mesh(geo, mat); donut.castShadow = true; group.add(donut);
+      } else if (type === 'FRIES') {
+        const geo = new THREE.BoxGeometry(0.4, 0.5, 0.25);
+        const mat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.5 });
+        const fries = new THREE.Mesh(geo, mat); fries.castShadow = true; group.add(fries);
+      } else if (type === 'TACO') {
+        const geo = new THREE.CylinderGeometry(0.45, 0.45, 0.25, 16, 1, false, 0, Math.PI);
+        const mat = new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.4 });
+        const taco = new THREE.Mesh(geo, mat); taco.rotation.x = Math.PI / 2; taco.castShadow = true; group.add(taco);
+      } else {
+        const geo = new THREE.SphereGeometry(0.38, 16, 16);
+        const mat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.4 });
+        const snack = new THREE.Mesh(geo, mat); snack.castShadow = true; group.add(snack);
+      }
+      return group;
+    }
+
+    function spawnKitchenItem() {
+      const rand = Math.random();
+      let isJunk = false, isGold = false, isTaco = false;
+      let snackType = 'APPLE';
+
+      if (isInvincible) {
+        if (rand < 0.6) { isTaco = true; snackType = 'TACO'; }
+        else { snackType = 'APPLE'; }
+      } else {
+        if (rand < 0.07) { isGold = true; snackType = 'GOLDEN_APPLE'; }
+        else if (rand < 0.14) { isTaco = true; snackType = 'TACO'; }
+        else if (rand < 0.40) { isJunk = true; snackType = Math.random() > 0.5 ? 'DONUT' : 'FRIES'; }
+        else { snackType = Math.random() > 0.5 ? 'APPLE' : 'WATERMELON'; }
+      }
+
+      const mesh = create3DSnackMesh(snackType);
+      const spawnX = (Math.random() - 0.5) * 7.5;
+      const spawnY = 8.5;
+      const spawnZ = (Math.random() - 0.5) * 4.0 + 1.8;
+
+      mesh.position.set(spawnX, spawnY, spawnZ);
+      kitchenGroup.add(mesh);
+
+      const speed = (isInvincible ? 0.09 : 0.07) + Math.min(score * 0.001, 0.08) + Math.random() * 0.02;
+
+      fallingItems.push({
+        mesh: mesh, x: spawnX, y: spawnY, z: spawnZ, speed: speed,
+        isJunk: isJunk, isGold: isGold, isTaco: isTaco,
+        rotSpeedX: (Math.random() - 0.5) * 0.06, rotSpeedY: (Math.random() - 0.5) * 0.06
+      });
+    }
+
+    function triggerTacoMode() {
+      if (currentMode !== 'MODE1' || !isGameStarted || isGameOver) return;
+      isInvincible = true;
+      tacoTimer = 300;
+      invincibilityShieldMesh.visible = true;
+      tacoStatusBadge.classList.remove('hidden');
+      mode1Header.classList.add('taco-mode-active');
+      playSound('taco');
+      showScorePopup(bearX, bearY + 1.8, bearZ, '🌮 TACO TIME! 무적 발동!', 'text-amber-400 text-3xl font-black');
+    }
+
+    function resetCameraAngle() {
+      cameraYaw = 0;
+      cameraPitch = 0;
+    }
+
+    function renderForestHUDGoals() {
+      if (!forestGoalsContainer) return;
+      forestGoalsContainer.innerHTML = forestObjectives.map(obj => `
+        <div class="flex items-center space-x-1 bg-black/40 px-2 py-1 rounded-lg border ${obj.found >= obj.required ? 'border-emerald-400 bg-emerald-950/60' : 'border-white/20'}">
+          <span class="text-base">${obj.emoji}</span>
+          <span class="font-bold ${obj.found >= obj.required ? 'text-emerald-300' : 'text-white'}">${obj.name}</span>
+          <span class="font-black ${obj.found >= obj.required ? 'text-emerald-400' : 'text-amber-300'}">${obj.found}/${obj.required}</span>
+        </div>
+      `).join('');
+    }
+
+    function createSparkles(x, y, z, colorHex = 0xfde047) {
+      const particleCount = 20;
+      const geo = new THREE.BufferGeometry();
+      const positions = new Float32Array(particleCount * 3);
+      const vels = [];
+      for (let i = 0; i < particleCount; i++) {
+        positions[i * 3] = x;
+        positions[i * 3 + 1] = y;
+        positions[i * 3 + 2] = z;
+        vels.push({
+          x: (Math.random() - 0.5) * 0.18,
+          y: Math.random() * 0.18 + 0.05,
+          z: (Math.random() - 0.5) * 0.18
+        });
+      }
+      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const mat = new THREE.PointsMaterial({ color: colorHex, size: 0.28, transparent: true, opacity: 1.0 });
+      const pSystem = new THREE.Points(geo, mat);
+      scene.add(pSystem);
+      particleSystems.push({ system: pSystem, vels: vels, life: 1.0 });
+    }
+
+    // --- Mode 2 Forest Stage State ---
+    let forestStage = 1;
+    let forestBearX = 0, targetForestBearX = 0;
+    let forestBearZ = 0, targetForestBearZ = 0;
+    let forestBounds = 11.0;
+    let forestObjectives = [];
+    let hiddenSnacksInForest = [];
+    let forestCleared = false;
+    let forestHideSpots = [];
+    let forestTrunkPositions = [];
+
+    function getForestStageConfig(stage) {
+      const stageTitles = ["새싹 오솔길 🌲", "우거진 깊은 숲 🌳", "신비한 이끼 숲 🍄", "전설의 무지개 대림 🌈"];
+      const title = stageTitles[Math.min(stage - 1, stageTitles.length - 1)] || `깊은 숲 LEVEL ${stage}`;
+      const bounds = 11.0 + (stage - 1) * 5.0; // Stage 1: 11, Stage 2: 16, Stage 3: 21, Stage 4: 26...
+      const treeCount = 14 + stage * 10;
+      const rockCount = 8 + stage * 7;
+
+      let objectives = [];
+      if (stage === 1) {
+        objectives = [
+          { type: 'BLUEBERRY', name: '블루베리', emoji: '🫐', required: 3, found: 0 },
+          { type: 'STRAWBERRY', name: '산딸기', emoji: '🍓', required: 2, found: 0 }
+        ];
+      } else if (stage === 2) {
+        objectives = [
+          { type: 'BLUEBERRY', name: '블루베리', emoji: '🫐', required: 4, found: 0 },
+          { type: 'STRAWBERRY', name: '산딸기', emoji: '🍓', required: 3, found: 0 },
+          { type: 'HONEY_JAR', name: '꿀단지', emoji: '🍯', required: 3, found: 0 }
+        ];
+      } else if (stage === 3) {
+        objectives = [
+          { type: 'BLUEBERRY', name: '블루베리', emoji: '🫐', required: 4, found: 0 },
+          { type: 'STRAWBERRY', name: '산딸기', emoji: '🍓', required: 4, found: 0 },
+          { type: 'HONEY_JAR', name: '꿀단지', emoji: '🍯', required: 4, found: 0 },
+          { type: 'WATERMELON', name: '수박', emoji: '3', found: 0 }
+        ];
+      } else {
+        objectives = [
+          { type: 'BLUEBERRY', name: '블루베리', emoji: '🫐', required: 5 + stage, found: 0 },
+          { type: 'STRAWBERRY', name: '산딸기', emoji: '🍓', required: 4 + stage, found: 0 },
+          { type: 'HONEY_JAR', name: '꿀단지', emoji: '🍯', required: 3 + Math.floor(stage/2), found: 0 },
+          { type: 'WATERMELON', name: '수박', emoji: '🍉', required: 2 + Math.floor(stage/2), found: 0 },
+          { type: 'TACO', name: '무지개 타코', emoji: '🌮', required: 1, found: 0 }
+        ];
+      }
+
+      return { stage, title, bounds, treeCount, rockCount, objectives };
+    }
+
+    function buildForestEnvironment() {
+      // Clear previous forest objects
+      while (forestGroup.children.length > 0) {
+        forestGroup.remove(forestGroup.children[0]);
+      }
+      forestHideSpots = [];
+      forestTrunkPositions = [];
+
+      const config = getForestStageConfig(forestStage);
+      forestBounds = config.bounds;
+
+      // 1. Expanded Ground
+      const groundGeo = new THREE.PlaneGeometry(forestBounds * 2.5, forestBounds * 2.5, 32, 32);
+      const groundMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.9 });
+      const ground = new THREE.Mesh(groundGeo, groundMat);
+      ground.rotation.x = -Math.PI / 2;
+      ground.receiveShadow = true;
+      forestGroup.add(ground);
+
+      // Reusable Geometries
+      const treeTrunkGeo = new THREE.CylinderGeometry(0.35, 0.5, 3, 12);
+      const treeTrunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f });
+      const treeLeavesGeo = new THREE.ConeGeometry(1.8, 3.5, 12);
+      const treeLeavesMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.6 });
+
+      const rockGeo = new THREE.DodecahedronGeometry(0.8, 1);
+      const rockMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.8 });
+
+      const mushroomStemGeo = new THREE.CylinderGeometry(0.12, 0.18, 0.5, 10);
+      const mushroomCapGeo = new THREE.SphereGeometry(0.35, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+      const mushroomCapMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.3 });
+
+      const bushGeo = new THREE.SphereGeometry(0.85, 16, 16);
+      const bushMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.7 });
+
+      // 2. Generate Trees according to Stage Scale
+      for (let i = 0; i < config.treeCount; i++) {
+        const tree = new THREE.Group();
+        const trunk = new THREE.Mesh(treeTrunkGeo, treeTrunkMat);
+        trunk.position.y = 1.5; trunk.castShadow = true; tree.add(trunk);
+
+        const leaves = new THREE.Mesh(treeLeavesGeo, treeLeavesMat);
+        leaves.position.y = 3.5; leaves.castShadow = true; tree.add(leaves);
+
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 3.0 + Math.random() * (forestBounds - 1.5);
+        const tx = Math.cos(angle) * dist;
+        const tz = Math.sin(angle) * dist;
+        tree.position.set(tx, 0, tz);
+        forestGroup.add(tree);
+
+        // Record trunk position for 2D map
+        forestTrunkPositions.push({ x: tx, z: tz });
+        forestHideSpots.push({ x: tx - Math.cos(angle) * 0.7, y: 0.45, z: tz - Math.sin(angle) * 0.7 });
+      }
+
+      // 3. Generate Rocks, Mushrooms, Bushes
+      for (let i = 0; i < config.rockCount; i++) {
+        const rock = new THREE.Mesh(rockGeo, rockMat);
+        const rx = (Math.random() - 0.5) * (forestBounds * 1.8);
+        const rz = (Math.random() - 0.5) * (forestBounds * 1.8);
+        rock.position.set(rx, 0.4, rz);
+        rock.scale.set(0.8 + Math.random()*0.6, 0.6 + Math.random()*0.5, 0.8 + Math.random()*0.6);
+        rock.castShadow = true;
+        forestGroup.add(rock);
+
+        forestHideSpots.push({ x: rx + 0.6, y: 0.4, z: rz - 0.5 });
+
+        // Mushrooms
+        const shroom = new THREE.Group();
+        const sStem = new THREE.Mesh(mushroomStemGeo, treeTrunkMat); sStem.position.y = 0.25;
+        const sCap = new THREE.Mesh(mushroomCapGeo, mushroomCapMat); sCap.position.y = 0.45;
+        shroom.add(sStem); shroom.add(sCap);
+        const mx = (Math.random() - 0.5) * (forestBounds * 1.7);
+        const mz = (Math.random() - 0.5) * (forestBounds * 1.7);
+        shroom.position.set(mx, 0, mz);
+        forestGroup.add(shroom);
+
+        forestHideSpots.push({ x: mx + 0.3, y: 0.35, z: mz + 0.3 });
+
+        // Bushes
+        const bush = new THREE.Mesh(bushGeo, bushMat);
+        const bx = (Math.random() - 0.5) * (forestBounds * 1.7);
+        const bz = (Math.random() - 0.5) * (forestBounds * 1.7);
+        bush.position.set(bx, 0.35, bz);
+        bush.scale.set(1.1, 0.7, 1.1);
+        forestGroup.add(bush);
+
+        forestHideSpots.push({ x: bx, y: 0.35, z: bz });
+      }
+    }
+
+    function setupForestObjectivesAndSnacks() {
+      hiddenSnacksInForest.forEach(item => forestGroup.remove(item.mesh));
+      hiddenSnacksInForest = [];
+
+      const config = getForestStageConfig(forestStage);
+      forestObjectives = config.objectives;
+
+      forestStageBadge.textContent = `STAGE ${forestStage}: ${config.title}`;
+      renderForestHUDGoals();
+
+      const availableSpots = [...forestHideSpots].sort(() => Math.random() - 0.5);
+      let spotIdx = 0;
+
+      forestObjectives.forEach(obj => {
+        for (let i = 0; i < obj.required; i++) {
+          const mesh = create3DSnackMesh(obj.type);
+          let scale = 0.9;
+          if (obj.type === 'BLUEBERRY') scale = 0.75;
+          if (obj.type === 'HONEY_JAR') scale = 0.85;
+          if (obj.type === 'WATERMELON') scale = 1.0;
+          if (obj.type === 'TACO') scale = 1.35;
+          mesh.scale.set(scale, scale, scale);
+
+          let hx, hy, hz;
+          if (spotIdx < availableSpots.length) {
+            const spot = availableSpots[spotIdx++];
+            hx = spot.x + (Math.random() - 0.5) * 0.3;
+            hy = spot.y;
+            hz = spot.z + (Math.random() - 0.5) * 0.3;
+          } else {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 3.5 + Math.random() * (forestBounds - 2.0);
+            hx = Math.cos(angle) * dist;
+            hy = 0.4;
+            hz = Math.sin(angle) * dist;
+          }
+
+          mesh.position.set(hx, hy, hz);
+          mesh.castShadow = true;
+          forestGroup.add(mesh);
+
+          hiddenSnacksInForest.push({
+            mesh: mesh, type: obj.type, x: hx, y: hy, z: hz, found: false
+          });
+        }
+      });
+
+      forestCleared = false;
+    }
+
+    function collectForestSnack(snackItem) {
+      snackItem.found = true;
+      forestGroup.remove(snackItem.mesh);
+
+      const obj = forestObjectives.find(o => o.type === snackItem.type);
+      if (obj && obj.found < obj.required) {
+        obj.found++;
+        renderForestHUDGoals();
+        playSound('discover');
+        createSparkles(snackItem.x, snackItem.y, snackItem.z, 0x34d399);
+        showScorePopup(snackItem.x, snackItem.y + 1, snackItem.z, `찾았다! ${obj.emoji} +1`, 'text-emerald-300 text-3xl font-black');
+      }
+
+      const allDone = forestObjectives.every(o => o.found >= o.required);
+      if (allDone) {
+        forestCleared = true;
+        playSound('fanfare');
+        forestClearTitle.textContent = `STAGE ${forestStage} 탐험 성공! 🎉`;
+        setTimeout(() => { forestClearModal.classList.remove('hidden'); }, 600);
+      }
+    }
+
+    function switchMode(mode) {
+      currentMode = mode;
+      lobbyModal.classList.add('hidden');
+      gameOverModal.classList.add('hidden');
+      forestClearModal.classList.add('hidden');
+      mobileControls.classList.remove('hidden');
+      resetCameraAngle();
+
+      if (mode === 'MODE1') {
+        kitchenGroup.visible = true;
+        forestGroup.visible = false;
+        mode1Header.classList.remove('hidden');
+        mode2Header.classList.add('hidden');
+        mode1ActionBtns.classList.remove('hidden');
+        mode2ActionBtns.classList.add('hidden');
+
+        resetKitchenGame();
+      } else if (mode === 'MODE2') {
+        kitchenGroup.visible = false;
+        forestGroup.visible = true;
+        mode1Header.classList.add('hidden');
+        mode2Header.classList.remove('hidden');
+        mode1ActionBtns.classList.add('hidden');
+        mode2ActionBtns.classList.remove('hidden');
+
+        forestBearX = 0; forestBearZ = 3;
+        targetForestBearX = 0; targetForestBearZ = 3;
+        bearGroup.position.set(0, 0.8, 3);
+
+        buildForestEnvironment();
+        setupForestObjectivesAndSnacks();
+        playSound('fanfare');
+      }
+    }
+
+    if (forestNextBtn) {
+      forestNextBtn.addEventListener('click', () => {
+        forestStage++;
+        switchMode('MODE2');
+      });
+    }
+
+    // Reset Stage on Lobby Return
+    function returnToLobby() {
+      forestStage = 1;
+      currentMode = null;
+      kitchenGroup.visible = true;
+      forestGroup.visible = false;
+      mode1Header.classList.add('hidden');
+      mode2Header.classList.add('hidden');
+      gameOverModal.classList.add('hidden');
+      forestClearModal.classList.add('hidden');
+      mobileControls.classList.add('hidden');
+      lobbyModal.classList.remove('hidden');
+      resetCameraAngle();
+    }
+
+    function updateLivesDisplay() {
+      if (!livesEl) return;
+      if (lives <= 0) {
+        livesEl.textContent = '💔';
+      } else {
+        livesEl.textContent = '💖 '.repeat(lives).trim();
+      }
+    }
+
+    function loseLife() {
+      if (isGameOver || !isGameStarted || isInvincible) return;
+      lives--;
+      updateLivesDisplay();
+      playSound('junk');
+
+      if (lives <= 0) {
+        triggerGameOver();
+      }
+    }
+
+    function triggerGameOver() {
+      isGameOver = true;
+      finalScoreEl.textContent = `${score}점`;
+
+      if (score > bestScore) {
+        bestScore = score;
+        localStorage.setItem('3d_kitchen_best_score', bestScore);
+        bestScoreEl.textContent = bestScore;
+      }
+
+      finalLevelTitle.textContent = `최종 달성 칭호: LV.${level} ${getLevelTitle(level)}`;
+      gameOverModal.classList.remove('hidden');
+    }
+
+    function getLevelTitle(lvl) {
+      if (lvl >= 10) return '전설의 무지개 셰프 👑';
+      if (lvl >= 7) return '마스터 셰프 🌟';
+      if (lvl >= 4) return '베테랑 셰프 🍳';
+      if (lvl >= 2) return '숙련 셰프 👨‍🍳';
+      return '새싹 셰프 🐻';
+    }
+
+    function resetKitchenGame() {
+      for (let i = fallingItems.length - 1; i >= 0; i--) kitchenGroup.remove(fallingItems[i].mesh);
+      fallingItems.length = 0;
+
+      score = 0; lives = 3; level = 1; isInvincible = false; tacoTimer = 0;
+      targetBearX = 0; bearX = 0; prevBearX = 0;
+      targetBearZ = 2.5; bearZ = 2.5; prevBearZ = 2.5;
+      bearY = 0; bearVelY = 0; isJumping = false;
+      bearRotY = 0; targetBearRotY = 0;
+      bearSquashY = 1.0; bearSquashXZ = 1.0; landingSquashTimer = 0;
+      catchEmotionTimer = 0; hurtEmotionTimer = 0;
+
+      scoreEl.textContent = score;
+      levelBadge.textContent = 'LV.1 새싹 셰프 🐻';
+      tacoStatusBadge.classList.add('hidden');
+      mode1Header.classList.remove('taco-mode-active');
+      invincibilityShieldMesh.visible = false;
+      updateLivesDisplay();
+
+      isGameStarted = true; isGameOver = false;
+    }
+
+    window.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.interactive')) return;
+      isPointerDown = true;
+      isCameraDragging = false;
+      pointerStartX = e.clientX;
+      pointerStartY = e.clientY;
+      lastPointerX = e.clientX;
+      lastPointerY = e.clientY;
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (!isPointerDown) return;
+      const dx = e.clientX - lastPointerX;
+      const dy = e.clientY - lastPointerY;
+      const dist = Math.hypot(e.clientX - pointerStartX, e.clientY - pointerStartY);
+
+      if (dist > 8) {
+        isCameraDragging = true;
+      }
+
+      if (isCameraDragging) {
+        cameraYaw -= dx * 0.007;
+        cameraPitch = Math.max(-0.35, Math.min(0.55, cameraPitch + dy * 0.006));
+      }
+
+      lastPointerX = e.clientX;
+      lastPointerY = e.clientY;
+    });
+
+    window.addEventListener('pointerup', (e) => {
+      if (currentMode === 'MODE2' && !forestCleared && !isCameraDragging) {
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+
+        const uncollectedMeshes = hiddenSnacksInForest.filter(s => !s.found).map(s => s.mesh);
+        const intersects = raycaster.intersectObjects(uncollectedMeshes, true);
+
+        if (intersects.length > 0) {
+          let hitObj = intersects[0].object;
+          while (hitObj.parent && hitObj.parent !== forestGroup) {
+            hitObj = hitObj.parent;
+          }
+
+          const snackItem = hiddenSnacksInForest.find(s => s.mesh === hitObj);
+          if (snackItem) {
+            collectForestSnack(snackItem);
+          }
+        }
+      }
+
+      isPointerDown = false;
+    isCameraDragging = false;
+    });
+
+    // 2D Top-Down Hint Minimap Functions
+    function open2DHintModal() {
+      const modal = document.getElementById('forest-hint-modal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      render2DHintMap();
+    }
+
+    function close2DHintModal() {
+      const modal = document.getElementById('forest-hint-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function render2DHintMap() {
+      const canvas = document.getElementById('forest-hint-canvas');
+      const listContainer = document.getElementById('forest-hint-list');
+      if (!canvas || !listContainer) return;
+
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      const center = w / 2;
+      const mapScale = (w * 0.42) / forestBounds;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Radar background
+      ctx.fillStyle = '#064e3b';
+      ctx.beginPath();
+      ctx.arc(center, center, center - 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Range guide rings
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.25)';
+      ctx.lineWidth = 1;
+      for (let r = 0.3; r <= 1.0; r += 0.35) {
+        ctx.beginPath();
+        ctx.arc(center, center, (center - 8) * r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // Draw Tree Trunks (brown dots)
+      ctx.fillStyle = '#78350f';
+      forestTrunkPositions.forEach(t => {
+        const mx = center + t.x * mapScale;
+        const my = center + t.z * mapScale;
+        ctx.beginPath();
+        ctx.arc(mx, my, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Draw Bear position
+      const bx = center + forestBearX * mapScale;
+      const bz = center + forestBearZ * mapScale;
+      ctx.font = '15px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🐻', bx, bz);
+
+      // Draw unfound snacks and generate list
+      const unfound = hiddenSnacksInForest.filter(s => !s.found);
+      let listHTML = '';
+
+      unfound.forEach(snack => {
+        const sx = center + snack.x * mapScale;
+        const sz = center + snack.z * mapScale;
+        const objDef = forestObjectives.find(o => o.type === snack.type) || { emoji: '🍎', name: snack.type };
+        const dist = Math.hypot(snack.x - forestBearX, snack.z - forestBearZ);
+
+        // Draw snack emoji on 2D radar
+        ctx.font = '13px sans-serif';
+        ctx.fillText(objDef.emoji || '🍎', sx, sz);
+
+        // Append to list with exact distance
+        listHTML += `
+          <div class="flex justify-between items-center bg-slate-800/80 px-3 py-1.5 rounded-xl border border-emerald-500/30 text-xs">
+            <span class="flex items-center gap-1.5 font-bold text-white">
+              <span class="text-base">${objDef.emoji}</span>
+              <span>${objDef.name}</span>
+            </span>
+            <span class="text-amber-300 font-black">${dist.toFixed(1)}m 남음</span>
+          </div>
+        `;
+      });
+
+      if (unfound.length === 0) {
+        listHTML = '<p class="text-emerald-300 text-xs font-bold text-center">모든 간식을 찾았습니다! 🎉</p>';
+      }
+
+      listContainer.innerHTML = listHTML;
+    }
+
+    btnForestHint.addEventListener('click', () => {
+      if (currentMode !== 'MODE2' || forestCleared) return;
+      open2DHintModal();
+    });
+
+    const btnCloseHint = document.getElementById('btn-close-hint');
+    if (btnCloseHint) {
+      btnCloseHint.addEventListener('click', close2DHintModal);
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') activeKeys.left = true;
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') activeKeys.right = true;
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') activeKeys.up = true;
+      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') activeKeys.down = true;
+
+      if ((e.code === 'Space' || e.key === 'k' || e.key === 'K') && currentMode === 'MODE1' && !isJumping) {
+        isJumping = true; bearVelY = JUMP_IMPULSE; playSound('jump');
+      }
+
+      if (e.key === 'y' || e.key === 'Y' || e.key === 'ㅛ') {
+        triggerTacoMode();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') activeKeys.left = false;
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') activeKeys.right = false;
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') activeKeys.up = false;
+      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') activeKeys.down = false;
+    });
+
+    const bindTouch = (btn, key) => {
+      btn.addEventListener('touchstart', (e) => { e.preventDefault(); activeKeys[key] = true; });
+      btn.addEventListener('touchend', (e) => { e.preventDefault(); activeKeys[key] = false; });
+      btn.addEventListener('mousedown', () => activeKeys[key] = true);
+      btn.addEventListener('mouseup', () => activeKeys[key] = false);
+    };
+    bindTouch(btnLeft, 'left'); bindTouch(btnRight, 'right');
+    bindTouch(btnUp, 'up'); bindTouch(btnDown, 'down');
+
+    btnJump.addEventListener('click', () => {
+      if (currentMode === 'MODE1' && !isJumping) { isJumping = true; bearVelY = JUMP_IMPULSE; playSound('jump'); }
+    });
+    btnTaco.addEventListener('click', triggerTacoMode);
+
+    selectMode1.addEventListener('click', () => switchMode('MODE1'));
+    selectMode2.addEventListener('click', () => switchMode('MODE2'));
+    if (camResetBtn1) camResetBtn1.addEventListener('click', resetCameraAngle);
+    if (camResetBtn2) camResetBtn2.addEventListener('click', resetCameraAngle);
+    mode1BackBtn.addEventListener('click', returnToLobby);
+    mode2BackBtn.addEventListener('click', returnToLobby);
+    mode1ToLobbyBtn.addEventListener('click', returnToLobby);
+    mode2ToLobbyBtn.addEventListener('click', returnToLobby);
+    restartBtn.addEventListener('click', resetKitchenGame);
+
+    function showScorePopup(x, y, z, text, colorClass) {
+      const vec = new THREE.Vector3(x, y, z);
+      vec.project(camera);
+      const sx = (vec.x * 0.5 + 0.5) * window.innerWidth;
+      const sy = (-(vec.y * 0.5) + 0.5) * window.innerHeight;
+
+      const pop = document.createElement('div');
+      pop.className = `absolute ${colorClass} drop-shadow-xl select-none pointer-events-none transition-all duration-500 ease-out transform -translate-x-1/2`;
+      pop.textContent = text;
+      pop.style.left = `${sx}px`; pop.style.top = `${sy}px`;
+      popupContainer.appendChild(pop);
+
+      requestAnimationFrame(() => {
+        pop.style.transform = 'translate(-50%, -40px) scale(1.2)';
+        pop.style.opacity = '0';
+      });
+      setTimeout(() => { if (pop.parentNode) pop.parentNode.removeChild(pop); }, 500);
+    }
+
+    let frameCounter = 0;
+    let clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      const elapsedTime = clock.getElapsedTime();
+
+      if (currentMode === 'MODE1' && isGameStarted && !isGameOver) {
+        prevBearX = bearX; prevBearZ = bearZ;
+
+        // Mode 1 Bear Controls (3축 X·Z 입력)
+        let dxInput = 0, dzInput = 0;
+        if (activeKeys.left) dxInput -= 1;
+        if (activeKeys.right) dxInput += 1;
+        if (activeKeys.up) dzInput -= 1;
+        if (activeKeys.down) dzInput += 1;
+
+        if (dxInput !== 0 || dzInput !== 0) {
+          targetBearX += dxInput * MOVE_SPEED;
+          targetBearZ += dzInput * MOVE_SPEED;
+        }
+
+        targetBearX = Math.max(-BOUNDS_X, Math.min(targetBearX, BOUNDS_X));
+        targetBearZ = Math.max(BOUNDS_Z_MIN, Math.min(targetBearZ, BOUNDS_Z_MAX));
+
+        bearX += (targetBearX - bearX) * 0.25;
+        bearZ += (targetBearZ - bearZ) * 0.25;
+
+        // Turning / Smooth Rotation
+        const moveX = bearX - prevBearX;
+        const moveZ = bearZ - prevBearZ;
+        const speedSq = moveX * moveX + moveZ * moveZ;
+
+        if (speedSq > 0.0001) {
+          targetBearRotY = Math.atan2(moveX, moveZ);
+        }
+
+        let angleDiff = targetBearRotY - bearRotY;
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        bearRotY += angleDiff * 0.22;
+
+        // Y-axis Jump & Landing Squash
+        if (isJumping) {
+          bearY += bearVelY;
+          bearVelY += GRAVITY;
+
+          if (bearVelY > 0) {
+            bearSquashY = 1.18; bearSquashXZ = 0.88;
+          } else {
+            bearSquashY = 0.95; bearSquashXZ = 1.05;
+          }
+
+          if (bearY <= 0) {
+            bearY = 0; bearVelY = 0; isJumping = false;
+            landingSquashTimer = 8;
+            playSound('jump');
+          }
+        } else if (landingSquashTimer > 0) {
+          landingSquashTimer--;
+          bearSquashY = 0.72 + (1 - landingSquashTimer / 8) * 0.28;
+          bearSquashXZ = 1.25 - (1 - landingSquashTimer / 8) * 0.25;
+        } else {
+          bearSquashY += (1.0 - bearSquashY) * 0.2;
+          bearSquashXZ += (1.0 - bearSquashXZ) * 0.2;
+        }
+
+        bearGroup.position.set(bearX, 0.8 + bearY, bearZ);
+        bearGroup.rotation.y = bearRotY;
+        bearModelWrapper.scale.set(0.63 * bearSquashXZ, 0.63 * bearSquashY, 0.63 * bearSquashXZ);
+
+        // Limbs Animation
+        const isMoving = speedSq > 0.0001;
+
+        if (isMoving && !isJumping) {
+          const walkCycle = Math.sin(elapsedTime * 18);
+          leftArmGroup.rotation.x = walkCycle * 0.85;
+          rightArmGroup.rotation.x = -walkCycle * 0.85;
+          leftLegGroup.rotation.x = -walkCycle * 0.85;
+          rightLegGroup.rotation.x = walkCycle * 0.85;
+          bearModelWrapper.rotation.x = Math.sin(elapsedTime * 18) * 0.08;
+        } else if (!isJumping) {
+          leftArmGroup.rotation.x *= 0.75;
+          rightArmGroup.rotation.x *= 0.75;
+          leftLegGroup.rotation.x *= 0.75;
+          rightLegGroup.rotation.x *= 0.75;
+          bearModelWrapper.rotation.x *= 0.75;
+        }
+
+        if (isJumping) {
+          leftArmGroup.rotation.z = -1.2; rightArmGroup.rotation.z = 1.2;
+          leftArmGroup.rotation.x = -0.4; rightArmGroup.rotation.x = -0.4;
+          leftLegGroup.rotation.x = -0.6; rightLegGroup.rotation.x = -0.6;
+        } else if (catchEmotionTimer > 0) {
+          catchEmotionTimer--;
+          leftArmGroup.rotation.z = -1.3; rightArmGroup.rotation.z = 1.3;
+          bearModelWrapper.position.y = Math.abs(Math.sin(catchEmotionTimer * 0.4)) * 0.2;
+        } else if (hurtEmotionTimer > 0) {
+          hurtEmotionTimer--;
+          leftArmGroup.rotation.z = 0.8; rightArmGroup.rotation.z = -0.8;
+          bearModelWrapper.rotation.z = (Math.random() - 0.5) * 0.4;
+        } else {
+          leftArmGroup.rotation.z *= 0.8; rightArmGroup.rotation.z *= 0.8;
+          bearModelWrapper.position.y *= 0.8;
+          bearModelWrapper.rotation.z *= 0.8;
+        }
+
+        // Invincible Shield Logic
+        if (isInvincible) {
+          tacoTimer--;
+          invincibilityShieldMesh.rotation.y += 0.08;
+          invincibilityShieldMesh.rotation.z += 0.03;
+          if (tacoTimer <= 0) {
+            isInvincible = false;
+            invincibilityShieldMesh.visible = false;
+            tacoStatusBadge.classList.add('hidden');
+            mode1Header.classList.remove('taco-mode-active');
+          }
+        }
+
+        // Item Spawning & Fall
+        frameCounter++;
+        const spawnInterval = isInvincible ? 12 : Math.max(18, 48 - Math.floor(score / 30));
+        if (frameCounter >= spawnInterval) { spawnKitchenItem(); frameCounter = 0; }
+
+        for (let i = fallingItems.length - 1; i >= 0; i--) {
+          const item = fallingItems[i];
+          item.y -= item.speed;
+          item.mesh.position.y = item.y;
+          item.mesh.rotation.x += item.rotSpeedX;
+          item.mesh.rotation.y += item.rotSpeedY;
+
+          // 3D Distance Collision
+          const dx = item.x - bearX, dy = item.y - (0.8 + bearY), dz = item.z - bearZ;
+          if (Math.hypot(dx, dy, dz) <= 1.15) {
+            if (item.isTaco) {
+              score += 1000;
+              triggerTacoMode();
+              createSparkles(item.x, item.y, item.z, 0xf59e0b);
+              showScorePopup(item.x, item.y, item.z, '+1000 🌮 냠냠!', 'text-amber-400 text-3xl font-black');
+            } else if (item.isGold) {
+              score += 50;
+              if (lives < 3) { lives++; updateLivesDisplay(); }
+              playSound('fanfare');
+              catchEmotionTimer = 25;
+              createSparkles(item.x, item.y, item.z, 0xfde047);
+              showScorePopup(item.x, item.y, item.z, '+50점 & ❤️ 회복!', 'text-amber-300 text-2xl font-black');
+            } else if (item.isJunk) {
+              if (isInvincible) {
+                score += 10;
+                playSound('catch');
+                createSparkles(item.x, item.y, item.z, 0x38bdf8);
+                showScorePopup(item.x, item.y, item.z, '무적 방어! +10', 'text-cyan-300 text-2xl font-black');
+              } else {
+                score = Math.max(0, score - 10);
+                hurtEmotionTimer = 25;
+                playSound('junk');
+                triggerCameraShake();
+                showScorePopup(item.x, item.y, item.z, '-10 으악!', 'text-rose-500 text-2xl font-black');
+              }
+            } else { // Healthy snack
+              score += 10;
+              playSound('catch');
+              catchEmotionTimer = 20;
+              createSparkles(item.x, item.y, item.z, 0x34d399);
+              showScorePopup(item.x, item.y, item.z, '+10 쏙!', 'text-emerald-300 text-2xl font-black');
+            }
+
+            scoreEl.textContent = score;
+            level = Math.floor(score / 50) + 1;
+            levelBadge.textContent = `LV.${level} ${getLevelTitle(level)}`;
+
+            kitchenGroup.remove(item.mesh);
+            fallingItems.splice(i, 1);
+            continue;
+          }
+
+          // Missed item falling off table
+          if (item.y < -0.5) {
+            if (!item.isJunk && !item.isTaco) {
+              loseLife();
+            }
+            kitchenGroup.remove(item.mesh);
+            fallingItems.splice(i, 1);
+          }
+        }
+      } else if (currentMode === 'MODE2') {
+        const prevForestX = forestBearX;
+        const prevForestZ = forestBearZ;
+
+        // Camera Yaw aligned movement vector
+        const fwdX = -Math.sin(cameraYaw);
+        const fwdZ = -Math.cos(cameraYaw);
+        const rtX = Math.cos(cameraYaw);
+        const rtZ = -Math.sin(cameraYaw);
+
+        let moveX = 0, moveZ = 0;
+        if (activeKeys.up) { moveX += fwdX; moveZ += fwdZ; }
+        if (activeKeys.down) { moveX -= fwdX; moveZ -= fwdZ; }
+        if (activeKeys.left) { moveX -= rtX; moveZ -= rtZ; }
+        if (activeKeys.right) { moveX += rtX; moveZ += rtZ; }
+
+        if (moveX !== 0 || moveZ !== 0) {
+          const len = Math.hypot(moveX, moveZ);
+          targetForestBearX += (moveX / len) * MOVE_SPEED * 1.35;
+          targetForestBearZ += (moveZ / len) * MOVE_SPEED * 1.35;
+        }
+
+        targetForestBearX = Math.max(-forestBounds, Math.min(targetForestBearX, forestBounds));
+        targetForestBearZ = Math.max(-forestBounds, Math.min(targetForestBearZ, forestBounds));
+
+        forestBearX += (targetForestBearX - forestBearX) * 0.2;
+        forestBearZ += (targetForestBearZ - forestBearZ) * 0.2;
+
+        const fDx = forestBearX - prevForestX;
+        const fDz = forestBearZ - prevForestZ;
+        if (fDx * fDx + fDz * fDz > 0.0001) {
+          targetBearRotY = Math.atan2(fDx, fDz);
+          const walkCycle = Math.sin(elapsedTime * 16);
+          leftArmGroup.rotation.x = walkCycle * 0.7;
+          rightArmGroup.rotation.x = -walkCycle * 0.7;
+          leftLegGroup.rotation.x = -walkCycle * 0.7;
+          rightLegGroup.rotation.x = walkCycle * 0.7;
+        } else {
+          leftArmGroup.rotation.x *= 0.8; rightArmGroup.rotation.x *= 0.8;
+          leftLegGroup.rotation.x *= 0.8; rightLegGroup.rotation.x *= 0.8;
+        }
+
+        let fAngleDiff = targetBearRotY - bearRotY;
+        while (fAngleDiff > Math.PI) fAngleDiff -= Math.PI * 2;
+        while (fAngleDiff < -Math.PI) fAngleDiff += Math.PI * 2;
+        bearRotY += fAngleDiff * 0.2;
+
+        bearGroup.position.set(forestBearX, 0.8, forestBearZ);
+        bearGroup.rotation.y = bearRotY;
+        bearModelWrapper.scale.set(0.63, 0.63, 0.63);
+
+        hiddenSnacksInForest.forEach(snack => {
+          if (!snack.found) {
+            const dist = Math.hypot(snack.x - forestBearX, snack.z - forestBearZ);
+            snack.mesh.rotation.y += 0.02;
+            if (dist < 2.5) {
+              snack.mesh.position.y = snack.y + Math.sin(elapsedTime * 6) * 0.12;
+              snack.mesh.rotation.y += 0.06;
+            }
+          }
+        });
+      }
+
+      // Camera Orbit Positioning according to Yaw & Pitch
+      if (currentMode === 'MODE1') {
+        const baseCamDist = 10.5;
+        const targetX = bearX * 0.25;
+        const targetY = 1.0;
+        const targetZ = 1.5;
+
+        const camX = targetX + Math.sin(cameraYaw) * baseCamDist * Math.cos(cameraPitch);
+        const camY = 6.2 + Math.sin(cameraPitch) * baseCamDist * 0.6;
+        const camZ = targetZ + Math.cos(cameraYaw) * baseCamDist * Math.cos(cameraPitch);
+
+        camera.position.set(camX, camY, camZ);
+        camera.lookAt(targetX, targetY, targetZ);
+      } else if (currentMode === 'MODE2') {
+        const baseCamDist = 11.0;
+        const targetX = forestBearX;
+        const targetY = 1.0;
+        const targetZ = forestBearZ;
+
+        const camX = targetX + Math.sin(cameraYaw) * baseCamDist * Math.cos(cameraPitch);
+        const camY = targetY + 8.0 + Math.sin(cameraPitch) * baseCamDist * 0.6;
+        const camZ = targetZ + Math.cos(cameraYaw) * baseCamDist * Math.cos(cameraPitch);
+
+        camera.position.set(camX, camY, camZ);
+        camera.lookAt(targetX, targetY, targetZ);
+      }
+
+      // Camera Shake animation update
+      if (cameraShakeIntensity > 0) {
+        camera.position.x += (Math.random() - 0.5) * cameraShakeIntensity;
+        camera.position.y += (Math.random() - 0.5) * cameraShakeIntensity;
+        cameraShakeIntensity -= delta * 0.8;
+      }
+
+      // Particle System update
+      for (let i = particleSystems.length - 1; i >= 0; i--) {
+        const ps = particleSystems[i];
+        const positions = ps.system.geometry.attributes.position.array;
+        ps.life -= delta * 1.8;
+        for (let j = 0; j < ps.vels.length; j++) {
+          positions[j * 3] += ps.vels[j].x;
+          positions[j * 3 + 1] += ps.vels[j].y;
+          positions[j * 3 + 2] += ps.vels[j].z;
+        }
+        ps.system.geometry.attributes.position.needsUpdate = true;
+        ps.system.material.opacity = Math.max(0, ps.life);
+        if (ps.life <= 0) {
+          scene.remove(ps.system);
+          particleSystems.splice(i, 1);
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    window.addEventListener('load', () => {
+      initThreeJS();
+      animate();
+    });
+  </script>
+</body>
+</html>

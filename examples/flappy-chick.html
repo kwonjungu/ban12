@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>파닥파닥 병아리 🐤</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    background: radial-gradient(circle at 50% 0%, #2f6fb0 0%, #17335c 55%, #0c1a2f 100%);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  #stage {
+    position: relative;
+    height: min(92vh, 680px);
+    aspect-ratio: 5 / 7;
+    max-width: 100%;
+    border-radius: 20px;
+    overflow: hidden;
+    background: #7ec8e3;
+    box-shadow: 0 20px 50px rgba(0,0,0,.55), 0 0 0 4px rgba(255,255,255,.14) inset;
+    cursor: pointer;
+    touch-action: none;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* ===== HUD ===== */
+  #hud {
+    position: absolute; left: 0; right: 0; top: 0;
+    display: flex; gap: 6px; align-items: center;
+    padding: 8px 9px;
+    font-size: 13px; font-weight: 800;
+    pointer-events: none;
+    text-shadow: 0 2px 0 rgba(0,0,0,.28);
+  }
+  .chip {
+    background: rgba(0,0,0,.30);
+    border: 2px solid rgba(255,255,255,.35);
+    border-radius: 999px;
+    padding: 4px 9px;
+    white-space: nowrap;
+    backdrop-filter: blur(3px);
+  }
+  #chipShield.on { background: rgba(90,180,255,.55); border-color: #cfeaff; }
+  #spacer { flex: 1; }
+  #muteBtn {
+    pointer-events: auto;
+    cursor: pointer;
+    font-family: inherit; font-size: 13px; font-weight: 800; color: #fff;
+    background: rgba(0,0,0,.30);
+    border: 2px solid rgba(255,255,255,.35);
+    border-radius: 999px;
+    padding: 4px 9px;
+  }
+
+  /* ===== 토스트(이벤트 알림) ===== */
+  #toast {
+    position: absolute; left: 50%; top: 22%;
+    transform: translate(-50%, 6px) scale(.85);
+    background: rgba(20,20,40,.78);
+    border: 3px solid #ffe27a;
+    color: #fff;
+    font-weight: 900; font-size: 16px;
+    padding: 9px 16px;
+    border-radius: 14px;
+    opacity: 0;
+    transition: opacity .18s ease, transform .18s cubic-bezier(.2,1.6,.4,1);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+
+  /* ===== 오버레이 ===== */
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 10px;
+    padding: 18px;
+    text-align: center;
+    background: linear-gradient(180deg, rgba(6,18,40,.35) 0%, rgba(6,18,40,.62) 100%);
+  }
+  .overlay.hide { display: none; }
+
+  .card {
+    background: rgba(255,255,255,.94);
+    color: #23324a;
+    border-radius: 20px;
+    padding: 16px 18px 18px;
+    box-shadow: 0 14px 30px rgba(0,0,0,.35);
+    border: 4px solid #ffd85e;
+    max-width: 320px;
+    width: 100%;
+  }
+
+  h1 {
+    margin: 0 0 2px;
+    font-size: 30px;
+    letter-spacing: -1px;
+    color: #ffd85e;
+    text-shadow: 0 3px 0 #b5761b, 0 6px 14px rgba(0,0,0,.45);
+  }
+  .sub { margin: 0 0 12px; font-size: 14px; font-weight: 700; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,.5); }
+
+  .howto { font-size: 14px; font-weight: 700; line-height: 1.6; color: #3c4c66; margin: 0; }
+  .howto b { color: #e07b00; }
+
+  .bigscore { font-size: 46px; font-weight: 900; color: #ff9f1c; line-height: 1; margin: 2px 0 4px; }
+  .medal { font-size: 40px; line-height: 1.1; }
+  .medalName { font-size: 15px; font-weight: 900; color: #6b4b12; margin-top: -2px; }
+  .regret { font-size: 15px; font-weight: 800; color: #d1495b; margin: 8px 0 2px; line-height: 1.5; }
+  .regret.new { color: #12967a; }
+  .best { font-size: 13px; font-weight: 800; color: #5a6b85; }
+
+  .btn {
+    margin-top: 12px;
+    display: inline-block;
+    font-family: inherit;
+    font-size: 17px; font-weight: 900; color: #55340a;
+    background: linear-gradient(180deg, #ffe27a, #ffbe28);
+    border: 0; border-bottom: 5px solid #cf8c0d;
+    border-radius: 14px;
+    padding: 11px 26px;
+    cursor: pointer;
+  }
+  .btn:active { transform: translateY(3px); border-bottom-width: 2px; }
+
+  .blink { animation: blink 1s steps(2, start) infinite; }
+  @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
+
+  .tip { font-size: 12px; font-weight: 700; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,.55); }
+
+  @media (max-height: 620px) {
+    h1 { font-size: 24px; }
+    .card { padding: 12px 14px 14px; }
+    .bigscore { font-size: 38px; }
+    .medal { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="cv"></canvas>
+
+  <div id="hud">
+    <span class="chip" id="chipTime">⏱ 0초</span>
+    <span class="chip" id="chipStar">⭐ 0</span>
+    <span class="chip" id="chipShield">🛡 0</span>
+    <span id="spacer"></span>
+    <span class="chip" id="chipBest">🏆 0</span>
+    <button id="muteBtn" type="button">🔊</button>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- 시작 화면 -->
+  <div class="overlay" id="titleScreen">
+    <h1>파닥파닥 병아리 🐤</h1>
+    <p class="sub">탭 한 번에 파닥! 파이프 사이를 쏙!</p>
+    <div class="card">
+      <p class="howto">
+        👆 <b>화면을 톡</b> 치면 위로 파닥!<br>
+        ⌨️ <b>스페이스</b> 를 눌러도 파닥!<br>
+        🟩 파이프를 지날 때마다 <b>+1점</b><br>
+        ⭐ 별을 먹으면 <b>+3점</b> 과 방패!
+      </p>
+    </div>
+    <button class="btn" id="startBtn" type="button">시작하기</button>
+    <div class="tip blink">아무 데나 톡 치면 바로 시작해!</div>
+  </div>
+
+  <!-- 게임 오버 화면 -->
+  <div class="overlay hide" id="overScreen">
+    <h1 id="overTitle">부딪혔다!</h1>
+    <div class="card">
+      <div class="medal" id="overMedal">🥚</div>
+      <div class="medalName" id="overMedalName">아직 메달이 없어</div>
+      <div class="bigscore" id="overScore">0</div>
+      <div class="best" id="overBest">최고 기록 0개</div>
+      <div class="regret" id="overRegret">한 번만 더 해볼까?</div>
+    </div>
+    <button class="btn" id="againBtn" type="button">다시 하기</button>
+    <div class="tip blink">스페이스나 탭 한 번이면 바로 다시!</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* =========================================================
+     0. 안전한 저장소
+     ========================================================= */
+  var STORE_BEST = "flappy-chick-best";
+  var STORE_MUTE = "flappy-chick-mute";
+
+  function loadNum(key, dflt) {
+    try {
+      var v = window.localStorage.getItem(key);
+      if (v === null) return dflt;
+      var n = parseInt(v, 10);
+      return isNaN(n) ? dflt : n;
+    } catch (e) { return dflt; }
+  }
+  function saveNum(key, val) {
+    try { window.localStorage.setItem(key, String(val)); } catch (e) { /* 무시 */ }
+  }
+
+  /* =========================================================
+     1. DOM
+     ========================================================= */
+  var stage = document.getElementById("stage");
+  var cv = document.getElementById("cv");
+  var ctx = cv.getContext("2d");
+  var elTime = document.getElementById("chipTime");
+  var elStar = document.getElementById("chipStar");
+  var elShield = document.getElementById("chipShield");
+  var elBest = document.getElementById("chipBest");
+  var muteBtn = document.getElementById("muteBtn");
+  var toastEl = document.getElementById("toast");
+  var titleScreen = document.getElementById("titleScreen");
+  var overScreen = document.getElementById("overScreen");
+  var overTitle = document.getElementById("overTitle");
+  var overMedal = document.getElementById("overMedal");
+  var overMedalName = document.getElementById("overMedalName");
+  var overScore = document.getElementById("overScore");
+  var overBest = document.getElementById("overBest");
+  var overRegret = document.getElementById("overRegret");
+  var startBtn = document.getElementById("startBtn");
+  var againBtn = document.getElementById("againBtn");
+
+  /* =========================================================
+     2. 화면 크기 / 좌표계
+     기준 세로 600 단위로 그리고, 실제 픽셀에 맞춰 확대한다.
+     ========================================================= */
+  var BH = 600;          // 기준 높이(게임 단위)
+  var BW = 430;          // 기준 너비(비율에 따라 계산됨)
+  var S = 1;             // 게임단위 -> CSS픽셀 배율
+  var cssW = 430, cssH = 600;
+
+  function resize() {
+    var r = stage.getBoundingClientRect();
+    cssW = Math.max(120, Math.round(r.width));
+    cssH = Math.max(160, Math.round(r.height));
+    var dpr = Math.min(window.devicePixelRatio || 1, 3);
+    cv.width = Math.round(cssW * dpr);
+    cv.height = Math.round(cssH * dpr);
+    cv.style.width = cssW + "px";
+    cv.style.height = cssH + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    S = cssH / BH;
+    BW = cssW / S;
+  }
+
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(function () { resize(); });
+    ro.observe(stage);
+  }
+  window.addEventListener("resize", resize);
+  window.addEventListener("orientationchange", function () { setTimeout(resize, 250); });
+
+  /* =========================================================
+     3. 소리 (WebAudio 로 직접 합성)
+     ========================================================= */
+  var AC = null, master = null, noiseBuf = null;
+  var muted = loadNum(STORE_MUTE, 0) === 1;
+  muteBtn.textContent = muted ? "🔇" : "🔊";
+
+  function audioReady() {
+    if (!AC) {
+      var Ctor = window.AudioContext || window.webkitAudioContext;
+      if (!Ctor) return false;
+      try {
+        AC = new Ctor();
+        master = AC.createGain();
+        master.gain.value = 0.5;
+        master.connect(AC.destination);
+      } catch (e) { AC = null; return false; }
+    }
+    if (AC.state === "suspended" && AC.resume) {
+      try { AC.resume(); } catch (e) { /* 무시 */ }
+    }
+    return true;
+  }
+
+  function tone(f, dur, type, vol, delay, f2) {
+    if (muted || !AC) return;
+    try {
+      var t0 = AC.currentTime + (delay || 0);
+      var d = dur || 0.14;
+      var osc = AC.createOscillator();
+      var g = AC.createGain();
+      osc.type = type || "square";
+      osc.frequency.setValueAtTime(f, t0);
+      if (f2) osc.frequency.exponentialRampToValueAtTime(Math.max(20, f2), t0 + d);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.001, vol || 0.16), t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+      osc.connect(g); g.connect(master);
+      osc.start(t0);
+      osc.stop(t0 + d + 0.05);
+    } catch (e) { /* 무시 */ }
+  }
+
+  function noiseHit(dur, vol, delay, cutoff) {
+    if (muted || !AC) return;
+    try {
+      if (!noiseBuf) {
+        var len = Math.floor(AC.sampleRate * 0.5);
+        noiseBuf = AC.createBuffer(1, len, AC.sampleRate);
+        var data = noiseBuf.getChannelData(0);
+        for (var i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      }
+      var t0 = AC.currentTime + (delay || 0);
+      var d = dur || 0.2;
+      var src = AC.createBufferSource();
+      src.buffer = noiseBuf;
+      var lp = AC.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.setValueAtTime(cutoff || 1400, t0);
+      lp.frequency.exponentialRampToValueAtTime(180, t0 + d);
+      var g = AC.createGain();
+      g.gain.setValueAtTime(vol || 0.2, t0);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+      src.connect(lp); lp.connect(g); g.connect(master);
+      src.start(t0);
+      src.stop(t0 + d + 0.05);
+    } catch (e) { /* 무시 */ }
+  }
+
+  var SCALE_NOTES = [523.25, 587.33, 659.25, 698.46, 783.99, 880.0, 987.77, 1046.5, 1174.7, 1318.5];
+
+  function sndFlap() { tone(660, 0.09, "triangle", 0.18, 0, 300); noiseHit(0.08, 0.07, 0, 900); }
+  function sndScore(combo) {
+    var n = SCALE_NOTES[Math.min(combo, SCALE_NOTES.length - 1)];
+    tone(n, 0.11, "square", 0.16);
+    tone(n * 2, 0.09, "triangle", 0.08, 0.02);
+  }
+  function sndPerfect(combo) {
+    var n = SCALE_NOTES[Math.min(combo, SCALE_NOTES.length - 1)];
+    tone(n, 0.09, "square", 0.16);
+    tone(n * 1.5, 0.10, "square", 0.13, 0.07);
+    tone(n * 2, 0.14, "triangle", 0.12, 0.14);
+  }
+  function sndStar() {
+    tone(880, 0.07, "triangle", 0.16);
+    tone(1318, 0.07, "triangle", 0.15, 0.06);
+    tone(1760, 0.14, "triangle", 0.13, 0.12);
+  }
+  function sndShieldGet() {
+    tone(392, 0.10, "sine", 0.18);
+    tone(523, 0.10, "sine", 0.18, 0.08);
+    tone(784, 0.20, "sine", 0.16, 0.16);
+  }
+  function sndShieldBreak() {
+    tone(240, 0.18, "sawtooth", 0.16, 0, 90);
+    tone(880, 0.22, "sine", 0.12, 0.02, 300);
+    noiseHit(0.22, 0.16, 0, 2400);
+  }
+  function sndHit() {
+    noiseHit(0.28, 0.30, 0, 2200);
+    tone(180, 0.22, "square", 0.22, 0, 60);
+  }
+  function sndFall() { tone(420, 0.55, "sawtooth", 0.16, 0.10, 70); }
+  function sndStart() {
+    tone(523, 0.10, "square", 0.15, 0.00);
+    tone(659, 0.10, "square", 0.15, 0.09);
+    tone(784, 0.10, "square", 0.15, 0.18);
+    tone(1046, 0.20, "square", 0.15, 0.27);
+  }
+  function sndEvent() {
+    tone(659, 0.10, "triangle", 0.15);
+    tone(988, 0.16, "triangle", 0.14, 0.09);
+  }
+  function sndMedal() {
+    tone(523, 0.12, "square", 0.15, 0.00);
+    tone(659, 0.12, "square", 0.15, 0.12);
+    tone(784, 0.12, "square", 0.15, 0.24);
+    tone(1046, 0.30, "square", 0.16, 0.36);
+    tone(1318, 0.30, "triangle", 0.12, 0.36);
+  }
+
+  muteBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    muted = !muted;
+    muteBtn.textContent = muted ? "🔇" : "🔊";
+    saveNum(STORE_MUTE, muted ? 1 : 0);
+    if (!muted) { audioReady(); tone(880, 0.09, "triangle", 0.15); }
+  });
+
+  /* =========================================================
+     4. 게임 상태
+     ========================================================= */
+  var STATE_TITLE = 0, STATE_PLAY = 1, STATE_DYING = 2, STATE_OVER = 3, STATE_PAUSE = 4;
+  var STATE_READY = 5;
+  var state = STATE_TITLE;
+
+  var best = loadNum(STORE_BEST, 0);
+  elBest.textContent = "🏆 " + best;
+
+  var GROUND_H = 84;      // 바닥 높이(게임 단위)
+  var PIPE_W = 62;
+  var BIRD_R = 16;
+
+  var bird = { x: 120, y: 300, vy: 0, rot: 0, pop: 1, stretch: 1, wing: 0, alive: true, inv: 0 };
+  var pipes = [];
+  var stars = [];
+  var parts = [];
+  var floats = [];
+
+  var score = 0, combo = 0, bestCombo = 0, starCount = 0, riskStars = 0, shields = 0, passed = 0;
+  var spurtWarned = false;
+  var runTime = 0, groundX = 0, shake = 0, hitStop = 0, flashWhite = 0, overWait = 0;
+  var eventIdx = 0, extraSpeed = 0, windOn = false, starBoost = false, themeIdx = 0;
+  var themeMix = 0, themeFrom = 0, themeTo = 0;
+  var newRecord = false;
+  var spawnedTotal = 0;
+
+  // t(초) 또는 p(통과한 파이프 수) 중 먼저 오는 쪽으로 발동한다.
+  // 초보(10~20초)도 화면이 변하는 걸 반드시 한 번은 본다.
+  var EVENTS = [
+    { t: 8,  p: 3,  msg: "🌇 노을이 물들었어!", act: function () { setTheme(1); } },
+    { t: 16, p: 6,  msg: "🌬️ 바람이 분다! 파이프가 움직여!", act: function () { windOn = true; } },
+    { t: 30, p: 10, msg: "🌙 밤이야! 별이 더 나와!", act: function () { setTheme(2); starBoost = true; } },
+    { t: 46, p: 16, msg: "🌅 아침! 조금 빨라져!", act: function () { setTheme(0); extraSpeed += 8; } },
+    { t: 62, p: 24, msg: "⚡ 초고속 모드! 조심해!", act: function () { setTheme(1); extraSpeed += 12; } },
+    { t: 78, p: 32, msg: "⚡⚡ 더 빨라진다!", act: function () { setTheme(0); extraSpeed += 12; } }
+  ];
+
+  var THEMES = [
+    { skyTop: [110, 195, 228], skyBot: [198, 238, 255], hill: [92, 190, 108], hill2: [66, 160, 84],
+      pipe: [86, 200, 96], pipeDark: [40, 145, 62], ground: [226, 200, 130], groundDark: [198, 168, 96], night: 0 },
+    { skyTop: [255, 142, 92], skyBot: [255, 214, 150], hill: [200, 120, 90], hill2: [160, 88, 70],
+      pipe: [232, 150, 60], pipeDark: [176, 98, 30], ground: [214, 168, 110], groundDark: [180, 132, 78], night: 0 },
+    { skyTop: [26, 38, 92], skyBot: [72, 88, 160], hill: [40, 60, 110], hill2: [28, 44, 88],
+      pipe: [78, 150, 200], pipeDark: [36, 96, 150], ground: [70, 74, 120], groundDark: [50, 54, 96], night: 1 }
+  ];
+
+  function setTheme(i) {
+    themeFrom = themeIdx;
+    themeTo = i;
+    themeIdx = i;
+    themeMix = 0;
+  }
+
+  var clouds = [];
+  var nightStars = [];
+  function buildDecor() {
+    clouds.length = 0;
+    for (var i = 0; i < 6; i++) {
+      clouds.push({
+        x: Math.random() * 500,
+        y: 50 + Math.random() * 220,
+        s: 0.55 + Math.random() * 0.8,
+        sp: 8 + Math.random() * 14
+      });
+    }
+    nightStars.length = 0;
+    for (var j = 0; j < 34; j++) {
+      nightStars.push({ x: Math.random(), y: Math.random() * 0.62, r: 0.7 + Math.random() * 1.5, tw: Math.random() * 6.28 });
+    }
+  }
+  buildDecor();
+
+  /* =========================================================
+     5. 난이도 (처음 5개는 확실히 쉽게)
+     ========================================================= */
+  function pipeSpeed() {
+    var s = 150 + Math.min(passed, 45) * 2.1 + extraSpeed;
+    return s;
+  }
+  function gapHeight() {
+    if (passed < 5) return 236;
+    var g = 236 - (passed - 5) * 2.4;
+    return Math.max(152, g);
+  }
+  function pipeSpacing() {
+    if (passed < 5) return 345;
+    return Math.max(258, 345 - (passed - 5) * 2.0);
+  }
+
+  /* =========================================================
+     6. 시작 / 리셋
+     ========================================================= */
+  var toastTimer = 0;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 1900);
+  }
+
+  function resetRun() {
+    pipes.length = 0;
+    stars.length = 0;
+    parts.length = 0;
+    floats.length = 0;
+
+    bird.x = Math.max(90, BW * 0.28);
+    bird.y = BH * 0.42;
+    bird.vy = 0;            // READY 상태가 위치를 담당한다(시작하자마자 추락 금지)
+    bird.rot = 0;
+    bird.pop = 1;
+    bird.stretch = 1;
+    bird.wing = 0;
+    bird.alive = true;
+    bird.inv = 0;
+
+    score = 0; combo = 0; bestCombo = 0; starCount = 0; riskStars = 0; shields = 0; passed = 0;
+    runTime = 0; shake = 0; hitStop = 0; flashWhite = 0; overWait = 0;
+    eventIdx = 0; extraSpeed = 0; windOn = false; starBoost = false;
+    spawnedTotal = 0;
+    update.extraSteps = 0;
+    newRecord = false; spurtWarned = false;
+    themeIdx = 0; themeFrom = 0; themeTo = 0; themeMix = 1;
+
+    // 첫 파이프: 아주 여유롭게 (약 2.3초 뒤 첫 성공)
+    spawnPipe(BW + 30, BH * 0.42);
+    updateHud();
+  }
+
+  var lastStartAt = -9;
+  function startGame() {
+    // 같은 탭이 두 번 들어와서 두 번 시작되는 걸 막는다
+    if (nowSec - lastStartAt < 0.3) return;
+    lastStartAt = nowSec;
+    audioReady();
+    resetRun();
+    state = STATE_READY;    // 바로 시작하지 않는다. 아이가 준비될 때까지 기다린다.
+    titleScreen.classList.add("hide");
+    overScreen.classList.add("hide");
+    sndStart();
+    toast("준비! 톡 치면 출발! 🐤");
+  }
+
+  /* =========================================================
+     7. 파이프 / 별 만들기
+     ========================================================= */
+  function spawnPipe(x, forceY) {
+    var gh = gapHeight();
+    var groundY = BH - GROUND_H;
+    var minY = gh / 2 + 54;
+    var maxY = groundY - gh / 2 - 26;
+    if (maxY < minY) maxY = minY;
+
+    var y;
+    if (typeof forceY === "number") {
+      y = forceY;
+    } else if (spawnedTotal < 3) {
+      // 앞 세 개는 새 근처에 부드럽게
+      y = bird.y + (Math.random() * 60 - 30);
+    } else {
+      y = minY + Math.random() * (maxY - minY);
+    }
+    y = Math.max(minY, Math.min(maxY, y));
+
+    var amp = 0;
+    if (windOn && spawnedTotal > 5 && Math.random() < 0.5) {
+      amp = 18 + Math.random() * 22;
+      var room = Math.min(y - minY, maxY - y);
+      amp = Math.min(amp, Math.max(0, room));
+    }
+
+    var p = {
+      x: x, baseY: y, y: y, gap: gh, amp: amp,
+      phase: Math.random() * 6.28, scored: false, w: PIPE_W
+    };
+    pipes.push(p);
+    spawnedTotal++;
+
+    // 별: 위험 보상 — 가끔 틈 가장자리에 붙어서 나온다
+    var chance = starBoost ? 0.62 : 0.42;
+    if (spawnedTotal > 2 && Math.random() < chance) {
+      var edge = Math.random() < 0.72 ? (Math.random() < 0.5 ? -1 : 1) : 0;
+      var off = edge * (gh / 2 - 26);
+      stars.push({
+        pipe: p, off: off, x: x + PIPE_W * 0.5, y: y + off,
+        got: false, spin: Math.random() * 6.28, edge: (edge !== 0)
+      });
+    }
+    return p;
+  }
+
+  /* =========================================================
+     8. 파티클 / 떠오르는 숫자
+     ========================================================= */
+  function burst(x, y, n, colors, spd, life) {
+    for (var i = 0; i < n; i++) {
+      var a = Math.random() * Math.PI * 2;
+      var v = spd * (0.35 + Math.random() * 0.9);
+      parts.push({
+        x: x, y: y,
+        vx: Math.cos(a) * v, vy: Math.sin(a) * v - 30,
+        r: 2.2 + Math.random() * 3.6,
+        life: life, max: life,
+        c: colors[(Math.random() * colors.length) | 0],
+        g: 260 + Math.random() * 200
+      });
+    }
+  }
+  function floatText(x, y, text, color, size) {
+    floats.push({ x: x, y: y, t: text, c: color, s: size || 22, life: 0.95, max: 0.95, vy: -70 });
+  }
+
+  /* =========================================================
+     9. 입력
+     ========================================================= */
+  function flap() {
+    bird.vy = -430;
+    bird.wing = 1;
+    bird.pop = 1.34;
+    bird.stretch = 1.18;   // 위로 쭉! (다음 프레임부터 1로 돌아온다)
+    bird.rot = -0.45;
+    sndFlap();
+    burst(bird.x - 10, bird.y + 8, 9, ["#fff6d0", "#ffe27a", "#ffffff"], 150, 0.5);
+    burst(bird.x - 16, bird.y + 12, 4, ["#ffffff", "#e8f4ff"], 60, 0.35);
+    if (!muted && navigator.vibrate) {
+      try { navigator.vibrate(8); } catch (e) { /* 무시 */ }
+    }
+  }
+
+  function pressAction() {
+    if (state === STATE_TITLE) {
+      startGame();
+      return;
+    }
+    if (state === STATE_READY) {
+      audioReady();
+      state = STATE_PLAY;
+      flap();
+      return;
+    }
+    if (state === STATE_PLAY) {
+      audioReady();
+      flap();
+      return;
+    }
+    if (state === STATE_PAUSE) {
+      state = STATE_PLAY;
+      toast("계속 가자! 🐤");
+      return;
+    }
+    if (state === STATE_OVER) {
+      if (overWait <= 0) startGame();
+      return;
+    }
+  }
+
+  stage.addEventListener("pointerdown", function (e) {
+    // 버튼은 자기 클릭으로 처리한다(두 번 실행 방지)
+    var t = e.target;
+    while (t && t !== stage) {
+      if (t.tagName === "BUTTON") return;
+      t = t.parentNode;
+    }
+    e.preventDefault();
+    audioReady();
+    pressAction();
+  });
+
+  window.addEventListener("keydown", function (e) {
+    var k = e.key;
+    if (k === " " || k === "Spacebar" || k === "ArrowUp" || k === "ArrowDown" ||
+        k === "ArrowLeft" || k === "ArrowRight" || k === "Enter") {
+      e.preventDefault();
+    }
+    if (k === " " || k === "Spacebar" || k === "ArrowUp" || k === "Enter" || k === "w" || k === "W") {
+      if (e.repeat) return;
+      audioReady();
+      pressAction();
+    }
+    if (k === "m" || k === "M") muteBtn.click();
+  }, { passive: false });
+
+  startBtn.addEventListener("click", function (e) { e.stopPropagation(); audioReady(); startGame(); });
+  againBtn.addEventListener("click", function (e) {
+    e.stopPropagation(); audioReady();
+    if (overWait <= 0) startGame();
+  });
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden && state === STATE_PLAY) state = STATE_PAUSE;
+  });
+
+  /* =========================================================
+     10. 충돌
+     ========================================================= */
+  function circleRect(cx, cy, r, rx, ry, rw, rh) {
+    var nx = Math.max(rx, Math.min(cx, rx + rw));
+    var ny = Math.max(ry, Math.min(cy, ry + rh));
+    var dx = cx - nx, dy = cy - ny;
+    return dx * dx + dy * dy < r * r;
+  }
+
+  function loseShield() {
+    shields--;
+    bird.inv = 1.3;
+    bird.vy = -430;
+    shake = 16;
+    hitStop = 0.09;
+    flashWhite = 0.5;
+    sndShieldBreak();
+    burst(bird.x, bird.y, 26, ["#bfe9ff", "#7fd0ff", "#ffffff", "#4fa8e0"], 240, 0.7);
+    floatText(bird.x, bird.y - 34, "방패가 막았어!", "#3fa8ff", 20);
+    combo = 0;
+    updateHud();
+  }
+
+  function die() {
+    if (!bird.alive) return;
+    bird.alive = false;
+    state = STATE_DYING;
+    // 방금 파닥해서 위로 솟는 중이면 그 상승을 잘라낸다(죽은 시간 단축)
+    if (bird.vy < -140) bird.vy = -140;
+    shake = 22;
+    hitStop = 0.10;
+    flashWhite = 0.8;
+    sndHit();
+    sndFall();
+    burst(bird.x, bird.y, 30, ["#ffd85e", "#ff9f1c", "#ffffff", "#ff6b6b"], 260, 0.85);
+  }
+
+  /* =========================================================
+     11. 게임 오버 화면
+     ========================================================= */
+  function medalOf(sc) {
+    if (sc >= 40) return { icon: "🌈", name: "무지개 메달! 전설의 병아리!" };
+    if (sc >= 25) return { icon: "🥇", name: "금메달! 정말 대단해!" };
+    if (sc >= 12) return { icon: "🥈", name: "은메달! 아주 잘했어!" };
+    if (sc >= 5) return { icon: "🥉", name: "동메달! 좋았어!" };
+    return { icon: "🥚", name: "아직 메달이 없어. 5개만 넘겨봐!" };
+  }
+
+  function showOver() {
+    state = STATE_OVER;
+    overWait = 0.20;
+
+    var m = medalOf(score);
+    overMedal.textContent = m.icon;
+    overMedalName.textContent = m.name;
+    overScore.textContent = score + "점";
+
+    if (score > best) {
+      best = score;
+      saveNum(STORE_BEST, best);
+      newRecord = true;
+    }
+    elBest.textContent = "🏆 " + best;
+    overBest.textContent = "파이프 " + passed + "개 · 별 " + starCount + "개 · 완벽 " +
+                           bestCombo + "연속 · 최고 " + best + "점";
+
+    overRegret.classList.remove("new");
+    if (newRecord) {
+      overTitle.textContent = "신기록이다! 🎉";
+      overRegret.classList.add("new");
+      overRegret.textContent = "우와! 최고 기록을 갈아치웠어!";
+      sndMedal();
+    } else {
+      overTitle.textContent = "부딪혔다!";
+      var diff = best - score;
+      if (diff <= 0) {
+        overRegret.textContent = "최고 기록이랑 똑같아! 1점만 더!";
+      } else if (diff <= 3) {
+        overRegret.textContent = "아깝다! 최고 기록까지 " + diff + "점!";
+      } else if (diff <= 8) {
+        overRegret.textContent = "조금만 더! 최고 기록까지 " + diff + "점 남았어!";
+      } else {
+        overRegret.textContent = "최고 기록까지 " + diff + "점! 다시 가보자!";
+      }
+      if (score >= 5) sndMedal();
+    }
+    overScreen.classList.remove("hide");
+  }
+
+  /* =========================================================
+     12. HUD
+     ========================================================= */
+  var hudCache = { t: -1, s: -1, sh: -1 };
+  function updateHud() {
+    var sec = Math.floor(runTime);
+    if (sec !== hudCache.t) { hudCache.t = sec; elTime.textContent = "⏱ " + sec + "초"; }
+    if (starCount !== hudCache.s) { hudCache.s = starCount; elStar.textContent = "⭐ " + starCount; }
+    if (shields !== hudCache.sh) {
+      hudCache.sh = shields;
+      elShield.textContent = "🛡 " + shields;
+      if (shields > 0) elShield.classList.add("on");
+      else elShield.classList.remove("on");
+    }
+  }
+
+  /* =========================================================
+     13. 업데이트
+     ========================================================= */
+  function update(dt) {
+    // 화면 효과는 히트스톱과 상관없이 흐른다
+    if (shake > 0) shake = Math.max(0, shake - dt * 55);
+    if (flashWhite > 0) flashWhite = Math.max(0, flashWhite - dt * 2.6);
+    if (themeMix < 1) themeMix = Math.min(1, themeMix + dt * 1.2);
+    bird.pop += (1 - bird.pop) * Math.min(1, dt * 9);
+    bird.wing = Math.max(0, bird.wing - dt * 3.4);
+
+    // 파티클 / 숫자는 항상 갱신
+    var i;
+    for (i = parts.length - 1; i >= 0; i--) {
+      var p = parts[i];
+      p.life -= dt;
+      if (p.life <= 0) { parts.splice(i, 1); continue; }
+      p.vy += p.g * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+    }
+    for (i = floats.length - 1; i >= 0; i--) {
+      var f = floats[i];
+      f.life -= dt;
+      if (f.life <= 0) { floats.splice(i, 1); continue; }
+      f.y += f.vy * dt;
+      f.vy += 40 * dt;
+    }
+
+    if (state === STATE_TITLE) {
+      // 시작 화면: 병아리가 둥실둥실
+      bird.x = BW * 0.5;
+      bird.y = BH * 0.44 + Math.sin(nowSec * 2.4) * 12;
+      bird.rot = Math.sin(nowSec * 2.4) * 0.18;
+      groundX -= 60 * dt;
+      moveClouds(dt, 1);
+      return;
+    }
+
+    if (state === STATE_PAUSE || state === STATE_OVER) {
+      if (overWait > 0) overWait = Math.max(0, overWait - dt);
+      moveClouds(dt, 0.3);
+      return;
+    }
+
+    if (hitStop > 0) { hitStop -= dt; return; }
+
+    if (state === STATE_DYING) {
+      bird.vy += 1500 * dt;
+      bird.y += bird.vy * dt;
+      bird.rot = Math.min(1.6, bird.rot + dt * 4.2);
+      var floorY = BH - GROUND_H - BIRD_R;
+      if (bird.y >= floorY) {
+        bird.y = floorY;
+        burst(bird.x, bird.y + 10, 14, ["#e2c882", "#c9a95f", "#fff"], 160, 0.5);
+        shake = Math.max(shake, 10);
+        showOver();
+      }
+      return;
+    }
+
+    /* ---- 실제 플레이 ---- */
+    runTime += dt;
+    if (bird.inv > 0) bird.inv -= dt;
+
+    // 이벤트
+    while (eventIdx < EVENTS.length &&
+           (runTime >= EVENTS[eventIdx].t || passed >= EVENTS[eventIdx].p)) {
+      var ev = EVENTS[eventIdx];
+      ev.act();
+      toast(ev.msg);
+      sndEvent();
+      shake = Math.max(shake, 8);
+      eventIdx++;
+    }
+    // 마지막 이벤트 뒤로는 16초마다 조금씩 더 빨라진다
+    if (eventIdx >= EVENTS.length) {
+      var lastT = EVENTS[EVENTS.length - 1].t;
+      var steps = Math.floor((runTime - lastT) / 16);
+      if (steps > 0 && steps > (update.extraSteps || 0)) {
+        update.extraSteps = steps;
+        extraSpeed += 8;
+        toast("⚡ 더더 빨라진다!");
+        sndEvent();
+      }
+    }
+
+    // 새 물리
+    bird.vy += 1500 * dt;
+    if (bird.vy > 720) bird.vy = 720;
+    bird.y += bird.vy * dt;
+    bird.rot = Math.max(-0.55, Math.min(1.5, bird.vy / 520));
+    bird.x += (Math.max(90, BW * 0.28) - bird.x) * Math.min(1, dt * 5);
+
+    // 천장
+    if (bird.y < BIRD_R + 4) { bird.y = BIRD_R + 4; if (bird.vy < 0) bird.vy = 0; }
+
+    // 파이프 이동
+    var spd = pipeSpeed();
+    groundX -= spd * dt;
+    moveClouds(dt, 1);
+
+    var groundY = BH - GROUND_H;
+    for (i = pipes.length - 1; i >= 0; i--) {
+      var pp = pipes[i];
+      pp.x -= spd * dt;
+      if (pp.amp > 0) pp.y = pp.baseY + Math.sin(runTime * 1.15 + pp.phase) * pp.amp;
+      else pp.y = pp.baseY;
+
+      // 점수
+      if (!pp.scored && pp.x + pp.w < bird.x) {
+        pp.scored = true;
+        passed++;
+        var dist = Math.abs(bird.y - pp.y);
+        var perfect = dist < pp.gap * 0.19;
+        if (perfect) {
+          combo++;
+          if (combo > bestCombo) bestCombo = combo;
+          score += 2;
+          sndPerfect(combo);
+          floatText(bird.x + 26, bird.y - 30, "완벽! +2", "#ffe27a", 22);
+          burst(pp.x + pp.w * 0.5, pp.y, 16, ["#ffe27a", "#fff", "#ffb703"], 190, 0.6);
+          shake = Math.max(shake, 9);
+        } else {
+          combo = 0;
+          score += 1;
+          sndScore(Math.min(7, passed % 8));
+          floatText(bird.x + 26, bird.y - 30, "+1", "#ffffff", 20);
+          burst(pp.x + pp.w * 0.5, pp.y, 8, ["#ffffff", "#cfeaff"], 130, 0.45);
+          shake = Math.max(shake, 5);
+        }
+        bird.pop = 1.3;
+        hitStop = perfect ? 0.075 : 0.045;
+        updateHud();
+      }
+
+      if (pp.x + pp.w < -30) pipes.splice(i, 1);
+    }
+
+    // 별 이동/획득
+    for (i = stars.length - 1; i >= 0; i--) {
+      var st = stars[i];
+      st.x = st.pipe.x + st.pipe.w * 0.5;
+      st.y = st.pipe.y + st.off;
+      st.spin += dt * 3.2;
+      if (!st.got) {
+        var ddx = st.x - bird.x, ddy = st.y - bird.y;
+        if (ddx * ddx + ddy * ddy < (BIRD_R + 15) * (BIRD_R + 15)) {
+          st.got = true;
+          starCount++;
+          score += 3;
+          sndStar();
+          floatText(st.x, st.y - 16, "별! +3", "#ffe27a", 22);
+          burst(st.x, st.y, 18, ["#ffe27a", "#fff6c0", "#ffffff"], 200, 0.6);
+          shake = Math.max(shake, 8);
+          hitStop = 0.05;
+          bird.pop = 1.32;
+          if (starCount % 4 === 0 && shields < 2) {
+            shields++;
+            sndShieldGet();
+            floatText(bird.x, bird.y - 56, "방패 얻었다! 🛡", "#3fa8ff", 20);
+            toast("🛡 방패를 얻었어! 한 번은 살아나!");
+          }
+          updateHud();
+        }
+      }
+      if (st.x < -40) stars.splice(i, 1);
+    }
+
+    // 새 파이프 생성
+    var lastX = -9999;
+    for (i = 0; i < pipes.length; i++) if (pipes[i].x > lastX) lastX = pipes[i].x;
+    if (lastX < BW - pipeSpacing()) spawnPipe(BW + 10);
+
+    // 충돌
+    var hit = false;
+    for (i = 0; i < pipes.length; i++) {
+      var q = pipes[i];
+      if (q.x > bird.x + BIRD_R + 8 || q.x + q.w < bird.x - BIRD_R - 8) continue;
+      var topH = q.y - q.gap / 2;
+      var botY = q.y + q.gap / 2;
+      if (circleRect(bird.x, bird.y, BIRD_R - 2, q.x, -200, q.w, topH + 200)) hit = true;
+      if (circleRect(bird.x, bird.y, BIRD_R - 2, q.x, botY, q.w, groundY - botY + 10)) hit = true;
+      if (hit) break;
+    }
+    if (bird.y + BIRD_R >= groundY) {
+      bird.y = groundY - BIRD_R;
+      hit = true;
+    }
+
+    if (hit) {
+      if (bird.inv > 0) {
+        // 무적 중엔 안전
+      } else if (shields > 0) {
+        loseShield();
+      } else {
+        die();
+      }
+    }
+
+    updateHud();
+  }
+
+  function moveClouds(dt, mul) {
+    for (var i = 0; i < clouds.length; i++) {
+      var c = clouds[i];
+      c.x -= c.sp * mul * dt;
+      if (c.x < -140) { c.x = BW + 40 + Math.random() * 80; c.y = 40 + Math.random() * 230; }
+    }
+  }
+
+  /* =========================================================
+     14. 그리기
+     ========================================================= */
+  function mixc(a, b, t) {
+    return "rgb(" + Math.round(a[0] + (b[0] - a[0]) * t) + "," +
+                    Math.round(a[1] + (b[1] - a[1]) * t) + "," +
+                    Math.round(a[2] + (b[2] - a[2]) * t) + ")";
+  }
+  function themeColor(key) {
+    var A = THEMES[themeFrom][key], B = THEMES[themeTo][key];
+    return mixc(A, B, themeMix);
+  }
+  function nightAmount() {
+    var a = THEMES[themeFrom].night, b = THEMES[themeTo].night;
+    return a + (b - a) * themeMix;
+  }
+
+  function roundRect(x, y, w, h, r) {
+    var rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.lineTo(x + w - rr, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+    ctx.lineTo(x + w, y + h - rr);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+    ctx.lineTo(x + rr, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+    ctx.lineTo(x, y + rr);
+    ctx.quadraticCurveTo(x, y, x + rr, y);
+    ctx.closePath();
+  }
+
+  function drawSky() {
+    var g = ctx.createLinearGradient(0, 0, 0, BH);
+    g.addColorStop(0, themeColor("skyTop"));
+    g.addColorStop(1, themeColor("skyBot"));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, BW, BH);
+
+    var na = nightAmount();
+    if (na > 0.02) {
+      for (var i = 0; i < nightStars.length; i++) {
+        var s = nightStars[i];
+        var tw = 0.45 + 0.55 * Math.abs(Math.sin(nowSec * 1.6 + s.tw));
+        ctx.globalAlpha = na * tw;
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(s.x * BW, s.y * BH, s.r, 0, 6.2832);
+        ctx.fill();
+      }
+      ctx.globalAlpha = na * 0.9;
+      ctx.fillStyle = "#fff6c8";
+      ctx.beginPath();
+      ctx.arc(BW * 0.78, BH * 0.13, 22, 0, 6.2832);
+      ctx.fill();
+      ctx.fillStyle = themeColor("skyTop");
+      ctx.beginPath();
+      ctx.arc(BW * 0.72, BH * 0.11, 20, 0, 6.2832);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = "#fff3b0";
+      ctx.beginPath();
+      ctx.arc(BW * 0.8, BH * 0.12, 26, 0, 6.2832);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // 구름
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = nightAmount() > 0.5 ? "rgba(220,230,255,.45)" : "rgba(255,255,255,.9)";
+    for (var c = 0; c < clouds.length; c++) {
+      var cl = clouds[c];
+      var s2 = cl.s;
+      ctx.beginPath();
+      ctx.arc(cl.x, cl.y, 18 * s2, 0, 6.2832);
+      ctx.arc(cl.x + 20 * s2, cl.y + 5 * s2, 14 * s2, 0, 6.2832);
+      ctx.arc(cl.x - 20 * s2, cl.y + 6 * s2, 12 * s2, 0, 6.2832);
+      ctx.arc(cl.x + 6 * s2, cl.y - 11 * s2, 13 * s2, 0, 6.2832);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // 언덕
+    var gy = BH - GROUND_H;
+    ctx.fillStyle = themeColor("hill2");
+    ctx.beginPath();
+    ctx.moveTo(0, gy);
+    for (var x = 0; x <= BW; x += 20) {
+      ctx.lineTo(x, gy - 44 - Math.sin((x + groundX * 0.25) * 0.014) * 20);
+    }
+    ctx.lineTo(BW, gy); ctx.closePath(); ctx.fill();
+
+    ctx.fillStyle = themeColor("hill");
+    ctx.beginPath();
+    ctx.moveTo(0, gy);
+    for (var x2 = 0; x2 <= BW; x2 += 20) {
+      ctx.lineTo(x2, gy - 22 - Math.sin((x2 + groundX * 0.45) * 0.02 + 1.7) * 14);
+    }
+    ctx.lineTo(BW, gy); ctx.closePath(); ctx.fill();
+  }
+
+  function drawPipe(p) {
+    var gy = BH - GROUND_H;
+    var topH = p.y - p.gap / 2;
+    var botY = p.y + p.gap / 2;
+    var body = themeColor("pipe");
+    var dark = themeColor("pipeDark");
+
+    function tube(x, y, w, h) {
+      if (h <= 0) return;
+      var g = ctx.createLinearGradient(x, 0, x + w, 0);
+      g.addColorStop(0, dark);
+      g.addColorStop(0.22, body);
+      g.addColorStop(0.55, "rgba(255,255,255,.35)");
+      g.addColorStop(0.56, body);
+      g.addColorStop(1, dark);
+      ctx.fillStyle = g;
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = "rgba(0,0,0,.30)";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x + 1.5, y + 1.5, w - 3, h - 3);
+    }
+    function rim(x, y, w, h) {
+      var g = ctx.createLinearGradient(x, 0, x + w, 0);
+      g.addColorStop(0, dark);
+      g.addColorStop(0.25, body);
+      g.addColorStop(0.55, "rgba(255,255,255,.45)");
+      g.addColorStop(0.57, body);
+      g.addColorStop(1, dark);
+      ctx.fillStyle = g;
+      roundRect(x, y, w, h, 6);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.32)";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+
+    tube(p.x, -10, p.w, topH + 10);
+    rim(p.x - 6, topH - 22, p.w + 12, 22);
+    tube(p.x, botY, p.w, gy - botY);
+    rim(p.x - 6, botY, p.w + 12, 22);
+  }
+
+  function drawStar(st) {
+    if (st.got) return;
+    ctx.save();
+    ctx.translate(st.x, st.y);
+    ctx.rotate(Math.sin(st.spin) * 0.35);
+    var pulse = 1 + Math.sin(st.spin * 2.2) * 0.12;
+    ctx.scale(pulse, pulse);
+    ctx.shadowColor = "rgba(255,220,90,.9)";
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = "#ffe27a";
+    ctx.strokeStyle = "#c98f00";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (var i = 0; i < 10; i++) {
+      var r = (i % 2 === 0) ? 15 : 6.5;
+      var a = -Math.PI / 2 + i * Math.PI / 5;
+      var px = Math.cos(a) * r, py = Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawGround() {
+    var gy = BH - GROUND_H;
+    ctx.fillStyle = themeColor("ground");
+    ctx.fillRect(0, gy, BW, GROUND_H);
+    ctx.fillStyle = themeColor("groundDark");
+    ctx.fillRect(0, gy, BW, 8);
+
+    var off = ((groundX % 40) + 40) % 40;
+    ctx.fillStyle = "rgba(0,0,0,.10)";
+    for (var x = -off; x < BW; x += 40) {
+      ctx.fillRect(x, gy + 12, 20, GROUND_H - 12);
+    }
+    ctx.fillStyle = "rgba(255,255,255,.16)";
+    for (var x2 = -off + 20; x2 < BW; x2 += 40) {
+      ctx.fillRect(x2, gy + 12, 6, 6);
+    }
+  }
+
+  function drawChick(x, y, rot, sc, wing, shieldOn, blink) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.scale(sc, sc);
+
+    if (shieldOn) {
+      ctx.globalAlpha = blink ? 0.85 : 0.55;
+      ctx.strokeStyle = "#8fd8ff";
+      ctx.lineWidth = 3;
+      ctx.shadowColor = "rgba(120,200,255,.9)";
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(0, 0, 25 + Math.sin(nowSec * 6) * 1.6, 0, 6.2832);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+    }
+
+    // 꼬리
+    ctx.fillStyle = "#f5b301";
+    ctx.beginPath();
+    ctx.moveTo(-12, -2);
+    ctx.lineTo(-25, -11);
+    ctx.lineTo(-23, 1);
+    ctx.lineTo(-25, 9);
+    ctx.closePath();
+    ctx.fill();
+
+    // 몸통
+    ctx.fillStyle = "#ffd93b";
+    ctx.strokeStyle = "#c98f00";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 18, 15.5, 0, 0, 6.2832);
+    ctx.fill();
+    ctx.stroke();
+
+    // 배
+    ctx.fillStyle = "rgba(255,247,190,.85)";
+    ctx.beginPath();
+    ctx.ellipse(1, 5, 12, 8.5, 0, 0, 6.2832);
+    ctx.fill();
+
+    // 머리 깃털
+    ctx.strokeStyle = "#f5b301";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(1, -15);
+    ctx.quadraticCurveTo(3, -24, 9, -25);
+    ctx.stroke();
+
+    // 날개
+    var wa = -0.5 + wing * 1.5;
+    ctx.save();
+    ctx.translate(-3, 1);
+    ctx.rotate(wa);
+    ctx.fillStyle = "#ffefa8";
+    ctx.strokeStyle = "#d9a300";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(-3, 2, 11, 7.5, 0, 0, 6.2832);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    // 부리
+    ctx.fillStyle = "#ff8c1a";
+    ctx.strokeStyle = "#cc6a00";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(15, -2);
+    ctx.lineTo(27, 1.5);
+    ctx.lineTo(15, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // 눈
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(8, -5.5, 5.6, 0, 6.2832);
+    ctx.fill();
+    ctx.strokeStyle = "#c98f00";
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    ctx.fillStyle = "#2a2a2a";
+    ctx.beginPath();
+    ctx.arc(9.8, -5.5, 2.9, 0, 6.2832);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(11, -7, 1.1, 0, 6.2832);
+    ctx.fill();
+
+    // 볼터치
+    ctx.fillStyle = "rgba(255,120,120,.45)";
+    ctx.beginPath();
+    ctx.arc(4, 2.5, 3.6, 0, 6.2832);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawBigScore() {
+    if (state === STATE_TITLE) return;
+    var txt = String(score);
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.font = "900 " + 54 + "px -apple-system, BlinkMacSystemFont, system-ui, 'Malgun Gothic', sans-serif";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 9;
+    ctx.strokeStyle = "rgba(0,0,0,.55)";
+    ctx.strokeText(txt, BW / 2, 46);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(txt, BW / 2, 46);
+
+    if (combo >= 2) {
+      ctx.font = "900 20px -apple-system, BlinkMacSystemFont, system-ui, 'Malgun Gothic', sans-serif";
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = "rgba(0,0,0,.55)";
+      ctx.strokeText("완벽 " + combo + "연속! 🔥", BW / 2, 108);
+      ctx.fillStyle = "#ffe27a";
+      ctx.fillText("완벽 " + combo + "연속! 🔥", BW / 2, 108);
+    }
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      var a = Math.max(0, p.life / p.max);
+      ctx.globalAlpha = a;
+      ctx.fillStyle = p.c;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * (0.4 + a * 0.8), 0, 6.2832);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawFloats() {
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    for (var i = 0; i < floats.length; i++) {
+      var f = floats[i];
+      var a = Math.max(0, f.life / f.max);
+      var sc = 1 + (1 - a) * 0.35;
+      ctx.globalAlpha = a;
+      ctx.font = "900 " + (f.s * sc) + "px -apple-system, BlinkMacSystemFont, system-ui, 'Malgun Gothic', sans-serif";
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = "rgba(0,0,0,.55)";
+      ctx.strokeText(f.t, f.x, f.y);
+      ctx.fillStyle = f.c;
+      ctx.fillText(f.t, f.x, f.y);
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  function render() {
+    ctx.save();
+    ctx.scale(S, S);
+
+    var sx = 0, sy = 0;
+    if (shake > 0) {
+      sx = (Math.random() * 2 - 1) * shake;
+      sy = (Math.random() * 2 - 1) * shake;
+    }
+    ctx.translate(sx, sy);
+
+    drawSky();
+
+    for (var i = 0; i < pipes.length; i++) drawPipe(pipes[i]);
+    for (var j = 0; j < stars.length; j++) drawStar(stars[j]);
+
+    drawGround();
+    drawParticles();
+
+    var blink = bird.inv > 0 && (Math.floor(nowSec * 14) % 2 === 0);
+    if (!(bird.inv > 0 && blink && state === STATE_PLAY)) {
+      drawChick(bird.x, bird.y, bird.rot, bird.pop, bird.wing, shields > 0 || bird.inv > 0, bird.inv > 0);
+    }
+
+    drawFloats();
+    drawBigScore();
+
+    if (state === STATE_PAUSE) {
+      ctx.fillStyle = "rgba(10,20,40,.55)";
+      ctx.fillRect(0, 0, BW, BH);
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#fff";
+      ctx.font = "900 26px -apple-system, BlinkMacSystemFont, system-ui, 'Malgun Gothic', sans-serif";
+      ctx.fillText("잠깐 멈춤 ⏸", BW / 2, BH * 0.46);
+      ctx.font = "800 16px -apple-system, BlinkMacSystemFont, system-ui, 'Malgun Gothic', sans-serif";
+      ctx.fillText("탭하거나 스페이스를 누르면 계속!", BW / 2, BH * 0.53);
+    }
+
+    ctx.restore();
+
+    if (flashWhite > 0) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(0.75, flashWhite * 0.6);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, cssW, cssH);
+      ctx.restore();
+    }
+  }
+
+  /* =========================================================
+     15. 메인 루프 (rAF + delta, 한 번만 돈다)
+     ========================================================= */
+  var lastT = 0, nowSec = 0, rafId = 0;
+
+  function loop(ts) {
+    rafId = requestAnimationFrame(loop);
+    if (!lastT) lastT = ts;
+    var dt = (ts - lastT) / 1000;
+    lastT = ts;
+    if (dt < 0) dt = 0;
+    if (dt > 0.05) dt = 0.05;     // 탭 복귀 시 순간이동 방지
+    nowSec += dt;
+
+    update(dt);
+    render();
+  }
+
+  /* =========================================================
+     16. 시작
+     ========================================================= */
+  resize();
+  bird.x = BW * 0.5;
+  bird.y = BH * 0.44;
+  // 시작 화면 장식용 파이프 (게임을 시작하면 지워진다)
+  pipes.push({ x: BW * 0.06, baseY: BH * 0.30, y: BH * 0.30, gap: 210, amp: 0, phase: 0, scored: true, w: PIPE_W });
+  pipes.push({ x: BW * 0.74, baseY: BH * 0.56, y: BH * 0.56, gap: 210, amp: 0, phase: 0, scored: true, w: PIPE_W });
+  updateHud();
+  rafId = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
