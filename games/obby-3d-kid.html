@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>3D 로블록스 스타일 오비</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #87CEEB; /* 하늘색 배경 */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none; /* 모바일에서 기본 터치 동작 방지 */
+        }
+        #game-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* UI 레이어 뒤의 캔버스 클릭 가능하게 */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .ui-panel {
+            padding: 20px;
+            text-shadow: 1px 1px 2px black;
+            color: white;
+        }
+        #controls-help {
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 10px;
+            display: inline-block;
+            margin: 20px;
+            pointer-events: auto; /* 도움말은 클릭 가능하게 (원한다면) */
+        }
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            display: none;
+            pointer-events: auto;
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        /* 모바일 조이스틱 UI (필요시 활성화) */
+        #mobile-controls {
+            display: none; /* 기본적으로 숨김, 모바일 환경에서만 표시 */
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            justify-content: space-between;
+            pointer-events: auto;
+        }
+        .joystick-zone {
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            position: relative;
+        }
+        .joystick-knob {
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            position: absolute;
+            top: 40px;
+            left: 40px;
+        }
+        #jump-btn-mobile {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 20px; /* 조이스틱과 높이 맞추기 위해 */
+        }
+    </style>
+    <!-- Three.js 라이브러리 로드 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+</head>
+<body>
+
+    <div id="game-container"></div>
+    
+    <div id="ui-layer">
+        <div class="ui-panel">
+            <h1 style="margin-top:0;">하늘색 레고 타워</h1>
+            <p>목표: 꼭대기까지 올라가세요!</p>
+        </div>
+        <div id="controls-help">
+            <h3>조작법</h3>
+            <p><b>W, A, S, D</b>: 이동</p>
+            <p><b>스페이스바</b>: 점프</p>
+            <p><b>화면 드래그</b>: 시점 회전</p>
+            <p>화면을 클릭(드래그)하여 게임을 시작하세요</p>
+        </div>
+    </div>
+
+    <div id="game-over">
+        <h2 id="game-over-title">떨어졌습니다!</h2>
+        <button onclick="resetGame()">마지막 체크포인트에서 시작</button>
+    </div>
+
+    <script>
+        let camera, scene, renderer, controls;
+        
+        // 이동 관련 변수
+        let moveForward = false;
+        let moveBackward = false;
+        let moveLeft = false;
+        let moveRight = false;
+        let canJump = false;
+        
+        let prevTime = performance.now();
+        const velocity = new THREE.Vector3();
+        const direction = new THREE.Vector3();
+        
+        // 게임 오브젝트
+        const objects = []; // 물리 충돌(바닥) 체크를 위한 배열
+        const checkpoints = []; // 체크포인트 객체 배열
+        
+        // 3인칭 캐릭터 관련 변수
+        let playerPos;
+        let playerModel;
+        
+        let isGameOver = false;
+        // 시작 블록의 윗면(-0.5) 기준으로 캐릭터 발(feet) 위치 설정
+        let currentCheckpointPos = new THREE.Vector3(0, -0.5, 10); 
+
+        // 마우스 드래그(시점 회전) 관련 변수
+        let isDragging = false;
+        let cameraYaw = 0;
+        let cameraPitch = -0.2; 
+        let previousMousePosition = { x: 0, y: 0 };
+
+        init();
+        animate();
+
+        function init() {
+            const container = document.getElementById( 'game-container' );
+
+            // 씬 생성
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color( 0x87CEEB ); // 하늘색 배경
+            scene.fog = new THREE.Fog( 0x87CEEB, 0, 750 ); // 안개 효과 (부드러운 시야 끝)
+
+            // 3인칭 캐릭터 모델 생성 및 씬에 추가
+            playerPos = new THREE.Vector3().copy(currentCheckpointPos);
+            playerModel = createPlayerModel();
+            scene.add(playerModel);
+
+            // 카메라 생성 (위치는 animate에서 플레이어 추적으로 자동 설정됨)
+            camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+
+            // 조명 설정
+            const light = new THREE.HemisphereLight( 0xeeeeff, 0x777788, 0.75 );
+            light.position.set( 0.5, 1, 0.75 );
+            scene.add( light );
+            
+            const dirLight = new THREE.DirectionalLight( 0xffffff, 0.8 );
+            dirLight.position.set( 20, 50, -20 );
+            dirLight.castShadow = true;
+            dirLight.shadow.camera.top = 50;
+            dirLight.shadow.camera.bottom = -50;
+            dirLight.shadow.camera.left = -50;
+            dirLight.shadow.camera.right = 50;
+            scene.add( dirLight );
+
+            const instructions = document.getElementById( 'controls-help' );
+            
+            // 기존 PointerLockControls 대신 드래그로 화면 회전(커서 유지) 이벤트 추가
+            document.addEventListener( 'mousedown', function ( event ) {
+                if (event.target.tagName !== 'BUTTON' && !isGameOver) {
+                    isDragging = true;
+                    previousMousePosition = { x: event.clientX, y: event.clientY };
+                    instructions.style.display = 'none'; // 클릭 시 조작법 숨김
+                }
+            });
+
+            document.addEventListener( 'mouseup', function () {
+                isDragging = false;
+            });
+
+            document.addEventListener( 'mousemove', function ( event ) {
+                if (isDragging && !isGameOver) {
+                    const deltaX = event.clientX - previousMousePosition.x;
+                    const deltaY = event.clientY - previousMousePosition.y;
+                    
+                    // 마우스 이동량에 따라 카메라 각도 변경
+                    cameraYaw -= deltaX * 0.005;
+                    cameraPitch -= deltaY * 0.005;
+                    
+                    // 카메라 위아래(Pitch) 회전 한계치 설정 (너무 뒤집히지 않게)
+                    cameraPitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, cameraPitch));
+                    
+                    previousMousePosition = { x: event.clientX, y: event.clientY };
+                }
+            });
+
+            const onKeyDown = function ( event ) {
+                switch ( event.code ) {
+                    case 'ArrowUp':
+                    case 'KeyW':
+                        moveForward = true;
+                        break;
+                    case 'ArrowLeft':
+                    case 'KeyA':
+                        moveLeft = true;
+                        break;
+                    case 'ArrowDown':
+                    case 'KeyS':
+                        moveBackward = true;
+                        break;
+                    case 'ArrowRight':
+                    case 'KeyD':
+                        moveRight = true;
+                        break;
+                    case 'Space':
+                        if ( canJump === true ) velocity.y = 30; // 점프 시작을 덜 갑작스럽게 (부드럽게)
+                        canJump = false;
+                        break;
+                }
+                // 한글 키보드 입력(ㅈ, ㅁ, ㄴ, ㅇ) 상태에서도 움직일 수 있도록 예외 처리 추가
+                const key = event.key.toLowerCase();
+                if(key === 'w' || key === 'ㅈ') moveForward = true;
+                if(key === 'a' || key === 'ㅁ') moveLeft = true;
+                if(key === 's' || key === 'ㄴ') moveBackward = true;
+                if(key === 'd' || key === 'ㅇ') moveRight = true;
+                if(key === ' ') {
+                    if ( canJump === true ) velocity.y = 30; // 점프 시작을 덜 갑작스럽게 (부드럽게)
+                    canJump = false;
+                }
+            };
+
+            const onKeyUp = function ( event ) {
+                switch ( event.code ) {
+                    case 'ArrowUp':
+                    case 'KeyW':
+                        moveForward = false;
+                        break;
+                    case 'ArrowLeft':
+                    case 'KeyA':
+                        moveLeft = false;
+                        break;
+                    case 'ArrowDown':
+                    case 'KeyS':
+                        moveBackward = false;
+                        break;
+                    case 'ArrowRight':
+                    case 'KeyD':
+                        moveRight = false;
+                        break;
+                }
+                const key = event.key.toLowerCase();
+                if(key === 'w' || key === 'ㅈ') moveForward = false;
+                if(key === 'a' || key === 'ㅁ') moveLeft = false;
+                if(key === 's' || key === 'ㄴ') moveBackward = false;
+                if(key === 'd' || key === 'ㅇ') moveRight = false;
+            };
+
+            document.addEventListener( 'keydown', onKeyDown );
+            document.addEventListener( 'keyup', onKeyUp );
+
+            renderer = new THREE.WebGLRenderer( { antialias: true } );
+            renderer.setPixelRatio( window.devicePixelRatio );
+            renderer.setSize( window.innerWidth, window.innerHeight );
+            renderer.shadowMap.enabled = true;
+            document.getElementById( 'game-container' ).appendChild( renderer.domElement );
+
+            window.addEventListener( 'resize', onWindowResize );
+
+            buildTower(); // 타워 생성 호출
+        } // init() 함수 종료
+
+        // 3인칭 캐릭터(레고스타일) 모델 생성 함수
+        function createPlayerModel() {
+            const group = new THREE.Group();
+            
+            // 재질 설정 (얼굴, 셔츠, 바지)
+            const skinMat = new THREE.MeshLambertMaterial({color: 0xfbd2b4}); // 살구색
+            const shirtMat = new THREE.MeshLambertMaterial({color: 0x2196F3}); // 파란색 셔츠
+            const pantsMat = new THREE.MeshLambertMaterial({color: 0x333333}); // 짙은 회색 바지
+            const eyeMat = new THREE.MeshBasicMaterial({color: 0x000000}); // 검은색 눈
+            
+            // 다리 (0 ~ 0.7)
+            const legs = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.7, 0.4), pantsMat);
+            legs.position.y = 0.35;
+            group.add(legs);
+            
+            // 몸통 (0.7 ~ 1.4)
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.7, 0.4), shirtMat);
+            torso.position.y = 1.05;
+            group.add(torso);
+            
+            // 머리 (1.4 ~ 2.0)
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), skinMat);
+            head.position.y = 1.7;
+            group.add(head);
+
+            // 눈 (앞 방향 -Z를 바라보도록)
+            const eye1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), eyeMat);
+            eye1.position.set(-0.15, 1.8, -0.31);
+            group.add(eye1);
+            const eye2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), eyeMat);
+            eye2.position.set(0.15, 1.8, -0.31);
+            group.add(eye2);
+            
+            return group;
+        }
+
+        function createLegoMaterial(colorHex) {
+            return new THREE.MeshLambertMaterial({ 
+                color: colorHex,
+                polygonOffset: true,
+                polygonOffsetFactor: 1,
+                polygonOffsetUnits: 1
+            });
+        }
+
+        function createLegoBlock(w, h, d, x, y, z, color, isCheckpoint = false) {
+            const geometry = new THREE.BoxGeometry( w, h, d );
+            const material = createLegoMaterial(color);
+            const mesh = new THREE.Mesh( geometry, material );
+            mesh.position.set( x, y, z );
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            
+            // 테두리(윤곽선) 추가하여 레고 블록 느낌 강조
+            const edges = new THREE.EdgesGeometry( geometry );
+            const line = new THREE.LineSegments( edges, new THREE.LineBasicMaterial( { color: 0x000000, linewidth: 2, transparent:true, opacity: 0.2 } ) );
+            mesh.add( line );
+            
+            // 상단 스터드(동그란 돌기) 추가 - 단순화
+            const studGeom = new THREE.CylinderGeometry(Math.min(w,d)*0.1, Math.min(w,d)*0.1, 0.2, 8);
+            const studsCountX = Math.floor(w / 1.5);
+            const studsCountZ = Math.floor(d / 1.5);
+            
+            for(let i=0; i<studsCountX; i++) {
+                for(let j=0; j<studsCountZ; j++) {
+                    const stud = new THREE.Mesh(studGeom, material);
+                    const sx = -w/2 + (w/(studsCountX+1)) * (i+1);
+                    const sz = -d/2 + (d/(studsCountZ+1)) * (j+1);
+                    stud.position.set(sx, h/2 + 0.1, sz);
+                    mesh.add(stud);
+                }
+            }
+            
+            scene.add( mesh );
+            objects.push( mesh ); // 충돌 체크 배열에 추가
+            
+            if(isCheckpoint) {
+                checkpoints.push(mesh);
+            }
+            
+            return mesh;
+        }
+
+        function buildTower() {
+            // "초보를 위한 타워" 디자인 패턴 적용
+            const levelColors = [
+                0xADD8E6, // 1단계: LightBlue (쉬움)
+                0x98FB98, // 2단계: PaleGreen (체크포인트)
+                0xFFB6C1, // 3단계: LightPink (조금 난이도 상승)
+                0xE0FFFF, // 4단계: LightCyan (체크포인트)
+                0xFFDAB9  // 5단계: PeachPuff (조금 더 어려움)
+            ];
+            
+            let currentY = -1; // 시작 플랫폼 높이
+            let currentX = 0;
+            let currentZ = 0;
+            
+            // [스테이지 1: 넓고 일직선인 시작 지점 (초보자 안심 구간)]
+            createLegoBlock(15, 1, 15, currentX, currentY, 10, 0xDDDDDD, true); // 첫 시작 지점 (회색)
+            currentZ = 10; // 시작 플랫폼 중심
+
+            // 1단계: 넓은 징검다리 (하늘색)
+            currentY = 1;
+            for(let i = 0; i < 4; i++) {
+                currentZ -= 6; // 간격 6
+                createLegoBlock(6, 1, 4, currentX, currentY, currentZ, levelColors[0]);
+                currentY += 1.5;
+            }
+
+            // [스테이지 2: 첫 번째 체크포인트 및 방향 전환]
+            currentZ -= 7;
+            createLegoBlock(8, 1, 8, currentX, currentY, currentZ, levelColors[1], true); // 넓은 체크포인트
+            
+            // 2단계: 'ㄱ'자 꺾이는 길 (연두색 테마에 맞춤, 난이도 동일)
+            currentX -= 6;
+            currentY += 1.5;
+            createLegoBlock(4, 1, 4, currentX, currentY, currentZ, levelColors[1]);
+            
+            currentX -= 6;
+            currentY += 1.5;
+            createLegoBlock(4, 1, 4, currentX, currentY, currentZ, levelColors[1]);
+
+            // [스테이지 3: 두 번째 체크포인트 및 좁아지는 징검다리]
+            currentZ -= 6;
+            createLegoBlock(6, 1, 6, currentX, currentY, currentZ, levelColors[2], true); // 체크포인트 (분홍색 톤 시작)
+            
+            // 3단계: 지그재그 좁은 징검다리
+            for(let i = 0; i < 5; i++) {
+                currentZ -= 5;
+                currentX += (i % 2 === 0) ? 3 : -3; // 지그재그
+                createLegoBlock(3, 1, 3, currentX, currentY, currentZ, levelColors[2]);
+                currentY += 2; // 높이 차이가 약간 커짐
+            }
+
+            // [스테이지 4: 세 번째 체크포인트 및 회전 나선형 길]
+            currentZ -= 7;
+            currentX = 0; // 중앙으로 정렬
+            createLegoBlock(8, 1, 8, currentX, currentY, currentZ, levelColors[3], true); // 체크포인트
+            
+            // 4단계: 넓은 반경의 나선형 계단 (떨어지기 쉬우므로 폭을 넓게 유지)
+            let spiralCenterZ = currentZ - 10;
+            let radius = 10;
+            let startAngle = Math.PI / 2; // 앞쪽(양의 Z)에서 시작
+
+            for(let i = 1; i <= 8; i++) {
+                let angle = startAngle - (i * (Math.PI / 6)); // 시계 방향 회전
+                let px = Math.cos(angle) * radius;
+                let pz = spiralCenterZ + Math.sin(angle) * radius;
+                
+                // 블록을 회전시켜 곡선 느낌을 주면 좋지만, BoxGeometry이므로 방향을 임시로 설정
+                let block = createLegoBlock(5, 1, 5, px, currentY, pz, levelColors[4]);
+                block.rotation.y = -angle; // 블록 방향 회전
+                currentY += 2;
+            }
+
+            // [최종 목적지]
+            let finalAngle = startAngle - (9 * (Math.PI / 6));
+            let goalX = Math.cos(finalAngle) * radius;
+            let goalZ = spiralCenterZ + Math.sin(finalAngle) * radius;
+            
+            createLegoBlock(12, 1, 12, goalX, currentY, goalZ, 0xFFD700); // 황금색 목표 지점
+            
+            // 우승 깃발 기둥
+            createLegoBlock(1, 10, 1, goalX, currentY + 5.5, goalZ - 2, 0xFFFFFF); 
+            // 깃발
+            createLegoBlock(4, 2, 0.5, goalX + 2, currentY + 9, goalZ - 2, 0xFF0000);
+            
+            // 바닥 (떨어지면 죽는 공간을 위한 임시 바닥 - 충돌체크 안함)
+            const floorGeo = new THREE.PlaneGeometry( 1000, 1000, 10, 10 );
+            const floorMat = new THREE.MeshBasicMaterial( { color: 0x225577, transparent:true, opacity: 0.5 } );
+            const floor = new THREE.Mesh( floorGeo, floorMat );
+            floor.rotation.x = - Math.PI / 2;
+            floor.position.y = -20; // 떨어지면 죽는 기준점보다 낮게
+            scene.add( floor );
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize( window.innerWidth, window.innerHeight );
+        }
+
+        function animate() {
+            requestAnimationFrame( animate );
+
+            const time = performance.now();
+            const delta = ( time - prevTime ) / 1000;
+
+            if ( !isGameOver ) {
+                // 속도 감쇠 (마찰력)
+                velocity.x -= velocity.x * 10.0 * delta;
+                velocity.z -= velocity.z * 10.0 * delta;
+                
+                // 중력 감소: 점프 곡선이 훨씬 더 부드럽고 자연스럽게 포물선을 그리도록 설정 (기존 150 -> 75)
+                velocity.y -= 75.0 * delta; 
+
+                // 카메라 자체 회전 적용 (드래그한 각도 기반)
+                camera.rotation.order = 'YXZ';
+                camera.rotation.y = cameraYaw;
+                camera.rotation.x = cameraPitch;
+
+                // --- 3인칭 카메라 기준의 이동 방향 계산 ---
+                // 카메라가 바라보는 전방(Forward)과 우측(Right) 벡터 추출
+                const camForward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                camForward.y = 0; 
+                camForward.normalize();
+                
+                const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+                camRight.y = 0; 
+                camRight.normalize();
+
+                // 입력에 따른 목표 이동 방향 벡터
+                const moveDir = new THREE.Vector3(0, 0, 0);
+                if (moveForward) moveDir.add(camForward);
+                if (moveBackward) moveDir.sub(camForward);
+                if (moveRight) moveDir.add(camRight);
+                if (moveLeft) moveDir.sub(camRight);
+                moveDir.normalize();
+
+                const speed = 150.0;
+                if (moveDir.lengthSq() > 0) {
+                    // 월드 좌표계 기준으로 플레이어 속도 증가
+                    velocity.x += moveDir.x * speed * delta;
+                    velocity.z += moveDir.z * speed * delta;
+                }
+
+                // --- 충돌 감지 로직 ---
+                const rayOrigin = playerPos.clone();
+                rayOrigin.y += 0.5; // 발에서 0.5 위로 올림
+                const raycaster = new THREE.Raycaster( rayOrigin, new THREE.Vector3( 0, - 1, 0 ), 0, 10 );
+                
+                const intersections = raycaster.intersectObjects( objects );
+                const onObject = intersections.length > 0 && intersections[0].distance <= 0.6;
+
+                // 아래로 떨어지는 중(velocity.y <= 0)일 때만 바닥에 닿게 하여 블록을 뚫고 올라가는 오류 방지
+                if ( onObject === true && velocity.y <= 0 ) {
+                    velocity.y = 0;
+                    canJump = true;
+                    playerPos.y = intersections[0].point.y;
+                    
+                    // 체크포인트 로직
+                    if(checkpoints.includes(intersections[0].object)) {
+                        const cpPos = intersections[0].object.position;
+                        currentCheckpointPos.set(cpPos.x, cpPos.y + 0.5, cpPos.z);
+                        
+                        if(intersections[0].object.material.emissive.getHex() === 0x000000) {
+                            intersections[0].object.material.emissive.setHex(0x333333);
+                        }
+                    }
+                }
+
+                // --- 캐릭터 위치 및 모델 업데이트 ---
+                playerPos.x += velocity.x * delta;
+                playerPos.y += velocity.y * delta;
+                playerPos.z += velocity.z * delta;
+
+                // 추락 체크
+                if (playerPos.y < -5) {
+                    gameOver();
+                }
+
+                // 플레이어 모델 위치 동기화
+                playerModel.position.copy(playerPos);
+                
+                // 이동 중일 때 캐릭터가 이동하는 방향을 바라보게 설정 (로블록스 일반 시점 스타일)
+                if (moveDir.lengthSq() > 0) {
+                    const targetAngle = Math.atan2(moveDir.x, moveDir.z);
+                    playerModel.rotation.y = targetAngle;
+                }
+
+                // --- 3인칭 카메라 궤도(Orbit) 업데이트 ---
+                const distance = 7; // 카메라와 캐릭터 사이 거리
+                const cameraOffset = new THREE.Vector3(0, 0, distance); 
+                cameraOffset.applyQuaternion(camera.quaternion); 
+                
+                // 카메라가 플레이어 머리 약간 위쪽을 바라보도록 세팅
+                const targetPos = playerPos.clone().add(new THREE.Vector3(0, 2, 0));
+                camera.position.copy(targetPos).add(cameraOffset); 
+            }
+
+            prevTime = time;
+            renderer.render( scene, camera );
+        }
+        
+        function gameOver() {
+            if(isGameOver) return;
+            isGameOver = true;
+            isDragging = false; // 드래그 상태 해제
+            document.getElementById('game-over').style.display = 'block';
+        }
+        
+        function resetGame() {
+            isGameOver = false;
+            document.getElementById('game-over').style.display = 'none';
+            
+            // 플레이어 위치를 마지막 체크포인트로 리셋
+            playerPos.copy(currentCheckpointPos);
+            velocity.set(0,0,0);
+            
+            // 화면 클릭 안내문 다시 표시 (마우스 잠금을 위해)
+            document.getElementById('controls-help').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
