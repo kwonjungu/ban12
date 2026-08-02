@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>급식실 요리 조합 🍳</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  body {
+    background:
+      radial-gradient(1200px 600px at 20% -10%, #fff3d6 0%, rgba(255,243,214,0) 60%),
+      radial-gradient(900px 500px at 100% 0%, #ffe3ec 0%, rgba(255,227,236,0) 55%),
+      linear-gradient(180deg, #fff8ec 0%, #ffeed8 100%);
+    color: #4a3421;
+    overflow: hidden;
+  }
+
+  /* ---------- 타일 벽 무늬 ---------- */
+  .tiles {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .5;
+    background-image:
+      linear-gradient(rgba(255,255,255,.75) 2px, transparent 2px),
+      linear-gradient(90deg, rgba(255,255,255,.75) 2px, transparent 2px);
+    background-size: 46px 46px;
+  }
+
+  #app {
+    position: relative; z-index: 1;
+    height: 100%; width: 100%;
+    max-width: 940px; margin: 0 auto;
+    display: flex; flex-direction: column;
+    padding: 10px 12px 12px;
+    gap: 10px;
+    overflow-y: auto;
+  }
+
+  /* ---------- HUD ---------- */
+  .hud {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    background: rgba(255,255,255,.85);
+    border: 3px solid #ffd9a0;
+    border-radius: 18px;
+    padding: 8px 10px;
+    box-shadow: 0 6px 0 rgba(255,175,95,.25);
+  }
+  .chip {
+    display: flex; align-items: center; gap: 5px;
+    font-weight: 900; font-size: 15px;
+    background: #fff2dc; border-radius: 12px; padding: 6px 10px;
+    white-space: nowrap;
+  }
+  .chip.time { background: #e6f7e0; }
+  .chip.book { background: #e6f0ff; }
+  .chip b { font-size: 17px; color: #e2603a; }
+  .hud .spacer { flex: 1 1 auto; }
+  .timebar {
+    flex: 1 1 100%; height: 12px; border-radius: 99px;
+    background: #ffe4c4; overflow: hidden; border: 2px solid #ffd0a0;
+  }
+  .timebar > i {
+    display: block; height: 100%; width: 100%;
+    background: linear-gradient(90deg, #6cc24a, #ffd23f 60%, #ff6b57);
+    border-radius: 99px; transition: width .12s linear;
+  }
+
+  /* ---------- 주방 본체 ---------- */
+  .kitchen {
+    display: grid; gap: 10px;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 720px) {
+    .kitchen { grid-template-columns: 1.05fr .95fr; align-items: stretch; }
+    .panel.pot-panel { order: 2; }
+    .panel.ing-panel { order: 1; }
+  }
+
+  .panel {
+    background: rgba(255,255,255,.82);
+    border: 3px solid #ffd9a0;
+    border-radius: 20px;
+    padding: 10px;
+    box-shadow: 0 6px 0 rgba(255,175,95,.22);
+  }
+  .panel h2 {
+    margin: 0 0 8px; font-size: 14px; font-weight: 900; color: #a8703c;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  /* 재료 카드 */
+  .cards {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  }
+  .card {
+    position: relative;
+    background: linear-gradient(180deg, #ffffff, #fff4e2);
+    border: 3px solid #ffcf9a; border-radius: 16px;
+    padding: 6px 2px 5px;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    cursor: grab; user-select: none; touch-action: none;
+    box-shadow: 0 4px 0 #f3c288;
+    transition: transform .12s, box-shadow .12s, border-color .12s;
+  }
+  .card:active { transform: translateY(3px); box-shadow: 0 1px 0 #f3c288; }
+  .card .em { font-size: 30px; line-height: 1.1; pointer-events: none; }
+  .card .nm { font-size: 11px; font-weight: 800; color: #7a5a3a; pointer-events: none; }
+  .card.sel { border-color: #ff8a3d; box-shadow: 0 0 0 4px rgba(255,138,61,.28), 0 4px 0 #f3c288; }
+  .card.taken { opacity: .35; filter: grayscale(.6); }
+  @media (min-width: 720px) {
+    .cards { gap: 10px; }
+    .card .em { font-size: 40px; }
+    .card .nm { font-size: 12.5px; }
+  }
+
+  /* 냄비 */
+  .pot-wrap {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 4px 0 2px;
+  }
+  .stove {
+    position: relative;
+    width: 100%; max-width: 300px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #ffe9c9, #ffd6a5);
+    border: 3px dashed #f0a95c;
+    padding: 10px 8px 8px;
+    display: flex; flex-direction: column; align-items: center;
+    transition: transform .12s, background .15s, border-color .15s, box-shadow .15s;
+  }
+  .stove.over {
+    background: linear-gradient(180deg, #fff6c9, #ffe08a);
+    border-color: #ff8a3d; transform: scale(1.04);
+    box-shadow: 0 0 0 6px rgba(255,138,61,.18);
+  }
+  .stove.shake { animation: shake .4s; }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-7px) rotate(-2deg); }
+    75% { transform: translateX(7px) rotate(2deg); }
+  }
+  .potemoji { font-size: 74px; line-height: 1; filter: drop-shadow(0 6px 4px rgba(0,0,0,.15)); }
+  .potemoji.boil { animation: boil .6s ease-in-out infinite; }
+  @keyframes boil {
+    0%,100% { transform: translateY(0) rotate(0); }
+    50% { transform: translateY(-5px) rotate(-2deg); }
+  }
+  .slots { display: flex; gap: 10px; margin-top: 2px; }
+  .slot {
+    width: 54px; height: 54px; border-radius: 14px;
+    background: rgba(255,255,255,.75); border: 3px dashed #e8b177;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px;
+  }
+  .slot.filled { border-style: solid; border-color: #6cc24a; background: #f2ffe9; animation: pop .3s; }
+  @keyframes pop {
+    0% { transform: scale(.3) rotate(-25deg); opacity: 0; }
+    70% { transform: scale(1.18) rotate(6deg); }
+    100% { transform: scale(1) rotate(0); opacity: 1; }
+  }
+  .hint {
+    font-size: 13px; font-weight: 800; color: #8a6540; text-align: center;
+    min-height: 20px;
+  }
+  .btn {
+    border: none; cursor: pointer; font-family: inherit; font-weight: 900;
+    border-radius: 14px; padding: 9px 16px; font-size: 14px;
+    background: #ffb26b; color: #5a3a18;
+    box-shadow: 0 4px 0 #dd8b40;
+    transition: transform .1s, box-shadow .1s;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #dd8b40; }
+  .btn.big { font-size: 20px; padding: 14px 32px; border-radius: 18px; background: #ff8a3d; color: #fff; box-shadow: 0 6px 0 #d2611f; }
+  .btn.ghost { background: #fff0dc; }
+
+  /* 결과 토스트 */
+  .toast {
+    position: fixed; left: 50%; top: 42%; transform: translate(-50%,-50%);
+    z-index: 40; pointer-events: none;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    font-weight: 900; text-align: center;
+    opacity: 0;
+  }
+  .toast.show { animation: toastUp 1.1s ease-out forwards; }
+  @keyframes toastUp {
+    0% { opacity: 0; transform: translate(-50%,-30%) scale(.5); }
+    25% { opacity: 1; transform: translate(-50%,-55%) scale(1.15); }
+    70% { opacity: 1; transform: translate(-50%,-58%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%,-90%) scale(1); }
+  }
+  .toast .big-em { font-size: 76px; filter: drop-shadow(0 8px 6px rgba(0,0,0,.2)); }
+  .toast .txt {
+    background: #fff; border: 3px solid #ffcf9a; border-radius: 14px;
+    padding: 5px 14px; font-size: 17px; color: #d9532b;
+  }
+  .toast.bad .txt { color: #6b7280; border-color: #d7d7d7; }
+
+  /* 도감 */
+  .book-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  @media (min-width: 560px) { .book-grid { grid-template-columns: repeat(6, 1fr); } }
+  .bk {
+    background: #f6efe4; border: 2px solid #e8d7bd; border-radius: 12px;
+    padding: 5px 2px; text-align: center;
+  }
+  .bk .e { font-size: 24px; line-height: 1.1; filter: grayscale(1); opacity: .45; }
+  .bk .n { font-size: 10px; font-weight: 800; color: #b09b80; margin-top: 1px;
+           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bk.on { background: #fff; border-color: #6cc24a; box-shadow: 0 3px 0 rgba(108,194,74,.3); }
+  .bk.on .e { filter: none; opacity: 1; }
+  .bk.on .n { color: #4c7a34; }
+  .bk.justfound { animation: pop .45s; }
+
+  /* 드래그 고스트 */
+  .ghost {
+    position: fixed; z-index: 60; pointer-events: none;
+    font-size: 52px; transform: translate(-50%,-60%) rotate(-8deg);
+    filter: drop-shadow(0 8px 6px rgba(0,0,0,.25));
+  }
+
+  /* 반짝이 */
+  .spark {
+    position: fixed; z-index: 45; pointer-events: none; font-size: 22px;
+    animation: sparkfly .9s ease-out forwards;
+  }
+  @keyframes sparkfly {
+    0% { opacity: 1; transform: translate(-50%,-50%) scale(.4); }
+    100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.3) rotate(var(--rot)); }
+  }
+
+  /* ---------- 오버레이 ---------- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 70;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+    background: linear-gradient(160deg, rgba(255,209,150,.96), rgba(255,171,140,.96));
+    backdrop-filter: blur(3px);
+  }
+  .overlay.hidden { display: none; }
+  .sheet {
+    width: 100%; max-width: 420px;
+    background: #fffdf7; border: 4px solid #fff; border-radius: 26px;
+    box-shadow: 0 14px 0 rgba(180,90,40,.25);
+    padding: 20px 18px; text-align: center;
+    max-height: 100%; overflow-y: auto;
+  }
+  .sheet h1 { margin: 4px 0 2px; font-size: 27px; letter-spacing: -.5px; }
+  .sheet .sub { margin: 0 0 12px; font-size: 13.5px; font-weight: 800; color: #a8703c; }
+  .parade { font-size: 34px; letter-spacing: 2px; margin: 6px 0 10px; }
+  .parade span { display: inline-block; animation: bob 1.8s ease-in-out infinite; }
+  @keyframes bob { 0%,100% { transform: translateY(0);} 50% { transform: translateY(-9px);} }
+  .rules {
+    text-align: left; background: #fff4e2; border-radius: 16px;
+    padding: 12px 14px; margin: 0 0 14px; font-size: 13.5px; font-weight: 700; line-height: 1.75;
+    color: #6b4a2a;
+  }
+  .rules div + div { margin-top: 2px; }
+  .score-big { font-size: 46px; font-weight: 900; color: #e2603a; line-height: 1.1; }
+  .stat-row { display: flex; gap: 8px; justify-content: center; margin: 10px 0 4px; flex-wrap: wrap; }
+  .stat {
+    background: #fff2dc; border-radius: 14px; padding: 8px 14px; font-weight: 900; font-size: 14px;
+  }
+  .stat small { display: block; font-size: 11px; color: #a8703c; font-weight: 800; }
+  .found-list { font-size: 26px; line-height: 1.5; margin: 8px 0 2px; word-break: break-all; }
+  .best { font-size: 12.5px; font-weight: 800; color: #a8703c; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="tiles"></div>
+
+<div id="app">
+  <div class="hud">
+    <div class="chip">🏆 점수 <b id="hudScore">0</b></div>
+    <div class="chip time">⏰ 시간 <b id="hudTime">60</b>초</div>
+    <div class="chip book">📖 도감 <b id="hudBook">0/12</b></div>
+    <div class="timebar"><i id="timeFill"></i></div>
+  </div>
+
+  <div class="kitchen">
+    <div class="panel ing-panel">
+      <h2>🧺 재료 칸 <span style="font-weight:700;color:#c09a72">— 끌어서 냄비에 넣어!</span></h2>
+      <div class="cards" id="cards"></div>
+    </div>
+
+    <div class="panel pot-panel">
+      <h2>🔥 요리 냄비 <span style="font-weight:700;color:#c09a72">— 재료 2개!</span></h2>
+      <div class="pot-wrap">
+        <div class="stove" id="stove">
+          <div class="potemoji" id="potEmoji">🍲</div>
+          <div class="slots">
+            <div class="slot" id="slot0"></div>
+            <div class="slot" id="slot1"></div>
+          </div>
+        </div>
+        <div class="hint" id="hint">재료를 냄비로 끌어다 놓아 봐!</div>
+        <button class="btn ghost" id="clearBtn" type="button">🧽 냄비 비우기</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>📖 요리 도감 <span id="bookCount" style="font-weight:900;color:#e2603a">0/12</span></h2>
+    <div class="book-grid" id="bookGrid"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><div class="big-em" id="toastEm">🍳</div><div class="txt" id="toastTxt"></div></div>
+
+<!-- 시작 화면 -->
+<div class="overlay" id="startScreen">
+  <div class="sheet">
+    <div class="parade">
+      <span style="animation-delay:0s">🥚</span><span style="animation-delay:.15s">🍚</span><span style="animation-delay:.3s">🍳</span><span style="animation-delay:.45s">🥬</span><span style="animation-delay:.6s">🧀</span>
+    </div>
+    <h1>급식실 요리 조합 🍳</h1>
+    <p class="sub">재료 2개를 섞어서 새 요리를 만들자!</p>
+    <div class="rules">
+      <div>🖱️ 재료 카드를 <b>냄비로 끌어다</b> 놓기 (톡 눌러도 들어가!)</div>
+      <div>🍲 재료 <b>2개</b>가 모이면 요리 완성 or 💨 실패</div>
+      <div>⌨️ 키보드: <b>← →</b> 고르기, <b>스페이스</b> 넣기, <b>X</b> 비우기</div>
+      <div>📖 처음 만든 요리는 <b>도감</b>에 기록! 목표는 12개</div>
+      <div>⏰ 시간은 <b>60초</b>. 많이 만들수록 점수 쑥쑥!</div>
+    </div>
+    <button class="btn big" id="startBtn" type="button">요리 시작! 🔥</button>
+    <div class="best" id="bestStart"></div>
+  </div>
+</div>
+
+<!-- 결과 화면 -->
+<div class="overlay hidden" id="endScreen">
+  <div class="sheet">
+    <div class="parade" id="endEmoji"><span>🎉</span></div>
+    <h1 id="endTitle">요리 끝!</h1>
+    <p class="sub" id="endSub">오늘의 급식 완성~</p>
+    <div class="score-big" id="endScore">0점</div>
+    <div class="stat-row">
+      <div class="stat"><small>도감</small><span id="endBook">0/12</span></div>
+      <div class="stat"><small>만든 요리</small><span id="endMade">0개</span></div>
+    </div>
+    <div class="found-list" id="endList">—</div>
+    <button class="btn big" id="againBtn" type="button">한 번 더! 🔁</button>
+    <div class="best" id="bestEnd"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ================= 데이터 ================= */
+  var ING = [
+    { id: "egg",   em: "🥚", nm: "계란" },
+    { id: "rice",  em: "🍚", nm: "밥" },
+    { id: "veg",   em: "🥬", nm: "배추" },
+    { id: "chz",   em: "🧀", nm: "치즈" },
+    { id: "meat",  em: "🥩", nm: "고기" },
+    { id: "fish",  em: "🐟", nm: "생선" },
+    { id: "noodle",em: "🍜", nm: "면" },
+    { id: "potato",em: "🥔", nm: "감자" }
+  ];
+
+  var RECIPES = [
+    { a: "egg",    b: "rice",   em: "🍳", nm: "계란볶음밥" },
+    { a: "veg",    b: "potato", em: "🥗", nm: "아삭샐러드" },
+    { a: "chz",    b: "noodle", em: "🍝", nm: "치즈파스타" },
+    { a: "meat",   b: "rice",   em: "🍛", nm: "고기덮밥" },
+    { a: "fish",   b: "rice",   em: "🍣", nm: "초밥" },
+    { a: "meat",   b: "potato", em: "🍖", nm: "감자갈비" },
+    { a: "chz",    b: "potato", em: "🍕", nm: "감자피자" },
+    { a: "egg",    b: "noodle", em: "🍲", nm: "계란라면" },
+    { a: "veg",    b: "meat",   em: "🌯", nm: "고기쌈말이" },
+    { a: "fish",   b: "veg",    em: "🍥", nm: "생선어묵국" },
+    { a: "chz",    b: "egg",    em: "🥪", nm: "치즈샌드위치" },
+    { a: "fish",   b: "noodle", em: "🍤", nm: "해물볶음면" }
+  ];
+  var TOTAL = RECIPES.length;
+
+  var RECIPE_MAP = {};
+  function pairKey(x, y) { return x < y ? x + "|" + y : y + "|" + x; }
+  for (var i = 0; i < RECIPES.length; i++) {
+    RECIPE_MAP[pairKey(RECIPES[i].a, RECIPES[i].b)] = RECIPES[i];
+  }
+  function ingById(id) {
+    for (var k = 0; k < ING.length; k++) { if (ING[k].id === id) return ING[k]; }
+    return null;
+  }
+
+  var ROUND_TIME = 60;
+  var STORE_KEY = "bangok_cooking_combine_best";
+
+  /* ================= DOM ================= */
+  var $ = function (id) { return document.getElementById(id); };
+  var elCards = $("cards"), elBookGrid = $("bookGrid"), elBookCount = $("bookCount");
+  var elScore = $("hudScore"), elTime = $("hudTime"), elBook = $("hudBook"), elFill = $("timeFill");
+  var elStove = $("stove"), elPotEmoji = $("potEmoji"), elHint = $("hint");
+  var elSlots = [$("slot0"), $("slot1")];
+  var elToast = $("toast"), elToastEm = $("toastEm"), elToastTxt = $("toastTxt");
+  var startScreen = $("startScreen"), endScreen = $("endScreen");
+
+  /* ================= 상태 ================= */
+  var state = {
+    playing: false,
+    score: 0,
+    timeLeft: ROUND_TIME,
+    pot: [],
+    found: {},
+    foundCount: 0,
+    madeCount: 0,
+    cookTimer: 0,      // 0보다 크면 끓는 중
+    cooling: 0,        // 결과 보여주는 중(입력 잠깐 잠금)
+    sel: 0
+  };
+  var rafId = null, lastTs = 0;
+
+  /* ================= 최고 기록 ================= */
+  function loadBest() {
+    try {
+      var raw = window.localStorage.getItem(STORE_KEY);
+      if (!raw) return null;
+      var o = JSON.parse(raw);
+      if (o && typeof o.score === "number") return o;
+    } catch (e) { /* iframe 등에서 막힐 수 있음 */ }
+    return null;
+  }
+  function saveBest(o) {
+    try { window.localStorage.setItem(STORE_KEY, JSON.stringify(o)); } catch (e) {}
+  }
+  function bestText() {
+    var b = loadBest();
+    if (!b) return "아직 기록이 없어. 첫 기록의 주인공이 되어 봐! ✨";
+    return "🏅 최고 기록: " + b.score + "점 · 도감 " + b.book + "/" + TOTAL;
+  }
+
+  /* ================= 소리(외부 파일 없음) ================= */
+  var actx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        actx = new AC();
+      }
+      if (actx.state === "suspended" && actx.resume) { actx.resume(); }
+      var o = actx.createOscillator(), g = actx.createGain();
+      o.type = type || "sine";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(vol || 0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) {}
+  }
+  function sndDrop() { beep(520, 0.09, "triangle", 0.05); }
+  function sndGood() { beep(660, 0.1, "square", 0.05); setTimeout(function () { beep(880, 0.16, "square", 0.05); }, 90); }
+  function sndNew()  { beep(660, 0.1, "square", 0.05); setTimeout(function () { beep(990, 0.1, "square", 0.05); }, 90); setTimeout(function () { beep(1320, 0.2, "square", 0.05); }, 180); }
+  function sndBad()  { beep(200, 0.22, "sawtooth", 0.04); }
+  function sndEnd()  { beep(523, 0.14, "sine", 0.06); setTimeout(function(){ beep(392,0.22,"sine",0.06); }, 150); }
+
+  /* ================= 화면 그리기 ================= */
+  function buildCards() {
+    elCards.innerHTML = "";
+    for (var i = 0; i < ING.length; i++) {
+      var it = ING[i];
+      var d = document.createElement("div");
+      d.className = "card";
+      d.setAttribute("data-id", it.id);
+      d.setAttribute("data-idx", String(i));
+      d.innerHTML = '<div class="em">' + it.em + '</div><div class="nm">' + it.nm + "</div>";
+      elCards.appendChild(d);
+    }
+    attachDrag();
+    renderSel();
+  }
+
+  function buildBook() {
+    elBookGrid.innerHTML = "";
+    for (var i = 0; i < RECIPES.length; i++) {
+      var r = RECIPES[i];
+      var d = document.createElement("div");
+      d.className = "bk";
+      d.setAttribute("data-rid", r.em + r.nm);
+      d.innerHTML = '<div class="e">' + r.em + '</div><div class="n">???</div>';
+      elBookGrid.appendChild(d);
+    }
+  }
+
+  function renderBook(justName) {
+    var kids = elBookGrid.children;
+    for (var i = 0; i < RECIPES.length; i++) {
+      var r = RECIPES[i], el = kids[i];
+      if (!el) continue;
+      var on = !!state.found[r.nm];
+      el.className = "bk" + (on ? " on" : "") + (on && justName === r.nm ? " justfound" : "");
+      el.lastChild.textContent = on ? r.nm : "???";
+    }
+  }
+
+  function renderSel() {
+    var kids = elCards.children;
+    for (var i = 0; i < kids.length; i++) {
+      var c = kids[i];
+      var isSel = (i === state.sel);
+      var taken = state.pot.indexOf(ING[i].id) >= 0;
+      c.className = "card" + (isSel ? " sel" : "") + (taken ? " taken" : "");
+    }
+  }
+
+  function renderPot() {
+    for (var i = 0; i < 2; i++) {
+      var id = state.pot[i];
+      if (id) {
+        var it = ingById(id);
+        if (elSlots[i].textContent !== it.em) {
+          elSlots[i].textContent = it.em;
+          elSlots[i].className = "slot filled";
+        }
+      } else {
+        elSlots[i].textContent = "";
+        elSlots[i].className = "slot";
+      }
+    }
+    renderSel();
+  }
+
+  function renderHud() {
+    elScore.textContent = String(state.score);
+    var t = Math.max(0, Math.ceil(state.timeLeft));
+    elTime.textContent = String(t);
+    elBook.textContent = state.foundCount + "/" + TOTAL;
+    elBookCount.textContent = state.foundCount + "/" + TOTAL;
+    var ratio = Math.max(0, Math.min(1, state.timeLeft / ROUND_TIME));
+    elFill.style.width = (ratio * 100) + "%";
+  }
+
+  function setHint(txt) { elHint.textContent = txt; }
+
+  /* ================= 이펙트 ================= */
+  var toastTimer = null;
+  function showToast(em, txt, bad) {
+    elToastEm.textContent = em;
+    elToastTxt.textContent = txt;
+    elToast.className = "toast" + (bad ? " bad" : "");
+    void elToast.offsetWidth;   // 애니메이션 재시작
+    elToast.className = "toast show" + (bad ? " bad" : "");
+    if (toastTimer) { clearTimeout(toastTimer); }
+    toastTimer = setTimeout(function () { elToast.className = "toast" + (bad ? " bad" : ""); }, 1150);
+  }
+
+  function sparkle(n) {
+    var r = elStove.getBoundingClientRect();
+    var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    var chars = ["✨", "⭐", "💛", "🌟", "💫"];
+    for (var i = 0; i < n; i++) {
+      (function (i) {
+        var s = document.createElement("div");
+        s.className = "spark";
+        s.textContent = chars[i % chars.length];
+        var ang = (Math.PI * 2 * i) / n + Math.random() * 0.5;
+        var dist = 70 + Math.random() * 70;
+        s.style.left = cx + "px";
+        s.style.top = cy + "px";
+        s.style.setProperty("--dx", Math.cos(ang) * dist + "px");
+        s.style.setProperty("--dy", (Math.sin(ang) * dist - 30) + "px");
+        s.style.setProperty("--rot", Math.round(Math.random() * 360 - 180) + "deg");
+        document.body.appendChild(s);
+        setTimeout(function () { if (s.parentNode) { s.parentNode.removeChild(s); } }, 950);
+      })(i);
+    }
+  }
+
+  /* ================= 게임 로직 ================= */
+  function addToPot(id) {
+    if (!state.playing || state.cookTimer > 0 || state.cooling > 0) return;
+    if (state.pot.length >= 2) { setHint("냄비가 가득! 🧽 비우기를 눌러 봐"); return; }
+    if (state.pot.indexOf(id) >= 0) { setHint("같은 재료는 한 번만 넣을 수 있어!"); return; }
+    state.pot.push(id);
+    renderPot();
+    sndDrop();
+    if (state.pot.length === 1) {
+      setHint("좋아! 재료 하나 더 넣어 줘 🙌");
+    } else {
+      setHint("보글보글 끓는 중... 🔥");
+      elPotEmoji.className = "potemoji boil";
+      state.cookTimer = 0.75;
+    }
+  }
+
+  function clearPot(silent) {
+    state.pot = [];
+    elPotEmoji.className = "potemoji";
+    renderPot();
+    if (!silent) { setHint("냄비를 깨끗이 비웠어! 다시 넣어 봐 ✨"); }
+  }
+
+  function cook() {
+    var r = RECIPE_MAP[pairKey(state.pot[0], state.pot[1])];
+    elPotEmoji.className = "potemoji";
+    if (r) {
+      state.madeCount++;
+      var isNew = !state.found[r.nm];
+      if (isNew) {
+        state.found[r.nm] = true;
+        state.foundCount++;
+        state.score += 30;
+        showToast(r.em, "새 요리! " + r.nm + " +30");
+        sndNew();
+        sparkle(12);
+      } else {
+        state.score += 10;
+        showToast(r.em, r.nm + " 완성! +10");
+        sndGood();
+        sparkle(6);
+      }
+      renderBook(r.nm);
+      setHint(isNew ? "도감에 새로 기록했어! 📖" : "또 만들었네! 다른 조합도 해 봐");
+    } else {
+      showToast("💨", "이건 안 되는 조합이야...", true);
+      sndBad();
+      elStove.className = "stove shake";
+      setTimeout(function () { elStove.className = "stove"; }, 420);
+      setHint("괜찮아! 다른 재료로 다시 도전 💪");
+    }
+    state.pot = [];
+    renderPot();
+    renderHud();
+    state.cooling = 0.35;
+
+    if (state.foundCount >= TOTAL) { endGame(true); }
+  }
+
+  function startGame() {
+    state.playing = true;
+    state.score = 0;
+    state.timeLeft = ROUND_TIME;
+    state.pot = [];
+    state.found = {};
+    state.foundCount = 0;
+    state.madeCount = 0;
+    state.cookTimer = 0;
+    state.cooling = 0;
+    state.sel = 0;
+
+    elPotEmoji.className = "potemoji";
+    elStove.className = "stove";
+    elToast.className = "toast";
+    if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+
+    startScreen.className = "overlay hidden";
+    endScreen.className = "overlay hidden";
+
+    renderPot();
+    renderBook("");
+    renderHud();
+    setHint("재료를 냄비로 끌어다 놓아 봐!");
+
+    lastTs = 0;
+    if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+    rafId = requestAnimationFrame(loop);
+    beep(440, 0.1, "sine", 0.05);
+  }
+
+  function endGame(cleared) {
+    if (!state.playing) return;
+    state.playing = false;
+    if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+    elPotEmoji.className = "potemoji";
+
+    var timeBonus = 0;
+    if (cleared) {
+      timeBonus = Math.max(0, Math.round(state.timeLeft) * 5);
+      state.score += timeBonus;
+    }
+    renderHud();
+
+    var best = loadBest();
+    if (!best || state.score > best.score) {
+      saveBest({ score: state.score, book: state.foundCount });
+    }
+
+    $("endTitle").textContent = cleared ? "도감 완성! 🏆" : "요리 시간 끝! 🔔";
+    $("endEmoji").innerHTML = cleared
+      ? '<span>🏆</span><span style="animation-delay:.2s">🎉</span><span style="animation-delay:.4s">🍳</span>'
+      : '<span>🍽️</span><span style="animation-delay:.2s">🎉</span><span style="animation-delay:.4s">🥄</span>';
+    $("endSub").textContent = cleared
+      ? ("모든 요리를 다 만들었어! 시간 보너스 +" + timeBonus)
+      : (state.foundCount >= 8 ? "우와, 요리왕이잖아!" :
+         state.foundCount >= 4 ? "잘했어! 조금만 더 해 볼까?" : "괜찮아, 한 번 더 도전!");
+    $("endScore").textContent = state.score + "점";
+    $("endBook").textContent = state.foundCount + "/" + TOTAL;
+    $("endMade").textContent = state.madeCount + "개";
+
+    var list = "";
+    for (var i = 0; i < RECIPES.length; i++) {
+      if (state.found[RECIPES[i].nm]) { list += RECIPES[i].em; }
+    }
+    $("endList").textContent = list || "아직 만든 요리가 없어 🥲";
+    $("bestEnd").textContent = bestText();
+
+    endScreen.className = "overlay";
+    sndEnd();
+  }
+
+  /* ================= 루프 ================= */
+  function loop(ts) {
+    rafId = requestAnimationFrame(loop);
+    if (!lastTs) { lastTs = ts; }
+    var dt = (ts - lastTs) / 1000;
+    lastTs = ts;
+    if (document.hidden) { dt = 0; }
+    if (dt > 0.1) { dt = 0.1; }      // 탭 복귀 시 점프 방지
+    if (!state.playing) return;
+
+    if (state.cookTimer > 0) {
+      state.cookTimer -= dt;
+      if (state.cookTimer <= 0) {
+        state.cookTimer = 0;
+        cook();
+        return;
+      }
+    } else if (state.cooling > 0) {
+      state.cooling -= dt;
+      if (state.cooling < 0) { state.cooling = 0; }
+    }
+
+    state.timeLeft -= dt;
+    if (state.timeLeft <= 0) {
+      state.timeLeft = 0;
+      renderHud();
+      endGame(false);
+      return;
+    }
+    renderHud();
+  }
+
+  document.addEventListener("visibilitychange", function () { lastTs = 0; });
+
+  /* ================= 드래그 & 터치 ================= */
+  var drag = null;
+
+  function pointInStove(x, y) {
+    var r = elStove.getBoundingClientRect();
+    var pad = 14;
+    return x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad;
+  }
+
+  function attachDrag() {
+    var kids = elCards.children;
+    for (var i = 0; i < kids.length; i++) {
+      kids[i].addEventListener("pointerdown", onDown);
+    }
+  }
+
+  function onDown(e) {
+    if (!state.playing) return;
+    var card = e.currentTarget;
+    var id = card.getAttribute("data-id");
+    state.sel = parseInt(card.getAttribute("data-idx"), 10) || 0;
+    renderSel();
+
+    drag = { id: id, sx: e.clientX, sy: e.clientY, moved: false, ghost: null, card: card };
+    try { card.setPointerCapture(e.pointerId); } catch (err) {}
+    e.preventDefault();
+
+    card.addEventListener("pointermove", onMove);
+    card.addEventListener("pointerup", onUp);
+    card.addEventListener("pointercancel", onUp);
+  }
+
+  function onMove(e) {
+    if (!drag) return;
+    var dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    if (!drag.moved && (dx * dx + dy * dy) > 64) {
+      drag.moved = true;
+      var g = document.createElement("div");
+      g.className = "ghost";
+      var it = ingById(drag.id);
+      g.textContent = it ? it.em : "❓";
+      document.body.appendChild(g);
+      drag.ghost = g;
+    }
+    if (drag.ghost) {
+      drag.ghost.style.left = e.clientX + "px";
+      drag.ghost.style.top = e.clientY + "px";
+      elStove.className = pointInStove(e.clientX, e.clientY) ? "stove over" : "stove";
+    }
+    e.preventDefault();
+  }
+
+  function onUp(e) {
+    if (!drag) return;
+    var card = drag.card;
+    card.removeEventListener("pointermove", onMove);
+    card.removeEventListener("pointerup", onUp);
+    card.removeEventListener("pointercancel", onUp);
+    if (drag.ghost && drag.ghost.parentNode) { drag.ghost.parentNode.removeChild(drag.ghost); }
+    elStove.className = "stove";
+
+    var wasMoved = drag.moved;
+    var id = drag.id;
+    drag = null;
+
+    if (e.type === "pointercancel") return;
+    // 끌어서 냄비 위에 놓았거나, 그냥 톡 눌렀거나
+    if (!wasMoved || pointInStove(e.clientX, e.clientY)) {
+      addToPot(id);
+    } else {
+      setHint("냄비 안에 놓아야 들어가! 🍲");
+    }
+  }
+
+  /* ================= 키보드 ================= */
+  document.addEventListener("keydown", function (e) {
+    var k = e.key;
+    // 버튼에 포커스가 있을 땐 버튼이 스스로 처리하게 둔다(중복 실행 방지)
+    var tag = (e.target && e.target.tagName) ? e.target.tagName : "";
+    if (tag === "BUTTON" && (k === "Enter" || k === " " || k === "Spacebar")) { return; }
+    if (k === " " || k === "Spacebar" || k === "ArrowLeft" || k === "ArrowRight" ||
+        k === "ArrowUp" || k === "ArrowDown") {
+      e.preventDefault();
+    }
+    if (!state.playing) {
+      if (k === " " || k === "Spacebar" || k === "Enter") {
+        if (endScreen.className.indexOf("hidden") < 0 || startScreen.className.indexOf("hidden") < 0) {
+          startGame();
+        }
+      }
+      return;
+    }
+    if (k === "ArrowRight" || k === "ArrowDown") {
+      state.sel = (state.sel + (k === "ArrowDown" ? 4 : 1)) % ING.length;
+      renderSel();
+    } else if (k === "ArrowLeft" || k === "ArrowUp") {
+      state.sel = (state.sel - (k === "ArrowUp" ? 4 : 1) + ING.length * 2) % ING.length;
+      renderSel();
+    } else if (k === " " || k === "Spacebar" || k === "Enter") {
+      addToPot(ING[state.sel].id);
+    } else if (k === "x" || k === "X" || k === "Backspace" || k === "Escape") {
+      e.preventDefault();
+      if (state.cookTimer <= 0) { clearPot(false); }
+    } else if (k >= "1" && k <= "8") {
+      var n = parseInt(k, 10) - 1;
+      state.sel = n; renderSel();
+      addToPot(ING[n].id);
+    }
+  });
+
+  /* ================= 버튼 ================= */
+  function blurThen(fn) {
+    return function (ev) {
+      if (ev && ev.currentTarget && ev.currentTarget.blur) { ev.currentTarget.blur(); }
+      fn();
+    };
+  }
+  $("startBtn").addEventListener("click", blurThen(startGame));
+  $("againBtn").addEventListener("click", blurThen(startGame));
+  $("clearBtn").addEventListener("click", blurThen(function () {
+    if (!state.playing || state.cookTimer > 0) return;
+    clearPot(false);
+  }));
+
+  /* ================= 초기화 ================= */
+  buildCards();
+  buildBook();
+  renderBook("");
+  renderHud();
+  $("bestStart").textContent = bestText();
+})();
+</script>
+</body>
+</html>

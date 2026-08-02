@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>영양 탐정 퀴즈 🕵️</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{height:100%}
+body{
+  font-family:-apple-system, BlinkMacSystemFont, system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  background:
+    radial-gradient(ellipse 70% 45% at 50% -5%, rgba(255,214,120,.42), rgba(255,214,120,0) 70%),
+    repeating-linear-gradient(93deg, #4a2e1a 0px, #4a2e1a 46px, #452a17 46px, #452a17 92px),
+    #3a2413;
+  color:#f6e6c8;
+  min-height:100%;
+  display:flex;align-items:center;justify-content:center;
+  padding:14px 12px 22px;
+  overflow-x:hidden;
+}
+/* 배경 장식 */
+.bg{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0}
+.bg span{position:absolute;font-size:34px;opacity:.13;animation:float 9s ease-in-out infinite}
+.bg span:nth-child(1){left:6%;top:14%;animation-delay:0s}
+.bg span:nth-child(2){left:88%;top:22%;font-size:44px;animation-delay:1.4s}
+.bg span:nth-child(3){left:12%;top:74%;font-size:40px;animation-delay:2.6s}
+.bg span:nth-child(4){left:82%;top:70%;animation-delay:3.7s}
+.bg span:nth-child(5){left:48%;top:6%;font-size:28px;animation-delay:2s}
+@keyframes float{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-18px) rotate(8deg)}}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:50}
+
+.wrap{position:relative;z-index:2;width:100%;max-width:560px}
+.screen{display:none;animation:pop .32s ease-out}
+.screen.on{display:block}
+@keyframes pop{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+
+/* ---------- 공통 종이 패널 ---------- */
+.paper{
+  background:linear-gradient(#fbf0d4,#f2e0b8);
+  border:3px solid #8a5a2b;
+  border-radius:18px;
+  box-shadow:0 14px 0 rgba(0,0,0,.28), 0 22px 40px rgba(0,0,0,.45), inset 0 0 0 3px rgba(255,255,255,.5);
+  color:#4a2e14;
+  position:relative;
+  overflow:hidden;
+}
+.paper::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg, rgba(138,90,43,.05) 0 2px, transparent 2px 5px);
+}
+.tape{
+  position:absolute;top:-12px;left:50%;transform:translateX(-50%) rotate(-2deg);
+  width:110px;height:26px;background:rgba(255,236,160,.75);
+  border:1px dashed rgba(140,95,30,.45);border-radius:3px;z-index:3;
+}
+
+/* ---------- 시작 화면 ---------- */
+.start{padding:30px 20px 26px;text-align:center}
+.badge{font-size:64px;line-height:1;display:inline-block;animation:sway 2.6s ease-in-out infinite;filter:drop-shadow(0 6px 6px rgba(0,0,0,.25))}
+@keyframes sway{0%,100%{transform:rotate(-7deg) scale(1)}50%{transform:rotate(7deg) scale(1.07)}}
+h1{font-size:34px;letter-spacing:-1px;margin:8px 0 4px;color:#5c3311;text-shadow:2px 2px 0 #ffd97a}
+.sub{font-size:15px;color:#8a5f2c;font-weight:700;margin-bottom:16px}
+.rulebox{
+  background:rgba(255,255,255,.6);border:2px dashed #c99a4e;border-radius:14px;
+  padding:14px 14px;margin:0 auto 16px;text-align:left;max-width:400px;
+}
+.rulebox p{font-size:14.5px;line-height:1.75;color:#5c3d19;font-weight:600}
+.rulebox b{color:#b3541e}
+.chips{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:16px}
+.chip{background:#5c3311;color:#ffd97a;font-size:12.5px;font-weight:800;padding:6px 11px;border-radius:999px;border:2px solid #8a5a2b}
+.btn{
+  display:inline-block;border:none;cursor:pointer;font-family:inherit;
+  background:linear-gradient(#ffcf4d,#f0a91e);
+  color:#4a2b06;font-weight:900;font-size:20px;
+  padding:15px 34px;border-radius:14px;
+  box-shadow:0 6px 0 #a4700c, 0 10px 18px rgba(0,0,0,.3);
+  transition:transform .08s, box-shadow .08s;
+}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 0 #a4700c, 0 14px 22px rgba(0,0,0,.35)}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 #a4700c}
+.btn.sm{font-size:16px;padding:11px 22px;box-shadow:0 5px 0 #a4700c}
+.keyhint{margin-top:12px;font-size:13px;color:#8a5f2c;font-weight:700}
+.best{margin-top:10px;font-size:13.5px;font-weight:800;color:#b3541e}
+
+/* ---------- HUD ---------- */
+.hud{
+  display:flex;align-items:center;gap:8px;justify-content:space-between;
+  background:#2c1a0c;border:3px solid #8a5a2b;border-radius:14px;
+  padding:9px 12px;margin-bottom:10px;box-shadow:0 6px 0 rgba(0,0,0,.3);
+}
+.hud .item{font-size:14px;font-weight:900;color:#ffd97a;white-space:nowrap}
+.hud .item small{display:block;font-size:10px;color:#c9a06a;font-weight:700;letter-spacing:1px}
+.dots{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;flex:1}
+.dot{width:9px;height:9px;border-radius:50%;background:#5c4227;transition:background .2s, transform .2s}
+.dot.ok{background:#69d36e;transform:scale(1.25)}
+.dot.no{background:#e4604f;transform:scale(1.25)}
+.dot.now{background:#ffd97a;box-shadow:0 0 0 3px rgba(255,217,122,.3)}
+
+/* ---------- 문제 카드 ---------- */
+.cardwrap{margin-bottom:12px}
+.card{padding:16px 16px 14px}
+.card.in{animation:cardIn .38s cubic-bezier(.2,1.3,.5,1)}
+@keyframes cardIn{from{opacity:0;transform:translateY(18px) rotate(-1.5deg)}to{opacity:1;transform:none}}
+.stamp{
+  position:absolute;top:12px;right:10px;transform:rotate(13deg);
+  border:3px solid rgba(190,60,40,.6);color:rgba(190,60,40,.65);
+  font-size:12px;font-weight:900;padding:3px 8px;border-radius:6px;letter-spacing:2px;z-index:3;
+}
+.card h2{font-size:17px;color:#5c3311;margin-bottom:2px;position:relative;z-index:2}
+.serve{font-size:12.5px;color:#9a6c33;font-weight:700;margin-bottom:10px;position:relative;z-index:2}
+.timerbar{height:9px;background:rgba(140,95,30,.22);border-radius:99px;overflow:hidden;margin-bottom:12px;position:relative;z-index:2}
+.timerbar i{display:block;height:100%;width:100%;border-radius:99px;background:linear-gradient(90deg,#7bc96f,#ffd166,#ef6b5a);background-size:300% 100%;background-position:0% 0}
+.rows{position:relative;z-index:2}
+.row{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.row .lbl{width:52px;font-size:12.5px;font-weight:900;color:#6b4318;flex:none}
+.row .bar{flex:1;height:20px;background:rgba(140,95,30,.15);border-radius:99px;overflow:hidden;border:1px solid rgba(140,95,30,.25)}
+.row .bar i{display:block;height:100%;border-radius:99px;transition:width .55s cubic-bezier(.2,1,.4,1)}
+.row .val{width:74px;text-align:right;font-size:14px;font-weight:900;color:#4a2e14;flex:none;font-variant-numeric:tabular-nums}
+.hint{
+  position:relative;z-index:2;margin-top:10px;background:rgba(255,255,255,.62);
+  border-left:5px solid #d8a13c;border-radius:8px;padding:8px 10px;
+  font-size:13.5px;font-weight:800;color:#7a4d16;
+}
+
+/* ---------- 보기 버튼 ---------- */
+.choices{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+@media(min-width:520px){.choices{grid-template-columns:repeat(4,1fr)}}
+.ch{
+  position:relative;cursor:pointer;font-family:inherit;
+  background:linear-gradient(#fbf0d4,#efdcb2);
+  border:3px solid #8a5a2b;border-radius:16px;
+  padding:12px 4px 9px;text-align:center;
+  box-shadow:0 5px 0 rgba(0,0,0,.3);
+  transition:transform .1s, box-shadow .1s, background .2s, border-color .2s;
+}
+.ch .e{font-size:38px;line-height:1.1;display:block;pointer-events:none}
+.ch .n{font-size:13px;font-weight:900;color:#5c3311;margin-top:3px;display:block;pointer-events:none}
+.ch .k{position:absolute;top:4px;left:6px;font-size:10px;font-weight:900;color:#a97c3d;pointer-events:none}
+.ch:hover:not(:disabled){transform:translateY(-3px);box-shadow:0 8px 0 rgba(0,0,0,.3)}
+.ch:active:not(:disabled){transform:translateY(2px);box-shadow:0 3px 0 rgba(0,0,0,.3)}
+.ch.sel{border-color:#ffd97a;box-shadow:0 5px 0 rgba(0,0,0,.3), 0 0 0 4px rgba(255,217,122,.55)}
+.ch.ok{background:linear-gradient(#a7e9a0,#6cc96a);border-color:#2f7a2c;animation:bump .45s}
+.ch.no{background:linear-gradient(#f5a99e,#e4604f);border-color:#9c2f22;animation:shake .4s}
+.ch.dim{opacity:.45}
+.ch:disabled{cursor:default}
+@keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.14)}100%{transform:scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+
+/* ---------- 정답 피드백 ---------- */
+.fb{margin-top:11px;border-radius:16px;padding:12px 14px;display:none;animation:up .3s ease-out;border:3px solid}
+.fb.on{display:block}
+@keyframes up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.fb.good{background:#e6f8e2;border-color:#3f9b3a;color:#215c1e}
+.fb.bad{background:#fde8e4;border-color:#c0392b;color:#8b2b1e}
+.fb .t{font-size:19px;font-weight:900;margin-bottom:3px}
+.fb .d{font-size:14px;font-weight:700;line-height:1.55}
+.fb .next{margin-top:10px;text-align:right}
+
+/* ---------- 결과 ---------- */
+.result{padding:26px 20px;text-align:center}
+.rankEmoji{font-size:68px;line-height:1;animation:sway 2.4s ease-in-out infinite;display:inline-block}
+.result h2{font-size:27px;color:#5c3311;margin:6px 0 2px;text-shadow:2px 2px 0 #ffd97a}
+.scoreBig{font-size:46px;font-weight:900;color:#b3541e;margin:8px 0 0;font-variant-numeric:tabular-nums}
+.scoreSub{font-size:14px;font-weight:800;color:#8a5f2c;margin-bottom:14px}
+.comment{background:rgba(255,255,255,.62);border:2px dashed #c99a4e;border-radius:14px;padding:12px;font-size:14.5px;font-weight:800;color:#6b4318;line-height:1.6;margin-bottom:14px}
+.statline{display:flex;gap:8px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+.stat{background:#5c3311;color:#ffd97a;border-radius:12px;padding:8px 14px;font-size:13px;font-weight:900}
+.stat b{display:block;font-size:19px;margin-top:2px}
+.foot{margin-top:12px;text-align:center;font-size:12px;color:#a2825a;font-weight:700}
+</style>
+</head>
+<body>
+
+<div class="bg">
+  <span>🔍</span><span>🍎</span><span>🥛</span><span>🧾</span><span>🕵️</span>
+</div>
+<canvas id="fx"></canvas>
+
+<div class="wrap">
+
+  <!-- ================= 시작 화면 ================= -->
+  <div class="screen on" id="scStart">
+    <div class="paper start">
+      <div class="tape"></div>
+      <span class="badge">🕵️</span>
+      <h1>영양 탐정 퀴즈</h1>
+      <p class="sub">영양성분표만 보고 음식을 찾아라!</p>
+      <div class="rulebox">
+        <p>🧾 사건 파일에 <b>칼로리·당류·나트륨·단백질</b>만 적혀 있어.<br>
+        🍽️ 아래 <b>음식 4개</b> 중에 정답을 골라줘!<br>
+        ⏱️ 한 문제당 <b>15초</b>, 모두 <b>10문제</b>야.<br>
+        🏅 많이 맞힐수록 탐정 계급이 올라가!</p>
+      </div>
+      <div class="chips">
+        <span class="chip">🖱️ 눌러서 선택</span>
+        <span class="chip">👆 터치 OK</span>
+        <span class="chip">⌨️ 1 2 3 4 키</span>
+      </div>
+      <button class="btn" id="btnStart">🔍 수사 시작!</button>
+      <p class="keyhint">스페이스 바를 눌러도 시작돼</p>
+      <p class="best" id="bestStart"></p>
+    </div>
+  </div>
+
+  <!-- ================= 퀴즈 화면 ================= -->
+  <div class="screen" id="scQuiz">
+    <div class="hud">
+      <div class="item"><small>사건</small><span id="hudProg">1 / 10</span></div>
+      <div class="dots" id="hudDots"></div>
+      <div class="item" style="text-align:right"><small>점수</small><span id="hudScore">0</span></div>
+    </div>
+
+    <div class="cardwrap">
+      <div class="paper card" id="card">
+        <div class="tape"></div>
+        <div class="stamp">기 밀</div>
+        <h2>🧾 사건 파일 <span id="fileNo">#1</span></h2>
+        <p class="serve" id="serve">1인분 기준</p>
+        <div class="timerbar"><i id="tbar"></i></div>
+        <div class="rows">
+          <div class="row"><span class="lbl">칼로리</span><span class="bar"><i id="bKcal" style="background:linear-gradient(90deg,#ffb347,#f4791f)"></i></span><span class="val" id="vKcal">0</span></div>
+          <div class="row"><span class="lbl">당류</span><span class="bar"><i id="bSugar" style="background:linear-gradient(90deg,#ff9ec4,#e8548c)"></i></span><span class="val" id="vSugar">0</span></div>
+          <div class="row"><span class="lbl">나트륨</span><span class="bar"><i id="bSod" style="background:linear-gradient(90deg,#7fc4f2,#2b7fc4)"></i></span><span class="val" id="vSod">0</span></div>
+          <div class="row"><span class="lbl">단백질</span><span class="bar"><i id="bPro" style="background:linear-gradient(90deg,#a5e887,#4aa832)"></i></span><span class="val" id="vPro">0</span></div>
+        </div>
+        <p class="hint" id="hint">🔍 단서: </p>
+      </div>
+    </div>
+
+    <div class="choices" id="choices"></div>
+
+    <div class="fb" id="fb">
+      <div class="t" id="fbT"></div>
+      <div class="d" id="fbD"></div>
+      <div class="next"><button class="btn sm" id="btnNext">다음 →</button></div>
+    </div>
+  </div>
+
+  <!-- ================= 결과 화면 ================= -->
+  <div class="screen" id="scResult">
+    <div class="paper result">
+      <div class="tape"></div>
+      <span class="rankEmoji" id="rankEmoji">🏆</span>
+      <h2 id="rankName">명탐정</h2>
+      <p class="scoreBig" id="finalScore">0점</p>
+      <p class="scoreSub" id="finalSub">10문제 중 0개 정답</p>
+      <div class="comment" id="comment"></div>
+      <div class="statline">
+        <div class="stat">최고 연속<b id="stCombo">0</b></div>
+        <div class="stat">최고 기록<b id="stBest">0</b></div>
+      </div>
+      <button class="btn" id="btnAgain">🔁 다시 수사하기</button>
+      <p class="keyhint">스페이스 바를 눌러도 다시 시작돼</p>
+    </div>
+    <p class="foot">🕵️ 영양 탐정 퀴즈 · 바이브코딩 예시 게임</p>
+  </div>
+
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ================== 문제 데이터 (10문제) ================== */
+var QUIZ = [
+  { emoji:'🥤', serve:'콜라 250mL 한 캔', kcal:105, sugar:27, sodium:10, protein:0,
+    hint:'마실 수 있는데 단맛이 폭발해!',
+    why:'당류가 27g! 각설탕 9개랑 똑같아. 콜라 한 캔이야 🥤',
+    choices:[{e:'🥛',n:'우유'},{e:'🥤',n:'콜라'},{e:'🍗',n:'닭가슴살'},{e:'🥦',n:'브로콜리'}] },
+
+  { emoji:'🍜', serve:'라면 한 봉지', kcal:500, sugar:4, sodium:1790, protein:10,
+    hint:'국물까지 다 마시면 아주 짜!',
+    why:'나트륨이 1790mg! 하루에 먹을 소금을 거의 다 먹는 거야. 라면이지 🍜',
+    choices:[{e:'🍜',n:'라면'},{e:'🍌',n:'바나나'},{e:'🥚',n:'삶은 달걀'},{e:'🍎',n:'사과'}] },
+
+  { emoji:'🍌', serve:'바나나 한 개', kcal:110, sugar:14, sodium:1, protein:1,
+    hint:'껍질을 벗겨 먹는 노란 친구야.',
+    why:'나트륨은 거의 0인데 당류 14g! 과일의 자연스러운 단맛, 바나나야 🍌',
+    choices:[{e:'🍕',n:'피자'},{e:'🍌',n:'바나나'},{e:'🍗',n:'닭가슴살'},{e:'🧀',n:'치즈'}] },
+
+  { emoji:'🥛', serve:'우유 200mL 한 잔', kcal:125, sugar:9, sodium:100, protein:6,
+    hint:'하얗고 뼈를 튼튼하게 해줘.',
+    why:'단백질 6g에 칼슘이 가득! 키 크는 데 좋은 우유야 🥛',
+    choices:[{e:'🥛',n:'우유'},{e:'🍟',n:'감자튀김'},{e:'🥒',n:'오이'},{e:'🍫',n:'초콜릿'}] },
+
+  { emoji:'🍗', serve:'닭가슴살 100g', kcal:165, sugar:0, sodium:74, protein:31,
+    hint:'운동선수들이 아주 좋아하는 음식!',
+    why:'단백질이 무려 31g! 근육을 만들어 주는 닭가슴살이야 🍗',
+    choices:[{e:'🍰',n:'케이크'},{e:'🥤',n:'콜라'},{e:'🍗',n:'닭가슴살'},{e:'🍚',n:'흰쌀밥'}] },
+
+  { emoji:'🍟', serve:'감자튀김 한 봉지', kcal:340, sugar:0, sodium:350, protein:4,
+    hint:'기름에 바삭하게 튀겼어.',
+    why:'당류는 0인데 칼로리가 340! 기름에 튀겨서 그래. 감자튀김이야 🍟',
+    choices:[{e:'🍟',n:'감자튀김'},{e:'🥚',n:'삶은 달걀'},{e:'🍌',n:'바나나'},{e:'🥛',n:'우유'}] },
+
+  { emoji:'🥒', serve:'오이 한 개', kcal:15, sugar:2, sodium:2, protein:1,
+    hint:'거의 물이라 아삭아삭 시원해.',
+    why:'칼로리가 겨우 15! 거의 물로 만들어진 오이야 🥒',
+    choices:[{e:'🍫',n:'초콜릿'},{e:'🥒',n:'오이'},{e:'🍕',n:'피자'},{e:'🍜',n:'라면'}] },
+
+  { emoji:'🍫', serve:'초콜릿 한 개', kcal:240, sugar:24, sodium:45, protein:3,
+    hint:'달고 진하고 갈색이야.',
+    why:'당류 24g에 칼로리도 높아! 달콤한 초콜릿이야 🍫',
+    choices:[{e:'🥚',n:'삶은 달걀'},{e:'🍚',n:'흰쌀밥'},{e:'🍫',n:'초콜릿'},{e:'🥦',n:'브로콜리'}] },
+
+  { emoji:'🍚', serve:'흰쌀밥 한 공기', kcal:300, sugar:0, sodium:3, protein:6,
+    hint:'우리가 매일 먹는 주식이야.',
+    why:'당류도 나트륨도 거의 0인데 칼로리는 300! 밥 한 공기야 🍚',
+    choices:[{e:'🍚',n:'흰쌀밥'},{e:'🍗',n:'닭가슴살'},{e:'🥤',n:'콜라'},{e:'🥒',n:'오이'}] },
+
+  { emoji:'🍕', serve:'피자 두 조각', kcal:285, sugar:4, sodium:640, protein:12,
+    hint:'짜고 치즈가 쭉 늘어나!',
+    why:'나트륨 640mg에 단백질 12g! 치즈가 듬뿍 올라간 피자야 🍕',
+    choices:[{e:'🍎',n:'사과'},{e:'🍕',n:'피자'},{e:'🥛',n:'우유'},{e:'🍌',n:'바나나'}] }
+];
+
+var MAXV = { kcal:600, sugar:30, sodium:2000, protein:35 };
+var TIME_LIMIT = 15;      // 한 문제 제한 시간(초)
+var TOTAL = QUIZ.length;  // 10
+
+/* ================== 상태 ================== */
+var state = 'start';   // start | play | feedback | result
+var order = [];        // 섞인 문제 순서
+var idx = 0;
+var score = 0;
+var correctCnt = 0;
+var combo = 0, bestCombo = 0;
+var results = [];      // true/false
+var timeLeft = TIME_LIMIT;
+var answered = false;
+var selIdx = 0;
+var best = 0;
+
+/* ================== 요소 ================== */
+var $ = function(id){ return document.getElementById(id); };
+var scStart=$('scStart'), scQuiz=$('scQuiz'), scResult=$('scResult');
+var elChoices=$('choices'), elFb=$('fb'), elFbT=$('fbT'), elFbD=$('fbD');
+var elCard=$('card'), elTbar=$('tbar'), elDots=$('hudDots');
+var cvs=$('fx'), ctx=cvs.getContext('2d');
+
+/* ================== 저장 (안전하게) ================== */
+function loadBest(){
+  try { var v = window.localStorage.getItem('nutriDetectiveBest'); return v ? (parseInt(v,10)||0) : 0; }
+  catch(e){ return 0; }
+}
+function saveBest(v){
+  try { window.localStorage.setItem('nutriDetectiveBest', String(v)); } catch(e){}
+}
+
+/* ================== 소리 (외부 파일 없이) ================== */
+var actx = null;
+function beep(freq, dur, type, vol){
+  try{
+    if(!actx){
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return;
+      actx = new AC();
+    }
+    if(actx.state === 'suspended'){ actx.resume(); }
+    var o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine';
+    o.frequency.value = freq;
+    g.gain.value = vol || 0.08;
+    o.connect(g); g.connect(actx.destination);
+    var t = actx.currentTime;
+    g.gain.setValueAtTime(g.gain.value, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.start(t); o.stop(t + dur + 0.02);
+  }catch(e){}
+}
+function sndGood(){ beep(660,0.12,'triangle',0.09); setTimeout(function(){beep(990,0.18,'triangle',0.09);},110); }
+function sndBad(){ beep(200,0.22,'sawtooth',0.06); }
+function sndClick(){ beep(440,0.06,'square',0.05); }
+function sndWin(){ [523,659,784,1046].forEach(function(f,i){ setTimeout(function(){ beep(f,0.2,'triangle',0.09); }, i*130); }); }
+
+/* ================== 화면 전환 ================== */
+function show(name){
+  scStart.classList.toggle('on', name==='start');
+  scQuiz.classList.toggle('on', name==='quiz');
+  scResult.classList.toggle('on', name==='result');
+}
+
+/* ================== 게임 시작 / 초기화 ================== */
+function startGame(){
+  order = [];
+  for(var i=0;i<QUIZ.length;i++) order.push(i);
+  shuffle(order);
+  idx = 0; score = 0; correctCnt = 0;
+  combo = 0; bestCombo = 0;
+  results = [];
+  answered = false;
+  particles.length = 0;
+  state = 'play';
+  show('quiz');
+  buildDots();
+  loadQuestion();
+}
+function shuffle(a){
+  for(var i=a.length-1;i>0;i--){
+    var j = Math.floor(Math.random()*(i+1));
+    var t=a[i]; a[i]=a[j]; a[j]=t;
+  }
+  return a;
+}
+function buildDots(){
+  var h = '';
+  for(var i=0;i<TOTAL;i++) h += '<span class="dot" data-i="'+i+'"></span>';
+  elDots.innerHTML = h;
+  paintDots();
+}
+function paintDots(){
+  var ds = elDots.children;
+  for(var i=0;i<ds.length;i++){
+    ds[i].className = 'dot';
+    if(i < results.length) ds[i].classList.add(results[i] ? 'ok' : 'no');
+    else if(i === idx) ds[i].classList.add('now');
+  }
+}
+
+/* ================== 문제 표시 ================== */
+var curQ = null, curChoices = null, curAnswer = 0;
+
+function loadQuestion(){
+  curQ = QUIZ[order[idx]];
+  answered = false;
+  selIdx = 0;
+  timeLeft = TIME_LIMIT;
+  elTbar.style.width = '100%';
+
+  $('fileNo').textContent = '#' + (idx+1);
+  $('serve').textContent = '📋 ' + hideName(curQ.serve);
+  $('hint').textContent = '🔍 단서: ' + curQ.hint;
+  $('hudProg').textContent = (idx+1) + ' / ' + TOTAL;
+  $('hudScore').textContent = score;
+
+  setRow('bKcal','vKcal', curQ.kcal, MAXV.kcal, 'kcal');
+  setRow('bSugar','vSugar', curQ.sugar, MAXV.sugar, 'g');
+  setRow('bSod','vSod', curQ.sodium, MAXV.sodium, 'mg');
+  setRow('bPro','vPro', curQ.protein, MAXV.protein, 'g');
+
+  // 카드 등장 애니메이션 다시 실행
+  elCard.classList.remove('in');
+  void elCard.offsetWidth;
+  elCard.classList.add('in');
+
+  // 보기 섞기
+  curChoices = curQ.choices.slice();
+  shuffle(curChoices);
+  for(var i=0;i<curChoices.length;i++){
+    if(curChoices[i].e === curQ.emoji){ curAnswer = i; break; }
+  }
+  renderChoices();
+
+  elFb.classList.remove('on','good','bad');
+  paintDots();
+}
+
+// "콜라 250mL 한 캔" 처럼 음식 이름이 들어 있으면 정답이 노출되므로 가린다
+function hideName(text){
+  var parts = text.split(' ');
+  parts[0] = '???';
+  return parts.join(' ');
+}
+
+function setRow(barId, valId, v, max, unit){
+  var pct = Math.max(4, Math.min(100, (v/max)*100));
+  var bar = $(barId);
+  bar.style.width = '0%';
+  void bar.offsetWidth;
+  bar.style.width = pct + '%';
+  $(valId).textContent = v + unit;
+}
+
+function renderChoices(){
+  elChoices.innerHTML = '';
+  for(var i=0;i<curChoices.length;i++){
+    var b = document.createElement('button');
+    b.className = 'ch' + (i===selIdx ? ' sel' : '');
+    b.setAttribute('data-i', String(i));
+    b.innerHTML = '<span class="k">'+(i+1)+'</span><span class="e">'+curChoices[i].e+'</span><span class="n">'+curChoices[i].n+'</span>';
+    elChoices.appendChild(b);
+  }
+}
+function paintSel(){
+  var bs = elChoices.children;
+  for(var i=0;i<bs.length;i++) bs[i].classList.toggle('sel', i===selIdx && !answered);
+}
+
+/* ================== 정답 확인 ================== */
+function answer(i, timeout){
+  if(answered || state!=='play') return;
+  answered = true;
+  state = 'feedback';
+
+  var ok = (!timeout && i === curAnswer);
+  results.push(ok);
+
+  var bs = elChoices.children;
+  for(var k=0;k<bs.length;k++){
+    bs[k].disabled = true;
+    bs[k].classList.remove('sel');
+    if(k === curAnswer) bs[k].classList.add('ok');
+    else if(k === i && !timeout) bs[k].classList.add('no');
+    else bs[k].classList.add('dim');
+  }
+
+  if(ok){
+    score += 10;
+    correctCnt++;
+    combo++;
+    if(combo > bestCombo) bestCombo = combo;
+    elFb.className = 'fb on good';
+    elFbT.textContent = combo >= 3 ? ('🎉 정답! ' + combo + '연속 성공!') : '🎉 정답이야!';
+    sndGood();
+    burst(window.innerWidth/2, window.innerHeight*0.45, 26);
+  }else{
+    combo = 0;
+    elFb.className = 'fb on bad';
+    elFbT.textContent = timeout ? '⏰ 시간 초과! 정답은…' : '😢 아쉬워! 정답은…';
+    sndBad();
+  }
+  elFbD.textContent = curQ.why;
+  $('hudScore').textContent = score;
+  $('btnNext').textContent = (idx === TOTAL-1) ? '결과 보기 →' : '다음 문제 →';
+  paintDots();
+  if(elFb.scrollIntoView){
+    try{ elFb.scrollIntoView({behavior:'smooth', block:'nearest'}); }catch(err){ }
+  }
+}
+
+function nextQuestion(){
+  if(state !== 'feedback') return;
+  sndClick();
+  idx++;
+  if(idx >= TOTAL){ endGame(); return; }
+  state = 'play';
+  loadQuestion();
+}
+
+/* ================== 결과 ================== */
+var RANKS = [
+  { min:10, e:'🏆', n:'전설의 명탐정', c:'완벽해! 영양성분표를 눈 감고도 읽는구나. 진짜 대단해!' },
+  { min:8,  e:'🥇', n:'특급 영양 탐정', c:'거의 다 맞혔어! 이제 급식표도 술술 읽을 수 있겠는걸?' },
+  { min:6,  e:'🥈', n:'정식 영양 탐정', c:'잘했어! 당류랑 나트륨 숫자를 조금만 더 살펴보자.' },
+  { min:4,  e:'🥉', n:'견습 탐정',      c:'좋은 출발이야! 한 번 더 하면 훨씬 잘할 수 있어.' },
+  { min:0,  e:'🔍', n:'탐정 지망생',    c:'괜찮아! 단서를 천천히 읽어 보면 금방 늘어날 거야.' }
+];
+
+function endGame(){
+  state = 'result';
+  if(score > best){ best = score; saveBest(best); }
+  var r = RANKS[0];
+  for(var i=0;i<RANKS.length;i++){ if(correctCnt >= RANKS[i].min){ r = RANKS[i]; break; } }
+  $('rankEmoji').textContent = r.e;
+  $('rankName').textContent = r.n;
+  $('finalScore').textContent = score + '점';
+  $('finalSub').textContent = TOTAL + '문제 중 ' + correctCnt + '개 정답';
+  $('comment').textContent = r.c;
+  $('stCombo').textContent = bestCombo;
+  $('stBest').textContent = best;
+  show('result');
+  if(correctCnt >= 8){ sndWin(); confettiRain(); }
+  else { beep(440,0.14,'triangle',0.07); }
+  updateBestLabel();
+}
+function updateBestLabel(){
+  $('bestStart').textContent = best > 0 ? ('🏅 최고 기록: ' + best + '점') : '';
+}
+
+/* ================== 색종이 효과 (canvas) ================== */
+var particles = [];
+var COLORS = ['#ffd166','#ef6b5a','#69d36e','#7fc4f2','#ffffff','#e8548c'];
+function burst(x, y, n){
+  for(var i=0;i<n;i++){
+    particles.push({
+      x:x, y:y,
+      vx:(Math.random()-0.5)*420,
+      vy:-Math.random()*420 - 90,
+      s:5+Math.random()*7,
+      rot:Math.random()*6.28,
+      vr:(Math.random()-0.5)*10,
+      c:COLORS[(Math.random()*COLORS.length)|0],
+      life:1.6
+    });
+  }
+}
+function confettiRain(){
+  for(var i=0;i<110;i++){
+    particles.push({
+      x:Math.random()*window.innerWidth,
+      y:-20 - Math.random()*window.innerHeight*0.6,
+      vx:(Math.random()-0.5)*90,
+      vy:100+Math.random()*180,
+      s:6+Math.random()*8,
+      rot:Math.random()*6.28,
+      vr:(Math.random()-0.5)*8,
+      c:COLORS[(Math.random()*COLORS.length)|0],
+      life:4.5
+    });
+  }
+}
+function resize(){
+  var dpr = Math.min(window.devicePixelRatio||1, 2);
+  cvs.width = Math.floor(window.innerWidth*dpr);
+  cvs.height = Math.floor(window.innerHeight*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ================== 게임 루프 (rAF + delta time) ================== */
+var lastT = 0;
+var hadParticles = false;
+function loop(now){
+  requestAnimationFrame(loop);
+  if(!lastT) lastT = now;
+  var dt = (now - lastT) / 1000;
+  lastT = now;
+  if(document.hidden){ return; }        // 탭이 숨겨져 있으면 아무것도 하지 않음
+  if(dt > 0.05) dt = 0.05;              // 갑작스러운 점프 방지
+
+  // 제한 시간
+  if(state === 'play' && !answered){
+    timeLeft -= dt;
+    if(timeLeft <= 0){
+      timeLeft = 0;
+      elTbar.style.width = '0%';
+      answer(-1, true);
+    }else{
+      elTbar.style.width = (timeLeft/TIME_LIMIT*100) + '%';
+    }
+  }
+
+  // 색종이
+  if(particles.length){
+    ctx.clearRect(0,0,window.innerWidth,window.innerHeight);
+    for(var i=particles.length-1;i>=0;i--){
+      var p = particles[i];
+      p.vy += 700*dt;
+      p.x += p.vx*dt;
+      p.y += p.vy*dt;
+      p.rot += p.vr*dt;
+      p.life -= dt;
+      if(p.life <= 0 || p.y > window.innerHeight + 40){ particles.splice(i,1); continue; }
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.c;
+      ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
+      ctx.fillRect(-p.s/2, -p.s/2, p.s, p.s*0.6);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+    hadParticles = true;
+  }else if(hadParticles){
+    ctx.clearRect(0,0,window.innerWidth,window.innerHeight);
+    hadParticles = false;
+  }
+}
+requestAnimationFrame(loop);
+
+document.addEventListener('visibilitychange', function(){
+  if(!document.hidden){ lastT = 0; }
+});
+
+/* ================== 입력: 마우스 / 터치 ================== */
+$('btnStart').addEventListener('click', function(){ this.blur(); sndClick(); startGame(); });
+$('btnAgain').addEventListener('click', function(){ this.blur(); sndClick(); startGame(); });
+$('btnNext').addEventListener('click', function(e){ e.stopPropagation(); this.blur(); nextQuestion(); });
+
+elChoices.addEventListener('click', function(e){
+  var t = e.target;
+  while(t && t !== elChoices && !t.classList.contains('ch')) t = t.parentNode;
+  if(!t || t === elChoices) return;
+  var i = parseInt(t.getAttribute('data-i'), 10);
+  if(isNaN(i)) return;
+  selIdx = i;
+  answer(i, false);
+});
+
+/* ================== 입력: 키보드 ================== */
+document.addEventListener('keydown', function(e){
+  var k = e.key;
+  if(k === ' ' || k === 'Spacebar' || k === 'Enter' || k === 'ArrowLeft' || k === 'ArrowRight' || k === 'ArrowUp' || k === 'ArrowDown'){
+    e.preventDefault();   // 스크롤 & 버튼 중복 실행 막기
+  }
+  if(e.repeat) return;                      // 키를 꾹 눌러도 한 번만
+  var isGo = (k === ' ' || k === 'Spacebar' || k === 'Enter');
+
+  if(state === 'start'){
+    if(isGo){ sndClick(); startGame(); }
+    return;
+  }
+  if(state === 'result'){
+    if(isGo || k === 'r' || k === 'R'){ sndClick(); startGame(); }
+    return;
+  }
+  if(state === 'feedback'){
+    if(isGo) nextQuestion();
+    return;
+  }
+  if(state === 'play'){
+    if(k >= '1' && k <= '4'){
+      var i = parseInt(k,10) - 1;
+      if(i < curChoices.length){ selIdx = i; paintSel(); answer(i, false); }
+      return;
+    }
+    if(k === 'ArrowRight' || k === 'ArrowDown'){ selIdx = (selIdx+1) % curChoices.length; paintSel(); sndClick(); return; }
+    if(k === 'ArrowLeft' || k === 'ArrowUp'){ selIdx = (selIdx-1+curChoices.length) % curChoices.length; paintSel(); sndClick(); return; }
+    if(k === 'Enter'){ answer(selIdx, false); return; }
+  }
+});
+
+/* ================== 시작 ================== */
+best = loadBest();
+updateBestLabel();
+show('start');
+
+})();
+</script>
+</body>
+</html>

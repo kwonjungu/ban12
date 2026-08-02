@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>우리 반 텃밭 키우기 🌱</title>
+<style>
+  :root{
+    --ink:#2f4f2f;
+    --card:rgba(255,255,255,.82);
+    --line:rgba(47,79,47,.18);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; margin:0; }
+  body{
+    font-family:-apple-system, BlinkMacSystemFont, system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    background:#dff3d8;
+    color:var(--ink);
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+    user-select:none; -webkit-user-select:none;
+    touch-action:manipulation;
+  }
+
+  #app{
+    position:relative;
+    width:100%; max-width:480px; height:100%; max-height:900px;
+    background:linear-gradient(180deg,#eafbe4,#d5f0cd);
+    display:flex; flex-direction:column;
+    padding:8px 10px 10px;
+    gap:7px;
+    overflow:hidden;
+  }
+
+  /* ---------- HUD ---------- */
+  #hud{ display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .pill{
+    background:var(--card); border:2px solid var(--line);
+    border-radius:999px; padding:5px 12px;
+    font-weight:800; font-size:clamp(13px,3.6vw,16px);
+    white-space:nowrap;
+    box-shadow:0 2px 0 rgba(47,79,47,.08);
+  }
+  #growthTrack{
+    height:16px; border-radius:999px; background:rgba(255,255,255,.75);
+    border:2px solid var(--line); overflow:hidden; position:relative;
+  }
+  #growthFill{
+    position:relative;
+    height:100%; width:0%;
+    background:linear-gradient(90deg,#8ed36b,#4fb648,#2e9e57);
+    border-radius:999px;
+    transition:width .12s linear;
+    overflow:hidden;
+  }
+  #growthFill::after{
+    content:""; position:absolute; inset:0;
+    background:repeating-linear-gradient(115deg,rgba(255,255,255,.35) 0 8px,transparent 8px 18px);
+  }
+
+  /* ---------- 도감 ---------- */
+  #dexBox{
+    background:var(--card); border:2px solid var(--line); border-radius:16px;
+    padding:5px 7px 6px;
+  }
+  #dexTitle{ font-size:11px; font-weight:800; opacity:.75; margin-bottom:3px; letter-spacing:.5px; }
+  #dexRow{ display:flex; gap:5px; }
+  .dex{
+    flex:1 1 0; min-width:0;
+    aspect-ratio:1/1.15;
+    border-radius:12px;
+    background:rgba(47,79,47,.08);
+    border:2px dashed rgba(47,79,47,.22);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-size:clamp(16px,5vw,22px);
+    color:rgba(47,79,47,.35);
+  }
+  .dex b{ font-size:9px; font-weight:800; display:none; }
+  .dex.got{
+    background:linear-gradient(180deg,#fff8dc,#ffe9a8);
+    border:2px solid #f0c04a; color:var(--ink);
+    animation:pop .45s ease;
+  }
+  .dex.got b{ display:block; }
+  @keyframes pop{ 0%{transform:scale(.4) rotate(-15deg)} 60%{transform:scale(1.18)} 100%{transform:scale(1)} }
+
+  /* ---------- 무대 ---------- */
+  #stage{
+    position:relative; flex:1 1 auto; min-height:150px;
+    border-radius:20px; overflow:hidden;
+    border:3px solid rgba(47,79,47,.15);
+    box-shadow:inset 0 2px 12px rgba(0,0,0,.06);
+  }
+  #sky{ position:absolute; inset:0; background:linear-gradient(180deg,#67baf0,#bfe8ff); transition:background .3s linear; }
+  .cloud{ position:absolute; font-size:clamp(24px,8vw,38px); opacity:.9; will-change:transform; }
+  #c1{ top:8%;  animation:drift 22s linear infinite; }
+  #c2{ top:26%; animation:drift 32s linear infinite; animation-delay:-12s; font-size:clamp(18px,6vw,28px); opacity:.75; }
+  #c3{ top:15%; animation:drift 27s linear infinite; animation-delay:-20s; font-size:clamp(20px,7vw,32px); opacity:.6; }
+  @keyframes drift{ from{ transform:translateX(-70px) } to{ transform:translateX(520px) } }
+
+  #sunny{
+    position:absolute; top:6px; right:8px; font-size:clamp(28px,9vw,44px);
+    transition:opacity .2s, transform .2s, filter .2s;
+    filter:drop-shadow(0 0 10px rgba(255,214,80,.9));
+  }
+  #soil{
+    position:absolute; left:0; right:0; bottom:0; height:34%;
+    background:#8a5a34;
+    border-top:6px solid rgba(0,0,0,.12);
+    transition:background .3s linear;
+  }
+  #soil::before{
+    content:""; position:absolute; inset:0;
+    background:
+      radial-gradient(circle at 15% 30%, rgba(0,0,0,.14) 3px, transparent 4px),
+      radial-gradient(circle at 42% 62%, rgba(0,0,0,.12) 4px, transparent 5px),
+      radial-gradient(circle at 72% 28%, rgba(0,0,0,.13) 3px, transparent 4px),
+      radial-gradient(circle at 88% 70%, rgba(0,0,0,.1) 4px, transparent 5px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 12px, transparent 12px 26px);
+  }
+  #grassLine{
+    position:absolute; left:0; right:0; bottom:34%; height:10px;
+    background:repeating-linear-gradient(90deg,#4fae4a 0 6px, #62c257 6px 12px);
+    border-radius:6px 6px 0 0;
+  }
+
+  #plantWrap{
+    position:absolute; left:50%; bottom:26%;
+    transform:translateX(-50%);
+    display:flex; flex-direction:column; align-items:center;
+    z-index:4;
+  }
+  #plant{
+    font-size:clamp(42px,14vw,66px);
+    line-height:1;
+    transform-origin:bottom center;
+    filter:drop-shadow(0 6px 6px rgba(0,0,0,.22));
+    animation:sway 2.6s ease-in-out infinite;
+    transition:filter .3s;
+  }
+  @keyframes sway{ 0%,100%{ transform:rotate(-3deg) } 50%{ transform:rotate(3deg) } }
+  #plant.wilting{ animation:wilt 1.1s ease-in-out infinite; }
+  @keyframes wilt{ 0%,100%{ transform:rotate(-16deg) translateY(3px) } 50%{ transform:rotate(-9deg) translateY(0) } }
+  #plant.happy{ animation:bounce .5s ease; }
+  @keyframes bounce{ 0%{transform:scale(1)} 40%{transform:scale(1.22)} 100%{transform:scale(1)} }
+
+  #bubble{
+    background:#fff; border:2.5px solid var(--line);
+    border-radius:14px; padding:4px 10px; margin-bottom:6px;
+    font-size:clamp(11px,3.3vw,14px); font-weight:800; white-space:nowrap;
+    box-shadow:0 3px 0 rgba(47,79,47,.12);
+    position:relative;
+  }
+  #bubble::after{
+    content:""; position:absolute; bottom:-9px; left:50%; margin-left:-6px;
+    border:6px solid transparent; border-top-color:#fff;
+  }
+  #potPile{
+    position:absolute; left:50%; bottom:calc(26% - 8px); transform:translateX(-50%);
+    width:64px; height:16px; border-radius:50%;
+    background:rgba(0,0,0,.18); z-index:3;
+  }
+  #fx{ position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:6; }
+  #dangerVeil{
+    position:absolute; inset:0; pointer-events:none; z-index:5;
+    box-shadow:inset 0 0 40px 12px rgba(220,60,60,0);
+    transition:box-shadow .2s linear;
+  }
+  .drop{ position:absolute; font-size:20px; animation:fall .75s linear forwards; }
+  @keyframes fall{ from{ transform:translateY(0) scale(.7); opacity:0 } 25%{opacity:1} to{ transform:translateY(140px) scale(1.1); opacity:0 } }
+  .spark{ position:absolute; font-size:19px; animation:sparkle .8s ease-out forwards; }
+  @keyframes sparkle{ from{ transform:scale(.3) translateY(0); opacity:1 } to{ transform:scale(1.4) translateY(-42px); opacity:0 } }
+  .conf{ position:absolute; font-size:24px; animation:confetti 1.4s ease-out forwards; }
+  @keyframes confetti{ from{ transform:translate(0,0) rotate(0); opacity:1 } to{ transform:translate(var(--dx),var(--dy)) rotate(360deg); opacity:0 } }
+  #sunFlash{
+    position:absolute; inset:0; background:radial-gradient(circle at 50% 40%, rgba(255,238,150,.85), transparent 65%);
+    opacity:0; pointer-events:none; transition:opacity .35s ease-out; z-index:5;
+  }
+
+  /* ---------- 게이지 ---------- */
+  #gauges{ display:flex; flex-direction:column; gap:5px; }
+  .gRow{ display:flex; align-items:center; gap:7px; }
+  .gIcon{ font-size:clamp(16px,4.6vw,20px); width:1.5em; text-align:center; }
+  .gTrack{
+    position:relative; flex:1; height:18px; border-radius:999px;
+    background:rgba(255,255,255,.85); border:2px solid var(--line); overflow:hidden;
+  }
+  .gFill{ position:absolute; left:0; top:0; bottom:0; width:50%; border-radius:999px; transition:width .08s linear; }
+  #waterFill{ background:linear-gradient(90deg,#8fd8ff,#2f9bdc); }
+  #sunFill{ background:linear-gradient(90deg,#ffe07a,#ff9f2e); }
+  .gSafe{
+    position:absolute; top:0; bottom:0; left:25%; width:55%;
+    border-left:2px dashed rgba(47,79,47,.5); border-right:2px dashed rgba(47,79,47,.5);
+    background:rgba(80,190,90,.16); pointer-events:none;
+  }
+  .gTag{ font-size:11px; font-weight:800; width:52px; text-align:right; opacity:.8; }
+
+  /* ---------- 버튼 ---------- */
+  #controls{ display:flex; justify-content:center; gap:clamp(16px,7vw,34px); padding:2px 0 0; }
+  .bigBtn{
+    width:clamp(96px,27vw,120px); height:clamp(96px,27vw,120px);
+    border-radius:50%; border:none; cursor:pointer;
+    font-family:inherit; color:#fff; font-weight:900;
+    font-size:clamp(13px,3.6vw,16px);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    transition:transform .08s;
+    touch-action:manipulation;
+  }
+  .bigBtn span{ font-size:clamp(28px,9vw,38px); line-height:1; }
+  #btnWater{ background:radial-gradient(circle at 32% 26%,#7fd0ff,#1e86c9); box-shadow:0 7px 0 #14608f, 0 10px 16px rgba(0,0,0,.18); }
+  #btnSun{ background:radial-gradient(circle at 32% 26%,#ffdd77,#f08a1c); box-shadow:0 7px 0 #b45f08, 0 10px 16px rgba(0,0,0,.18); }
+  .bigBtn:active{ transform:translateY(5px); }
+  #btnWater:active{ box-shadow:0 2px 0 #14608f; }
+  #btnSun:active{ box-shadow:0 2px 0 #b45f08; }
+
+  #tip{ text-align:center; font-size:clamp(11px,3.1vw,13px); font-weight:700; opacity:.72; }
+
+  /* ---------- 오버레이 ---------- */
+  .overlay{
+    position:absolute; inset:0; z-index:30;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:20px;
+    background:linear-gradient(180deg,#79c7f2 0%,#bfe6ff 46%,#8a5a34 46%,#6d451f 100%);
+  }
+  .overlay.hidden{ display:none; }
+  .ovCard{
+    background:rgba(255,255,255,.93);
+    border:4px solid #fff; border-radius:26px;
+    padding:18px 18px 20px; width:100%; max-width:330px;
+    box-shadow:0 12px 26px rgba(0,0,0,.22);
+  }
+  .bigTitle{
+    font-size:clamp(24px,7.2vw,32px); font-weight:900; line-height:1.25;
+    background:linear-gradient(90deg,#2e9e57,#4fb648,#c98b2a);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .sub{ font-size:clamp(12px,3.5vw,14px); font-weight:700; opacity:.8; margin-top:6px; line-height:1.6; }
+  .howto{
+    margin-top:12px; background:#f2fbee; border:2px solid rgba(47,79,47,.15);
+    border-radius:14px; padding:9px 10px;
+    font-size:clamp(11px,3.3vw,13px); font-weight:700; line-height:1.75; text-align:left;
+  }
+  .goBtn{
+    margin-top:14px; width:100%; padding:13px 10px; border:none; border-radius:999px;
+    background:linear-gradient(180deg,#65cf5f,#2f9e4e);
+    color:#fff; font-family:inherit; font-weight:900; font-size:clamp(15px,4.4vw,18px);
+    cursor:pointer; box-shadow:0 5px 0 #1f7a3a; transition:transform .08s;
+  }
+  .goBtn:active{ transform:translateY(4px); box-shadow:0 1px 0 #1f7a3a; }
+  .best{ margin-top:9px; font-size:12px; font-weight:800; opacity:.7; }
+
+  #startArt{ font-size:clamp(46px,15vw,66px); margin-bottom:2px; animation:sway 2.6s ease-in-out infinite; }
+  #resultDex{ display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-top:10px; }
+  #resultDex div{
+    background:linear-gradient(180deg,#fff8dc,#ffe9a8); border:2px solid #f0c04a;
+    border-radius:12px; padding:5px 8px; font-size:18px;
+  }
+
+  /* 팝업 */
+  #pop{
+    position:absolute; inset:0; z-index:25;
+    display:flex; align-items:center; justify-content:center;
+    pointer-events:none;
+  }
+  #pop.hidden{ display:none; }
+  #popCard{
+    background:rgba(255,255,255,.95); border:4px solid #fff; border-radius:24px;
+    padding:16px 24px; text-align:center;
+    box-shadow:0 10px 24px rgba(0,0,0,.25);
+    animation:popIn .35s cubic-bezier(.2,1.4,.4,1);
+  }
+  @keyframes popIn{ from{ transform:scale(.5); opacity:0 } to{ transform:scale(1); opacity:1 } }
+  #popEmoji{ font-size:52px; line-height:1.1; }
+  #popText{ font-size:clamp(16px,4.8vw,20px); font-weight:900; margin-top:4px; }
+  #popSub{ font-size:12px; font-weight:800; opacity:.72; margin-top:3px; }
+
+  /* 낮은 화면에서도 도감은 항상 보이게, 크기만 줄인다 */
+  @media (max-height:640px){
+    #app{ gap:5px; padding:6px 8px 8px; }
+    #dexTitle{ font-size:10px; margin-bottom:2px; }
+    .dex{ aspect-ratio:1/1; font-size:15px; border-radius:9px; }
+    .dex b{ font-size:8px; }
+    .bigBtn{ width:82px; height:82px; font-size:12px; }
+    .bigBtn span{ font-size:26px; }
+    #stage{ min-height:130px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="hud">
+    <div class="pill">🌱 성장 <span id="growthNum">0</span>%</div>
+    <div class="pill">⭐ <span id="scoreNum">0</span>점</div>
+  </div>
+
+  <div id="growthTrack"><div id="growthFill"></div></div>
+
+  <div id="dexBox">
+    <div id="dexTitle">📗 우리 반 채소 도감</div>
+    <div id="dexRow"></div>
+  </div>
+
+  <div id="stage">
+    <div id="sky">
+      <div class="cloud" id="c1">☁️</div>
+      <div class="cloud" id="c2">☁️</div>
+      <div class="cloud" id="c3">☁️</div>
+    </div>
+    <div id="sunny">☀️</div>
+    <div id="soil"></div>
+    <div id="grassLine"></div>
+    <div id="potPile"></div>
+    <div id="plantWrap">
+      <div id="bubble">안녕! 잘 부탁해 😊</div>
+      <div id="plant">🌱</div>
+    </div>
+    <div id="sunFlash"></div>
+    <div id="dangerVeil"></div>
+    <div id="fx"></div>
+  </div>
+
+  <div id="gauges">
+    <div class="gRow">
+      <div class="gIcon">💧</div>
+      <div class="gTrack"><div class="gFill" id="waterFill"></div><div class="gSafe"></div></div>
+      <div class="gTag" id="waterTag">좋아</div>
+    </div>
+    <div class="gRow">
+      <div class="gIcon">☀️</div>
+      <div class="gTrack"><div class="gFill" id="sunFill"></div><div class="gSafe"></div></div>
+      <div class="gTag" id="sunTag">좋아</div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button class="bigBtn" id="btnWater"><span>💧</span>물 주기</button>
+    <button class="bigBtn" id="btnSun"><span>☀️</span>햇빛 주기</button>
+  </div>
+
+  <div id="tip">두 막대를 초록 칸 안에 두면 쑥쑥 자라!</div>
+
+  <!-- 시작 화면 -->
+  <div class="overlay" id="startScreen">
+    <div id="startArt">🌱</div>
+    <div class="ovCard">
+      <div class="bigTitle">우리 반<br>텃밭 키우기</div>
+      <div class="sub">물과 햇빛을 알맞게 줘서<br>채소를 수확해 보자! 🥕</div>
+      <div class="howto">
+        💧 물 주기 · ☀️ 햇빛 주기 버튼 누르기<br>
+        ⌨️ 키보드는 ← 물, → 햇빛<br>
+        ✅ 두 막대를 초록 칸 안에 유지!<br>
+        ⚠️ 너무 많이 주면 시들어 버려
+      </div>
+      <button class="goBtn" id="btnStart">🌻 씨앗 심기</button>
+      <div class="best" id="bestStart">최고 점수 0점</div>
+    </div>
+  </div>
+
+  <!-- 결과 화면 -->
+  <div class="overlay hidden" id="resultScreen">
+    <div class="ovCard">
+      <div style="font-size:46px">🏆</div>
+      <div class="bigTitle">텃밭 대성공!</div>
+      <div class="sub" id="resultSub">채소 6개를 모두 키웠어!</div>
+      <div id="resultDex"></div>
+      <div class="sub" id="resultScore" style="margin-top:10px">⭐ 0점</div>
+      <button class="goBtn" id="btnRestart">🔁 다시 심기</button>
+      <div class="best" id="bestResult">최고 점수 0점</div>
+    </div>
+  </div>
+
+  <!-- 수확 / 시듦 팝업 -->
+  <div id="pop" class="hidden">
+    <div id="popCard">
+      <div id="popEmoji">🥕</div>
+      <div id="popText">수확!</div>
+      <div id="popSub">도감에 추가됐어</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ================= 데이터 ================= */
+  var VEG = [
+    { e:'🥕', n:'당근' },
+    { e:'🍅', n:'토마토' },
+    { e:'🌽', n:'옥수수' },
+    { e:'🍓', n:'딸기' },
+    { e:'🥒', n:'오이' },
+    { e:'🎃', n:'호박' }
+  ];
+  var GOAL = VEG.length;
+
+  var SAFE_LO = 25, SAFE_HI = 80;
+  var PERF_LO = 40, PERF_HI = 70;
+  var DECAY = 9;        // 초당 감소량
+  var GIVE  = 13;       // 한 번 누를 때 증가량
+  var GROW  = 5.5;      // 초당 성장
+  var GROW_PERFECT = 7.5;
+  var WILT_FAST = 15, WILT_SLOW = 5, WILT_HEAL = 22;
+
+  /* ================= 상태 ================= */
+  var state = 'start';   // start | play | pop | result
+  var growth, water, sun, wilt, score, vegIndex, collected;
+  var popTime = 0, popNext = 'seed';
+  var best = 0;
+  var lastPress = 0;
+
+  /* ================= DOM ================= */
+  function $(id){ return document.getElementById(id); }
+  var elGrowthNum = $('growthNum'), elScoreNum = $('scoreNum');
+  var elGrowthFill = $('growthFill');
+  var elDexRow = $('dexRow');
+  var elSky = $('sky'), elSoil = $('soil'), elSunny = $('sunny');
+  var elPlant = $('plant'), elBubble = $('bubble');
+  var elWaterFill = $('waterFill'), elSunFill = $('sunFill');
+  var elWaterTag = $('waterTag'), elSunTag = $('sunTag');
+  var elFx = $('fx'), elVeil = $('dangerVeil'), elFlash = $('sunFlash');
+  var elStart = $('startScreen'), elResult = $('resultScreen'), elPop = $('pop');
+  var elPopEmoji = $('popEmoji'), elPopText = $('popText'), elPopSub = $('popSub');
+  var elResultDex = $('resultDex'), elResultScore = $('resultScore'), elResultSub = $('resultSub');
+  var elBestStart = $('bestStart'), elBestResult = $('bestResult');
+  var elTip = $('tip');
+
+  /* ================= 저장 ================= */
+  function loadBest(){
+    try{
+      var v = window.localStorage.getItem('classGardenBest');
+      var n = parseInt(v, 10);
+      if(!isNaN(n) && n > 0) best = n;
+    }catch(err){ best = 0; }
+  }
+  function saveBest(){
+    try{ window.localStorage.setItem('classGardenBest', String(best)); }catch(err){}
+  }
+
+  /* ================= 도감 ================= */
+  function buildDex(){
+    elDexRow.innerHTML = '';
+    for(var i=0;i<GOAL;i++){
+      var d = document.createElement('div');
+      d.className = 'dex';
+      d.id = 'dex' + i;
+      d.textContent = '?';
+      elDexRow.appendChild(d);
+    }
+  }
+  function refreshDex(){
+    for(var i=0;i<GOAL;i++){
+      var d = $('dex' + i);
+      if(!d) continue;
+      if(collected.indexOf(i) >= 0){
+        d.className = 'dex got';
+        d.innerHTML = VEG[i].e + '<b>' + VEG[i].n + '</b>';
+      }else{
+        d.className = 'dex';
+        d.textContent = '?';
+      }
+    }
+  }
+
+  /* ================= 이펙트 ================= */
+  function addFx(cls, txt, x, y, extra){
+    var s = document.createElement('div');
+    s.className = cls;
+    s.textContent = txt;
+    s.style.left = x + '%';
+    s.style.top = y + '%';
+    if(extra) s.setAttribute('style', s.getAttribute('style') + ';' + extra);
+    elFx.appendChild(s);
+    window.setTimeout(function(){ if(s.parentNode) s.parentNode.removeChild(s); }, 1500);
+  }
+  function rainFx(){
+    for(var i=0;i<5;i++){
+      addFx('drop', '💧', 34 + Math.random()*32, 4 + Math.random()*18);
+    }
+  }
+  function sunFx(){
+    for(var i=0;i<5;i++){
+      addFx('spark', '✨', 32 + Math.random()*36, 44 + Math.random()*18);
+    }
+    elFlash.style.opacity = '0.9';
+    window.setTimeout(function(){ elFlash.style.opacity = '0'; }, 90);
+  }
+  function confettiFx(emoji){
+    for(var i=0;i<14;i++){
+      var dx = (Math.random()*2 - 1) * 130;
+      var dy = -(60 + Math.random()*130);
+      addFx('conf', i % 3 === 0 ? '⭐' : emoji, 48, 45, '--dx:' + dx + 'px;--dy:' + dy + 'px');
+    }
+  }
+
+  /* ================= 게임 흐름 ================= */
+  function newSeed(){
+    growth = 0; water = 50; sun = 50; wilt = 0;
+    elPlant.classList.remove('wilting');
+  }
+  function resetAll(){
+    score = 0; vegIndex = 0; collected = [];
+    newSeed();
+    refreshDex();
+    state = 'play';
+    elStart.classList.add('hidden');
+    elResult.classList.add('hidden');
+    elPop.classList.add('hidden');
+  }
+
+  function showPop(emoji, text, sub, seconds, next){
+    elPopEmoji.textContent = emoji;
+    elPopText.textContent = text;
+    elPopSub.textContent = sub;
+    elPop.classList.remove('hidden');
+    popTime = seconds;
+    popNext = next;
+    state = 'pop';
+  }
+
+  function harvest(){
+    var bonus = 100 + Math.max(0, Math.round(60 - wilt));
+    score += bonus;
+    if(collected.indexOf(vegIndex) < 0) collected.push(vegIndex);
+    refreshDex();
+    confettiFx(VEG[vegIndex].e);
+    showPop(VEG[vegIndex].e, '수확! ' + VEG[vegIndex].n, '도감에 추가! +' + bonus + '점', 1.6,
+            collected.length >= GOAL ? 'end' : 'seed');
+  }
+
+  function losePlant(){
+    elPlant.classList.remove('wilting');
+    showPop('🥀', '앗, 시들었어…', '괜찮아! 새 씨앗을 심자 🌱', 1.6, 'seed');
+  }
+
+  function endPop(){
+    elPop.classList.add('hidden');
+    if(popNext === 'end'){
+      showResult();
+    }else{
+      if(collected.indexOf(vegIndex) >= 0){
+        // 수확 성공 → 다음 채소로
+        var next = vegIndex;
+        for(var i=0;i<GOAL;i++){
+          var idx = (vegIndex + 1 + i) % GOAL;
+          if(collected.indexOf(idx) < 0){ next = idx; break; }
+        }
+        vegIndex = next;
+      }
+      newSeed();
+      state = 'play';
+    }
+  }
+
+  function showResult(){
+    if(score > best){ best = score; saveBest(); }
+    elResultDex.innerHTML = '';
+    for(var i=0;i<collected.length;i++){
+      var d = document.createElement('div');
+      d.textContent = VEG[collected[i]].e;
+      elResultDex.appendChild(d);
+    }
+    elResultSub.textContent = '채소 ' + collected.length + '개를 모두 키웠어! 대단해 👏';
+    elResultScore.textContent = '⭐ ' + score + '점';
+    elBestResult.textContent = '최고 점수 ' + best + '점';
+    elResult.classList.remove('hidden');
+    state = 'result';
+  }
+
+  /* ================= 입력 ================= */
+  function giveWater(){
+    if(state !== 'play') return;
+    var now = Date.now();
+    if(now - lastPress < 55) return;
+    lastPress = now;
+    water = Math.min(100, water + GIVE);
+    rainFx();
+  }
+  function giveSun(){
+    if(state !== 'play') return;
+    var now = Date.now();
+    if(now - lastPress < 55) return;
+    lastPress = now;
+    sun = Math.min(100, sun + GIVE);
+    sunFx();
+  }
+
+  function bindPress(el, fn){
+    el.addEventListener('pointerdown', function(e){ e.preventDefault(); fn(); });
+    el.addEventListener('click', function(e){ e.preventDefault(); });
+  }
+  bindPress($('btnWater'), giveWater);
+  bindPress($('btnSun'), giveSun);
+
+  // 변신 애니메이션이 끝나면 원래 흔들림으로 되돌린다
+  elPlant.addEventListener('animationend', function(e){
+    if(e.animationName === 'bounce') elPlant.classList.remove('happy');
+  });
+
+  $('btnStart').addEventListener('click', function(){ resetAll(); });
+  $('btnRestart').addEventListener('click', function(){ resetAll(); });
+
+  document.addEventListener('keydown', function(e){
+    var k = e.key;
+    if(k === ' ' || k === 'Spacebar' || k === 'ArrowLeft' || k === 'ArrowRight' ||
+       k === 'ArrowUp' || k === 'ArrowDown'){
+      e.preventDefault();
+    }
+    if(e.repeat) return;
+    if(state === 'start' || state === 'result'){
+      if(k === ' ' || k === 'Spacebar' || k === 'Enter'){ resetAll(); }
+      return;
+    }
+    if(k === 'ArrowLeft' || k === 'a' || k === 'A' || k === '1'){ giveWater(); }
+    else if(k === 'ArrowRight' || k === 'd' || k === 'D' || k === '2'){ giveSun(); }
+  });
+
+  /* ================= 업데이트 ================= */
+  function update(dt){
+    water = Math.max(0, Math.min(100, water - DECAY * dt));
+    sun   = Math.max(0, Math.min(100, sun   - DECAY * dt));
+
+    var wOk = (water >= SAFE_LO && water <= SAFE_HI);
+    var sOk = (sun   >= SAFE_LO && sun   <= SAFE_HI);
+    var wBad = (water > 90 || water < 12);
+    var sBad = (sun   > 90 || sun   < 12);
+
+    if(wOk && sOk){
+      var rate = GROW;
+      if(water >= PERF_LO && water <= PERF_HI && sun >= PERF_LO && sun <= PERF_HI){
+        rate = GROW_PERFECT;
+      }
+      growth += rate * dt;
+      wilt = Math.max(0, wilt - WILT_HEAL * dt);
+    }else if(wBad || sBad){
+      wilt += WILT_FAST * dt;
+      growth = Math.max(0, growth - 1.5 * dt);
+    }else{
+      wilt += WILT_SLOW * dt;
+    }
+
+    if(wilt >= 100){ wilt = 100; losePlant(); return; }
+    if(growth >= 100){ growth = 100; harvest(); return; }
+  }
+
+  function message(){
+    if(wilt > 60) return '너무 힘들어… 도와줘 😵';
+    if(water > 90) return '물이 너무 많아! 🌊';
+    if(sun   > 90) return '너무 뜨거워! 🥵';
+    if(water < 12) return '목말라… 💧';
+    if(sun   < 12) return '깜깜해… 🌑';
+    if(water > SAFE_HI) return '물은 그만! 💦';
+    if(sun   > SAFE_HI) return '햇빛은 그만! 😎';
+    if(water < SAFE_LO) return '물 좀 줘! 💧';
+    if(sun   < SAFE_LO) return '햇빛 좀 줘! ☀️';
+    if(water >= PERF_LO && water <= PERF_HI && sun >= PERF_LO && sun <= PERF_HI) return '완벽해! 쑥쑥 🎵';
+    return '딱 좋아! 😊';
+  }
+
+  function plantEmoji(){
+    if(wilt > 65) return '🥀';
+    if(growth < 25) return '🌱';
+    if(growth < 55) return '🌿';
+    if(growth < 85) return '🥬';
+    return VEG[vegIndex].e;
+  }
+
+  var lastPlantEmoji = '';
+  function render(){
+    var g = Math.floor(growth);
+    elGrowthNum.textContent = g;
+    elScoreNum.textContent = score;
+    elGrowthFill.style.width = growth + '%';
+
+    elWaterFill.style.width = water + '%';
+    elSunFill.style.width = sun + '%';
+    elWaterTag.textContent = (water > SAFE_HI) ? '너무 많아' : (water < SAFE_LO ? '부족해' : '좋아');
+    elSunTag.textContent   = (sun   > SAFE_HI) ? '너무 많아' : (sun   < SAFE_LO ? '부족해' : '좋아');
+
+    // 하늘/흙 색
+    elSky.style.background = 'linear-gradient(180deg, hsl(' + (208 - sun*0.14) + ',85%,' + (60 + sun*0.14) + '%), hsl(192,80%,' + (76 + sun*0.10) + '%))';
+    elSoil.style.background = 'hsl(26,42%,' + (44 - water*0.17) + '%)';
+    elSunny.style.opacity = (0.32 + sun/100 * 0.68).toFixed(2);
+    elSunny.style.transform = 'scale(' + (0.78 + sun/100 * 0.34).toFixed(2) + ')';
+
+    // 식물
+    var em = plantEmoji();
+    if(em !== lastPlantEmoji){
+      lastPlantEmoji = em;
+      elPlant.textContent = em;
+      elPlant.classList.remove('happy');
+      void elPlant.offsetWidth;
+      elPlant.classList.add('happy');
+    }
+    var scale = 0.65 + (growth / 100) * 0.75;
+    elPlant.style.fontSize = 'calc(clamp(42px,14vw,66px) * ' + scale.toFixed(2) + ')';
+    if(wilt > 35){ elPlant.classList.add('wilting'); elPlant.style.filter = 'grayscale(' + Math.min(0.8, wilt/130).toFixed(2) + ') drop-shadow(0 6px 6px rgba(0,0,0,.22))'; }
+    else { elPlant.classList.remove('wilting'); elPlant.style.filter = 'drop-shadow(0 6px 6px rgba(0,0,0,.22))'; }
+
+    elVeil.style.boxShadow = 'inset 0 0 40px 12px rgba(220,60,60,' + (wilt/100 * 0.55).toFixed(2) + ')';
+    elBubble.textContent = message();
+  }
+
+  function idleRender(){
+    elWaterFill.style.width = '50%';
+    elSunFill.style.width = '50%';
+  }
+
+  /* ================= 루프 ================= */
+  var lastTime = 0;
+  function loop(now){
+    window.requestAnimationFrame(loop);
+    if(document.hidden){ lastTime = 0; return; }
+    if(!lastTime){ lastTime = now; return; }
+    var dt = (now - lastTime) / 1000;
+    lastTime = now;
+    if(dt > 0.05) dt = 0.05;
+
+    if(state === 'play'){
+      update(dt);
+      render();
+    }else if(state === 'pop'){
+      popTime -= dt;
+      render();
+      if(popTime <= 0) endPop();
+    }
+  }
+
+  document.addEventListener('visibilitychange', function(){ lastTime = 0; });
+
+  /* ================= 시작 ================= */
+  loadBest();
+  buildDex();
+  score = 0; vegIndex = 0; collected = [];
+  newSeed();
+  refreshDex();
+  idleRender();
+  elBestStart.textContent = '최고 점수 ' + best + '점';
+  elTip.textContent = '두 막대를 초록 칸 안에 두면 쑥쑥 자라!';
+  window.requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

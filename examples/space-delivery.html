@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>우주 급식 배달 🚀</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system, BlinkMacSystemFont, system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    background:radial-gradient(120% 90% at 50% 0%, #1b1250 0%, #0a0722 55%, #05030f 100%);
+    color:#fff; overflow:hidden;
+    -webkit-user-select:none; user-select:none;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
+  }
+  #app{
+    position:relative; width:100%; height:100dvh; height:100vh;
+    max-width:520px; margin:0 auto;
+    display:flex; flex-direction:column;
+  }
+  @supports (height:100dvh){ #app{height:100dvh} }
+
+  /* ===== 상단 HUD ===== */
+  #hud{
+    flex:0 0 auto; padding:8px 10px 6px;
+    display:flex; flex-direction:column; gap:6px;
+    z-index:5;
+  }
+  .row{display:flex; align-items:center; gap:8px}
+  .chip{
+    background:rgba(255,255,255,.09);
+    border:1px solid rgba(255,255,255,.16);
+    border-radius:999px; padding:5px 11px;
+    font-size:13px; font-weight:800; letter-spacing:-.3px;
+    display:flex; align-items:center; gap:6px;
+    backdrop-filter:blur(4px);
+    white-space:nowrap;
+  }
+  .chip b{font-size:16px; color:#ffe27a}
+  #hearts{letter-spacing:1px; font-size:15px}
+  #hearts span{transition:transform .2s, opacity .2s; display:inline-block}
+  #hearts span.gone{opacity:.22; transform:scale(.75); filter:grayscale(1)}
+  .spacer{flex:1}
+  #soundBtn{
+    background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.16);
+    color:#fff; border-radius:999px; width:34px; height:34px; font-size:15px;
+    cursor:pointer; flex:0 0 auto;
+  }
+  #soundBtn:active{transform:scale(.92)}
+
+  /* 지금 들고 있는 음식 안내 */
+  #carry{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    font-size:13px; font-weight:800; color:#cfc7ff;
+    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+    border-radius:12px; padding:6px 10px;
+  }
+  #carryFood{font-size:20px; line-height:1}
+  #carryTarget{
+    padding:3px 10px; border-radius:999px; font-size:13px; font-weight:900;
+    color:#10061f;
+  }
+
+  /* ===== 캔버스 ===== */
+  #stageWrap{position:relative; flex:1 1 auto; min-height:0; margin:0 8px; border-radius:18px; overflow:hidden;
+    border:1px solid rgba(255,255,255,.12);
+    box-shadow:0 12px 40px rgba(0,0,0,.55), inset 0 0 60px rgba(90,60,220,.18);}
+  canvas{display:block; width:100%; height:100%; touch-action:none}
+
+  /* ===== 오버레이 ===== */
+  .overlay{
+    position:absolute; inset:0; z-index:10;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:18px;
+    background:radial-gradient(90% 70% at 50% 35%, rgba(60,35,150,.55), rgba(6,3,20,.86) 70%);
+    backdrop-filter:blur(3px);
+  }
+  .overlay.hide{display:none}
+  .title{
+    font-size:clamp(26px,8vw,40px); font-weight:900; letter-spacing:-1px; line-height:1.15;
+    background:linear-gradient(180deg,#fff 20%,#b9a6ff 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 0 24px rgba(160,120,255,.35);
+  }
+  .sub{margin-top:8px; font-size:14px; color:#c9c1f0; font-weight:700; line-height:1.6}
+  .planetRow{display:flex; gap:14px; margin:16px 0 4px; font-size:30px}
+  .planetRow div{animation:bob 2.4s ease-in-out infinite}
+  .planetRow div:nth-child(2){animation-delay:.3s}
+  .planetRow div:nth-child(3){animation-delay:.6s}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+  .rules{
+    margin-top:14px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.14);
+    border-radius:14px; padding:12px 14px; font-size:13.5px; line-height:1.85; color:#e7e2ff;
+    font-weight:600; max-width:330px;
+  }
+  .rules b{color:#ffe27a}
+  .btn{
+    margin-top:18px; cursor:pointer; border:0;
+    font-family:inherit; font-size:18px; font-weight:900; color:#1a0a3c;
+    padding:14px 34px; border-radius:999px;
+    background:linear-gradient(180deg,#ffe57a,#ffb02e);
+    box-shadow:0 8px 0 #c07406, 0 14px 26px rgba(255,180,50,.35);
+    animation:pulse 1.6s ease-in-out infinite;
+  }
+  .btn:active{transform:translateY(5px); box-shadow:0 3px 0 #c07406}
+  @keyframes pulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.14)}}
+  .hint{margin-top:12px; font-size:12px; color:#9d94c9; font-weight:700}
+  .bigScore{font-size:52px; font-weight:900; color:#ffe27a; line-height:1.1; margin-top:6px;
+    text-shadow:0 0 26px rgba(255,210,90,.45)}
+  .best{margin-top:6px; font-size:14px; color:#c9c1f0; font-weight:800}
+  .medal{font-size:44px; animation:bob 2s ease-in-out infinite}
+
+  /* ===== 하단 조작 버튼 ===== */
+  #pad{
+    flex:0 0 auto; display:flex; gap:8px; padding:8px 8px 10px;
+  }
+  .pbtn{
+    font-family:inherit; cursor:pointer; color:#fff; font-weight:900;
+    border:1px solid rgba(255,255,255,.18);
+    background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.05));
+    border-radius:16px; height:58px; font-size:22px;
+    box-shadow:0 4px 0 rgba(0,0,0,.35);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .pbtn:active{transform:translateY(3px); box-shadow:none; background:rgba(255,255,255,.26)}
+  #padL,#padR{flex:1 1 30%}
+  #padDrop{flex:1 1 40%; font-size:17px; letter-spacing:-.5px;
+    background:linear-gradient(180deg,#7b5cff,#4a2ed6); border-color:rgba(255,255,255,.3);
+    box-shadow:0 4px 0 #2c1a8a;}
+  #padDrop:active{box-shadow:none}
+  @media (max-height:620px){
+    .rules{font-size:12.5px; line-height:1.6; padding:10px 12px}
+    .planetRow{font-size:26px; margin:10px 0 2px}
+    .btn{margin-top:12px; padding:12px 28px; font-size:17px}
+    .pbtn{height:50px}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="hud">
+    <div class="row">
+      <div class="chip">🍱 배달 성공 <b id="score">0</b></div>
+      <div class="chip" id="lvChip">⚡ 속도 <b id="level">1</b></div>
+      <div class="spacer"></div>
+      <div class="chip" id="hearts"><span>❤️</span><span>❤️</span><span>❤️</span></div>
+      <button id="soundBtn" title="소리 켜기/끄기">🔊</button>
+    </div>
+    <div id="carry">
+      지금 들고 있는 음식 <span id="carryFood">🍎</span> →
+      <span id="carryTarget">빨강 행성</span>
+    </div>
+  </div>
+
+  <div id="stageWrap">
+    <canvas id="cv"></canvas>
+
+    <div class="overlay" id="startScreen">
+      <div class="medal">🚀</div>
+      <div class="title">우주 급식 배달</div>
+      <div class="sub">배고픈 행성 친구들에게<br>급식을 배달해 주자!</div>
+      <div class="planetRow"><div>🔴</div><div>🟡</div><div>🟢</div></div>
+      <div class="rules">
+        🚀 <b>← →</b> 또는 <b>화면 드래그</b>로 우주선 이동<br>
+        🍱 <b>스페이스</b> 또는 <b>투하 버튼</b>으로 음식 떨어뜨리기<br>
+        🎯 음식과 <b>같은 색 행성</b>에 넣으면 성공!<br>
+        💔 색이 틀리면 하트가 하나 줄어들어
+      </div>
+      <button class="btn" id="startBtn">🚀 출발!</button>
+      <div class="hint">스페이스 키를 눌러도 시작돼</div>
+    </div>
+
+    <div class="overlay hide" id="overScreen">
+      <div class="medal" id="overEmoji">🛸</div>
+      <div class="title" id="overTitle">배달 끝!</div>
+      <div class="sub" id="overMsg">오늘도 수고했어!</div>
+      <div class="bigScore"><span id="finalScore">0</span>개 배달 성공</div>
+      <div class="best" id="bestLine">🏆 최고 기록 0개</div>
+      <button class="btn" id="retryBtn">🔄 다시 배달하기</button>
+      <div class="hint">스페이스 키를 눌러도 다시 시작돼</div>
+    </div>
+  </div>
+
+  <div id="pad">
+    <button class="pbtn" id="padL">◀</button>
+    <button class="pbtn" id="padDrop">🍱 투하!</button>
+    <button class="pbtn" id="padR">▶</button>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ================= 기본 설정 ================= */
+var EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",-apple-system,system-ui,sans-serif';
+var UI_FONT = '-apple-system, BlinkMacSystemFont, system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif';
+
+var KINDS = [
+  { key:'red',    name:'빨강', color:'#ff5f74', dark:'#a01b31', glow:'#ff9fae', face:'😋', foods:['🍎','🍓','🍒','🍅'] },
+  { key:'yellow', name:'노랑', color:'#ffcb3d', dark:'#a8760a', glow:'#ffe694', face:'😃', foods:['🍌','🧀','🍋','🌽'] },
+  { key:'green',  name:'초록', color:'#4ade80', dark:'#157a45', glow:'#a9f4c6', face:'🤗', foods:['🥦','🥝','🥒','🍏'] }
+];
+
+var cv = document.getElementById('cv');
+var ctx = cv.getContext('2d');
+var W = 300, H = 400, DPR = 1;
+
+var elScore  = document.getElementById('score');
+var elLevel  = document.getElementById('level');
+var elHearts = document.getElementById('hearts');
+var elCarryFood = document.getElementById('carryFood');
+var elCarryTarget = document.getElementById('carryTarget');
+var startScreen = document.getElementById('startScreen');
+var overScreen  = document.getElementById('overScreen');
+var elFinal = document.getElementById('finalScore');
+var elBest  = document.getElementById('bestLine');
+var elOverTitle = document.getElementById('overTitle');
+var elOverMsg   = document.getElementById('overMsg');
+var elOverEmoji = document.getElementById('overEmoji');
+
+/* ================= 상태 ================= */
+var state = 'start';   // 'start' | 'play' | 'over'
+var score = 0, hearts = 3, level = 1, best = 0, elapsed = 0;
+var shipX = 150, shipDir = 0, shipBob = 0;
+var carry = null;          // {emoji, kindIndex}
+var dropCool = 0;
+var planets = [];
+var foods = [];
+var parts = [];
+var texts = [];
+var stars = [];
+var shake = 0;
+var flash = 0, flashColor = '255,80,90';
+var lastTime = 0, running = false;
+var muted = false;
+var keyLeft = false, keyRight = false;
+var padLeft = false, padRight = false;
+
+/* ================= 저장 ================= */
+function loadBest(){
+  try{ var v = window.localStorage.getItem('space-delivery-best'); if(v) best = parseInt(v,10)||0; }catch(e){ best = 0; }
+}
+function saveBest(){
+  try{ window.localStorage.setItem('space-delivery-best', String(best)); }catch(e){}
+}
+loadBest();
+
+/* ================= 소리 ================= */
+var AC = null;
+function beep(freq, dur, type, vol){
+  if(muted) return;
+  try{
+    if(!AC){
+      var Ctor = window.AudioContext || window.webkitAudioContext;
+      if(!Ctor) return;
+      AC = new Ctor();
+    }
+    if(AC.state === 'suspended' && AC.resume) AC.resume();
+    var o = AC.createOscillator(), g = AC.createGain();
+    o.type = type || 'sine';
+    o.frequency.value = freq;
+    o.connect(g); g.connect(AC.destination);
+    var t = AC.currentTime;
+    var v = (vol === undefined ? 0.07 : vol);
+    g.gain.setValueAtTime(v, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.start(t); o.stop(t + dur + 0.02);
+  }catch(e){}
+}
+function sfxGood(){ beep(660,0.10,'triangle',0.07); setTimeout(function(){ beep(990,0.16,'triangle',0.06); },90); }
+function sfxBad(){ beep(190,0.26,'sawtooth',0.05); }
+function sfxDrop(){ beep(420,0.07,'square',0.03); }
+function sfxLevel(){ beep(520,0.08,'square',0.05); setTimeout(function(){ beep(780,0.14,'square',0.05); },90); }
+function sfxOver(){ beep(300,0.2,'sawtooth',0.05); setTimeout(function(){ beep(200,0.35,'sawtooth',0.05); },200); }
+
+document.getElementById('soundBtn').addEventListener('click', function(){
+  muted = !muted;
+  this.textContent = muted ? '🔇' : '🔊';
+  if(!muted) beep(700,0.08,'triangle',0.05);
+});
+
+/* ================= 화면 크기 ================= */
+function makeStars(){
+  stars = [];
+  for(var i=0;i<64;i++){
+    stars.push({
+      x: Math.random(), y: Math.random(),
+      r: Math.random()*1.5 + 0.5,
+      tw: Math.random()*Math.PI*2,
+      sp: 0.6 + Math.random()*1.6
+    });
+  }
+}
+makeStars();
+
+function planetRadius(){
+  return Math.max(24, Math.min(42, W*0.115));
+}
+function planetY(){
+  return H - planetRadius() - 34;
+}
+function shipY(){
+  return Math.max(46, H*0.13);
+}
+
+function resize(){
+  var rect = cv.getBoundingClientRect();
+  var oldW = W;
+  W = Math.max(200, Math.round(rect.width));
+  H = Math.max(260, Math.round(rect.height));
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(W*DPR);
+  cv.height = Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  var ratio = (oldW > 0) ? (W/oldW) : 1;
+  var r = planetRadius();
+  for(var i=0;i<planets.length;i++){
+    planets[i].r = r;
+    planets[i].x *= ratio;
+    if(planets[i].x < r) planets[i].x = r;
+    if(planets[i].x > W-r) planets[i].x = W-r;
+  }
+  shipX *= ratio;
+  if(shipX < 30) shipX = 30;
+  if(shipX > W-30) shipX = W-30;
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', function(){ setTimeout(resize, 250); });
+if(window.ResizeObserver){
+  try{ new ResizeObserver(function(){ resize(); }).observe(document.getElementById('stageWrap')); }catch(e){}
+}
+
+/* ================= 게임 초기화 ================= */
+function makePlanets(){
+  planets = [];
+  var r = planetRadius();
+  var slot = W/3;
+  var order = [0,1,2];
+  // 색 순서 섞기
+  for(var i=order.length-1;i>0;i--){
+    var j = Math.floor(Math.random()*(i+1));
+    var tmp = order[i]; order[i] = order[j]; order[j] = tmp;
+  }
+  for(var k=0;k<3;k++){
+    planets.push({
+      kind: order[k],
+      x: slot*k + slot/2,
+      r: r,
+      dir: (Math.random()<0.5 ? -1 : 1),
+      pop: 0,
+      wob: Math.random()*Math.PI*2
+    });
+  }
+}
+
+function nextCarry(){
+  var ki = Math.floor(Math.random()*3);
+  var list = KINDS[ki].foods;
+  carry = { kind: ki, emoji: list[Math.floor(Math.random()*list.length)] };
+  updateCarryUI();
+}
+
+function updateCarryUI(){
+  if(!carry) return;
+  var k = KINDS[carry.kind];
+  elCarryFood.textContent = carry.emoji;
+  elCarryTarget.textContent = k.name + ' 행성';
+  elCarryTarget.style.background = k.color;
+}
+
+function updateHUD(){
+  elScore.textContent = score;
+  elLevel.textContent = level;
+  var spans = elHearts.getElementsByTagName('span');
+  for(var i=0;i<spans.length;i++){
+    if(i < hearts) spans[i].className = '';
+    else spans[i].className = 'gone';
+  }
+}
+
+function planetSpeed(){
+  return Math.min(210, 26 + (level-1)*24);
+}
+// 배달을 많이 할수록, 시간이 지날수록 빨라진다
+function calcLevel(){
+  return Math.min(9, 1 + Math.floor(score/4) + Math.floor(elapsed/14));
+}
+function checkLevelUp(){
+  var nl = calcLevel();
+  if(nl > level){
+    level = nl;
+    addText(W/2, H*0.42, '행성이 빨라진다! ⚡', '#8ef0ff', 22);
+    sfxLevel();
+    updateHUD();
+  }
+}
+
+function startGame(){
+  resize();
+  score = 0; hearts = 3; level = 1; elapsed = 0;
+  foods = []; parts = []; texts = [];
+  shake = 0; flash = 0; dropCool = 0;
+  shipX = W/2; shipDir = 0;
+  keyLeft = keyRight = padLeft = padRight = false;
+  makePlanets();
+  nextCarry();
+  updateHUD();
+  startScreen.className = 'overlay hide';
+  overScreen.className = 'overlay hide';
+  state = 'play';
+  addText(W/2, H*0.45, '출발! 🚀', '#ffe27a', 30);
+  beep(520,0.09,'triangle',0.05);
+  setTimeout(function(){ beep(780,0.14,'triangle',0.05); }, 100);
+}
+
+function gameOver(){
+  state = 'over';
+  if(score > best){ best = score; saveBest(); }
+  elFinal.textContent = score;
+  elBest.textContent = '🏆 최고 기록 ' + best + '개';
+  if(score >= 15){ elOverEmoji.textContent='🏆'; elOverTitle.textContent='우주 최고 배달왕!'; elOverMsg.textContent='행성 친구들이 배부르대!'; }
+  else if(score >= 8){ elOverEmoji.textContent='🌟'; elOverTitle.textContent='멋진 배달이었어!'; elOverMsg.textContent='조금만 더 하면 배달왕!'; }
+  else if(score >= 3){ elOverEmoji.textContent='🛸'; elOverTitle.textContent='배달 끝!'; elOverMsg.textContent='색깔을 잘 보고 다시 도전!'; }
+  else { elOverEmoji.textContent='😅'; elOverTitle.textContent='앗, 배달 실패!'; elOverMsg.textContent='음식 색과 행성 색을 맞춰 보자!'; }
+  overScreen.className = 'overlay';
+  sfxOver();
+}
+
+/* ================= 이펙트 ================= */
+function addParts(x, y, color, n, power){
+  for(var i=0;i<n;i++){
+    var a = Math.random()*Math.PI*2;
+    var s = (Math.random()*0.7 + 0.35) * (power||160);
+    parts.push({
+      x:x, y:y,
+      vx:Math.cos(a)*s, vy:Math.sin(a)*s - 40,
+      life:0.7 + Math.random()*0.4, max:1.1,
+      size:2 + Math.random()*3.5, color:color
+    });
+  }
+}
+function addText(x, y, txt, color, size){
+  texts.push({ x:x, y:y, txt:txt, color:color, size:size||20, life:1.1 });
+}
+
+/* ================= 조작 ================= */
+function tryDrop(){
+  if(state !== 'play' || dropCool > 0 || !carry) return;
+  foods.push({
+    x: shipX, y: shipY() + 30,
+    vy: 280 + (level-1)*10,
+    kind: carry.kind, emoji: carry.emoji, spin: 0
+  });
+  dropCool = 0.2;
+  sfxDrop();
+  addParts(shipX, shipY()+26, KINDS[carry.kind].color, 5, 90);
+  nextCarry();
+}
+
+function primaryAction(){
+  if(state === 'play') tryDrop();
+  else startGame();
+}
+
+document.addEventListener('keydown', function(e){
+  var k = e.key;
+  if(k === 'ArrowLeft' || k === 'a' || k === 'A'){ keyLeft = true; e.preventDefault(); }
+  else if(k === 'ArrowRight' || k === 'd' || k === 'D'){ keyRight = true; e.preventDefault(); }
+  else if(k === ' ' || k === 'Spacebar' || k === 'Enter' || k === 'ArrowDown' || k === 'ArrowUp'){
+    e.preventDefault();
+    if(!e.repeat) primaryAction();
+  }
+}, {passive:false});
+
+document.addEventListener('keyup', function(e){
+  var k = e.key;
+  if(k === 'ArrowLeft' || k === 'a' || k === 'A') keyLeft = false;
+  if(k === 'ArrowRight' || k === 'd' || k === 'D') keyRight = false;
+}, {passive:false});
+
+/* 드래그 / 탭 */
+var dragging = false, dragMoved = 0, dragStartX = 0;
+cv.addEventListener('pointerdown', function(e){
+  if(state !== 'play') return;
+  dragging = true; dragMoved = 0; dragStartX = e.clientX;
+  if(cv.setPointerCapture){ try{ cv.setPointerCapture(e.pointerId); }catch(err){} }
+  var r = cv.getBoundingClientRect();
+  shipX = e.clientX - r.left;
+  e.preventDefault();
+});
+cv.addEventListener('pointermove', function(e){
+  if(!dragging || state !== 'play') return;
+  var r = cv.getBoundingClientRect();
+  shipX = e.clientX - r.left;
+  dragMoved = Math.max(dragMoved, Math.abs(e.clientX - dragStartX));
+  e.preventDefault();
+});
+function endDrag(e){
+  if(!dragging) return;
+  dragging = false;
+  if(dragMoved < 12) tryDrop();
+  if(e) e.preventDefault();
+}
+cv.addEventListener('pointerup', endDrag);
+cv.addEventListener('pointercancel', function(){ dragging = false; });
+
+/* 버튼 */
+function holdBtn(id, on, off){
+  var el = document.getElementById(id);
+  el.addEventListener('pointerdown', function(e){ on(); e.preventDefault(); });
+  el.addEventListener('pointerup', function(e){ off(); e.preventDefault(); });
+  el.addEventListener('pointerleave', function(){ off(); });
+  el.addEventListener('pointercancel', function(){ off(); });
+}
+holdBtn('padL', function(){ padLeft = true; }, function(){ padLeft = false; });
+holdBtn('padR', function(){ padRight = true; }, function(){ padRight = false; });
+document.getElementById('padDrop').addEventListener('click', function(){ primaryAction(); });
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('retryBtn').addEventListener('click', startGame);
+
+/* ================= 업데이트 ================= */
+function update(dt){
+  // 별 반짝임 (항상)
+  for(var s=0;s<stars.length;s++){ stars[s].tw += dt*stars[s].sp; }
+
+  if(shake > 0) shake = Math.max(0, shake - dt*2.6);
+  if(flash > 0) flash = Math.max(0, flash - dt*2.2);
+
+  // 파티클
+  for(var i=parts.length-1;i>=0;i--){
+    var p = parts[i];
+    p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 320*dt;
+    p.life -= dt;
+    if(p.life <= 0) parts.splice(i,1);
+  }
+  // 떠오르는 글자
+  for(var t=texts.length-1;t>=0;t--){
+    texts[t].y -= 34*dt;
+    texts[t].life -= dt;
+    if(texts[t].life <= 0) texts.splice(t,1);
+  }
+
+  shipBob += dt*3;
+
+  if(state !== 'play') return;
+
+  if(dropCool > 0) dropCool -= dt;
+  elapsed += dt;
+  checkLevelUp();
+
+  // 우주선 이동
+  var dir = 0;
+  if(keyLeft || padLeft) dir -= 1;
+  if(keyRight || padRight) dir += 1;
+  shipDir = dir;
+  if(dir !== 0) shipX += dir * 330 * dt;
+  if(shipX < 26) shipX = 26;
+  if(shipX > W-26) shipX = W-26;
+
+  // 행성 이동
+  var sp = planetSpeed();
+  var i2, p1, p2;
+  for(i2=0;i2<planets.length;i2++){
+    p1 = planets[i2];
+    p1.wob += dt*2;
+    p1.x += p1.dir * sp * dt;
+    if(p1.x < p1.r){ p1.x = p1.r; p1.dir = 1; }
+    if(p1.x > W - p1.r){ p1.x = W - p1.r; p1.dir = -1; }
+    if(p1.pop > 0) p1.pop = Math.max(0, p1.pop - dt*3);
+  }
+  // 행성끼리 부딪히면 방향 바꾸기
+  for(i2=0;i2<planets.length;i2++){
+    for(var j2=i2+1;j2<planets.length;j2++){
+      p1 = planets[i2]; p2 = planets[j2];
+      var d = p2.x - p1.x;
+      var minD = p1.r + p2.r + 4;
+      if(Math.abs(d) < minD){
+        var push = (minD - Math.abs(d))/2 + 0.5;
+        var sgn = d >= 0 ? 1 : -1;
+        p1.x -= sgn*push; p2.x += sgn*push;
+        p1.dir = -sgn; p2.dir = sgn;
+        if(p1.x < p1.r) p1.x = p1.r;
+        if(p2.x > W-p2.r) p2.x = W-p2.r;
+      }
+    }
+  }
+
+  // 음식 떨어지기
+  var py = planetY();
+  for(var f=foods.length-1;f>=0;f--){
+    var fd = foods[f];
+    fd.vy += 260*dt;
+    fd.y += fd.vy*dt;
+    fd.spin += dt*4;
+    if(Math.random() < dt*22){
+      parts.push({x:fd.x+(Math.random()*8-4), y:fd.y-6, vx:0, vy:-14, life:0.35, max:0.35, size:1.8, color:KINDS[fd.kind].color});
+    }
+
+    var hit = null;
+    for(var q=0;q<planets.length;q++){
+      var pl = planets[q];
+      var dx = fd.x - pl.x, dy = fd.y - (py - 4);
+      if(dx*dx + dy*dy < (pl.r+12)*(pl.r+12)){ hit = pl; break; }
+    }
+
+    if(hit){
+      foods.splice(f,1);
+      if(hit.kind === fd.kind){
+        score++;
+        hit.pop = 1;
+        addParts(hit.x, py - hit.r*0.5, KINDS[hit.kind].color, 18, 200);
+        addText(hit.x, py - hit.r - 18, '냠냠! +1', '#ffe27a', 22);
+        sfxGood();
+        updateHUD();
+        checkLevelUp();
+      }else{
+        hearts--;
+        hit.pop = 1;
+        shake = 1; flash = 1;
+        addParts(hit.x, py - hit.r*0.5, '#ff6b81', 16, 190);
+        addText(hit.x, py - hit.r - 18, '색이 달라! 💔', '#ff9aa8', 21);
+        sfxBad();
+        updateHUD();
+        if(hearts <= 0){ gameOver(); return; }
+      }
+    } else if(fd.y > H + 24){
+      foods.splice(f,1);
+      addText(fd.x, H - 30, '휙~ 놓쳤다', '#a9a2d8', 17);
+    }
+  }
+}
+
+/* ================= 그리기 ================= */
+function drawBackground(time){
+  var g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0, '#1d1156');
+  g.addColorStop(0.5, '#0d0930');
+  g.addColorStop(1, '#060418');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,W,H);
+
+  // 성운
+  var neb = ctx.createRadialGradient(W*0.22, H*0.28, 4, W*0.22, H*0.28, W*0.62);
+  neb.addColorStop(0,'rgba(140,80,255,0.20)');
+  neb.addColorStop(1,'rgba(140,80,255,0)');
+  ctx.fillStyle = neb; ctx.fillRect(0,0,W,H);
+  var neb2 = ctx.createRadialGradient(W*0.82, H*0.66, 4, W*0.82, H*0.66, W*0.6);
+  neb2.addColorStop(0,'rgba(40,180,255,0.14)');
+  neb2.addColorStop(1,'rgba(40,180,255,0)');
+  ctx.fillStyle = neb2; ctx.fillRect(0,0,W,H);
+
+  // 별
+  for(var i=0;i<stars.length;i++){
+    var s = stars[i];
+    var a = 0.35 + 0.65*Math.abs(Math.sin(s.tw));
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(s.x*W, s.y*H, s.r, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawPlanets(){
+  var py = planetY();
+  for(var i=0;i<planets.length;i++){
+    var p = planets[i];
+    var k = KINDS[p.kind];
+    var sc = 1 + p.pop*0.16;
+    var y = py + Math.sin(p.wob)*3;
+    var r = p.r*sc;
+
+    // 빛무리
+    var glow = ctx.createRadialGradient(p.x, y, r*0.6, p.x, y, r*1.9);
+    glow.addColorStop(0, 'rgba(255,255,255,0.16)');
+    glow.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(p.x, y, r*1.9, 0, Math.PI*2); ctx.fill();
+
+    // 본체
+    var g = ctx.createRadialGradient(p.x - r*0.35, y - r*0.4, r*0.15, p.x, y, r);
+    g.addColorStop(0, k.glow);
+    g.addColorStop(0.55, k.color);
+    g.addColorStop(1, k.dark);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(p.x, y, r, 0, Math.PI*2); ctx.fill();
+
+    // 고리
+    ctx.save();
+    ctx.translate(p.x, y);
+    ctx.rotate(-0.32);
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r*1.5, r*0.42, 0, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+
+    // 얼굴
+    ctx.font = Math.round(r*0.9) + 'px ' + EMOJI_FONT;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(k.face, p.x, y + 1);
+
+    // 이름표
+    ctx.font = '900 ' + Math.max(11, Math.round(r*0.36)) + 'px ' + UI_FONT;
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    var lw = Math.max(40, r*1.25), lh = Math.max(16, r*0.5);
+    roundRect(p.x - lw/2, y + r + 6, lw, lh, lh/2);
+    ctx.fill();
+    ctx.fillStyle = k.glow;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(k.name, p.x, y + r + 6 + lh/2 + 1);
+  }
+}
+
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+
+function drawShip(){
+  var y = shipY() + Math.sin(shipBob)*3;
+  var k = carry ? KINDS[carry.kind] : KINDS[0];
+
+  if(state === 'play'){
+    // 조준선
+    ctx.save();
+    ctx.setLineDash([5,9]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(shipX, y + 34);
+    ctx.lineTo(shipX, planetY() - planetRadius() - 6);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // 불꽃
+  var fl = 8 + Math.abs(Math.sin(shipBob*3))*6;
+  var fg = ctx.createLinearGradient(0, y+14, 0, y+14+fl);
+  fg.addColorStop(0,'rgba(255,220,120,0.9)');
+  fg.addColorStop(1,'rgba(255,110,40,0)');
+  ctx.fillStyle = fg;
+  ctx.beginPath();
+  ctx.moveTo(shipX-7, y+12);
+  ctx.lineTo(shipX+7, y+12);
+  ctx.lineTo(shipX, y+12+fl);
+  ctx.closePath();
+  ctx.fill();
+
+  // 우주선
+  ctx.save();
+  ctx.translate(shipX, y);
+  ctx.rotate(shipDir * 0.18);
+  ctx.font = '38px ' + EMOJI_FONT;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('🚀', 0, 0);
+  ctx.restore();
+
+  // 들고 있는 음식 (색 캡슐)
+  if(carry){
+    var cy = y + 26;
+    ctx.save();
+    ctx.shadowColor = k.color;
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = k.color;
+    ctx.beginPath();
+    ctx.arc(shipX, cy, 15, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(shipX, cy, 15, 0, Math.PI*2); ctx.stroke();
+    ctx.font = '17px ' + EMOJI_FONT;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(carry.emoji, shipX, cy + 1);
+  }
+}
+
+function drawFoods(){
+  for(var i=0;i<foods.length;i++){
+    var f = foods[i];
+    var k = KINDS[f.kind];
+    ctx.save();
+    ctx.shadowColor = k.color;
+    ctx.shadowBlur = 16;
+    ctx.fillStyle = k.color;
+    ctx.beginPath(); ctx.arc(f.x, f.y, 13, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.rotate(Math.sin(f.spin)*0.4);
+    ctx.font = '19px ' + EMOJI_FONT;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(f.emoji, 0, 1);
+    ctx.restore();
+  }
+}
+
+function drawParts(){
+  for(var i=0;i<parts.length;i++){
+    var p = parts[i];
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life/p.max));
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawTexts(){
+  for(var i=0;i<texts.length;i++){
+    var t = texts[i];
+    ctx.globalAlpha = Math.max(0, Math.min(1, t.life/1.1));
+    ctx.font = '900 ' + t.size + 'px ' + UI_FONT;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    ctx.strokeText(t.txt, t.x, t.y);
+    ctx.fillStyle = t.color;
+    ctx.fillText(t.txt, t.x, t.y);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function draw(time){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.clearRect(0,0,W,H);
+  drawBackground(time);
+  ctx.save();
+  if(shake > 0){
+    var m = shake*7;
+    ctx.translate((Math.random()-0.5)*m, (Math.random()-0.5)*m);
+  }
+  drawPlanets();
+  drawFoods();
+  if(state === 'play') drawShip();
+  drawParts();
+  drawTexts();
+  ctx.restore();
+
+  if(flash > 0){
+    ctx.fillStyle = 'rgba(' + flashColor + ',' + (flash*0.22) + ')';
+    ctx.fillRect(0,0,W,H);
+  }
+}
+
+/* ================= 루프 ================= */
+function frame(now){
+  if(!running){ return; }
+  var dt = (now - lastTime)/1000;
+  lastTime = now;
+  if(!isFinite(dt) || dt < 0) dt = 0;
+  if(dt > 0.05) dt = 0.05;      // 탭 전환 후 점프 방지
+  if(!document.hidden){
+    update(dt);
+    draw(now);
+  }
+  requestAnimationFrame(frame);
+}
+function startLoop(){
+  if(running) return;
+  running = true;
+  lastTime = performance.now();
+  requestAnimationFrame(frame);
+}
+document.addEventListener('visibilitychange', function(){
+  if(!document.hidden) lastTime = performance.now();
+});
+
+/* ================= 시작 ================= */
+function init(){
+  resize();
+  makePlanets();
+  nextCarry();
+  updateHUD();
+  elBest.textContent = '🏆 최고 기록 ' + best + '개';
+  startLoop();
+  setTimeout(resize, 120);
+  setTimeout(resize, 500);
+}
+init();
+
+})();
+</script>
+</body>
+</html>

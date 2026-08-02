@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>강아지 산책 시뮬 🐶</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body {
+    height:100%;
+    font-family:-apple-system, BlinkMacSystemFont, system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    background:#2b1c14;
+    overflow:hidden;
+    user-select:none;
+  }
+  body {
+    display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 50% 20%, #6b4630, #2b1c14 70%);
+  }
+
+  /* ===== 전체 틀 ===== */
+  #app {
+    position:relative;
+    width:100%; max-width:440px; height:100%; max-height:820px;
+    display:flex; flex-direction:column;
+    background:linear-gradient(#ffe9c9, #ffd7ad 45%, #f7c48f);
+    overflow:hidden;
+    box-shadow:0 18px 50px rgba(0,0,0,.45);
+  }
+  @media (min-width:460px) and (min-height:840px) {
+    #app { border-radius:26px; }
+  }
+
+  /* ===== 위쪽 HUD ===== */
+  #hud {
+    position:relative; z-index:5;
+    padding:9px 12px 10px;
+    background:linear-gradient(#fff6e6, #ffeacd);
+    border-bottom:3px solid #e3a86f;
+    box-shadow:0 4px 12px rgba(160,90,40,.18);
+    flex:none;
+  }
+  #chips { display:flex; gap:6px; align-items:center; margin-bottom:7px; }
+  .chip {
+    font-size:13px; font-weight:800; color:#7a4718;
+    background:#ffdfb0; border:2px solid #eab077;
+    padding:3px 9px; border-radius:999px; white-space:nowrap;
+  }
+  .chip.lv { background:#d8ecff; border-color:#8ec3f5; color:#1d5b95; }
+  .chip.pop { animation:chipPop .5s ease; }
+  @keyframes chipPop { 0%{transform:scale(1);} 40%{transform:scale(1.25);} 100%{transform:scale(1);} }
+  #expWrap { flex:1; height:11px; background:#f0dcc2; border:2px solid #eab077; border-radius:999px; overflow:hidden; min-width:44px; }
+  #expFill { height:100%; width:0%; background:linear-gradient(90deg,#ffd257,#ffab2e); transition:width .25s ease; }
+
+  .bar { display:flex; align-items:center; gap:6px; margin-top:5px; }
+  .bar .lb { font-size:12.5px; font-weight:800; width:62px; flex:none; letter-spacing:-.4px; }
+  .bar .track {
+    display:block; flex:1; height:15px; border-radius:999px; background:#eadbc6;
+    border:2px solid rgba(140,90,50,.35); overflow:hidden; position:relative;
+  }
+  .bar .fill { display:block; height:100%; width:100%; border-radius:999px; transition:width .18s linear; }
+  .bar .num { font-size:12px; font-weight:800; width:30px; text-align:right; color:#8a5a2c; flex:none; }
+  #barFood .lb { color:#c96a12; } #fillFood { background:linear-gradient(90deg,#ffc46b,#ff8f2e); }
+  #barHappy .lb { color:#d4407e; } #fillHappy { background:linear-gradient(90deg,#ff9ec4,#f8407f); }
+  #barStam .lb { color:#2f8fbf; } #fillStam { background:linear-gradient(90deg,#8fe0ff,#25a8e0); }
+  .bar.low .lb { animation:blink .7s infinite; }
+  .bar.low .track { border-color:#e33; box-shadow:0 0 0 2px rgba(230,50,50,.25); }
+  @keyframes blink { 50% { opacity:.35; } }
+  .bar.full .track { box-shadow:0 0 10px rgba(120,220,120,.9); }
+
+  /* ===== 방 ===== */
+  #room { position:relative; flex:1; overflow:hidden; }
+  #wall {
+    position:absolute; inset:0;
+    background:linear-gradient(#ffdca9, #ffcf9a 55%, #f6bd85);
+    transition:filter .6s linear;
+  }
+  #wall::after {
+    content:""; position:absolute; inset:0;
+    background-image:radial-gradient(circle, rgba(255,255,255,.5) 2px, transparent 3px);
+    background-size:34px 34px; opacity:.45;
+  }
+  #floor {
+    position:absolute; left:0; right:0; bottom:0; height:34%;
+    background:repeating-linear-gradient(90deg,#c98a52 0 26px,#bd7f49 26px 28px);
+    border-top:4px solid #a86a37;
+  }
+  #rug {
+    position:absolute; left:50%; bottom:6%; transform:translateX(-50%);
+    width:78%; height:20%;
+    background:radial-gradient(ellipse at center,#ffd0dc 0 40%,#ffb7cb 41% 62%,#ff9dbb 63% 100%);
+    border-radius:50%; box-shadow:0 4px 0 rgba(160,90,110,.25);
+  }
+  #window {
+    position:absolute; left:7%; top:8%; width:26%; height:27%;
+    background:linear-gradient(#bfeaff,#e8f8ff);
+    border:5px solid #fff; border-radius:10px;
+    box-shadow:0 5px 0 rgba(150,100,60,.25);
+    overflow:hidden;
+  }
+  #window::before {
+    content:""; position:absolute; left:50%; top:0; width:5px; height:100%;
+    background:#fff; transform:translateX(-50%);
+  }
+  #window::after {
+    content:""; position:absolute; left:0; top:50%; width:100%; height:5px; background:#fff;
+  }
+  #sun {
+    position:absolute; right:12%; top:12%; font-size:22px;
+    animation:sunPulse 3.5s ease-in-out infinite;
+  }
+  @keyframes sunPulse { 50% { transform:scale(1.18) rotate(12deg); } }
+  .deco { position:absolute; font-size:30px; filter:drop-shadow(0 3px 3px rgba(120,70,30,.3)); }
+  #plant { right:5%; top:16%; font-size:38px; }
+  #frame { left:41%; top:10%; font-size:26px; }
+  #bowl { left:8%; bottom:9%; font-size:30px; }
+  #ball { right:9%; bottom:8%; font-size:28px; animation:ballBounce 2.2s ease-in-out infinite; }
+  @keyframes ballBounce { 50% { transform:translateY(-9px) rotate(20deg); } }
+
+  /* ===== 강아지 ===== */
+  #dogWrap {
+    position:absolute; left:50%; bottom:16%; transform:translateX(-50%);
+    display:flex; flex-direction:column; align-items:center; z-index:3;
+  }
+  #bubble {
+    position:relative; max-width:230px;
+    background:#fff; color:#5a3418; font-weight:800; font-size:14px;
+    padding:8px 13px; border-radius:16px; border:3px solid #f0b273;
+    box-shadow:0 4px 0 rgba(160,100,50,.25);
+    margin-bottom:10px; text-align:center; line-height:1.3;
+    animation:bubbleIn .3s ease;
+  }
+  #bubble::after {
+    content:""; position:absolute; left:50%; bottom:-11px; transform:translateX(-50%);
+    border:8px solid transparent; border-top-color:#f0b273;
+  }
+  @keyframes bubbleIn { from { transform:translateY(6px) scale(.9); opacity:0; } }
+  #dog {
+    font-size:96px; line-height:1;
+    filter:drop-shadow(0 8px 6px rgba(120,70,30,.35));
+    animation:idle 2.2s ease-in-out infinite;
+  }
+  @keyframes idle { 0%,100%{ transform:translateY(0) scale(1); } 50%{ transform:translateY(-8px) scale(1.03); } }
+  #dog.eat { animation:eat .55s ease; }
+  @keyframes eat { 0%,100%{transform:scale(1);} 30%{transform:scale(1.18) rotate(-6deg);} 60%{transform:scale(.94) rotate(6deg);} }
+  #dog.play { animation:playJump .6s ease; }
+  @keyframes playJump { 0%,100%{transform:translateY(0);} 35%{transform:translateY(-46px) rotate(-14deg);} 70%{transform:translateY(-12px) rotate(10deg);} }
+  #dog.walk { animation:walkRun .8s ease; }
+  @keyframes walkRun {
+    0%{transform:translateX(0);} 25%{transform:translateX(-52px) rotate(-8deg);}
+    60%{transform:translateX(50px) rotate(8deg);} 100%{transform:translateX(0);}
+  }
+  #dog.sick { animation:sickShake .6s ease-in-out infinite; }
+  @keyframes sickShake { 0%,100%{transform:rotate(-6deg);} 50%{transform:rotate(6deg);} }
+  #shadow {
+    width:86px; height:16px; margin-top:-6px;
+    background:rgba(120,70,30,.28); border-radius:50%; filter:blur(2px);
+  }
+
+  #fx { position:absolute; inset:0; pointer-events:none; z-index:4; overflow:hidden; }
+  .pop {
+    position:absolute; font-size:26px; font-weight:900;
+    animation:popUp 1s ease-out forwards; white-space:nowrap;
+  }
+  @keyframes popUp {
+    0% { transform:translate(-50%,0) scale(.6); opacity:0; }
+    20% { transform:translate(-50%,-14px) scale(1.15); opacity:1; }
+    100% { transform:translate(-50%,-90px) scale(1); opacity:0; }
+  }
+  #toast {
+    position:absolute; left:50%; top:14px; transform:translateX(-50%);
+    background:rgba(255,255,255,.95); border:3px solid #ffb45e; border-radius:14px;
+    padding:7px 14px; font-weight:900; font-size:15px; color:#8a4c11;
+    box-shadow:0 5px 14px rgba(150,90,40,.3); z-index:6; white-space:nowrap;
+    opacity:0; transition:opacity .25s ease;
+  }
+  #toast.show { opacity:1; animation:toastPop .4s ease; }
+  @keyframes toastPop { 0%{transform:translate(-50%,-14px) scale(.8);} 100%{transform:translate(-50%,0) scale(1);} }
+
+  /* ===== 버튼 ===== */
+  #actions {
+    flex:none; display:flex; gap:8px; padding:10px;
+    background:linear-gradient(#ffeacd,#ffdfb4);
+    border-top:3px solid #e3a86f; z-index:5;
+  }
+  .act {
+    flex:1; border:none; border-radius:16px; padding:9px 2px 8px;
+    font-family:inherit; font-weight:900; font-size:13.5px; color:#fff;
+    cursor:pointer; position:relative; overflow:hidden;
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+    box-shadow:0 5px 0 rgba(0,0,0,.22); transition:transform .08s, box-shadow .08s, filter .15s;
+    letter-spacing:-.5px;
+  }
+  .act .ico { font-size:26px; line-height:1; }
+  .act .key { font-size:10.5px; opacity:.85; font-weight:700; }
+  .act:active, .act.press { transform:translateY(4px); box-shadow:0 1px 0 rgba(0,0,0,.22); }
+  .act.cool { filter:grayscale(.55) brightness(.9); }
+  #btnFeed { background:linear-gradient(#ffa94d,#f27d16); }
+  #btnPlay { background:linear-gradient(#ff8ec0,#ef4d92); }
+  #btnWalk { background:linear-gradient(#69cf8f,#27a765); }
+
+  /* ===== 오버레이 ===== */
+  .overlay {
+    position:absolute; inset:0; z-index:20;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:22px 18px; text-align:center;
+    background:linear-gradient(rgba(255,225,190,.93), rgba(255,199,150,.96));
+    backdrop-filter:blur(2px);
+  }
+  .overlay.hide { display:none; }
+  .bigTitle {
+    font-size:clamp(26px,8vw,34px); font-weight:900; color:#7a3f0c; line-height:1.25;
+    text-shadow:0 3px 0 #fff, 0 6px 10px rgba(150,90,40,.28);
+  }
+  .sub { margin-top:6px; font-size:14px; font-weight:800; color:#a5652a; }
+  .heroDog {
+    font-size:78px; margin:10px 0 4px;
+    filter:drop-shadow(0 8px 8px rgba(120,70,30,.3));
+    animation:heroBob 1.8s ease-in-out infinite;
+  }
+  @keyframes heroBob { 0%,100%{transform:translateY(0) rotate(-3deg);} 50%{transform:translateY(-12px) rotate(3deg);} }
+  .card {
+    background:rgba(255,255,255,.9); border:3px solid #f0b273; border-radius:18px;
+    padding:12px 14px; margin:10px 0 4px; max-width:330px; width:100%;
+    box-shadow:0 6px 0 rgba(170,110,60,.2);
+  }
+  .card p { font-size:13.5px; font-weight:700; color:#6b4319; line-height:1.65; }
+  .card p + p { margin-top:3px; }
+  .bigBtn {
+    margin-top:14px; border:none; border-radius:999px; cursor:pointer;
+    font-family:inherit; font-weight:900; font-size:20px; color:#fff;
+    padding:14px 42px; background:linear-gradient(#ff9d4d,#f0700f);
+    box-shadow:0 6px 0 #c25a0c, 0 10px 18px rgba(180,90,20,.35);
+    animation:btnPulse 1.4s ease-in-out infinite;
+  }
+  .bigBtn:active { transform:translateY(5px); box-shadow:0 1px 0 #c25a0c; animation:none; }
+  @keyframes btnPulse { 50% { transform:scale(1.05); } }
+  .hint { margin-top:9px; font-size:12px; font-weight:700; color:#a5652a; }
+  #overIcon { font-size:70px; animation:sickShake .7s ease-in-out infinite; }
+  .statRow { display:flex; gap:8px; justify-content:center; margin-top:4px; flex-wrap:wrap; }
+  .stat {
+    background:#fff3e0; border:3px solid #f3bb85; border-radius:14px;
+    padding:7px 14px; min-width:86px;
+  }
+  .stat b { display:block; font-size:22px; color:#e0700f; }
+  .stat span { font-size:11.5px; font-weight:800; color:#9a6229; }
+  .best { margin-top:10px; font-size:14px; font-weight:900; color:#c2551c; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- 상태 표시줄 -->
+  <div id="hud">
+    <div id="chips">
+      <div class="chip" id="chipDay">☀️ 1일째</div>
+      <div class="chip lv" id="chipLv">Lv.1</div>
+      <div id="expWrap"><div id="expFill"></div></div>
+    </div>
+    <div class="bar" id="barFood">
+      <span class="lb" id="lbFood">🍖 밥</span>
+      <span class="track"><span class="fill" id="fillFood"></span></span>
+      <span class="num" id="numFood">100</span>
+    </div>
+    <div class="bar" id="barHappy">
+      <span class="lb" id="lbHappy">💖 행복</span>
+      <span class="track"><span class="fill" id="fillHappy"></span></span>
+      <span class="num" id="numHappy">100</span>
+    </div>
+    <div class="bar" id="barStam">
+      <span class="lb" id="lbStam">⚡ 체력</span>
+      <span class="track"><span class="fill" id="fillStam"></span></span>
+      <span class="num" id="numStam">100</span>
+    </div>
+  </div>
+
+  <!-- 방 -->
+  <div id="room">
+    <div id="wall"></div>
+    <div id="window"><div id="sun">☀️</div></div>
+    <div class="deco" id="frame">🖼️</div>
+    <div class="deco" id="plant">🪴</div>
+    <div id="floor"></div>
+    <div id="rug"></div>
+    <div class="deco" id="bowl">🥣</div>
+    <div class="deco" id="ball">🎾</div>
+    <div id="dogWrap">
+      <div id="bubble">멍멍! 놀아줘~</div>
+      <div id="dog">🐶</div>
+      <div id="shadow"></div>
+    </div>
+    <div id="fx"></div>
+    <div id="toast"></div>
+  </div>
+
+  <!-- 버튼 -->
+  <div id="actions">
+    <button class="act" id="btnFeed"><span class="ico">🍖</span>밥 주기<span class="key">1번 키</span></button>
+    <button class="act" id="btnPlay"><span class="ico">🎾</span>놀아주기<span class="key">2번 키</span></button>
+    <button class="act" id="btnWalk"><span class="ico">🦮</span>산책 가기<span class="key">3번 키</span></button>
+  </div>
+
+  <!-- 시작 화면 -->
+  <div class="overlay" id="startScreen">
+    <div class="bigTitle">강아지 산책 시뮬</div>
+    <div class="sub">우리 강아지를 행복하게 돌봐줘!</div>
+    <div class="heroDog">🐶</div>
+    <div class="card">
+      <p>🍖 밥 주기 · 🎾 놀아주기 · 🦮 산책 가기</p>
+      <p>⏳ 가만히 두면 배고파지고 행복이 줄어들어</p>
+      <p>💔 막대 하나라도 0이 되면 강아지가 아파!</p>
+      <p>⭐ 잘 돌보면 경험치가 쌓여 레벨업!</p>
+    </div>
+    <button class="bigBtn" id="btnStart">시작하기 ▶</button>
+    <div class="hint">버튼을 누르거나 1 · 2 · 3 키를 눌러 돌봐줘</div>
+  </div>
+
+  <!-- 결과 화면 -->
+  <div class="overlay hide" id="overScreen">
+    <div id="overIcon">🤒</div>
+    <div class="bigTitle" id="overTitle">강아지가 아파졌어…</div>
+    <div class="sub" id="overWhy">배고픔을 못 참았어</div>
+    <div class="statRow" style="margin-top:12px;">
+      <div class="stat"><b id="stDay">1</b><span>함께한 날</span></div>
+      <div class="stat"><b id="stLv">1</b><span>레벨</span></div>
+    </div>
+    <div class="best" id="bestTxt">🏆 최고 기록: 1일</div>
+    <button class="bigBtn" id="btnRetry">다시 하기 🔄</button>
+    <div class="hint">스페이스바를 눌러도 다시 시작돼</div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- 요소 ---------- */
+  var $ = function (id) { return document.getElementById(id); };
+  var dogEl = $("dog"), bubbleEl = $("bubble"), fxEl = $("fx"), toastEl = $("toast");
+  var wallEl = $("wall");
+  var startScreen = $("startScreen"), overScreen = $("overScreen");
+  var bars = {
+    food:  { bar: $("barFood"),  fill: $("fillFood"),  num: $("numFood"),  lb: $("lbFood"),  base: "🍖 밥" },
+    happy: { bar: $("barHappy"), fill: $("fillHappy"), num: $("numHappy"), lb: $("lbHappy"), base: "💖 행복" },
+    stam:  { bar: $("barStam"),  fill: $("fillStam"),  num: $("numStam"),  lb: $("lbStam"),  base: "⚡ 체력" }
+  };
+
+  /* ---------- 상태 ---------- */
+  var STATE_START = 0, STATE_PLAY = 1, STATE_OVER = 2;
+  var state = STATE_START;
+
+  var DAY_SEC = 30;          // 하루 = 30초
+  var MAX_OVER = 125;        // 밥은 125까지 (100 넘으면 배탈)
+
+  var food, happy, stam, exp, level, day, dayT, cool, bubbleT, bubbleMsg;
+  var toastT = 0, lastTs = 0, overTimer = null, dogAnimTimer = null;
+  var best = 0;
+
+  var ACTIONS = {
+    feed: { food: 34, happy: 5,  stam: 9,   exp: 6,  cd: 0.35, anim: "eat",
+            msgs: ["냠냠! 맛있어 🍖", "밥이다! 최고야!", "배부르다~ 고마워!"],
+            pops: ["🍖", "😋", "+밥"], color: "#e0700f" },
+    play: { food: -6, happy: 28, stam: -7,  exp: 9,  cd: 0.35, anim: "play",
+            msgs: ["공놀이 신난다! 🎾", "더 던져줘!", "히히 재밌어!"],
+            pops: ["🎾", "💖", "+행복"], color: "#ef4d92" },
+    walk: { food: -12, happy: 40, stam: -20, exp: 15, cd: 0.6, anim: "walk",
+            msgs: ["산책이다! 왈왈! 🦮", "바깥 냄새 좋아!", "달리기 너무 좋아!"],
+            pops: ["🦮", "🌳", "+행복+행복"], color: "#27a765" }
+  };
+
+  /* ---------- 최고 기록 ---------- */
+  function loadBest() {
+    try {
+      var v = window.localStorage.getItem("puppyCareBestDay");
+      best = v ? parseInt(v, 10) : 0;
+      if (!isFinite(best) || best < 0) best = 0;
+    } catch (e) { best = 0; }
+  }
+  function saveBest(d) {
+    if (d <= best) return;
+    best = d;
+    try { window.localStorage.setItem("puppyCareBestDay", String(d)); } catch (e) {}
+  }
+
+  /* ---------- 초기화 ---------- */
+  function resetGame() {
+    food = 100; happy = 100; stam = 100;
+    exp = 0; level = 1; day = 1; dayT = 0;
+    cool = { feed: 0, play: 0, walk: 0 };
+    bubbleT = 0; bubbleMsg = "";
+    toastT = 0;
+    toastEl.className = "";
+    toastEl.textContent = "";
+    fxEl.innerHTML = "";
+    dogEl.className = "";
+    dogEl.textContent = "🐶";
+    bubbleEl.textContent = "멍멍! 오늘도 좋아!";
+    wallEl.style.filter = "none";
+    if (overTimer) { clearTimeout(overTimer); overTimer = null; }
+    if (dogAnimTimer) { clearTimeout(dogAnimTimer); dogAnimTimer = null; }
+    ["feed", "play", "walk"].forEach(function (k) { btn(k).classList.remove("cool", "press"); });
+    render();
+  }
+
+  function btn(kind) {
+    return kind === "feed" ? $("btnFeed") : kind === "play" ? $("btnPlay") : $("btnWalk");
+  }
+
+  function startGame() {
+    resetGame();
+    state = STATE_PLAY;
+    startScreen.classList.add("hide");
+    overScreen.classList.add("hide");
+    say("우리 놀자! 멍멍! 🐶", 2);
+  }
+
+  function gameOver(reason) {
+    if (state === STATE_OVER) return;
+    state = STATE_OVER;
+    saveBest(day);
+    dogEl.className = "sick";
+    dogEl.textContent = "🤒";
+    bubbleEl.textContent = "끄응… 아파…";
+    $("overWhy").textContent = reason;
+    $("stDay").textContent = day;
+    $("stLv").textContent = level;
+    $("bestTxt").textContent = "🏆 최고 기록: " + best + "일";
+    burst("💔", 8);
+    if (overTimer) clearTimeout(overTimer);
+    overTimer = setTimeout(function () {
+      overScreen.classList.remove("hide");
+      overTimer = null;
+    }, 750);
+  }
+
+  /* ---------- 말풍선 / 이펙트 ---------- */
+  function say(msg, sec) {
+    bubbleMsg = msg;
+    bubbleT = sec || 1.8;
+    bubbleEl.textContent = msg;
+    bubbleEl.style.animation = "none";
+    void bubbleEl.offsetWidth;
+    bubbleEl.style.animation = "bubbleIn .3s ease";
+  }
+
+  function pop(text, color) {
+    if (fxEl.childNodes.length > 22) fxEl.removeChild(fxEl.firstChild);
+    var d = document.createElement("div");
+    d.className = "pop";
+    d.textContent = text;
+    d.style.color = color || "#fff";
+    d.style.textShadow = "0 2px 0 #fff, 0 0 6px rgba(255,255,255,.8)";
+    d.style.left = (38 + Math.random() * 24) + "%";
+    d.style.bottom = (26 + Math.random() * 18) + "%";
+    fxEl.appendChild(d);
+    setTimeout(function () { if (d.parentNode) d.parentNode.removeChild(d); }, 1050);
+  }
+
+  function burst(emoji, n) {
+    for (var i = 0; i < n; i++) {
+      (function (i) {
+        setTimeout(function () { pop(emoji, "#fff"); }, i * 70);
+      })(i);
+    }
+  }
+
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.className = "show";
+    toastT = 1.8;
+  }
+
+  /* ---------- 행동 ---------- */
+  function doAction(kind) {
+    if (state !== STATE_PLAY) return;
+    var a = ACTIONS[kind];
+    if (!a || cool[kind] > 0) return;
+    cool[kind] = a.cd;
+
+    var b = btn(kind);
+    b.classList.add("press", "cool");
+    setTimeout(function () { b.classList.remove("press"); }, 110);
+
+    food = clamp(food + a.food, 0, MAX_OVER);
+    happy = clamp(happy + a.happy, 0, 100);
+    stam = clamp(stam + a.stam, 0, 100);
+    addExp(a.exp);
+
+    dogEl.className = a.anim;
+    if (dogAnimTimer) clearTimeout(dogAnimTimer);
+    dogAnimTimer = setTimeout(function () {
+      if (state === STATE_PLAY) dogEl.className = "";
+      dogAnimTimer = null;
+    }, 850);
+
+    if (kind === "feed" && food > 100) {
+      say("우웩… 너무 많이 먹었어 🤢", 2);
+      pop("🤢", "#8bc34a");
+    } else {
+      say(a.msgs[(Math.random() * a.msgs.length) | 0], 1.8);
+      pop(a.pops[(Math.random() * a.pops.length) | 0], a.color);
+    }
+    if (kind === "walk") pop("🌿", "#27a765");
+  }
+
+  function addExp(v) {
+    exp += v;
+    var need = 80 + (level - 1) * 60;
+    while (exp >= need) {
+      exp -= need;
+      level++;
+      happy = clamp(happy + 12, 0, 100);
+      stam = clamp(stam + 12, 0, 100);
+      toast("⭐ 레벨 업! Lv." + level);
+      burst("⭐", 6);
+      $("chipLv").classList.remove("pop");
+      void $("chipLv").offsetWidth;
+      $("chipLv").classList.add("pop");
+      need = 80 + (level - 1) * 60;
+    }
+  }
+
+  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+
+  /* ---------- 업데이트 ---------- */
+  function update(dt) {
+    var mult = Math.min(1 + (day - 1) * 0.12, 2);
+
+    food -= 2.8 * mult * dt;
+    happy -= 2.4 * mult * dt;
+    stam -= 1.2 * mult * dt;
+
+    if (food > 100) {                 // 배탈: 행복이 더 빨리 줄어
+      happy -= 3.5 * dt;
+      food -= 3 * dt;
+    }
+    if (stam < 25) happy -= 1.2 * dt; // 지치면 우울해져
+
+    food = clamp(food, 0, MAX_OVER);
+    happy = clamp(happy, 0, 100);
+    stam = clamp(stam, 0, 100);
+
+    // 잘 돌보면 경험치가 저절로 쌓임
+    var avg = (Math.min(food, 100) + happy + stam) / 3;
+    if (avg >= 70) addExp(5 * dt);
+    else if (avg >= 40) addExp(2 * dt);
+
+    // 쿨타임
+    ["feed", "play", "walk"].forEach(function (k) {
+      if (cool[k] > 0) {
+        cool[k] -= dt;
+        if (cool[k] <= 0) { cool[k] = 0; btn(k).classList.remove("cool"); }
+      }
+    });
+
+    // 하루 넘기기
+    dayT += dt;
+    if (dayT >= DAY_SEC) {
+      dayT -= DAY_SEC;
+      day++;
+      addExp(25);
+      toast("🌅 " + day + "일째 아침이야!");
+      burst("✨", 5);
+      $("chipDay").classList.remove("pop");
+      void $("chipDay").offsetWidth;
+      $("chipDay").classList.add("pop");
+    }
+
+    if (bubbleT > 0) bubbleT -= dt;
+    if (toastT > 0) {
+      toastT -= dt;
+      if (toastT <= 0) toastEl.className = "";
+    }
+
+    if (food <= 0) gameOver("너무 배고팠어… 🍖");
+    else if (happy <= 0) gameOver("너무 심심했어… 💔");
+    else if (stam <= 0) gameOver("너무 지쳤어… 💤");
+  }
+
+  /* ---------- 그리기 ---------- */
+  function setBar(o, val, lowTxt) {
+    var shown = Math.round(Math.min(val, 100));
+    o.fill.style.width = Math.max(0, Math.min(val, 100)) + "%";
+    o.num.textContent = shown;
+    o.bar.classList.toggle("low", val < 25);
+    o.bar.classList.toggle("full", val >= 100);
+    o.lb.textContent = (val < 25 && lowTxt) ? lowTxt : o.base;
+  }
+
+  function moodOf() {
+    if (state === STATE_OVER) return { face: "🤒", msg: "끄응… 아파…" };
+    if (food > 100) return { face: "🤢", msg: "너무 배불러… 우웩" };
+    if (food < 25) return { face: "😢", msg: "배고파… 밥 줘!" };
+    if (happy < 25) return { face: "😢", msg: "심심해… 놀아줘!" };
+    if (stam < 25) return { face: "😴", msg: "졸려… 밥 먹고 쉬고 싶어" };
+    if (food >= 70 && happy >= 70 && stam >= 70) return { face: "😊", msg: "행복해! 너가 최고야!" };
+    return { face: "🐶", msg: "멍멍! 오늘도 좋아!" };
+  }
+
+  function render() {
+    setBar(bars.food, food, "🍖 배고파!");
+    setBar(bars.happy, happy, "💖 심심해!");
+    setBar(bars.stam, stam, "⚡ 지쳤어!");
+
+    $("chipDay").textContent = "☀️ " + day + "일째";
+    $("chipLv").textContent = "Lv." + level;
+    var need = 80 + (level - 1) * 60;
+    $("expFill").style.width = clamp((exp / need) * 100, 0, 100) + "%";
+
+    var m = moodOf();
+    if (state !== STATE_OVER) {
+      if (dogEl.textContent !== m.face) dogEl.textContent = m.face;
+      if (bubbleT <= 0 && bubbleEl.textContent !== m.msg) {
+        bubbleEl.textContent = m.msg;
+        bubbleMsg = m.msg;
+      }
+    }
+
+    // 하루의 흐름에 따라 방 밝기가 살짝 바뀜
+    var t = dayT / DAY_SEC;
+    var warm = 1 - Math.abs(t - 0.5) * 0.36;
+    wallEl.style.filter = "brightness(" + warm.toFixed(3) + ") saturate(" + (0.9 + t * 0.25).toFixed(3) + ")";
+  }
+
+  /* ---------- 게임 루프 ---------- */
+  function loop(ts) {
+    requestAnimationFrame(loop);
+    if (!lastTs) lastTs = ts;
+    var dt = (ts - lastTs) / 1000;
+    lastTs = ts;
+    if (!isFinite(dt) || dt < 0) dt = 0;
+    if (dt > 0.1) dt = 0.1;            // 탭 복귀 시 점프 방지
+    if (document.hidden) return;
+    if (state === STATE_PLAY) update(dt);
+    render();
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) lastTs = 0;
+  });
+
+  /* ---------- 입력 ---------- */
+  function bindBtn(el, fn) {
+    el.addEventListener("click", function (e) { e.preventDefault(); fn(); });
+    el.addEventListener("touchstart", function (e) { e.preventDefault(); fn(); }, { passive: false });
+  }
+  bindBtn($("btnFeed"), function () { doAction("feed"); });
+  bindBtn($("btnPlay"), function () { doAction("play"); });
+  bindBtn($("btnWalk"), function () { doAction("walk"); });
+  bindBtn($("btnStart"), startGame);
+  bindBtn($("btnRetry"), startGame);
+
+  document.addEventListener("keydown", function (e) {
+    var k = e.key;
+    if (k === " " || k === "Spacebar" || k === "ArrowLeft" || k === "ArrowDown" ||
+        k === "ArrowRight" || k === "ArrowUp") {
+      e.preventDefault();
+    }
+    if (state !== STATE_PLAY) {
+      var ready = (state === STATE_START) || !overScreen.classList.contains("hide");
+      if (ready && (k === " " || k === "Spacebar" || k === "Enter")) startGame();
+      return;
+    }
+    if (k === "1" || k === "ArrowLeft") doAction("feed");
+    else if (k === "2" || k === "ArrowDown" || k === " " || k === "Spacebar") doAction("play");
+    else if (k === "3" || k === "ArrowRight") doAction("walk");
+  });
+
+  // 강아지를 직접 쓰다듬어도 조금 행복해져
+  $("dogWrap").addEventListener("click", function () {
+    if (state !== STATE_PLAY) return;
+    happy = clamp(happy + 2, 0, 100);
+    pop("💗", "#ef4d92");
+  });
+
+  /* ---------- 시작 ---------- */
+  loadBest();
+  resetGame();
+  $("bestTxt").textContent = "🏆 최고 기록: " + best + "일";
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

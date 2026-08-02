@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>건강 장보기 타임어택 🛒</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+
+  :root {
+    --shelf: #f6e7cf;
+    --shelf-dark: #e2c9a4;
+    --wood: #b9834f;
+    --wood-dark: #96633a;
+    --good: #34c07a;
+    --bad: #ff5f6d;
+    --gold: #ffc93c;
+    --ink: #33291f;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    background:
+      radial-gradient(circle at 20% 0%, #ffe9b8 0%, transparent 55%),
+      radial-gradient(circle at 85% 15%, #bfe8ff 0%, transparent 50%),
+      linear-gradient(180deg, #fff3d9 0%, #ffe3c2 45%, #ffd6ad 100%);
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+
+  #app {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px 14px;
+    gap: 10px;
+    overflow: hidden;
+  }
+
+  /* ---------- HUD ---------- */
+  #hud {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+    flex: 0 0 auto;
+  }
+
+  .panel {
+    background: #fffdf7;
+    border: 3px solid #fff;
+    border-radius: 16px;
+    box-shadow: 0 5px 0 rgba(150, 99, 58, .28), 0 8px 18px rgba(120, 80, 40, .18);
+    padding: 7px 10px;
+  }
+
+  .panel .label {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    color: #a9917a;
+    margin-bottom: 1px;
+  }
+
+  .panel .value {
+    font-size: clamp(19px, 6vw, 26px);
+    font-weight: 900;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #timePanel { flex: 1 1 46%; }
+  #scorePanel { flex: 1 1 54%; }
+
+  #timeValue { color: #2f9fe0; }
+  #timeValue.warn { color: var(--bad); animation: tick .5s ease-in-out infinite; }
+  @keyframes tick { 50% { transform: scale(1.14); } }
+
+  #timeBarWrap {
+    height: 8px;
+    border-radius: 99px;
+    background: #ecdfcd;
+    overflow: hidden;
+    margin-top: 5px;
+  }
+
+  #timeBar {
+    height: 100%;
+    width: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #6ed4ff, #2f9fe0);
+    transition: background .3s ease;
+  }
+  #timeBar.warn { background: linear-gradient(90deg, #ffb36b, #ff5f6d); }
+
+  #scoreValue { color: #e0742f; display: flex; align-items: baseline; gap: 4px; }
+  #scoreValue.bump { animation: bump .3s ease; }
+  @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.22); } 100% { transform: scale(1); } }
+  #scoreValue small { font-size: 13px; font-weight: 800; color: #b9a08a; }
+
+  /* ---------- 진열대 ---------- */
+  #stage {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #shelf {
+    width: 100%;
+    height: 100%;
+    max-height: min(100%, 540px);
+    background: linear-gradient(180deg, #fffaf0 0%, var(--shelf) 100%);
+    border: 4px solid #fff;
+    border-radius: 22px;
+    box-shadow: 0 8px 0 var(--wood-dark), 0 14px 26px rgba(120, 80, 40, .25);
+    padding: 10px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  #shelf.shake { animation: shake .38s ease; }
+  @keyframes shake {
+    0%, 100% { transform: translate(0, 0) rotate(0); }
+    15% { transform: translate(-9px, 4px) rotate(-1.6deg); }
+    30% { transform: translate(8px, -5px) rotate(1.4deg); }
+    45% { transform: translate(-7px, 3px) rotate(-1.2deg); }
+    60% { transform: translate(6px, -3px) rotate(1deg); }
+    80% { transform: translate(-3px, 1px) rotate(-.4deg); }
+  }
+
+  .tile {
+    position: relative;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    font-family: inherit;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #ffffff 0%, #fff3de 100%);
+    box-shadow: inset 0 -4px 0 rgba(185, 131, 79, .22), 0 3px 0 rgba(185, 131, 79, .3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(22px, min(11vw, 7.5vh), 50px);
+    line-height: 1;
+    cursor: pointer;
+    overflow: visible;
+    transition: transform .09s ease, box-shadow .09s ease;
+  }
+
+  .tile:active { transform: translateY(3px) scale(.95); box-shadow: inset 0 -1px 0 rgba(185,131,79,.22); }
+
+  .tile .face {
+    display: block;
+    pointer-events: none;
+    filter: drop-shadow(0 3px 2px rgba(120, 80, 40, .28));
+    animation: float 2.6s ease-in-out infinite;
+  }
+  @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+
+  .tile.fresh { animation: pop .32s cubic-bezier(.2, 1.6, .4, 1); }
+  @keyframes pop { 0% { transform: scale(.2) rotate(-25deg); opacity: 0; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+
+  .tile.gold {
+    background: linear-gradient(180deg, #fff6cf 0%, #ffd869 100%);
+    box-shadow: 0 0 0 3px var(--gold), 0 0 18px rgba(255, 201, 60, .9), 0 3px 0 rgba(185, 131, 79, .3);
+    animation: glow .8s ease-in-out infinite;
+  }
+  @keyframes glow { 50% { box-shadow: 0 0 0 4px #fff0a8, 0 0 26px rgba(255, 201, 60, 1), 0 3px 0 rgba(185,131,79,.3); } }
+
+  .tile.gold::after {
+    content: '✨';
+    position: absolute;
+    top: -4px;
+    right: -2px;
+    font-size: .55em;
+    pointer-events: none;
+    animation: sparkle .7s ease-in-out infinite;
+  }
+  @keyframes sparkle {
+    0%, 100% { transform: scale(1) rotate(-8deg); opacity: 1; }
+    50% { transform: scale(1.3) rotate(10deg); opacity: .75; }
+  }
+
+  .tile.gold.fresh {
+    animation: pop .32s cubic-bezier(.2, 1.6, .4, 1), glow .8s ease-in-out .32s infinite;
+  }
+
+  .tile.cursor { outline: 4px dashed #2f9fe0; outline-offset: 2px; }
+
+  .float {
+    position: absolute;
+    left: 50%;
+    top: 8%;
+    transform: translateX(-50%);
+    font-size: clamp(15px, 4.6vw, 21px);
+    font-weight: 900;
+    pointer-events: none;
+    text-shadow: 0 2px 0 #fff, 0 0 8px #fff;
+    animation: rise .72s ease-out forwards;
+    white-space: nowrap;
+    z-index: 5;
+  }
+  @keyframes rise {
+    0% { opacity: 0; transform: translate(-50%, 10px) scale(.6); }
+    25% { opacity: 1; transform: translate(-50%, -4px) scale(1.15); }
+    100% { opacity: 0; transform: translate(-50%, -42px) scale(1); }
+  }
+  .float.plus { color: #1f9c5f; }
+  .float.minus { color: #e0303f; }
+  .float.golden { color: #d98b00; }
+
+  #flash {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    border-radius: 20px;
+    z-index: 20;
+  }
+  #flash.bad { animation: flashBad .34s ease-out; background: radial-gradient(circle, transparent 58%, rgba(255, 60, 80, .5) 100%); }
+  #flash.good { animation: flashGood .34s ease-out; background: radial-gradient(circle, transparent 58%, rgba(255, 205, 60, .5) 100%); }
+  @keyframes flashBad { 0% { opacity: .95; } 100% { opacity: 0; } }
+  @keyframes flashGood { 0% { opacity: .9; } 100% { opacity: 0; } }
+
+  /* ---------- 담은 장바구니 ---------- */
+  #cartStrip {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 52px;
+    padding: 6px 12px;
+    background: linear-gradient(180deg, #fffdf7 0%, #fff2dd 100%);
+    border: 3px solid #fff;
+    border-radius: 18px;
+    box-shadow: 0 5px 0 rgba(150, 99, 58, .24), 0 8px 16px rgba(120, 80, 40, .14);
+    overflow: hidden;
+  }
+  #cartStrip.wobble { animation: wobble .4s ease; }
+  @keyframes wobble {
+    0%, 100% { transform: rotate(0); }
+    30% { transform: rotate(-3.5deg); }
+    65% { transform: rotate(2.5deg); }
+  }
+  .cartIcon { font-size: 27px; line-height: 1; flex: 0 0 auto; filter: drop-shadow(0 2px 2px rgba(120,80,40,.3)); }
+  #cartItems { display: flex; gap: 5px; font-size: 24px; line-height: 1; min-width: 0; }
+  #cartItems span { animation: intoCart .32s cubic-bezier(.2, 1.6, .4, 1); }
+  @keyframes intoCart { 0% { transform: translateY(-22px) scale(.4); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+  #cartEmpty { font-size: 12px; font-weight: 800; color: #bda993; }
+
+  #tipBar {
+    flex: 0 0 auto;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 800;
+    color: #9a8571;
+  }
+
+  /* ---------- 오버레이 화면 ---------- */
+  .screen {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 18px;
+    text-align: center;
+    background:
+      radial-gradient(circle at 50% 22%, rgba(255, 255, 255, .96) 0%, rgba(255, 244, 222, .96) 60%, rgba(255, 219, 179, .97) 100%);
+    backdrop-filter: blur(2px);
+    animation: fade .3s ease;
+  }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  .screen.hidden { display: none; }
+
+  .cart {
+    font-size: clamp(52px, 20vw, 84px);
+    line-height: 1;
+    animation: rock 2.4s ease-in-out infinite;
+    filter: drop-shadow(0 8px 6px rgba(150, 99, 58, .3));
+  }
+  @keyframes rock {
+    0%, 100% { transform: rotate(-5deg) translateY(0); }
+    50% { transform: rotate(5deg) translateY(-8px); }
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(24px, 7.6vw, 36px);
+    font-weight: 900;
+    letter-spacing: -1px;
+    color: #b4531b;
+    text-shadow: 0 3px 0 #fff, 0 5px 0 rgba(180, 83, 27, .22);
+  }
+
+  .sub {
+    margin: 0;
+    font-size: clamp(13px, 3.9vw, 16px);
+    font-weight: 800;
+    color: #8a7361;
+  }
+
+  .rules {
+    background: #fffdf7;
+    border: 3px solid #fff;
+    border-radius: 18px;
+    box-shadow: 0 5px 0 rgba(150, 99, 58, .22);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    width: 100%;
+    max-width: 330px;
+  }
+
+  .rule {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: clamp(12px, 3.6vw, 15px);
+    font-weight: 800;
+    color: #5f5145;
+    text-align: left;
+  }
+  .rule .ico { font-size: 20px; flex: 0 0 auto; }
+  .rule b { font-size: 1.05em; }
+  .rule .g { color: #1f9c5f; }
+  .rule .r { color: #e0303f; }
+  .rule .y { color: #d98b00; }
+
+  .btn {
+    font-family: inherit;
+    font-size: clamp(17px, 5vw, 21px);
+    font-weight: 900;
+    color: #fff;
+    background: linear-gradient(180deg, #ffb03c 0%, #ff7a2f 100%);
+    border: 4px solid #fff;
+    border-radius: 999px;
+    padding: 12px 34px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #d1571a, 0 10px 20px rgba(200, 90, 20, .35);
+    transition: transform .08s ease, box-shadow .08s ease;
+  }
+  .btn:active { transform: translateY(5px); box-shadow: 0 1px 0 #d1571a; }
+
+  .hint { font-size: 11.5px; font-weight: 800; color: #a4907d; margin: 0; }
+
+  /* ---------- 결과 ---------- */
+  .gradeBadge {
+    font-size: clamp(58px, 21vw, 88px);
+    font-weight: 900;
+    line-height: 1;
+    color: var(--gold);
+    text-shadow: 0 4px 0 #fff, 0 7px 0 rgba(180, 120, 20, .3);
+    animation: stampIn .5s cubic-bezier(.2, 1.7, .4, 1);
+  }
+  @keyframes stampIn { 0% { transform: scale(2.4) rotate(-14deg); opacity: 0; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+
+  .statRow {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    max-width: 330px;
+  }
+  .stat {
+    flex: 1;
+    background: #fffdf7;
+    border: 3px solid #fff;
+    border-radius: 16px;
+    box-shadow: 0 5px 0 rgba(150, 99, 58, .22);
+    padding: 9px 4px;
+  }
+  .stat .k { font-size: 11px; font-weight: 800; color: #a9917a; }
+  .stat .v { font-size: clamp(19px, 6vw, 25px); font-weight: 900; color: #e0742f; font-variant-numeric: tabular-nums; }
+
+  #resultMsg { font-size: clamp(14px, 4.2vw, 17px); font-weight: 900; color: #5f5145; margin: 0; }
+  #bestLine { font-size: 12.5px; font-weight: 800; color: #9a8571; margin: 0; }
+
+  @media (max-height: 620px) {
+    .cart { font-size: clamp(38px, 13vw, 56px); }
+    .rules { padding: 9px 12px; gap: 5px; }
+    .screen { gap: 9px; }
+    .btn { padding: 10px 28px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="hud">
+    <div class="panel" id="timePanel">
+      <div class="label">⏰ 남은 시간</div>
+      <div class="value" id="timeValue">30</div>
+      <div id="timeBarWrap"><div id="timeBar"></div></div>
+    </div>
+    <div class="panel" id="scorePanel">
+      <div class="label">🛒 장바구니</div>
+      <div class="value" id="scoreValue">0<small>점</small></div>
+      <div style="height:8px;margin-top:5px;"></div>
+    </div>
+  </div>
+
+  <div id="stage">
+    <div id="shelf"></div>
+  </div>
+
+  <div id="cartStrip">
+    <span class="cartIcon">🛒</span>
+    <div id="cartItems"></div>
+    <span id="cartEmpty">여기에 담은 음식이 쌓여!</span>
+  </div>
+
+  <div id="tipBar">건강한 음식만 담아! 🍎🥦🥛</div>
+
+  <div id="flash"></div>
+
+  <!-- 시작 화면 -->
+  <div class="screen" id="startScreen">
+    <div class="cart">🛒</div>
+    <h1>건강 장보기 타임어택</h1>
+    <p class="sub">30초 안에 건강한 음식만 쏙쏙 담아보자!</p>
+    <div class="rules">
+      <div class="rule"><span class="ico">🍎</span><span>건강한 음식을 누르면 <b class="g">+10점</b></span></div>
+      <div class="rule"><span class="ico">🍩</span><span>정크푸드를 누르면 <b class="r">-10점</b> (앗! 흔들려)</span></div>
+      <div class="rule"><span class="ico">✨</span><span>반짝이는 황금 사과는 <b class="y">+50점</b></span></div>
+      <div class="rule"><span class="ico">👆</span><span>손가락으로 톡! 또는 방향키 + 스페이스</span></div>
+    </div>
+    <button class="btn" id="startBtn">장보기 시작! 🛒</button>
+    <p class="hint" id="startBest"></p>
+  </div>
+
+  <!-- 결과 화면 -->
+  <div class="screen hidden" id="overScreen">
+    <div class="gradeBadge" id="gradeBadge">S</div>
+    <h1 id="resultTitle">장보기 끝!</h1>
+    <p id="resultMsg">정말 잘했어!</p>
+    <div class="statRow">
+      <div class="stat"><div class="k">🛒 점수</div><div class="v" id="finalScore">0</div></div>
+      <div class="stat"><div class="k">🎯 정확도</div><div class="v" id="finalAcc">0%</div></div>
+    </div>
+    <button class="btn" id="retryBtn">다시 장보기! 🔁</button>
+    <p id="bestLine"></p>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var GOOD = ['🍎', '🥦', '🥛', '🍌', '🥕', '🍞'];
+  var BAD  = ['🍩', '🍟', '🍬', '🥤', '🍰', '🌭'];
+  var TILE_COUNT = 12;
+  var GAME_TIME = 30;
+  var BEST_KEY = 'healthy-shopping-best';
+
+  var shelfEl = document.getElementById('shelf');
+  var timeValueEl = document.getElementById('timeValue');
+  var timeBarEl = document.getElementById('timeBar');
+  var scoreValueEl = document.getElementById('scoreValue');
+  var tipBarEl = document.getElementById('tipBar');
+  var cartStripEl = document.getElementById('cartStrip');
+  var cartItemsEl = document.getElementById('cartItems');
+  var cartEmptyEl = document.getElementById('cartEmpty');
+  var flashEl = document.getElementById('flash');
+  var startScreen = document.getElementById('startScreen');
+  var overScreen = document.getElementById('overScreen');
+  var startBtn = document.getElementById('startBtn');
+  var retryBtn = document.getElementById('retryBtn');
+  var startBest = document.getElementById('startBest');
+  var gradeBadge = document.getElementById('gradeBadge');
+  var resultTitle = document.getElementById('resultTitle');
+  var resultMsg = document.getElementById('resultMsg');
+  var finalScore = document.getElementById('finalScore');
+  var finalAcc = document.getElementById('finalAcc');
+  var bestLine = document.getElementById('bestLine');
+
+  var tiles = [];      // {el: button, span: span, kind: 'good'|'bad'|'gold'}
+  var state = 'start'; // 'start' | 'play' | 'over'
+  var score = 0;
+  var timeLeft = GAME_TIME;
+  var picks = 0;
+  var goodPicks = 0;
+  var goldCooldown = 3;
+  var goldLife = 0;
+  var goldIndex = -1;
+  var cursor = 0;
+  var keyboardMode = false;
+  var basket = [];
+  var cartTimer = 0;
+  var rafId = 0;
+  var lastTs = 0;
+  var shakeTimer = 0;
+  var flashTimer = 0;
+  var tipTimer = 0;
+
+  /* ---------- 저장 (iframe 안전) ---------- */
+  function loadBest() {
+    try {
+      var v = window.localStorage.getItem(BEST_KEY);
+      var n = parseInt(v, 10);
+      return isNaN(n) ? 0 : n;
+    } catch (e) { return 0; }
+  }
+  function saveBest(v) {
+    try { window.localStorage.setItem(BEST_KEY, String(v)); } catch (e) {}
+  }
+
+  /* ---------- 타일 만들기 ---------- */
+  function randKind() {
+    return Math.random() < 0.58 ? 'good' : 'bad';
+  }
+  function emojiFor(kind) {
+    if (kind === 'gold') return '🍎';
+    var list = kind === 'good' ? GOOD : BAD;
+    return list[Math.floor(Math.random() * list.length)];
+  }
+
+  function buildShelf() {
+    shelfEl.innerHTML = '';
+    tiles = [];
+    for (var i = 0; i < TILE_COUNT; i++) {
+      var btn = document.createElement('button');
+      btn.className = 'tile';
+      btn.type = 'button';
+      btn.setAttribute('aria-label', '음식 ' + (i + 1));
+      var span = document.createElement('span');
+      span.className = 'face';
+      btn.appendChild(span);
+      shelfEl.appendChild(btn);
+      tiles.push({ el: btn, span: span, kind: 'good' });
+      (function (idx) {
+        btn.addEventListener('click', function () { pick(idx); });
+      })(i);
+    }
+  }
+
+  function setTile(i, kind, animate) {
+    var t = tiles[i];
+    t.kind = kind;
+    t.span.textContent = emojiFor(kind);
+    if (kind === 'gold') {
+      t.el.classList.add('gold');
+      t.el.setAttribute('aria-label', '황금 사과');
+    } else {
+      t.el.classList.remove('gold');
+      t.el.setAttribute('aria-label', kind === 'good' ? '건강한 음식' : '정크푸드');
+    }
+    if (animate) {
+      t.el.classList.remove('fresh');
+      void t.el.offsetWidth;
+      t.el.classList.add('fresh');
+    }
+  }
+
+  function fillAll() {
+    for (var i = 0; i < TILE_COUNT; i++) setTile(i, randKind(), true);
+    goldIndex = -1;
+    goldLife = 0;
+  }
+
+  /* ---------- 이펙트 ---------- */
+  function floatText(i, text, cls) {
+    var el = document.createElement('span');
+    el.className = 'float ' + cls;
+    el.textContent = text;
+    tiles[i].el.appendChild(el);
+    window.setTimeout(function () {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, 750);
+  }
+
+  function doShake() {
+    shelfEl.classList.remove('shake');
+    void shelfEl.offsetWidth;
+    shelfEl.classList.add('shake');
+    window.clearTimeout(shakeTimer);
+    shakeTimer = window.setTimeout(function () {
+      shelfEl.classList.remove('shake');
+    }, 420);
+  }
+
+  function doFlash(kind) {
+    flashEl.classList.remove('bad', 'good');
+    void flashEl.offsetWidth;
+    flashEl.classList.add(kind);
+    window.clearTimeout(flashTimer);
+    flashTimer = window.setTimeout(function () {
+      flashEl.classList.remove('bad', 'good');
+    }, 420);
+  }
+
+  function bumpScore() {
+    scoreValueEl.classList.remove('bump');
+    void scoreValueEl.offsetWidth;
+    scoreValueEl.classList.add('bump');
+  }
+
+  function drawCart() {
+    cartItemsEl.innerHTML = '';
+    for (var i = 0; i < basket.length; i++) {
+      var s = document.createElement('span');
+      s.textContent = basket[i];
+      cartItemsEl.appendChild(s);
+    }
+    cartEmptyEl.style.display = basket.length ? 'none' : 'inline';
+  }
+
+  function wobbleCart() {
+    cartStripEl.classList.remove('wobble');
+    void cartStripEl.offsetWidth;
+    cartStripEl.classList.add('wobble');
+    window.clearTimeout(cartTimer);
+    cartTimer = window.setTimeout(function () {
+      cartStripEl.classList.remove('wobble');
+    }, 440);
+  }
+
+  function say(msg) {
+    tipBarEl.textContent = msg;
+    window.clearTimeout(tipTimer);
+    tipTimer = window.setTimeout(function () {
+      if (state === 'play') tipBarEl.textContent = '건강한 음식만 담아! 🍎🥦🥛';
+    }, 1000);
+  }
+
+  /* ---------- HUD ---------- */
+  var shownTime = -1;
+  var shownScore = -1;
+
+  function drawHud() {
+    var shown = Math.max(0, Math.ceil(timeLeft));
+    if (shown !== shownTime) {
+      shownTime = shown;
+      timeValueEl.textContent = shown;
+      if (shown <= 10) {
+        timeValueEl.classList.add('warn');
+        timeBarEl.classList.add('warn');
+      } else {
+        timeValueEl.classList.remove('warn');
+        timeBarEl.classList.remove('warn');
+      }
+    }
+    var ratio = Math.max(0, timeLeft / GAME_TIME);
+    timeBarEl.style.width = (ratio * 100) + '%';
+    if (score !== shownScore) {
+      shownScore = score;
+      scoreValueEl.innerHTML = score + '<small>점</small>';
+    }
+  }
+
+  /* ---------- 클릭 처리 ---------- */
+  function pick(i) {
+    if (state !== 'play') return;
+    var kind = tiles[i].kind;
+    var face = tiles[i].span.textContent;
+    picks++;
+
+    if (kind === 'gold') {
+      score += 50;
+      goodPicks++;
+      basket.push('✨');
+      floatText(i, '+50 ✨', 'golden');
+      doFlash('good');
+      say('와! 황금 사과다! ✨');
+      goldIndex = -1;
+      goldLife = 0;
+      goldCooldown = 4 + Math.random() * 4;
+    } else if (kind === 'good') {
+      score += 10;
+      goodPicks++;
+      basket.push(face);
+      floatText(i, '+10', 'plus');
+      say('좋아! 🥗');
+    } else {
+      score -= 10;
+      if (score < 0) score = 0;
+      basket.pop();
+      floatText(i, '-10', 'minus');
+      doShake();
+      doFlash('bad');
+      say('앗, 정크푸드! 😵');
+    }
+
+    while (basket.length > 7) basket.shift();
+    drawCart();
+    wobbleCart();
+    bumpScore();
+    setTile(i, randKind(), true);
+    drawHud();
+  }
+
+  /* ---------- 황금 사과 ---------- */
+  function updateGold(dt) {
+    if (goldIndex >= 0) {
+      goldLife -= dt;
+      if (goldLife <= 0) {
+        setTile(goldIndex, randKind(), true);
+        goldIndex = -1;
+        goldCooldown = 4 + Math.random() * 4;
+      }
+      return;
+    }
+    goldCooldown -= dt;
+    if (goldCooldown <= 0) {
+      var i = Math.floor(Math.random() * TILE_COUNT);
+      goldIndex = i;
+      goldLife = 2.8;
+      setTile(i, 'gold', true);
+    }
+  }
+
+  /* ---------- 게임 루프 ---------- */
+  function loop(ts) {
+    rafId = window.requestAnimationFrame(loop);
+    if (!lastTs) lastTs = ts;
+    var dt = (ts - lastTs) / 1000;
+    lastTs = ts;
+    if (document.hidden) return;
+    if (dt > 0.1) dt = 0.1;   // 탭 복귀 시 점프 방지
+    if (dt < 0) dt = 0;
+    if (state !== 'play') return;
+
+    timeLeft -= dt;
+    updateGold(dt);
+
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      drawHud();
+      gameOver();
+      return;
+    }
+    drawHud();
+  }
+
+  function startLoop() {
+    stopLoop();
+    lastTs = 0;
+    rafId = window.requestAnimationFrame(loop);
+  }
+  function stopLoop() {
+    if (rafId) { window.cancelAnimationFrame(rafId); rafId = 0; }
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    lastTs = 0;
+  });
+
+  /* ---------- 키보드 ---------- */
+  function moveCursor(dx, dy) {
+    keyboardMode = true;
+    var col = cursor % 4;
+    var row = Math.floor(cursor / 4);
+    col = Math.min(3, Math.max(0, col + dx));
+    row = Math.min(2, Math.max(0, row + dy));
+    cursor = row * 4 + col;
+    drawCursor();
+  }
+
+  function drawCursor() {
+    for (var i = 0; i < tiles.length; i++) {
+      if (keyboardMode && state === 'play' && i === cursor) tiles[i].el.classList.add('cursor');
+      else tiles[i].el.classList.remove('cursor');
+    }
+  }
+
+  document.addEventListener('keydown', function (e) {
+    var k = e.key;
+    if (e.repeat && (k === ' ' || k === 'Spacebar' || k === 'Enter')) { e.preventDefault(); return; }
+    // 스페이스/방향키/엔터의 기본 동작(스크롤, 버튼 이중 실행)을 막는다
+    if (k === ' ' || k === 'Spacebar' || k === 'Enter' || k === 'ArrowUp' ||
+        k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowRight') {
+      e.preventDefault();
+    }
+    if (state === 'start') {
+      if (k === ' ' || k === 'Spacebar' || k === 'Enter') startGame();
+      return;
+    }
+    if (state === 'over') {
+      if (k === ' ' || k === 'Spacebar' || k === 'Enter') startGame();
+      return;
+    }
+    if (k === 'ArrowLeft') moveCursor(-1, 0);
+    else if (k === 'ArrowRight') moveCursor(1, 0);
+    else if (k === 'ArrowUp') moveCursor(0, -1);
+    else if (k === 'ArrowDown') moveCursor(0, 1);
+    else if (k === ' ' || k === 'Spacebar' || k === 'Enter') {
+      keyboardMode = true;
+      drawCursor();
+      pick(cursor);
+    }
+  });
+
+  /* ---------- 시작 / 종료 ---------- */
+  function startGame() {
+    state = 'play';
+    score = 0;
+    timeLeft = GAME_TIME;
+    picks = 0;
+    goodPicks = 0;
+    goldCooldown = 3 + Math.random() * 2;
+    goldLife = 0;
+    goldIndex = -1;
+    cursor = 5;
+    keyboardMode = false;
+    shownTime = -1;
+    shownScore = -1;
+
+    // 버튼에 포커스가 남아 스페이스/엔터가 두 번 눌리는 걸 막는다
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+
+    basket = [];
+    drawCart();
+
+    window.clearTimeout(shakeTimer);
+    window.clearTimeout(flashTimer);
+    window.clearTimeout(tipTimer);
+    window.clearTimeout(cartTimer);
+    shelfEl.classList.remove('shake');
+    cartStripEl.classList.remove('wobble');
+    flashEl.classList.remove('bad', 'good');
+    tipBarEl.textContent = '건강한 음식만 담아! 🍎🥦🥛';
+
+    startScreen.classList.add('hidden');
+    overScreen.classList.add('hidden');
+
+    fillAll();
+    drawCursor();
+    drawHud();
+    startLoop();
+  }
+
+  function gradeOf(sc, acc) {
+    if (sc >= 500 && acc >= 85) return { g: 'S', t: '완벽한 장보기 왕! 👑', c: '#ffb703' };
+    if (sc >= 350) return { g: 'A', t: '와, 건강 박사님! 🥇', c: '#34c07a' };
+    if (sc >= 220) return { g: 'B', t: '잘했어! 조금만 더! 💪', c: '#2f9fe0' };
+    if (sc >= 100) return { g: 'C', t: '연습하면 더 잘할 수 있어! 🙂', c: '#ff9f45' };
+    return { g: 'D', t: '천천히 골라보자! 다시 도전! 🐢', c: '#ff5f6d' };
+  }
+
+  function gameOver() {
+    state = 'over';
+    stopLoop();
+    drawCursor();
+
+    var acc = picks > 0 ? Math.round((goodPicks / picks) * 100) : 0;
+    var info = gradeOf(score, acc);
+
+    gradeBadge.textContent = info.g;
+    gradeBadge.style.color = info.c;
+    resultTitle.textContent = '장보기 끝! 🛒';
+    resultMsg.textContent = info.t;
+    finalScore.textContent = score;
+    finalAcc.textContent = acc + '%';
+
+    var best = loadBest();
+    if (score > best) {
+      best = score;
+      saveBest(best);
+      bestLine.textContent = '🎉 신기록이야! 최고 점수 ' + best + '점';
+    } else {
+      bestLine.textContent = '최고 점수: ' + best + '점';
+    }
+
+    overScreen.classList.remove('hidden');
+  }
+
+  /* ---------- 초기화 ---------- */
+  startBtn.addEventListener('click', startGame);
+  retryBtn.addEventListener('click', startGame);
+
+  buildShelf();
+  fillAll();
+  drawCart();
+  drawHud();
+  var b = loadBest();
+  startBest.textContent = b > 0 ? '내 최고 점수: ' + b + '점' : '스페이스바를 눌러도 시작돼!';
+})();
+</script>
+</body>
+</html>

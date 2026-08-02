@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>충치 몬스터 무찌르기 🦷</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{
+    font-family:-apple-system, BlinkMacSystemFont, system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    background:#8fd8f5;
+    color:#0f3a52;
+    -webkit-user-select:none;user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  #stage{
+    position:relative;width:100%;height:100vh;height:100dvh;overflow:hidden;
+    background:linear-gradient(180deg,#7ecdf5 0%,#a9e4fb 45%,#d7f3ff 100%);
+    touch-action:none;cursor:none;
+    display:flex;flex-direction:column;align-items:center;
+  }
+  #stage.shake{animation:shake .3s}
+  @keyframes shake{
+    0%,100%{transform:translate(0,0)}
+    25%{transform:translate(-6px,3px)}
+    50%{transform:translate(5px,-3px)}
+    75%{transform:translate(-3px,-2px)}
+  }
+
+  /* 구름 */
+  .cloud{position:absolute;left:0;font-size:44px;opacity:.85;filter:drop-shadow(0 4px 6px rgba(0,0,0,.06));animation:drift linear infinite}
+  @keyframes drift{from{transform:translateX(-25vw)}to{transform:translateX(115vw)}}
+
+  /* ===== HUD ===== */
+  #hud{
+    position:relative;z-index:6;width:100%;max-width:640px;
+    padding:10px 12px 0;display:flex;flex-direction:column;gap:6px;
+  }
+  .row{display:flex;align-items:center;gap:8px}
+  .label{font-weight:900;font-size:clamp(13px,3.6vw,16px);white-space:nowrap;text-shadow:0 2px 0 rgba(255,255,255,.6)}
+  #barWrap{
+    flex:1;height:20px;border-radius:999px;background:rgba(255,255,255,.65);
+    border:3px solid #fff;box-shadow:0 3px 8px rgba(11,73,105,.18);overflow:hidden;
+  }
+  #bar{height:100%;width:100%;border-radius:999px;background:linear-gradient(90deg,#5ee08a,#22c55e);transition:background .3s}
+  #bar.warn{background:linear-gradient(90deg,#ffd166,#f59e0b)}
+  #bar.bad{background:linear-gradient(90deg,#ff8f8f,#ef4444)}
+  #cleanTxt{font-weight:900;font-size:clamp(13px,3.6vw,16px);min-width:52px;text-align:right}
+  #timeTxt{
+    font-weight:900;font-size:clamp(13px,3.6vw,16px);
+    background:rgba(255,255,255,.7);border-radius:999px;padding:3px 12px;
+  }
+
+  /* ===== 입 ===== */
+  #mouthWrap{flex:1;display:flex;align-items:center;justify-content:center;width:100%;padding:6px 8px}
+  #mouth{
+    position:relative;z-index:3;
+    background:linear-gradient(180deg,#ff9fb4,#ff7d9c);
+    border:6px solid #fff;border-radius:34px;
+    padding:clamp(10px,3vw,20px) clamp(8px,3vw,18px);
+    box-shadow:0 14px 30px rgba(11,73,105,.22), inset 0 -10px 24px rgba(0,0,0,.08);
+    display:flex;flex-direction:column;gap:clamp(14px,4vw,26px);
+  }
+  .gumRow{display:flex;gap:clamp(4px,1.6vw,9px);justify-content:center}
+  .tooth{
+    position:relative;
+    width:clamp(30px,8.4vw,50px);height:clamp(38px,10.5vw,62px);
+    background:linear-gradient(180deg,#ffffff,#eef7fb);
+    border-radius:12px 12px 16px 16px;
+    box-shadow:0 4px 0 rgba(150,180,195,.45), inset 0 4px 8px rgba(255,255,255,.9);
+    transition:background .25s, transform .15s;
+  }
+  .gumRow.bottom .tooth{border-radius:16px 16px 12px 12px}
+  .tooth.sick{background:linear-gradient(180deg,#f6e6b0,#e2c97a)}
+  .tooth.flash{animation:flash .5s ease-out}
+  @keyframes flash{
+    0%{background:#fff;transform:scale(1.18);box-shadow:0 0 22px 8px rgba(255,255,255,.95)}
+    100%{background:#fff;transform:scale(1)}
+  }
+
+  .mon{
+    position:absolute;left:50%;top:50%;
+    transform:translate(-50%,-50%);
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    animation:wob .7s ease-in-out infinite alternate;pointer-events:none;
+  }
+  @keyframes wob{from{transform:translate(-50%,-50%) rotate(-11deg) scale(.95)}to{transform:translate(-50%,-50%) rotate(11deg) scale(1.06)}}
+  .mon span{font-size:30px;line-height:1;filter:drop-shadow(0 3px 4px rgba(0,0,0,.3))}
+  .mon.m2 span{font-size:34px;filter:hue-rotate(240deg) drop-shadow(0 3px 4px rgba(0,0,0,.35))}
+  .mon.m3 span{font-size:38px;filter:hue-rotate(300deg) saturate(1.6) drop-shadow(0 3px 5px rgba(0,0,0,.4))}
+  .hpbar{width:30px;height:5px;border-radius:9px;background:rgba(0,0,0,.28);overflow:hidden}
+  .hpbar i{display:block;height:100%;width:100%;background:#ff5470;border-radius:9px}
+  .mon.pop{animation:pop .35s ease-out forwards}
+  @keyframes pop{to{transform:translate(-50%,-90%) scale(1.8) rotate(30deg);opacity:0}}
+
+  /* ===== 효과 레이어 ===== */
+  #fx{position:absolute;inset:0;z-index:5;pointer-events:none;overflow:hidden}
+  .bub{position:absolute;border-radius:50%;background:rgba(255,255,255,.85);box-shadow:inset 0 -2px 4px rgba(150,200,220,.6);animation:bub .6s ease-out forwards}
+  @keyframes bub{from{transform:translate(-50%,-50%) scale(.4);opacity:1}to{transform:translate(-50%,-160%) scale(1.3);opacity:0}}
+  .spark{position:absolute;font-size:26px;animation:spark .8s ease-out forwards}
+  @keyframes spark{from{transform:translate(-50%,-50%) scale(.6);opacity:1}to{transform:translate(-50%,-190%) scale(1.4);opacity:0}}
+
+  #brush{position:absolute;left:0;top:0;z-index:7;pointer-events:none;display:none}
+  #brush b{display:block;font-size:clamp(38px,9vw,52px);line-height:1;margin-left:-.5em;margin-top:-.5em;filter:drop-shadow(0 5px 6px rgba(0,0,0,.25))}
+
+  #danger{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:0;transition:opacity .3s;
+    box-shadow:inset 0 0 90px 30px rgba(255,60,60,.55)}
+  #stage.danger #danger{opacity:1;animation:pulse 1s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
+
+  #hint{position:relative;z-index:6;padding:0 12px 12px;font-weight:800;font-size:clamp(12px,3.3vw,15px);
+    text-align:center;color:#0b4969;opacity:.85}
+
+  /* ===== 오버레이 ===== */
+  .ov{
+    position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:12px;padding:20px;text-align:center;
+    background:radial-gradient(circle at 50% 40%, rgba(255,255,255,.92), rgba(168,226,250,.95));
+    cursor:auto;
+  }
+  .ov.hide{display:none}
+  .big{font-size:clamp(58px,17vw,86px);line-height:1;animation:bounce 1.4s ease-in-out infinite}
+  @keyframes bounce{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-12px) rotate(4deg)}}
+  h1{font-size:clamp(24px,7vw,38px);color:#0b4969;text-shadow:0 3px 0 #fff}
+  h2{font-size:clamp(22px,6.4vw,34px);color:#d92b4b;text-shadow:0 3px 0 #fff}
+  .sub{font-size:clamp(14px,3.9vw,17px);font-weight:800;color:#12607f}
+  .card{
+    background:rgba(255,255,255,.85);border:3px solid #fff;border-radius:20px;
+    padding:12px 16px;max-width:420px;width:100%;
+    box-shadow:0 10px 24px rgba(11,73,105,.15);
+    font-size:clamp(13px,3.6vw,16px);font-weight:700;line-height:1.75;text-align:left;color:#0f3a52;
+  }
+  .score{font-size:clamp(30px,9vw,46px);font-weight:900;color:#0b4969}
+  .btn{
+    border:none;border-radius:999px;padding:14px 34px;cursor:pointer;
+    font-family:inherit;font-size:clamp(17px,4.8vw,21px);font-weight:900;color:#fff;
+    background:linear-gradient(180deg,#4ec3f7,#1a92d8);
+    box-shadow:0 6px 0 #1173ab, 0 10px 18px rgba(11,73,105,.28);
+    transition:transform .1s, box-shadow .1s;
+  }
+  .btn:active{transform:translateY(4px);box-shadow:0 2px 0 #1173ab}
+  .tiny{font-size:clamp(11px,3.1vw,13px);font-weight:700;color:#2b7ea3;opacity:.9}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="cloud" style="top:8%;animation-duration:26s">☁️</div>
+  <div class="cloud" style="top:26%;animation-duration:38s;animation-delay:-12s;font-size:34px">☁️</div>
+  <div class="cloud" style="top:60%;animation-duration:44s;animation-delay:-30s;font-size:28px;opacity:.6">☁️</div>
+
+  <div id="hud">
+    <div class="row">
+      <div class="label">🫧 깨끗함</div>
+      <div id="barWrap"><div id="bar"></div></div>
+      <div id="cleanTxt">100%</div>
+    </div>
+    <div class="row" style="justify-content:center">
+      <div id="timeTxt">⏱ 0.0초</div>
+    </div>
+  </div>
+
+  <div id="mouthWrap">
+    <div id="mouth">
+      <div class="gumRow top" id="rowTop"></div>
+      <div class="gumRow bottom" id="rowBot"></div>
+    </div>
+  </div>
+
+  <div id="hint">칫솔을 몬스터 위에 대고 좌우로 슥슥 문질러!</div>
+
+  <div id="fx"></div>
+  <div id="danger"></div>
+  <div id="brush"><b>🪥</b></div>
+
+  <!-- 시작 화면 -->
+  <div class="ov" id="startOv">
+    <div class="big">🦷🪥</div>
+    <h1>충치 몬스터 무찌르기</h1>
+    <div class="sub">이빨에 몰려오는 충치 몬스터를 칫솔로 싹싹!</div>
+    <div class="card">
+      🖱️ <b>마우스</b>나 👆 <b>손가락</b>으로 칫솔을 움직여<br>
+      🦠 몬스터 위에서 <b>좌우로 슥슥</b> 문지르면 사라져!<br>
+      ⌨️ <b>방향키</b>로도 움직일 수 있고, <b>스페이스</b>는 제자리 문지르기<br>
+      💧 몬스터를 두면 <b>깨끗함</b>이 줄어들어. 0%가 되면 끝!
+    </div>
+    <button class="btn" id="startBtn">시작하기 ▶</button>
+    <div class="tiny">스페이스 키를 눌러도 시작돼</div>
+  </div>
+
+  <!-- 게임 오버 화면 -->
+  <div class="ov hide" id="overOv">
+    <div class="big">😖🦠</div>
+    <h2>이빨이 위험해!</h2>
+    <div class="sub">버틴 시간</div>
+    <div class="score" id="finalTime">0.0초</div>
+    <div class="card" id="resultCard"></div>
+    <button class="btn" id="againBtn">다시 하기 🔁</button>
+    <div class="tiny">스페이스 키를 눌러도 다시 시작돼</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var stage    = document.getElementById('stage');
+  var mouth    = document.getElementById('mouth');
+  var rowTop   = document.getElementById('rowTop');
+  var rowBot   = document.getElementById('rowBot');
+  var fx       = document.getElementById('fx');
+  var brush    = document.getElementById('brush');
+  var bar      = document.getElementById('bar');
+  var cleanTxt = document.getElementById('cleanTxt');
+  var timeTxt  = document.getElementById('timeTxt');
+  var startOv  = document.getElementById('startOv');
+  var overOv   = document.getElementById('overOv');
+  var startBtn = document.getElementById('startBtn');
+  var againBtn = document.getElementById('againBtn');
+  var finalTime= document.getElementById('finalTime');
+  var resultCard = document.getElementById('resultCard');
+
+  var TEETH_PER_ROW = 6;
+  var teeth = [];          // {el, cx, cy, mon}
+  var state = 'start';     // 'start' | 'play' | 'over'
+  var rafId = null;
+  var last = 0;
+
+  var clean = 100, elapsed = 0, spawnTimer = 0, killed = 0;
+  var bx = 0, by = 0, pbx = 0, pby = 0;
+  var wob = 0, bubTimer = 0, shakeTimer = 0;
+  var keys = {};
+
+  /* ---------- 이빨 만들기 ---------- */
+  function buildTeeth(){
+    var i, t;
+    for(i=0;i<TEETH_PER_ROW;i++){
+      t = document.createElement('div'); t.className='tooth'; rowTop.appendChild(t);
+      teeth.push({el:t, cx:0, cy:0, mon:null});
+    }
+    for(i=0;i<TEETH_PER_ROW;i++){
+      t = document.createElement('div'); t.className='tooth'; rowBot.appendChild(t);
+      teeth.push({el:t, cx:0, cy:0, mon:null});
+    }
+  }
+
+  function measure(){
+    var sr = stage.getBoundingClientRect();
+    for(var i=0;i<teeth.length;i++){
+      var r = teeth[i].el.getBoundingClientRect();
+      teeth[i].cx = r.left - sr.left + r.width/2;
+      teeth[i].cy = r.top  - sr.top  + r.height/2;
+    }
+  }
+
+  /* ---------- 몬스터 ---------- */
+  function spawn(){
+    var free = [];
+    for(var i=0;i<teeth.length;i++){ if(!teeth[i].mon) free.push(teeth[i]); }
+    if(!free.length) return;
+    var tooth = free[(Math.random()*free.length)|0];
+
+    var maxHp = elapsed < 13 ? 1 : (elapsed < 28 ? 2 : 3);
+    var hp = 1 + ((Math.random()*maxHp)|0);
+    if(hp > maxHp) hp = maxHp;
+
+    var el = document.createElement('div');
+    el.className = 'mon m' + hp;
+    el.innerHTML = '<span>🦠</span><div class="hpbar"><i></i></div>';
+    tooth.el.appendChild(el);
+    tooth.el.classList.add('sick');
+    tooth.mon = {el:el, fill:el.querySelector('.hpbar i'), hp:hp, maxHp:hp};
+  }
+
+  function killMonster(tooth){
+    var m = tooth.mon;
+    if(!m) return;
+    tooth.mon = null;
+    killed++;
+    m.el.classList.add('pop');
+    (function(el){ setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 380); })(m.el);
+    tooth.el.classList.remove('sick');
+    tooth.el.classList.add('flash');
+    (function(el){ setTimeout(function(){ el.classList.remove('flash'); }, 520); })(tooth.el);
+    sparkle(tooth.cx, tooth.cy);
+  }
+
+  function clearMonsters(){
+    for(var i=0;i<teeth.length;i++){
+      var t = teeth[i];
+      if(t.mon && t.mon.el.parentNode) t.mon.el.parentNode.removeChild(t.mon.el);
+      t.mon = null;
+      t.el.classList.remove('sick');
+      t.el.classList.remove('flash');
+    }
+  }
+
+  /* ---------- 효과 ---------- */
+  function bubble(x,y){
+    var d = document.createElement('div');
+    var s = 8 + Math.random()*12;
+    d.className = 'bub';
+    d.style.width = s+'px'; d.style.height = s+'px';
+    d.style.left = (x + (Math.random()*40-20))+'px';
+    d.style.top  = (y + (Math.random()*30-15))+'px';
+    fx.appendChild(d);
+    setTimeout(function(){ if(d.parentNode) d.parentNode.removeChild(d); }, 650);
+  }
+  function sparkle(x,y){
+    var d = document.createElement('div');
+    d.className = 'spark';
+    d.textContent = '✨';
+    d.style.left = x+'px'; d.style.top = y+'px';
+    fx.appendChild(d);
+    setTimeout(function(){ if(d.parentNode) d.parentNode.removeChild(d); }, 850);
+  }
+  function shake(){
+    if(shakeTimer > 0) return;
+    shakeTimer = 0.35;
+    stage.classList.add('shake');
+    setTimeout(function(){ stage.classList.remove('shake'); }, 320);
+  }
+
+  /* ---------- 최고 기록 ---------- */
+  function getBest(){
+    try{
+      var v = parseFloat(localStorage.getItem('cavityBest'));
+      return isNaN(v) ? 0 : v;
+    }catch(e){ return 0; }
+  }
+  function setBest(v){
+    try{ localStorage.setItem('cavityBest', String(v)); }catch(e){}
+  }
+
+  /* ---------- 입력 ---------- */
+  function pointerPos(e){
+    var sr = stage.getBoundingClientRect();
+    bx = e.clientX - sr.left;
+    by = e.clientY - sr.top;
+  }
+  stage.addEventListener('pointermove', function(e){
+    if(state !== 'play') return;
+    pointerPos(e);
+    e.preventDefault();
+  }, {passive:false});
+  stage.addEventListener('pointerdown', function(e){
+    if(state !== 'play') return;
+    pointerPos(e);
+    e.preventDefault();
+  }, {passive:false});
+
+  document.addEventListener('keydown', function(e){
+    var k = e.key;
+    if(k === ' ' || k === 'Spacebar' || k === 'ArrowLeft' || k === 'ArrowRight' || k === 'ArrowUp' || k === 'ArrowDown'){
+      e.preventDefault();
+    }
+    if(state === 'play'){ keys[k] = true; return; }
+    if(k === ' ' || k === 'Spacebar' || k === 'Enter'){
+      if(state === 'start') startGame();
+      else if(state === 'over') startGame();
+    }
+  });
+  document.addEventListener('keyup', function(e){ keys[e.key] = false; });
+
+  startBtn.addEventListener('click', function(){ startGame(); });
+  againBtn.addEventListener('click', function(){ startGame(); });
+
+  window.addEventListener('resize', measure);
+  document.addEventListener('visibilitychange', function(){ last = performance.now(); });
+
+  /* ---------- 게임 흐름 ---------- */
+  function startGame(){
+    clearMonsters();
+    clean = 100; elapsed = 0; spawnTimer = 0.8; killed = 0;
+    wob = 0; bubTimer = 0; shakeTimer = 0;
+    keys = {};
+    stage.classList.remove('danger');
+    startOv.classList.add('hide');
+    overOv.classList.add('hide');
+    brush.style.display = 'block';
+    measure();
+    var sr = stage.getBoundingClientRect();
+    bx = sr.width/2; by = sr.height/2;
+    pbx = bx; pby = by;
+    updateHud();
+    state = 'play';
+    last = performance.now();
+    if(rafId !== null) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function gameOver(){
+    state = 'over';
+    if(rafId !== null){ cancelAnimationFrame(rafId); rafId = null; }
+    clearMonsters();
+    brush.style.display = 'none';
+    stage.classList.remove('danger');
+
+    var t = Math.round(elapsed*10)/10;
+    var best = getBest();
+    var isNew = false;
+    if(t > best){ best = t; setBest(t); isNew = true; }
+
+    var grade;
+    if(t < 15)      grade = '조금만 더! 몬스터 위에서 좌우로 흔드는 게 비법이야 🪥';
+    else if(t < 30) grade = '잘했어! 이제 이빨이 반짝반짝 ✨';
+    else if(t < 50) grade = '대단해! 양치 실력 최고야 🏅';
+    else            grade = '와! 치과 선생님도 깜짝 놀랄 실력이야 👑';
+
+    finalTime.textContent = t.toFixed(1) + '초';
+    resultCard.innerHTML =
+      '🦠 무찌른 몬스터 : <b>' + killed + '마리</b><br>' +
+      '🏆 최고 기록 : <b>' + best.toFixed(1) + '초</b>' + (isNew ? ' 🎉 <b>새 기록!</b>' : '') + '<br>' +
+      grade;
+    overOv.classList.remove('hide');
+  }
+
+  function updateHud(){
+    var c = clean < 0 ? 0 : clean;
+    bar.style.width = c + '%';
+    bar.className = c > 60 ? '' : (c > 30 ? 'warn' : 'bad');
+    cleanTxt.textContent = Math.ceil(c) + '%';
+    timeTxt.textContent = '⏱ ' + elapsed.toFixed(1) + '초';
+  }
+
+  /* ---------- 메인 루프 ---------- */
+  function loop(now){
+    rafId = requestAnimationFrame(loop);
+    var dt = (now - last) / 1000;
+    last = now;
+    if(dt > 0.05) dt = 0.05;
+    if(dt <= 0) return;
+    if(document.hidden) return;
+    if(state !== 'play') return;
+
+    elapsed += dt;
+    if(shakeTimer > 0) shakeTimer -= dt;
+
+    var sr = stage.getBoundingClientRect();
+
+    /* 방향키 이동 */
+    var sp = 460 * dt;
+    if(keys['ArrowLeft'])  bx -= sp;
+    if(keys['ArrowRight']) bx += sp;
+    if(keys['ArrowUp'])    by -= sp;
+    if(keys['ArrowDown'])  by += sp;
+
+    /* 스페이스 = 제자리 문지르기 */
+    var extra = 0;
+    if(keys[' '] || keys['Spacebar']){
+      var prevW = wob;
+      wob += dt * 16;
+      extra = Math.abs(Math.sin(wob) - Math.sin(prevW)) * 26;
+    }
+
+    if(bx < 6) bx = 6; if(bx > sr.width - 6)  bx = sr.width - 6;
+    if(by < 6) by = 6; if(by > sr.height - 6) by = sr.height - 6;
+
+    /* 움직인 거리 = 문지른 양 */
+    var dx = bx - pbx, dy = by - pby;
+    var moved = Math.sqrt(dx*dx + dy*dy);
+    if(moved > 70) moved = 70;
+    moved += extra;
+    pbx = bx; pby = by;
+
+    /* 칫솔 그리기 */
+    var rot = dx * 1.6;
+    if(rot > 32) rot = 32; if(rot < -32) rot = -32;
+    if(keys[' '] || keys['Spacebar']) rot = Math.sin(wob) * 28;
+    brush.style.transform = 'translate3d(' + bx + 'px,' + by + 'px,0)';
+    brush.firstElementChild.style.transform = 'rotate(' + (rot - 12) + 'deg)';
+
+    /* 몬스터 처리 */
+    var drain = 0, alive = 0;
+    var reach = Math.max(38, sr.width * 0.075);
+    for(var i=0;i<teeth.length;i++){
+      var t = teeth[i], m = t.mon;
+      if(!m) continue;
+      alive++;
+      drain += 2.0 + 0.7 * (m.maxHp - 1);
+
+      var ddx = bx - t.cx, ddy = by - t.cy;
+      if(Math.sqrt(ddx*ddx + ddy*ddy) < reach && moved > 0.6){
+        m.hp -= moved * 0.009;
+        m.fill.style.width = Math.max(0, (m.hp / m.maxHp) * 100) + '%';
+        bubTimer -= dt;
+        if(bubTimer <= 0){ bubble(bx, by); bubTimer = 0.05; }
+        if(m.hp <= 0){ killMonster(t); }
+      }
+    }
+
+    if(alive === 0){
+      clean += 4.5 * dt;
+      if(clean > 100) clean = 100;
+    }else{
+      clean -= drain * dt;
+    }
+
+    /* 몬스터 등장 */
+    var maxMon = 2 + Math.floor(elapsed / 13);
+    if(maxMon > 5) maxMon = 5;
+    spawnTimer -= dt;
+    if(spawnTimer <= 0){
+      if(alive < maxMon) spawn();
+      var interval = 2.3 - elapsed * 0.05;
+      if(interval < 0.85) interval = 0.85;
+      spawnTimer = interval;
+    }
+
+    /* 위험 표시 */
+    if(clean < 30){
+      if(!stage.classList.contains('danger')){ stage.classList.add('danger'); shake(); }
+    }else{
+      stage.classList.remove('danger');
+    }
+
+    updateHud();
+
+    if(clean <= 0){
+      clean = 0;
+      updateHud();
+      gameOver();
+    }
+  }
+
+  /* ---------- 시작 ---------- */
+  buildTeeth();
+  measure();
+  setTimeout(measure, 300);
+})();
+</script>
+</body>
+</html>
