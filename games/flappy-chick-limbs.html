@@ -638,7 +638,9 @@
         let gameState = 'START';
         let birdY = 220;
         const birdX = 96;
-        const birdRadius = 22;
+        const birdRadius = 18;           // 몸통(약 19×17px)만 판정 — 긴 팔다리는 닿아도 봐줌
+        const birdCenterOffsetY = 40;    // birdY는 80px 박스의 윗변 — 몸통 중심은 40px 아래
+        const birdFeetOffsetY = 74;      // 발끝 위치 (바닥 판정용)
         let velocity = 0;
         const gravity = 0.42;
         const jumpPower = -8.2;
@@ -860,7 +862,7 @@
                         }
                         const starX = pipe.x + 15 + 15;
                         const starCenterY = starY + 15;
-                        if (Math.hypot(birdX - starX, birdY - starCenterY) < birdRadius + 20) {
+                        if (Math.hypot(birdX - starX, (birdY + birdCenterOffsetY) - starCenterY) < birdRadius + 24) {
                             pipe.starActive = false;
                             if (pipe.starElement) pipe.starElement.style.display = 'none';
                             score += 3;
@@ -870,9 +872,10 @@
                         }
                     }
 
-                    // 파이프 충돌 검사
+                    // 파이프 충돌 검사 (몸통 중심 기준)
+                    const birdCY = birdY + birdCenterOffsetY;
                     if (pipe.x < birdX + birdRadius && pipe.x + pipe.width > birdX - birdRadius) {
-                        if (birdY - birdRadius < pipe.topHeight || birdY + birdRadius > pipe.bottomY) {
+                        if (birdCY - birdRadius < pipe.topHeight || birdCY + birdRadius > pipe.bottomY) {
                             gameOver(); break;
                         }
                     }
@@ -902,9 +905,9 @@
                     }
                 }
 
-                // 바닥 충돌
-                if (birdY >= currentGroundY) {
-                    birdY = currentGroundY;
+                // 바닥 충돌 (발끝 기준)
+                if (birdY + birdFeetOffsetY >= currentGroundY) {
+                    birdY = currentGroundY - birdFeetOffsetY;
                     bird.style.transform = `translate(-50%, ${birdY}px) rotate(70deg)`;
                     gameOver();
                 } else {
