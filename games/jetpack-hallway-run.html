@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>학교 복도 달리기 - 로켓 비행 모드</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Do Hyeon & Noto Sans KR -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            background-color: #0f172a;
+        }
+        .font-dohyeon {
+            font-family: 'Do Hyeon', sans-serif;
+        }
+        #gameCanvas {
+            background-color: #1e293b;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+        .touch-btn:active {
+            transform: scale(0.97);
+        }
+        /* Mobile Dynamic Viewport Height Fix */
+        .app-container {
+            min-height: 100vh;
+            min-height: 100dvh;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white app-container flex flex-col items-center justify-between p-2 sm:p-4 overflow-hidden">
+
+    <header class="w-full max-w-3xl flex items-center justify-between bg-slate-800/90 backdrop-blur border border-slate-700/60 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-2 my-1 shadow-lg shrink-0">
+        <div class="flex items-center space-x-2">
+            <span class="text-xl sm:text-3xl">🚀</span>
+            <div>
+                <h1 class="font-dohyeon text-base sm:text-xl text-yellow-400 tracking-wide leading-tight">학교 복도 비행 런!</h1>
+                <p class="text-[9px] sm:text-xs text-slate-400 hidden xs:block">로켓 가방으로 하늘을 날아 피하세요!</p>
+            </div>
+        </div>
+        
+        <!-- Distance Meter Display -->
+        <div class="flex items-center bg-slate-950/80 border border-amber-500/30 rounded-lg sm:rounded-xl px-2.5 sm:px-4 py-1 shadow-inner">
+            <i class="fa-solid fa-jet-fighter-up text-amber-400 mr-1.5 text-sm sm:text-lg animate-pulse"></i>
+            <span id="distanceText" class="font-dohyeon text-xl sm:text-3xl text-amber-300 min-w-[60px] sm:min-w-[75px] text-right">0 m</span>
+        </div>
+        
+        <!-- High Score & Mode Badge -->
+        <div class="flex flex-col items-end text-right">
+            <span class="text-[9px] sm:text-[10px] text-cyan-400 font-bold uppercase tracking-wider animate-pulse">⚡ HYPER JETPACK</span>
+            <span id="highScoreText" class="font-dohyeon text-[11px] sm:text-sm text-cyan-300">0 m</span>
+        </div>
+    </header>
+
+    <main class="relative w-full max-w-3xl flex-1 flex flex-col items-center justify-center my-1 min-h-0">
+        
+        <div id="canvasWrapper" class="relative w-full aspect-[16/9] max-h-[62vh] rounded-xl sm:rounded-2xl overflow-hidden border-2 border-slate-700/80 shadow-2xl bg-slate-950 flex items-center justify-center">
+            <canvas id="gameCanvas" class="w-full h-full block cursor-pointer touch-none"></canvas>
+
+            <!-- Start Overlay -->
+            <div id="startOverlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-3 sm:p-4 text-center z-20">
+                <div class="w-12 h-12 sm:w-16 sm:h-16 bg-cyan-500/20 border-2 border-cyan-400 rounded-full flex items-center justify-center mb-2 sm:mb-3 animate-bounce shrink-0">
+                    <span class="text-2xl sm:text-3xl">🚀</span>
+                </div>
+                <h2 class="font-dohyeon text-xl sm:text-3xl md:text-4xl text-cyan-400 mb-1 sm:mb-2">복도 비행 모드 (JETPACK FLY)</h2>
+                <p class="text-[11px] sm:text-sm text-slate-300 max-w-md mb-4 sm:mb-6 leading-relaxed">
+                    🔥 <b>키보드 [Space/↑/W] 또는 화면/버튼을 누르고 있으면 날아오릅니다!</b><br>
+                    천장/공중 장애물🛸🌀✈️🎈🏀📐과 바닥 장애물🪣🧹📚을 요리조리 피하세요!
+                </p>
+                
+                <button id="startBtn" class="font-dohyeon text-base sm:text-xl px-6 sm:px-8 py-2.5 sm:py-3.5 bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 hover:from-cyan-400 hover:to-indigo-400 text-white font-bold rounded-xl shadow-lg transform transition active:scale-95 flex items-center gap-2">
+                    <i class="fa-solid fa-rocket"></i> 비행 모드 시작하기!
+                </button>
+
+                <div class="mt-3 sm:mt-5 flex items-center gap-2 text-[10px] sm:text-xs text-slate-400">
+                    <span class="bg-slate-800 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-md border border-slate-700">PC: [Space / 방향키 위 / W] | 모바일: 화면/버튼 누르기</span>
+                </div>
+            </div>
+
+            <!-- Game Over Overlay -->
+            <div id="gameOverOverlay" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-3 sm:p-4 text-center z-30">
+                <div class="bg-slate-900 border border-slate-700 rounded-2xl p-4 sm:p-6 max-w-[280px] sm:max-w-sm w-full shadow-2xl relative overflow-hidden">
+                    <div class="absolute -top-12 -right-12 w-32 h-32 bg-red-500/10 rounded-full blur-2xl"></div>
+                    
+                    <span class="text-4xl sm:text-5xl block mb-2 animate-bounce">💥</span>
+                    <h3 class="font-dohyeon text-xl sm:text-3xl text-red-400 mb-1">앗, 부딪혔다!</h3>
+                    <p id="gameOverReason" class="text-[11px] sm:text-xs text-slate-400 mb-3 sm:mb-4">장애물에 충돌했습니다.</p>
+
+                    <div class="bg-slate-950/80 rounded-xl p-2.5 sm:p-3 border border-slate-800 mb-4 sm:mb-5 space-y-1.5 sm:space-y-2 text-xs sm:text-sm">
+                        <div class="flex justify-between items-center text-slate-300">
+                            <span>총 날아간 거리:</span>
+                            <span id="finalDistance" class="font-dohyeon text-xl sm:text-2xl text-amber-300">0 m</span>
+                        </div>
+                        <div class="flex justify-between items-center text-slate-300">
+                            <span>획득한 별 & 우유:</span>
+                            <span id="finalMilkCount" class="font-dohyeon text-base sm:text-lg text-cyan-300">⭐ 0개</span>
+                        </div>
+                        <div class="flex justify-between items-center text-slate-400 text-[10px] sm:text-xs border-t border-slate-800 pt-1.5 sm:pt-2">
+                            <span>최고 비행 기록:</span>
+                            <span id="bestDistance" class="font-dohyeon text-slate-200">0 m</span>
+                        </div>
+                    </div>
+
+                    <button id="restartBtn" class="w-full font-dohyeon text-base sm:text-lg py-2.5 sm:py-3.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-bold rounded-xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-rotate-right"></i> 다시 비행하기
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Pause Overlay -->
+            <div id="pauseOverlay" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 text-center z-25">
+                <div class="w-14 h-14 bg-amber-500/20 border-2 border-amber-400 rounded-full flex items-center justify-center mb-3 animate-pulse">
+                    <span class="text-3xl">⏸️</span>
+                </div>
+                <h3 class="font-dohyeon text-2xl sm:text-4xl text-amber-300 mb-2">시간이 멈췄습니다!</h3>
+                <p class="text-xs sm:text-sm text-slate-300 mb-6">잠시 쉬어가세요. 준비되면 버튼을 눌러 다시 달리세요!</p>
+                
+                <button id="resumeBtn" class="font-dohyeon text-base sm:text-xl px-7 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold rounded-xl shadow-lg transition active:scale-95 flex items-center gap-2">
+                    <i class="fa-solid fa-play"></i> 시간 다시 흐르게 하기
+                </button>
+            </div>
+
+            <!-- Control Buttons (Pause & Sound) -->
+            <div class="absolute top-2 right-2 sm:top-3 sm:right-3 flex gap-2 z-30">
+                <button id="pauseToggleBtn" class="bg-slate-900/80 border border-slate-700 text-slate-300 p-2 rounded-lg text-xs hover:bg-slate-800 transition flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9" title="시간 정지 (P / ESC)">
+                    <i class="fa-solid fa-pause"></i>
+                </button>
+                <button id="soundToggleBtn" class="bg-slate-900/80 border border-slate-700 text-slate-300 p-2 rounded-lg text-xs hover:bg-slate-800 transition flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9">
+                    <i class="fa-solid fa-volume-high"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Touch Fly Control Button (Cross-platform support) -->
+        <div class="w-full mt-2 sm:mt-3 shrink-0">
+            <button id="touchJumpBtn" class="touch-btn w-full bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 active:from-cyan-500 active:to-blue-500 border border-cyan-400/40 rounded-xl sm:rounded-2xl py-3 sm:py-4 flex items-center justify-center gap-2 shadow-xl text-white select-none touch-none">
+                <i class="fa-solid fa-rocket text-lg sm:text-2xl animate-pulse"></i>
+                <span class="font-dohyeon text-lg sm:text-2xl tracking-wider">로켓 비행 (HOLD TO FLY)</span>
+            </button>
+        </div>
+    </main>
+
+    <footer class="text-center text-[10px] sm:text-xs text-slate-500 my-0.5 sm:my-1 shrink-0">
+        <span>[Space / ↑ / W] 키 또는 화면/버튼을 누르고 있으면 비행합니다!</span>
+    </footer>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Canvas Internal Resolution
+        const V_WIDTH = 960;
+        const V_HEIGHT = 540;
+        canvas.width = V_WIDTH;
+        canvas.height = V_HEIGHT;
+
+        // Screen Shake
+        let shakeTime = 0;
+        function triggerScreenShake(duration = 20) {
+            shakeTime = duration;
+        }
+
+        class RocketParticle {
+            constructor(x, y) {
+                this.x = x + (Math.random() * 8 - 4);
+                this.y = y;
+                this.vx = -Math.random() * 7 - 4;
+                this.vy = Math.random() * 6 - 3;
+                this.radius = Math.random() * 8 + 5;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.06 + 0.05;
+                // Flame & Smoke colors
+                const colors = ['#f97316', '#ef4444', '#facc15', '#38bdf8', '#cbd5e1'];
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.radius += 0.3;
+                this.alpha -= this.decay;
+            }
+
+            draw(ctx) {
+                if (this.alpha <= 0) return;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class DustParticle {
+            constructor(x, y) {
+                this.x = x + (Math.random() * 20 - 10);
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 4 - 2;
+                this.vy = -Math.random() * 2 - 0.5;
+                this.radius = Math.random() * 5 + 3;
+                this.alpha = 0.8;
+                this.decay = Math.random() * 0.05 + 0.03;
+                this.color = '#cbd5e1';
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.radius += 0.2;
+                this.alpha -= this.decay;
+            }
+
+            draw(ctx) {
+                if (this.alpha <= 0) return;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContext) this.ctx = new AudioContext();
+                }
+            }
+
+            playRocket() {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(280, this.ctx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.1);
+                } catch (e) {}
+            }
+
+            playItem() {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523, this.ctx.currentTime);
+                    osc.frequency.setValueAtTime(784, this.ctx.currentTime + 0.08);
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.2);
+                } catch (e) {}
+            }
+
+            playCrash() {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.4);
+                    gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.4);
+                } catch (e) {}
+            }
+        }
+
+        const sound = new SoundEngine();
+
+        const STATE = { START: 'START', PLAYING: 'PLAYING', PAUSED: 'PAUSED', GAMEOVER: 'GAMEOVER' };
+        let gameState = STATE.START;
+        let baseSpeed = 12; // 여유 있고 플레이하기 좋은 속도로 감소
+        let gameSpeed = 12;
+        let distance = 0;
+        let milkCollected = 0;
+        let highScore = 0;
+        try {
+            highScore = parseInt(localStorage.getItem('hallway_fly_high_score') || '0', 10) || 0;
+        } catch (e) { highScore = 0; }
+        let isHoldingJump = false;
+
+        const distanceText = document.getElementById('distanceText');
+        const highScoreText = document.getElementById('highScoreText');
+        const startOverlay = document.getElementById('startOverlay');
+        const gameOverOverlay = document.getElementById('gameOverOverlay');
+        const pauseOverlay = document.getElementById('pauseOverlay');
+        const finalDistance = document.getElementById('finalDistance');
+        const finalMilkCount = document.getElementById('finalMilkCount');
+        const bestDistance = document.getElementById('bestDistance');
+        const soundToggleBtn = document.getElementById('soundToggleBtn');
+        const pauseToggleBtn = document.getElementById('pauseToggleBtn');
+        const resumeBtn = document.getElementById('resumeBtn');
+
+        highScoreText.textContent = `${highScore} m`;
+
+        class HallwayBackground {
+            constructor() {
+                this.scrollPos = 0;
+                this.ceilingHeight = 80;
+                this.groundY = V_HEIGHT - 100;
+                this.sectionWidth = 240;
+            }
+
+            update(speed) {
+                this.scrollPos += speed;
+            }
+
+            draw(ctx) {
+                const wallGradient = ctx.createLinearGradient(0, 0, 0, V_HEIGHT);
+                wallGradient.addColorStop(0, '#0f172a');
+                wallGradient.addColorStop(0.15, '#e2e8f0');
+                wallGradient.addColorStop(0.55, '#f1f5f9');
+                wallGradient.addColorStop(0.55, '#cbd5e1');
+                wallGradient.addColorStop(0.75, '#64748b');
+                wallGradient.addColorStop(1, '#1e293b');
+                ctx.fillStyle = wallGradient;
+                ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
+
+                ctx.fillStyle = '#020617';
+                ctx.fillRect(0, 0, V_WIDTH, this.ceilingHeight);
+
+                // Ceiling Lights
+                const lightSpacing = 300;
+                const lightOffsetX = -(this.scrollPos % lightSpacing);
+                for (let x = lightOffsetX - lightSpacing; x < V_WIDTH + lightSpacing; x += lightSpacing) {
+                    ctx.fillStyle = '#f8fafc';
+                    ctx.shadowColor = 'rgba(56, 189, 248, 0.6)';
+                    ctx.shadowBlur = 20;
+                    ctx.fillRect(x, this.ceilingHeight - 12, 120, 10);
+                    ctx.shadowBlur = 0;
+                }
+
+                // Lockers & Windows
+                const startIdx = Math.floor(this.scrollPos / this.sectionWidth) - 1;
+                const endIdx = startIdx + Math.ceil(V_WIDTH / this.sectionWidth) + 2;
+
+                for (let i = startIdx; i <= endIdx; i++) {
+                    const x = i * this.sectionWidth - this.scrollPos;
+                    const sectionType = Math.abs(i) % 3;
+
+                    if (sectionType === 0) {
+                        ctx.fillStyle = '#475569';
+                        ctx.fillRect(x + 20, 100, 160, 140);
+                        const glassGrad = ctx.createLinearGradient(x + 25, 105, x + 25, 235);
+                        glassGrad.addColorStop(0, '#38bdf8');
+                        glassGrad.addColorStop(1, '#0284c7');
+                        ctx.fillStyle = glassGrad;
+                        ctx.fillRect(x + 25, 105, 150, 130);
+                    } else if (sectionType === 1) {
+                        const lockerColors = ['#0284c7', '#2563eb', '#7c3aed', '#0d9488'];
+                        ctx.fillStyle = lockerColors[Math.abs(i) % lockerColors.length];
+                        ctx.fillRect(x + 10, 150, 180, 180);
+                    } else {
+                        ctx.fillStyle = '#b45309';
+                        ctx.fillRect(x + 30, 130, 120, 200);
+                    }
+                }
+
+                // Floor
+                const floorGrad = ctx.createLinearGradient(0, this.groundY, 0, V_HEIGHT);
+                floorGrad.addColorStop(0, '#78350f');
+                floorGrad.addColorStop(0.2, '#9a3412');
+                floorGrad.addColorStop(1, '#451a03');
+                ctx.fillStyle = floorGrad;
+                ctx.fillRect(0, this.groundY, V_WIDTH, V_HEIGHT - this.groundY);
+            }
+        }
+
+        class FlyingStudentPlayer {
+            constructor(groundY) {
+                this.groundY = groundY;
+                this.ceilingY = 85;
+                this.x = 120;
+                this.y = groundY;
+                this.width = 50;
+                this.height = 70;
+
+                this.vy = 0;
+                this.gravity = 1.15;
+                this.thrustPower = -1.9;
+                this.isFlying = false;
+                this.isGrounded = true;
+                this.animTimer = 0;
+            }
+
+            update() {
+                if (isHoldingJump) {
+                    this.vy += this.thrustPower;
+                    if (this.vy < -16) this.vy = -16;
+                    this.isFlying = true;
+                    this.isGrounded = false;
+
+                    // Spawn Rocket Thrust Particles
+                    rocketParticles.push(new RocketParticle(this.x + 8, this.y - 35));
+                    rocketParticles.push(new RocketParticle(this.x + 8, this.y - 35));
+                    sound.playRocket();
+                } else {
+                    this.vy += this.gravity;
+                    this.isFlying = false;
+                }
+
+                this.y += this.vy;
+
+                // Ceiling Boundary
+                if (this.y - this.height < this.ceilingY) {
+                    this.y = this.ceilingY + this.height;
+                    this.vy = 0;
+                }
+
+                // Ground Landing
+                if (this.y >= this.groundY) {
+                    if (!this.isGrounded) {
+                        for (let i = 0; i < 10; i++) {
+                            dustParticles.push(new DustParticle(this.x + 20, this.groundY - 2));
+                        }
+                    }
+                    this.y = this.groundY;
+                    this.vy = 0;
+                    this.isGrounded = true;
+                }
+
+                this.animTimer += 0.3;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                const px = this.x;
+                const py = this.y - this.height;
+
+                // Shadow on Ground
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                const shadowScale = Math.max(0.3, 1 - (this.groundY - this.y) / 400);
+                ctx.beginPath();
+                ctx.ellipse(px + 25, this.groundY - 2, 22 * shadowScale, 6 * shadowScale, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Player Body Angle during flight
+                ctx.save();
+                ctx.translate(px + 25, py + 35);
+                if (this.isFlying) {
+                    ctx.rotate(0.2);
+                }
+
+                // Rocket Jetpack on back
+                ctx.fillStyle = '#64748b';
+                ctx.fillRect(-22, -15, 14, 28);
+                ctx.fillStyle = '#ef4444';
+                ctx.fillRect(-20, -18, 10, 6);
+                ctx.fillStyle = '#38bdf8';
+                ctx.fillRect(-20, 10, 10, 5);
+
+                // Uniform & Legs
+                ctx.fillStyle = '#1e3a8a';
+                ctx.fillRect(-10, -15, 22, 28);
+
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(-6, 12, 8, 22);
+                ctx.fillRect(4, 12, 8, 22);
+
+                // Head & Hair
+                ctx.fillStyle = '#fed7aa';
+                ctx.beginPath();
+                ctx.arc(2, -22, 12, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                ctx.arc(0, -25, 13, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Goggles / Glasses
+                ctx.fillStyle = '#38bdf8';
+                ctx.fillRect(4, -24, 10, 5);
+
+                ctx.restore();
+                ctx.restore();
+            }
+
+            getBounds() {
+                return {
+                    x: this.x + 6,
+                    y: this.y - this.height + 6,
+                    width: this.width - 12,
+                    height: this.height - 10
+                };
+            }
+        }
+
+        const OBSTACLE_TYPES = {
+            // Ground Obstacles
+            BUCKET: { label: '물통', emoji: '🪣', width: 45, height: 48, color: '#0284c7', isAir: false },
+            BROOM: { label: '빗자루', emoji: '🧹', width: 42, height: 55, color: '#d97706', isAir: false },
+            BOOKS: { label: '책더미', emoji: '📚', width: 50, height: 52, color: '#ef4444', isAir: false },
+            
+            // High Ceiling Obstacles (천장 밀착 장애물 - 얌체 비행 방지)
+            HIGH_DRONE: { label: '고고도 드론', emoji: '🛸', width: 52, height: 45, color: '#0284c7', isAir: true, airY: 88 },
+            FAN: { label: '천장 선풍기', emoji: '🌀', width: 50, height: 48, color: '#64748b', isAir: true, airY: 90 },
+            PAPER_PLANE: { label: '종이비행기', emoji: '✈️', width: 48, height: 44, color: '#38bdf8', isAir: true, airY: 130 },
+
+            // Mid Air Obstacles
+            BALLOON: { label: '풍선', emoji: '🎈', width: 45, height: 52, color: '#ec4899', isAir: true, airY: 210 },
+            BASKETBALL: { label: '농구공', emoji: '🏀', width: 46, height: 46, color: '#ea580c', isAir: true, airY: 270 },
+
+            // Low Air Obstacles
+            DRONE: { label: '교실 드론', emoji: '🛸', width: 55, height: 45, color: '#6366f1', isAir: true, airY: 320 },
+            RULER: { label: '날아온 삼각자', emoji: '📐', width: 48, height: 48, color: '#f59e0b', isAir: true, airY: 360 }
+        };
+
+        class Obstacle {
+            constructor(x, groundY, config) {
+                this.x = x;
+                this.config = config;
+                this.width = config.width;
+                this.height = config.height;
+                
+                if (config.isAir) {
+                    this.y = config.airY;
+                } else {
+                    this.y = groundY - this.height;
+                }
+                this.groundY = groundY;
+                this.markedForDeletion = false;
+            }
+
+            update(speed) {
+                this.x -= speed;
+                if (this.x + this.width < -60) {
+                    this.markedForDeletion = true;
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                const px = this.x;
+                const py = this.y;
+
+                if (!this.config.isAir) {
+                    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+                    ctx.beginPath();
+                    ctx.ellipse(px + this.width / 2, this.groundY - 2, this.width / 2, 5, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.fillStyle = this.config.color;
+                ctx.beginPath();
+                ctx.roundRect(px, py, this.width, this.height, 10);
+                ctx.fill();
+
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '24px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.config.emoji, px + this.width / 2, py + this.height / 2);
+
+                ctx.restore();
+            }
+
+            getBounds() {
+                return {
+                    x: this.x + 4,
+                    y: this.y + 4,
+                    width: this.width - 8,
+                    height: this.height - 8
+                };
+            }
+        }
+
+        class CollectibleItem {
+            constructor(x, y, type = 'STAR') {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.width = 32;
+                this.height = 32;
+                this.markedForDeletion = false;
+                this.floatTimer = Math.random() * Math.PI * 2;
+            }
+
+            update(speed) {
+                this.x -= speed;
+                this.floatTimer += 0.12;
+                if (this.x < -40) this.markedForDeletion = true;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                const floatY = this.y + Math.sin(this.floatTimer) * 6;
+
+                ctx.fillStyle = '#facc15';
+                ctx.font = '26px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.type === 'STAR' ? '⭐' : '🥛', this.x + 16, floatY + 16);
+
+                ctx.restore();
+            }
+
+            getBounds() {
+                return { x: this.x, y: this.y, width: this.width, height: this.height };
+            }
+        }
+
+        const bg = new HallwayBackground();
+        const player = new FlyingStudentPlayer(bg.groundY);
+        let obstacles = [];
+        let items = [];
+        let rocketParticles = [];
+        let dustParticles = [];
+        let spawnTimer = 0;
+        let itemSpawnTimer = 0;
+
+        function checkCollision(rect1, rect2) {
+            return (
+                rect1.x < rect2.x + rect2.width &&
+                rect1.x + rect1.width > rect2.x &&
+                rect1.y < rect2.y + rect2.height &&
+                rect1.y + rect1.height > rect2.y
+            );
+        }
+
+        function spawnObstacles() {
+            spawnTimer--;
+            if (spawnTimer <= 0) {
+                const types = Object.values(OBSTACLE_TYPES);
+                const chosen = types[Math.floor(Math.random() * types.length)];
+
+                obstacles.push(new Obstacle(V_WIDTH + 50, bg.groundY, chosen));
+                // 장애물 출현 간격을 기존보다 2.5배 이상 늘려 여유를 부여합니다.
+                spawnTimer = Math.floor(Math.random() * 40 + 50);
+            }
+
+            itemSpawnTimer--;
+            if (itemSpawnTimer <= 0) {
+                const itemY = Math.random() * 260 + 120;
+                items.push(new CollectibleItem(V_WIDTH + 30, itemY, Math.random() > 0.4 ? 'STAR' : 'MILK'));
+                itemSpawnTimer = Math.floor(Math.random() * 25 + 35);
+            }
+        }
+
+        function resetGame() {
+            distance = 0;
+            milkCollected = 0;
+            gameSpeed = baseSpeed;
+            obstacles = [];
+            items = [];
+            rocketParticles = [];
+            dustParticles = [];
+            spawnTimer = 60;
+            itemSpawnTimer = 30;
+            shakeTime = 0;
+            player.y = bg.groundY;
+            player.vy = 0;
+            isHoldingJump = false;
+            distanceText.textContent = '0 m';
+            gameOverOverlay.classList.add('hidden');
+            startOverlay.classList.add('hidden');
+            pauseOverlay.classList.add('hidden');
+            pauseToggleBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+            gameState = STATE.PLAYING;
+        }
+
+        function togglePause() {
+            if (gameState === STATE.PLAYING) {
+                gameState = STATE.PAUSED;
+                isHoldingJump = false;
+                pauseOverlay.classList.remove('hidden');
+                pauseToggleBtn.innerHTML = '<i class="fa-solid fa-play text-emerald-400"></i>';
+            } else if (gameState === STATE.PAUSED) {
+                gameState = STATE.PLAYING;
+                pauseOverlay.classList.add('hidden');
+                pauseToggleBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+            }
+        }
+
+        function triggerGameOver(reasonText) {
+            if (gameState === STATE.GAMEOVER) return;
+            gameState = STATE.GAMEOVER;
+            triggerScreenShake(25);
+            sound.playCrash();
+
+            if (distance > highScore) {
+                highScore = Math.floor(distance);
+                try {
+                    localStorage.setItem('hallway_fly_high_score', highScore.toString());
+                } catch (e) {}
+                highScoreText.textContent = `${highScore} m`;
+            }
+
+            document.getElementById('gameOverReason').textContent = reasonText;
+            finalDistance.textContent = `${Math.floor(distance)} m`;
+            finalMilkCount.textContent = `⭐ ${milkCollected}개`;
+            bestDistance.textContent = `${highScore} m`;
+
+            gameOverOverlay.classList.remove('hidden');
+        }
+
+        function gameLoop() {
+            ctx.save();
+
+            if (shakeTime > 0) {
+                const shakeX = (Math.random() - 0.5) * 18;
+                const shakeY = (Math.random() - 0.5) * 18;
+                ctx.translate(shakeX, shakeY);
+                shakeTime--;
+            }
+
+            ctx.clearRect(0, 0, V_WIDTH, V_HEIGHT);
+
+            if (gameState === STATE.PLAYING) {
+                gameSpeed = baseSpeed + (distance / 120); // 속도 증가 완화
+                distance += gameSpeed * 0.12;
+                distanceText.textContent = `${Math.floor(distance)} m`;
+
+                bg.update(gameSpeed);
+                player.update();
+                spawnObstacles();
+
+                // Speed lines effect
+                ctx.save();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                ctx.lineWidth = 2;
+                for (let i = 0; i < 5; i++) {
+                    const lineY = (Math.sin(Date.now() * 0.01 + i) + 1) * V_HEIGHT / 2;
+                    ctx.beginPath();
+                    ctx.moveTo(V_WIDTH, lineY);
+                    ctx.lineTo(V_WIDTH - 150 - Math.random() * 100, lineY);
+                    ctx.stroke();
+                }
+                ctx.restore();
+
+                // Update Rocket Particles
+                for (let i = rocketParticles.length - 1; i >= 0; i--) {
+                    rocketParticles[i].update();
+                    rocketParticles[i].draw(ctx);
+                    if (rocketParticles[i].alpha <= 0) rocketParticles.splice(i, 1);
+                }
+
+                // Update Dust Particles
+                for (let i = dustParticles.length - 1; i >= 0; i--) {
+                    dustParticles[i].update();
+                    dustParticles[i].draw(ctx);
+                    if (dustParticles[i].alpha <= 0) dustParticles.splice(i, 1);
+                }
+
+                // Obstacles
+                for (let i = obstacles.length - 1; i >= 0; i--) {
+                    const obs = obstacles[i];
+                    obs.update(gameSpeed);
+
+                    if (checkCollision(player.getBounds(), obs.getBounds())) {
+                        triggerGameOver(`${obs.config.label}에 부딪혔습니다!`);
+                    }
+
+                    if (obs.markedForDeletion) obstacles.splice(i, 1);
+                }
+
+                // Collectibles
+                for (let i = items.length - 1; i >= 0; i--) {
+                    const item = items[i];
+                    item.update(gameSpeed);
+
+                    if (checkCollision(player.getBounds(), item.getBounds())) {
+                        milkCollected++;
+                        distance += 15;
+                        sound.playItem();
+                        items.splice(i, 1);
+                        continue;
+                    }
+
+                    if (item.markedForDeletion) items.splice(i, 1);
+                }
+            }
+
+            bg.draw(ctx);
+            for (const item of items) item.draw(ctx);
+            for (const obs of obstacles) obs.draw(ctx);
+            player.draw(ctx);
+
+            ctx.restore();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyP' || e.code === 'Escape') {
+                e.preventDefault();
+                togglePause();
+                return;
+            }
+
+            if (e.code === 'Space' || e.key === ' ' || e.code === 'ArrowUp' || e.code === 'KeyW' || e.keyCode === 32) {
+                e.preventDefault();
+                sound.init();
+                if (gameState === STATE.PLAYING) {
+                    isHoldingJump = true;
+                } else if (gameState === STATE.START || gameState === STATE.GAMEOVER) {
+                    resetGame();
+                }
+            }
+        }, { passive: false });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'Space' || e.key === ' ' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+                isHoldingJump = false;
+            }
+        });
+
+        const startBtn = document.getElementById('startBtn');
+        const restartBtn = document.getElementById('restartBtn');
+        const touchJumpBtn = document.getElementById('touchJumpBtn');
+
+        startBtn.addEventListener('click', () => { sound.init(); resetGame(); });
+        restartBtn.addEventListener('click', () => { sound.init(); resetGame(); });
+        resumeBtn.addEventListener('click', () => { togglePause(); });
+        pauseToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            togglePause();
+        });
+
+        // Unified Pointer Event Handler for Mobile Touch, Stylus & Mouse
+        function bindFlyPointerControls(element) {
+            element.addEventListener('pointerdown', (e) => {
+                if (e.target.closest('#startBtn') || 
+                    e.target.closest('#restartBtn') || 
+                    e.target.closest('#pauseToggleBtn') || 
+                    e.target.closest('#soundToggleBtn') || 
+                    e.target.closest('#resumeBtn')) return;
+
+                e.preventDefault();
+                sound.init();
+                if (gameState === STATE.PLAYING) {
+                    isHoldingJump = true;
+                } else if (gameState === STATE.START || gameState === STATE.GAMEOVER) {
+                    resetGame();
+                }
+            }, { passive: false });
+
+            element.addEventListener('pointerup', (e) => {
+                e.preventDefault();
+                isHoldingJump = false;
+            }, { passive: false });
+
+            element.addEventListener('pointerleave', () => {
+                isHoldingJump = false;
+            });
+
+            element.addEventListener('pointercancel', () => {
+                isHoldingJump = false;
+            });
+        }
+
+        bindFlyPointerControls(canvas);
+        bindFlyPointerControls(touchJumpBtn);
+
+        // Prevent unwanted viewport scrolling / zoom on touch devices
+        document.addEventListener('touchmove', (e) => {
+            if (gameState === STATE.PLAYING) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        soundToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sound.muted = !sound.muted;
+            soundToggleBtn.innerHTML = sound.muted ? 
+                '<i class="fa-solid fa-volume-xmark text-red-400"></i>' : 
+                '<i class="fa-solid fa-volume-high"></i>';
+        });
+
+        window.onload = function() {
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>

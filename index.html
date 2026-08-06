@@ -393,7 +393,7 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
     <nav class="tabs" role="tablist" aria-label="저장소 메뉴">
       <button class="tabbtn" id="tab-games"   role="tab" aria-selected="true"  aria-controls="panel-games"   data-tab="games">🕹️ 게임 저장소<span class="n">18</span></button>
       <button class="tabbtn" id="tab-prompts" role="tab" aria-selected="false" aria-controls="panel-prompts" data-tab="prompts" tabindex="-1">💬 프롬프트 저장소<span class="n">+9</span></button>
-      <button class="tabbtn" id="tab-new"     role="tab" aria-selected="false" aria-controls="panel-new"     data-tab="new" tabindex="-1">✨ 새 게임<span class="n">9</span></button>
+      <button class="tabbtn" id="tab-new"     role="tab" aria-selected="false" aria-controls="panel-new"     data-tab="new" tabindex="-1">✨ 새 게임<span class="n">14</span></button>
       <button class="tabbtn" id="tab-next"    role="tab" aria-selected="false" aria-controls="panel-next"    data-tab="next" tabindex="-1">🌱 추가 개발 예정</button>
     </nav>
   </div>
@@ -417,7 +417,7 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
           반곡초등학교 친구들이 AI와 대화하면서 만든 HTML 게임 저장소예요.
           카드의 미리보기는 <b>진짜 게임 화면</b>이에요.</p>
         <div class="stats">
-          <div class="stat"><b>27</b><span>아이들이 만든 게임</span></div>
+          <div class="stat"><b>32</b><span>아이들이 만든 게임</span></div>
           <div class="stat"><b>17</b><span>완성 예시 게임</span></div>
           <div class="stat"><b>109</b><span>단계별 프롬프트</span></div>
           <div class="stat"><b>∞</b><span>만들 수 있는 것</span></div>
@@ -653,7 +653,12 @@ const NEWGAMES = [
   {f:'puppy-walk-sim.html',          t:'강아지 산책 시뮬',          d:'밥 주고 놀아주고 산책까지!',        c:'버튼으로 돌보기',        k:'2d', e:'🐶', by:'한0민'},
   {f:'3d-bear-snack-adventure.html', t:'알록달록 3D 간식 어드벤처', d:'주방 받기 + 숲속 탐험 두 가지 모드', c:'← → 이동 · 스페이스 시작', k:'3d', e:'🐻'},
   {f:'cozy-kitchen-mango.html',      t:'아기자기 주방 음식 담기',   d:'망고까지 담는 아기자기 주방',       c:'← → 이동 · 드래그',       k:'2d', e:'🥭'},
-  {f:'pretty-kitchen-responsive.html', t:'예쁜 주방 건강 간식 받기', d:'어떤 화면에서도 잘 되는 반응형 버전', c:'← → 이동 · 드래그',     k:'2d', e:'🧺'}
+  {f:'pretty-kitchen-responsive.html', t:'예쁜 주방 건강 간식 받기', d:'어떤 화면에서도 잘 되는 반응형 버전', c:'← → 이동 · 드래그',     k:'2d', e:'🧺'},
+  {f:'jetpack-hallway-run.html',     t:'학교 복도 비행 런!',        d:'로켓 가방으로 복도 장애물 피하기',   c:'스페이스/↑ 홀드 비행 · 터치', k:'canvas', e:'🚀'},
+  {f:'neon-arrow-rhythm.html',       t:'화살표 리듬 게임',          d:'네온 화살표 4레인 리듬 게임',       c:'← ↓ ↑ → · 레인 터치',     k:'2d', e:'🎯'},
+  {f:'element-rhythm-4key.html',     t:'원소리듬 게임',             d:'네온 4키 원소 리듬 게임',           c:'D F J K · 패드 터치',      k:'2d', e:'🎵'},
+  {f:'neon-brick-breaker.html',      t:'네온 레트로 벽돌깨기',      d:'네온 벽돌을 부수는 아케이드',       c:'← → · 마우스 이동 · 클릭 발사', k:'canvas', e:'🧱', by:'류0현'},
+  {f:'flappy-chick-limbs.html',      t:'파닥파닥 병아리 롱팔다리',  d:'긴 팔다리 병아리 플래피 점프',      c:'스페이스 · 화면 탭',       k:'2d', e:'🐤'}
 ];
 
 /* ─────────── 유틸 ─────────── */

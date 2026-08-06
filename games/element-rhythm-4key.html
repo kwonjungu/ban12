@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>원소리듬 게임 - Element Rhythm</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for Korean typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Jua', 'Noto Sans KR', sans-serif;
+            background-color: #0b031a;
+            color: #ffffff;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Prevent unwanted scrolling / zooming on mobile */
+        #game-stage, #start-screen, #stage-menu, #result-screen {
+            touch-action: none;
+        }
+
+        /* Neon Glow Effects */
+        .neon-title {
+            text-shadow: 0 0 10px #ff2a8d, 0 0 20px #ff2a8d, 0 0 30px #b026ff, 0 0 50px #b026ff;
+        }
+
+        .neon-box-pink {
+            border-color: #ff2a8d;
+            box-shadow: 0 0 15px rgba(255, 42, 141, 0.4), inset 0 0 15px rgba(255, 42, 141, 0.2);
+        }
+        
+        .neon-box-purple {
+            border-color: #a855f7;
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.4), inset 0 0 15px rgba(168, 85, 247, 0.2);
+        }
+
+        .neon-box-cyan {
+            border-color: #38bdf8;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.4), inset 0 0 15px rgba(56, 189, 248, 0.2);
+        }
+
+        .neon-box-yellow {
+            border-color: #facc15;
+            box-shadow: 0 0 15px rgba(250, 204, 21, 0.4), inset 0 0 15px rgba(250, 204, 21, 0.2);
+        }
+
+        /* Judgment Line */
+        .judgment-line {
+            background: linear-gradient(90deg, #ff2a8d 0%, #a855f7 33%, #38bdf8 66%, #facc15 100%);
+            box-shadow: 0 0 20px #ffffff, 0 0 35px #a855f7, 0 0 50px #ff2a8d;
+        }
+
+        /* Active Lane Lighting Effects */
+        .lane-active-0 {
+            background: linear-gradient(180deg, rgba(255, 42, 141, 0) 0%, rgba(255, 42, 141, 0.6) 100%) !important;
+            box-shadow: inset 0 -40px 50px rgba(255, 42, 141, 0.8) !important;
+        }
+        .lane-active-1 {
+            background: linear-gradient(180deg, rgba(168, 85, 247, 0) 0%, rgba(168, 85, 247, 0.6) 100%) !important;
+            box-shadow: inset 0 -40px 50px rgba(168, 85, 247, 0.8) !important;
+        }
+        .lane-active-2 {
+            background: linear-gradient(180deg, rgba(56, 189, 248, 0) 0%, rgba(56, 189, 248, 0.6) 100%) !important;
+            box-shadow: inset 0 -40px 50px rgba(56, 189, 248, 0.8) !important;
+        }
+        .lane-active-3 {
+            background: linear-gradient(180deg, rgba(250, 204, 21, 0) 0%, rgba(250, 204, 21, 0.6) 100%) !important;
+            box-shadow: inset 0 -40px 50px rgba(250, 204, 21, 0.8) !important;
+        }
+
+        /* Screen Shake Animation - Reduced Intensity */
+        @keyframes screenShake {
+            0%, 100% { transform: translate(0, 0); }
+            20% { transform: translate(-2px, 1px); }
+            40% { transform: translate(2px, -1px); }
+            60% { transform: translate(-1px, -1px); }
+            80% { transform: translate(1px, 1px); }
+        }
+
+        .shake-screen {
+            animation: screenShake 0.12s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        /* Judgment Pop Animation */
+        @keyframes popScale {
+            0% { transform: scale(0.5) translateY(0); opacity: 0; }
+            50% { transform: scale(1.2) translateY(-10px); opacity: 1; }
+            100% { transform: scale(1) translateY(-20px); opacity: 0; }
+        }
+
+        .animate-judgment {
+            animation: popScale 0.45s ease-out forwards;
+        }
+
+        /* Pulsing Glow Animation */
+        @keyframes pulseGlow {
+            0%, 100% {
+                box-shadow: 0 0 18px rgba(168, 85, 247, 0.8), 0 0 35px rgba(255, 42, 141, 0.6);
+            }
+            50% {
+                box-shadow: 0 0 30px rgba(168, 85, 247, 1), 0 0 50px rgba(255, 42, 141, 0.9);
+            }
+        }
+
+        .pulse-btn {
+            animation: pulseGlow 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col items-center justify-center relative overflow-hidden bg-[#0b031a]">
+
+    <!-- Background Animated Grid Overlay -->
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-purple-900/30 via-[#0b031a] to-[#05010d] pointer-events-none"></div>
+    <div class="absolute inset-0 opacity-20 pointer-events-none bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:30px_30px]"></div>
+
+    <!-- MAIN GAME TRACK CONTAINER -->
+    <div id="game-stage" class="relative w-full max-w-xl md:max-w-2xl h-full max-h-[920px] flex flex-col justify-between items-center px-3 sm:px-4 py-2 sm:py-3 z-10 transition-transform hidden">
+        
+        <!-- Top Status Bar (Score, Stage Name, Combo) -->
+        <div class="w-full flex justify-between items-center py-2 px-3 sm:px-5 bg-purple-950/50 backdrop-blur-md rounded-2xl border border-purple-500/30 shadow-lg">
+            <div class="text-left">
+                <span class="text-[10px] sm:text-xs text-purple-300 block font-sans">원소 점수</span>
+                <span id="score-display" class="text-base sm:text-2xl font-bold text-pink-400 drop-shadow">000000</span>
+            </div>
+            
+            <div class="text-center flex flex-col items-center mx-1">
+                <span id="stage-title-display" class="text-xs sm:text-base tracking-wider font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-purple-300 to-cyan-400 truncate max-w-[160px] sm:max-w-none">
+                    🧪 1단계: Dawn of Fire & Water
+                </span>
+                <!-- Song Progress Bar -->
+                <div class="w-24 sm:w-48 h-1.5 sm:h-2 bg-purple-950/80 rounded-full mt-1 border border-purple-600/40 overflow-hidden relative">
+                    <div id="progress-bar" class="h-full bg-gradient-to-r from-pink-500 to-cyan-400 w-0 transition-all duration-100"></div>
+                </div>
+            </div>
+
+            <div class="text-right">
+                <span class="text-[10px] sm:text-xs text-purple-300 block font-sans">콤보</span>
+                <span id="combo-display" class="text-base sm:text-2xl font-bold text-cyan-300 drop-shadow">0 COMBO</span>
+            </div>
+        </div>
+
+        <!-- 4 VERTICAL RHYTHM LANES -->
+        <div class="relative w-full flex-1 my-2 flex rounded-2xl overflow-hidden border-2 border-purple-800/50 bg-black/60 backdrop-blur-sm shadow-2xl min-h-[300px]">
+            
+            <!-- Canvas Overlay for Spark Particles & Shockwaves -->
+            <canvas id="fx-canvas" class="absolute inset-0 w-full h-full pointer-events-none z-30"></canvas>
+
+            <!-- Judgment Popup Overlay -->
+            <div id="judgment-popup" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none z-40"></div>
+
+            <!-- Lane 1: Pink (불 🔥) -->
+            <div id="lane-0" class="flex-1 border-r border-pink-500/20 relative flex flex-col justify-end items-center transition-colors duration-100 overflow-hidden cursor-pointer">
+                <div class="absolute top-2 sm:top-3 text-[9px] sm:text-xs text-pink-400/60 tracking-widest font-mono z-10">LANE 1</div>
+                <div class="absolute top-8 sm:top-10 text-lg sm:text-2xl opacity-30 z-10">🔥</div>
+            </div>
+
+            <!-- Lane 2: Purple (물 💧) -->
+            <div id="lane-1" class="flex-1 border-r border-purple-500/20 relative flex flex-col justify-end items-center transition-colors duration-100 overflow-hidden cursor-pointer">
+                <div class="absolute top-2 sm:top-3 text-[9px] sm:text-xs text-purple-400/60 tracking-widest font-mono z-10">LANE 2</div>
+                <div class="absolute top-8 sm:top-10 text-lg sm:text-2xl opacity-30 z-10">💧</div>
+            </div>
+
+            <!-- Lane 3: Sky Blue (풀 🍃) -->
+            <div id="lane-2" class="flex-1 border-r border-cyan-500/20 relative flex flex-col justify-end items-center transition-colors duration-100 overflow-hidden cursor-pointer">
+                <div class="absolute top-2 sm:top-3 text-[9px] sm:text-xs text-cyan-400/60 tracking-widest font-mono z-10">LANE 3</div>
+                <div class="absolute top-8 sm:top-10 text-lg sm:text-2xl opacity-30 z-10">🍃</div>
+            </div>
+
+            <!-- Lane 4: Yellow (번개 ⚡) -->
+            <div id="lane-3" class="flex-1 relative flex flex-col justify-end items-center transition-colors duration-100 overflow-hidden cursor-pointer">
+                <div class="absolute top-2 sm:top-3 text-[9px] sm:text-xs text-yellow-400/60 tracking-widest font-mono z-10">LANE 4</div>
+                <div class="absolute top-8 sm:top-10 text-lg sm:text-2xl opacity-30 z-10">⚡</div>
+            </div>
+
+            <!-- GLOWING HORIZONTAL JUDGMENT LINE -->
+            <div id="judgment-line" class="absolute bottom-16 sm:bottom-20 left-0 right-0 h-2 sm:h-2.5 judgment-line z-20 rounded-full transition-all"></div>
+
+            <!-- KEY BUTTON PADS BELOW THE JUDGMENT LINE -->
+            <div class="absolute bottom-0 left-0 right-0 h-16 sm:h-20 flex justify-between items-center z-30 px-1 bg-gradient-to-t from-black/90 via-black/40 to-transparent">
+                
+                <!-- Key Pad D (불 🔥) -->
+                <div id="pad-0" class="flex-1 h-12 sm:h-16 mx-0.5 sm:mx-1 rounded-xl border-2 neon-box-pink bg-pink-950/50 flex flex-col items-center justify-center cursor-pointer transition-all transform active:scale-95 select-none">
+                    <span class="text-base sm:text-2xl font-black text-pink-300 drop-shadow-md">D</span>
+                    <span class="text-[9px] sm:text-[10px] text-pink-400/80 font-sans">불 🔥</span>
+                </div>
+
+                <!-- Key Pad F (물 💧) -->
+                <div id="pad-1" class="flex-1 h-12 sm:h-16 mx-0.5 sm:mx-1 rounded-xl border-2 neon-box-purple bg-purple-950/50 flex flex-col items-center justify-center cursor-pointer transition-all transform active:scale-95 select-none">
+                    <span class="text-base sm:text-2xl font-black text-purple-300 drop-shadow-md">F</span>
+                    <span class="text-[9px] sm:text-[10px] text-purple-400/80 font-sans">물 💧</span>
+                </div>
+
+                <!-- Key Pad J (풀 🍃) -->
+                <div id="pad-2" class="flex-1 h-12 sm:h-16 mx-0.5 sm:mx-1 rounded-xl border-2 neon-box-cyan bg-cyan-950/50 flex flex-col items-center justify-center cursor-pointer transition-all transform active:scale-95 select-none">
+                    <span class="text-base sm:text-2xl font-black text-cyan-300 drop-shadow-md">J</span>
+                    <span class="text-[9px] sm:text-[10px] text-cyan-400/80 font-sans">풀 🍃</span>
+                </div>
+
+                <!-- Key Pad K (번개 ⚡) -->
+                <div id="pad-3" class="flex-1 h-12 sm:h-16 mx-0.5 sm:mx-1 rounded-xl border-2 neon-box-yellow bg-yellow-950/50 flex flex-col items-center justify-center cursor-pointer transition-all transform active:scale-95 select-none">
+                    <span class="text-base sm:text-2xl font-black text-yellow-300 drop-shadow-md">K</span>
+                    <span class="text-[9px] sm:text-[10px] text-yellow-400/80 font-sans">번개 ⚡</span>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Bottom Navigation & Tip Bar -->
+        <div class="w-full flex justify-between items-center py-1 text-[10px] sm:text-xs text-purple-300/80 font-sans">
+            <button onclick="openStageMenu()" class="px-2.5 py-1 bg-purple-900/60 hover:bg-purple-800 border border-purple-500/40 rounded-lg text-purple-200 transition-all cursor-pointer">
+                ⚙️ 단계 선택
+            </button>
+            <span class="truncate ml-2">키보드 <b class="text-pink-400">D, F, J, K</b> 또는 화면 직접 터치</span>
+        </div>
+    </div>
+
+    <!-- START TITLE SCREEN -->
+    <div id="start-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#0b031a]/95 backdrop-blur-xl p-4 text-center">
+        <div class="absolute -top-20 -left-20 w-72 h-72 bg-pink-600/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-20 -right-20 w-80 h-80 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="max-w-md w-full bg-purple-950/50 border-2 border-purple-500/40 rounded-3xl p-5 sm:p-6 shadow-2xl relative flex flex-col items-center">
+            
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-900/60 border border-purple-400/30 text-purple-200 text-xs mb-3 font-sans">
+                <span class="inline-block w-2 h-2 rounded-full bg-pink-400 animate-ping"></span>
+                🎵 원소 리듬 익스피리언스
+            </div>
+
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-purple-300 to-cyan-300 neon-title mb-3 tracking-wide">
+                원소리듬 게임
+            </h1>
+
+            <p class="text-purple-200 text-xs sm:text-sm mb-5 sm:mb-6 leading-relaxed font-sans">
+                모바일과 PC 어디서나 손끝으로 느껴지는 비트!<br>시작 버튼을 눌러 단계를 선택해보세요.
+            </p>
+
+            <div class="grid grid-cols-4 gap-1.5 sm:gap-2 w-full mb-5 sm:mb-6">
+                <div class="p-2 rounded-xl bg-pink-900/40 border border-pink-500/50 flex flex-col items-center">
+                    <span class="text-base sm:text-lg font-bold text-pink-300">D 🔥</span>
+                    <span class="text-[10px] text-pink-200">불</span>
+                </div>
+                <div class="p-2 rounded-xl bg-purple-900/40 border border-purple-500/50 flex flex-col items-center">
+                    <span class="text-base sm:text-lg font-bold text-purple-300">F 💧</span>
+                    <span class="text-[10px] text-purple-200">물</span>
+                </div>
+                <div class="p-2 rounded-xl bg-cyan-900/40 border border-cyan-500/50 flex flex-col items-center">
+                    <span class="text-base sm:text-lg font-bold text-cyan-300">J 🍃</span>
+                    <span class="text-[10px] text-cyan-200">풀</span>
+                </div>
+                <div class="p-2 rounded-xl bg-yellow-900/40 border border-yellow-500/50 flex flex-col items-center">
+                    <span class="text-base sm:text-lg font-bold text-yellow-300">K ⚡</span>
+                    <span class="text-[10px] text-yellow-200">번개</span>
+                </div>
+            </div>
+
+            <button id="title-start-btn" onclick="openStageMenu()" class="w-full py-3.5 sm:py-4 px-6 rounded-2xl bg-gradient-to-r from-pink-500 via-purple-600 to-cyan-500 text-white text-lg sm:text-xl font-black tracking-wider transition-all transform hover:scale-105 active:scale-95 pulse-btn cursor-pointer">
+                🎮 게임 시작 (단계 선택)
+            </button>
+        </div>
+    </div>
+
+    <!-- STAGE SELECTION MENU OVERLAY (Single Clean Stage 3 Button) -->
+    <div id="stage-menu" class="hidden absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#0b031a]/95 backdrop-blur-xl p-4 text-center">
+        <div class="max-w-md w-full bg-purple-950/60 border-2 border-purple-500/50 rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col items-center">
+            
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-cyan-300 mb-1">
+                단계 선택 (STAGE MENU)
+            </h2>
+            <p class="text-xs text-purple-300 mb-4 sm:mb-5 font-sans">도전할 단계를 선택하세요!</p>
+
+            <div class="w-full space-y-3 mb-5 sm:mb-6">
+                
+                <!-- STAGE 1 -->
+                <button onclick="startStage(1)" class="w-full p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-pink-950/60 via-purple-900/40 to-black border-2 border-pink-500/40 hover:border-pink-400 text-left transition-all transform hover:scale-[1.02] active:scale-98 flex items-center justify-between group cursor-pointer shadow-lg">
+                    <div>
+                        <div class="flex items-center gap-1.5 sm:gap-2">
+                            <span class="px-2 py-0.5 rounded bg-pink-500/30 border border-pink-400 text-pink-300 text-[11px] sm:text-xs font-bold">1단계</span>
+                            <span class="text-sm sm:text-base font-bold text-white group-hover:text-pink-300">Dawn of Fire & Water</span>
+                        </div>
+                        <p class="text-[10px] sm:text-[11px] text-purple-300 mt-1 font-sans">느긋한 비트와 기본 리듬 익히기 (입문)</p>
+                    </div>
+                    <div class="text-right pl-2">
+                        <span class="text-xs text-pink-400 font-bold block">★☆☆</span>
+                        <span class="text-[10px] sm:text-xs text-purple-300 font-mono">BPM 110</span>
+                    </div>
+                </button>
+
+                <!-- STAGE 2 -->
+                <button onclick="startStage(2)" class="w-full p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-purple-950/60 via-indigo-900/40 to-black border-2 border-purple-500/40 hover:border-purple-400 text-left transition-all transform hover:scale-[1.02] active:scale-98 flex items-center justify-between group cursor-pointer shadow-lg">
+                    <div>
+                        <div class="flex items-center gap-1.5 sm:gap-2">
+                            <span class="px-2 py-0.5 rounded bg-purple-500/30 border border-purple-400 text-purple-300 text-[11px] sm:text-xs font-bold">2단계</span>
+                            <span class="text-sm sm:text-base font-bold text-white group-hover:text-purple-300">Storm of Elements</span>
+                        </div>
+                        <p class="text-[10px] sm:text-[11px] text-purple-300 mt-1 font-sans">여유 있는 4가지 원소 노트의 연속 (중급)</p>
+                    </div>
+                    <div class="text-right pl-2">
+                        <span class="text-xs text-purple-400 font-bold block">★★☆</span>
+                        <span class="text-[10px] sm:text-xs text-purple-300 font-mono">BPM 130</span>
+                    </div>
+                </button>
+
+                <!-- STAGE 3 (SINGLE FINAL STAGE) -->
+                <button onclick="startStage(3)" class="w-full p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-purple-950/80 via-pink-900/60 to-cyan-950/80 border-2 border-yellow-400 hover:border-pink-400 text-left transition-all transform hover:scale-[1.02] active:scale-98 flex items-center justify-between group cursor-pointer shadow-[0_0_20px_rgba(250,204,21,0.3)]">
+                    <div>
+                        <div class="flex items-center gap-1.5 sm:gap-2">
+                            <span class="px-2 py-0.5 rounded bg-yellow-400 text-black text-[11px] sm:text-xs font-extrabold animate-pulse">3단계 [최종]</span>
+                            <span class="text-sm sm:text-base font-bold text-yellow-300 group-hover:text-pink-300">Every End...</span>
+                        </div>
+                        <p class="text-[10px] sm:text-[11px] text-pink-200 mt-1 font-sans">빠른 Synth 비트와 톡톡 튀는 원소 리듬의 최종장! 🔥</p>
+                    </div>
+                    <div class="text-right pl-2">
+                        <span class="text-xs text-yellow-300 font-bold block">★★★</span>
+                        <span class="text-[10px] sm:text-xs text-cyan-300 font-mono">BPM 148</span>
+                    </div>
+                </button>
+
+            </div>
+
+            <button onclick="backToTitle()" class="py-2 px-6 rounded-xl bg-purple-900/40 hover:bg-purple-800/60 border border-purple-500/40 text-purple-300 text-xs font-bold transition-all cursor-pointer">
+                ⬅️ 타이틀 화면으로
+            </button>
+        </div>
+    </div>
+
+    <!-- RESULT OVERLAY -->
+    <div id="result-screen" class="hidden absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#0b031a]/95 backdrop-blur-xl p-4 text-center">
+        <div class="max-w-md w-full bg-purple-950/60 border-2 border-purple-500/50 rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col items-center">
+            
+            <h2 id="result-stage-label" class="text-xl sm:text-2xl text-purple-300 font-bold mb-1">STAGE CLEAR!</h2>
+            <div id="result-rank" class="text-5xl sm:text-6xl font-extrabold text-yellow-300 drop-shadow-[0_0_20px_#facc15] my-2">SSS</div>
+
+            <div class="w-full bg-black/50 rounded-2xl p-3.5 sm:p-4 border border-purple-800/60 my-3 sm:my-4 space-y-2 text-xs sm:text-sm">
+                <div class="flex justify-between items-center border-b border-purple-800/40 pb-2">
+                    <span class="text-purple-300">최종 점수</span>
+                    <span id="res-score" class="text-pink-400 font-bold text-base sm:text-lg">000000</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-purple-300">최대 콤보</span>
+                    <span id="res-combo" class="text-cyan-300 font-bold">0 COMBO</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-yellow-400 font-bold">PERFECT</span>
+                    <span id="res-perfect" class="text-yellow-300 font-bold">0</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-cyan-400 font-bold">GOOD</span>
+                    <span id="res-good" class="text-cyan-300 font-bold">0</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-red-400 font-bold">MISS</span>
+                    <span id="res-miss" class="text-red-400 font-bold">0</span>
+                </div>
+                <div class="flex justify-between items-center border-t border-purple-800/40 pt-2">
+                    <span class="text-purple-300">정확도</span>
+                    <span id="res-accuracy" class="text-purple-200 font-bold">100%</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5 sm:gap-3 w-full">
+                <button onclick="restartCurrentStage()" class="py-2.5 sm:py-3 px-4 rounded-xl bg-purple-900/80 hover:bg-purple-800 border border-purple-500/50 text-white font-bold transition-all active:scale-95 cursor-pointer text-xs sm:text-sm">
+                    🔄 다시 도전
+                </button>
+                <button onclick="openStageMenu()" class="py-2.5 sm:py-3 px-4 rounded-xl bg-gradient-to-r from-pink-500 to-cyan-500 text-white font-bold transition-all transform hover:scale-105 active:scale-95 cursor-pointer text-xs sm:text-sm shadow-md">
+                    📜 단계 메뉴
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const gameStage = document.getElementById('game-stage');
+        const startScreen = document.getElementById('start-screen');
+        const stageMenu = document.getElementById('stage-menu');
+        const resultScreen = document.getElementById('result-screen');
+        const scoreDisplay = document.getElementById('score-display');
+        const comboDisplay = document.getElementById('combo-display');
+        const stageTitleDisplay = document.getElementById('stage-title-display');
+        const judgmentPopup = document.getElementById('judgment-popup');
+        const progressBar = document.getElementById('progress-bar');
+        const canvas = document.getElementById('fx-canvas');
+        const ctx = canvas.getContext('2d');
+
+        const pads = [
+            document.getElementById('pad-0'),
+            document.getElementById('pad-1'),
+            document.getElementById('pad-2'),
+            document.getElementById('pad-3')
+        ];
+        const lanes = [
+            document.getElementById('lane-0'),
+            document.getElementById('lane-1'),
+            document.getElementById('lane-2'),
+            document.getElementById('lane-3')
+        ];
+
+        // Key to Lane Mapping
+        const keyMap = {
+            'd': 0, 'D': 0, 'ㄷ': 0,
+            'f': 1, 'F': 1, 'ㄹ': 1,
+            'j': 2, 'J': 2, 'ㅓ': 2,
+            'k': 3, 'K': 3, '├': 3, 'ㅏ': 3
+        };
+
+        const LANE_COLORS = ['#ff2a8d', '#a855f7', '#38bdf8', '#facc15'];
+        const LANE_EMOJIS = ['🔥', '💧', '🍃', '⚡'];
+        const LANE_NOTE_STYLES = [
+            'bg-gradient-to-b from-pink-400 to-pink-600 border-2 border-pink-200 shadow-[0_0_20px_#ff2a8d]',
+            'bg-gradient-to-b from-purple-400 to-purple-600 border-2 border-purple-200 shadow-[0_0_20px_#a855f7]',
+            'bg-gradient-to-b from-cyan-400 to-cyan-600 border-2 border-cyan-200 shadow-[0_0_20px_#38bdf8]',
+            'bg-gradient-to-b from-yellow-300 to-yellow-500 border-2 border-yellow-100 shadow-[0_0_20px_#facc15]'
+        ];
+
+        // Active Game State
+        let currentStageNumber = 1;
+        let fallSpeedMs = 2000;
+        let currentBPM = 110;
+        let sixteenthMs = 125;
+
+        let isGameRunning = false;
+        let gameStartTime = 0;
+        let songDurationMs = 0;
+
+        let score = 0;
+        let combo = 0;
+        let maxCombo = 0;
+        let perfectCount = 0;
+        let goodCount = 0;
+        let missCount = 0;
+
+        let songChart = [];
+        let activeNotes = [];
+
+        // NAVIGATION FUNCTIONS
+        function openStageMenu() {
+            startScreen.classList.add('hidden');
+            resultScreen.classList.add('hidden');
+            gameStage.classList.add('hidden');
+            stageMenu.classList.remove('hidden');
+            isGameRunning = false;
+        }
+
+        function backToTitle() {
+            stageMenu.classList.add('hidden');
+            resultScreen.classList.add('hidden');
+            gameStage.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+            isGameRunning = false;
+        }
+
+        function resizeCanvas() {
+            if (!canvas || !canvas.parentElement) return;
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // ResizeObserver for modern smooth responsive layout
+        if (window.ResizeObserver && canvas.parentElement) {
+            new ResizeObserver(() => resizeCanvas()).observe(canvas.parentElement);
+        }
+
+        // FX Particles and Shockwaves
+        let particles = [];
+        let shockwaves = [];
+
+        function spawnHitParticles(laneIndex) {
+            const laneWidth = canvas.width / 4;
+            const x = laneWidth * laneIndex + laneWidth / 2;
+            const y = canvas.height - 70;
+            const color = LANE_COLORS[laneIndex];
+
+            shockwaves.push({
+                x: x, y: y, radius: 10, maxRadius: 55, alpha: 1, color: color
+            });
+
+            for (let i = 0; i < 18; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 3.5 + Math.random() * 7;
+                particles.push({
+                    x: x, y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: 2.5 + Math.random() * 3.5,
+                    color: color,
+                    alpha: 1,
+                    decay: 0.03 + Math.random() * 0.03
+                });
+            }
+        }
+
+        function renderFX() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = shockwaves.length - 1; i >= 0; i--) {
+                const sw = shockwaves[i];
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = sw.color;
+                ctx.lineWidth = 3.5;
+                ctx.globalAlpha = sw.alpha;
+                ctx.stroke();
+                ctx.restore();
+
+                sw.radius += 3.2;
+                sw.alpha -= 0.05;
+                if (sw.alpha <= 0) shockwaves.splice(i, 1);
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.alpha;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = p.color;
+                ctx.fill();
+                ctx.restore();
+
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.15;
+                p.alpha -= p.decay;
+
+                if (p.alpha <= 0) particles.splice(i, 1);
+            }
+        }
+
+        let audioCtx = null;
+        let noiseBuffer = null;
+        let audioStartTime = 0;
+        let nextAudioBeatTime = 0;
+
+        const MELODY_FREQ = [
+            523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 1046.50, 1174.66
+        ];
+
+        function initAudioEngine() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            if (!noiseBuffer) {
+                const bufferSize = audioCtx.sampleRate * 0.5;
+                noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const output = noiseBuffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+            }
+        }
+
+        function playKick(time) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.frequency.setValueAtTime(150, time);
+            osc.frequency.exponentialRampToValueAtTime(30, time + 0.09);
+            gain.gain.setValueAtTime(0.5, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.09);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(time);
+            osc.stop(time + 0.09);
+        }
+
+        function playSnare(time) {
+            if (!audioCtx || !noiseBuffer) return;
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = noiseBuffer;
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'highpass';
+            filter.frequency.value = 1000;
+
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0.3, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.12);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            noise.start(time);
+            noise.stop(time + 0.12);
+        }
+
+        function playSynthLeadNote(freq, time, duration = 0.12) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(freq, time);
+
+            gain.gain.setValueAtTime(0.12, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(time);
+            osc.stop(time + duration);
+        }
+
+        function playKeySound(index) {
+            try {
+                initAudioEngine();
+                const freqs = [261.63, 329.63, 392.00, 523.25];
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freqs[index], audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.15);
+            } catch (e) {}
+        }
+
+        function scheduleAudioBeats() {
+            if (!audioCtx || !isGameRunning) return;
+            const nowAudio = audioCtx.currentTime;
+            const beatIntervalSec = sixteenthMs / 1000;
+            
+            while (nextAudioBeatTime < nowAudio + 0.2 && isGameRunning) {
+                const beatIndex = Math.floor((nextAudioBeatTime - audioStartTime) / beatIntervalSec);
+                
+                if (beatIndex % 4 === 0) playKick(nextAudioBeatTime);
+                if (beatIndex % 8 === 4) playSnare(nextAudioBeatTime);
+                
+                if (beatIndex % 2 === 0) {
+                    const freq = MELODY_FREQ[beatIndex % MELODY_FREQ.length];
+                    playSynthLeadNote(freq, nextAudioBeatTime, 0.1);
+                }
+                
+                nextAudioBeatTime += beatIntervalSec;
+            }
+        }
+
+        function generateChartForStage(stageNum) {
+            const chart = [];
+            let noteId = 0;
+            const startDelay = 1500;
+
+            if (stageNum === 1) {
+                currentBPM = 110;
+                fallSpeedMs = 2300;
+                sixteenthMs = ((60 / currentBPM) * 1000) / 4;
+
+                const patternLength = 32;
+                const totalLoops = 3;
+                const simpleLanes = [0, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 2, 1, 3];
+
+                for (let loop = 0; loop < totalLoops; loop++) {
+                    const loopStartMs = startDelay + loop * (patternLength * sixteenthMs);
+
+                    for (let i = 0; i < patternLength; i += 4) {
+                        const targetTime = loopStartMs + (i * sixteenthMs);
+                        chart.push({
+                            id: noteId++,
+                            time: targetTime,
+                            lane: simpleLanes[(i / 4 + loop * 4) % simpleLanes.length],
+                            spawned: false,
+                            hit: false,
+                            missed: false
+                        });
+                    }
+                }
+                songDurationMs = startDelay + totalLoops * (patternLength * sixteenthMs) + 2000;
+
+            } else if (stageNum === 2) {
+                currentBPM = 130;
+                fallSpeedMs = 1900;
+                sixteenthMs = ((60 / currentBPM) * 1000) / 4;
+
+                const patternLength = 48;
+                const totalLoops = 4;
+                const medLanes = [
+                    0, 1, 2, 3, 1, 0, 2, 3, 0, 2, 1, 3, 3, 2, 1, 0,
+                    0, 1, 0, 2, 1, 3, 2, 3, 0, 3, 1, 2, 0, 1, 2, 3
+                ];
+
+                for (let loop = 0; loop < totalLoops; loop++) {
+                    const loopStartMs = startDelay + loop * (patternLength * sixteenthMs);
+
+                    for (let i = 0; i < patternLength; i += 3) {
+                        const targetTime = loopStartMs + (i * sixteenthMs);
+                        chart.push({
+                            id: noteId++,
+                            time: targetTime,
+                            lane: medLanes[(Math.floor(i / 3) + loop * 8) % medLanes.length],
+                            spawned: false,
+                            hit: false,
+                            missed: false
+                        });
+                    }
+                }
+                songDurationMs = startDelay + totalLoops * (patternLength * sixteenthMs) + 2000;
+
+            } else {
+                // STAGE 3 (FINAL STAGE) - BPM 148, SLIGHTLY HARDER WITH ELEGANT SYNCOPATIONS
+                currentBPM = 148;
+                fallSpeedMs = 1580; // Slightly crisp speed adjustment
+                sixteenthMs = ((60 / currentBPM) * 1000) / 4;
+
+                const patternLength = 64;
+                const totalLoops = 4;
+                const hardLanes = [
+                    0, 1, 2, 3, 0, 2, 1, 3, 2, 0, 3, 1, 0, 1, 2, 3,
+                    1, 0, 3, 2, 1, 3, 0, 2, 3, 1, 0, 2, 1, 2, 3, 0
+                ];
+
+                for (let loop = 0; loop < totalLoops; loop++) {
+                    const loopStartMs = startDelay + loop * (patternLength * sixteenthMs);
+
+                    for (let i = 0; i < patternLength; i++) {
+                        // Base 4-beat rhythm + syncopation notes on beat 2 + slight extra syncopation for loops 1-3
+                        const isMainBeat = (i % 4 === 0);
+                        const isSyncopated = (i % 8 === 2);
+                        const isLightAccent = (loop >= 1 && i % 16 === 10); // Very subtle difficulty bump
+
+                        if (isMainBeat || isSyncopated || isLightAccent) {
+                            const targetTime = loopStartMs + (i * sixteenthMs);
+                            chart.push({
+                                id: noteId++,
+                                time: targetTime,
+                                lane: hardLanes[i % hardLanes.length],
+                                spawned: false,
+                                hit: false,
+                                missed: false
+                            });
+                        }
+                    }
+                }
+                songDurationMs = startDelay + totalLoops * (patternLength * sixteenthMs) + 2000;
+            }
+
+            return chart;
+        }
+
+        function startStage(stageNum) {
+            initAudioEngine();
+
+            currentStageNumber = stageNum;
+            score = 0;
+            combo = 0;
+            maxCombo = 0;
+            perfectCount = 0;
+            goodCount = 0;
+            missCount = 0;
+
+            // Clear active note DOM elements
+            activeNotes.forEach(n => n.domEl && n.domEl.remove());
+            activeNotes = [];
+
+            if (stageNum === 1) {
+                stageTitleDisplay.textContent = '🧪 1단계: Dawn of Fire & Water';
+            } else if (stageNum === 2) {
+                stageTitleDisplay.textContent = '⚡ 2단계: Storm of Elements';
+            } else {
+                stageTitleDisplay.textContent = '🔥 3단계 [최종]: Every End...';
+            }
+
+            songChart = generateChartForStage(stageNum);
+            updateScoreDisplay();
+
+            startScreen.classList.add('hidden');
+            stageMenu.classList.add('hidden');
+            resultScreen.classList.add('hidden');
+            gameStage.classList.remove('hidden');
+
+            resizeCanvas();
+
+            isGameRunning = true;
+            gameStartTime = Date.now();
+            audioStartTime = audioCtx.currentTime;
+            nextAudioBeatTime = audioStartTime;
+
+            requestAnimationFrame(updateGameLoop);
+        }
+
+        // JUDGMENT & SCORE DISPLAY
+        function updateScoreDisplay() {
+            scoreDisplay.textContent = String(score).padStart(6, '0');
+            comboDisplay.textContent = `${combo} COMBO`;
+        }
+
+        function showJudgment(text, color) {
+            judgmentPopup.innerHTML = `<span style="color: ${color}; text-shadow: 0 0 20px ${color}; font-size: 2rem; font-weight: 900;">${text}</span>`;
+            judgmentPopup.classList.remove('animate-judgment');
+            void judgmentPopup.offsetWidth;
+            judgmentPopup.classList.add('animate-judgment');
+        }
+
+        function shakeStage() {
+            // 화면 흔들림 효과 비활성화 (요청 사항 반영)
+        }
+
+        function pressLane(laneIndex) {
+            if (!isGameRunning) return;
+
+            lanes[laneIndex].classList.add(`lane-active-${laneIndex}`);
+            pads[laneIndex].classList.add('scale-95');
+            setTimeout(() => {
+                lanes[laneIndex].classList.remove(`lane-active-${laneIndex}`);
+                pads[laneIndex].classList.remove('scale-95');
+            }, 100);
+
+            playKeySound(laneIndex);
+
+            const now = Date.now();
+            const elapsedTime = now - gameStartTime;
+
+            let targetNote = null;
+            let minDelta = Infinity;
+
+            for (let i = 0; i < activeNotes.length; i++) {
+                const note = activeNotes[i];
+                if (note.lane === laneIndex && !note.hit && !note.missed) {
+                    const delta = Math.abs(elapsedTime - note.time);
+                    if (delta < minDelta) {
+                        minDelta = delta;
+                        targetNote = note;
+                    }
+                }
+            }
+
+            const PERFECT_WINDOW = 150;
+            const GOOD_WINDOW = 300;
+
+            if (targetNote && minDelta <= GOOD_WINDOW) {
+                targetNote.hit = true;
+                if (targetNote.domEl) targetNote.domEl.remove();
+
+                if (minDelta <= PERFECT_WINDOW) {
+                    score += 1000 + combo * 10;
+                    combo++;
+                    perfectCount++;
+                    showJudgment('PERFECT', '#facc15');
+                } else {
+                    score += 500 + combo * 5;
+                    combo++;
+                    goodCount++;
+                    showJudgment('GOOD', '#38bdf8');
+                }
+
+                if (combo > maxCombo) maxCombo = combo;
+                spawnHitParticles(laneIndex);
+                updateScoreDisplay();
+            } else {
+                // EMPTY HIT PENALTY (MISS)
+                combo = 0;
+                missCount++;
+                showJudgment('MISS', '#ef4444');
+                shakeStage();
+                updateScoreDisplay();
+            }
+        }
+
+        function updateGameLoop() {
+            if (!isGameRunning) return;
+
+            const now = Date.now();
+            const elapsedTime = now - gameStartTime;
+
+            // Audio loop
+            scheduleAudioBeats();
+
+            // Progress Bar
+            const progress = Math.min(100, (elapsedTime / songDurationMs) * 100);
+            progressBar.style.width = `${progress}%`;
+
+            // Spawn notes
+            for (let i = 0; i < songChart.length; i++) {
+                const note = songChart[i];
+                if (!note.spawned && note.time - fallSpeedMs <= elapsedTime) {
+                    note.spawned = true;
+                    
+                    const el = document.createElement('div');
+                    el.className = `absolute w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center font-bold text-lg sm:text-xl text-white pointer-events-none transition-transform ${LANE_NOTE_STYLES[note.lane]}`;
+                    el.innerHTML = LANE_EMOJIS[note.lane];
+                    el.style.top = '-50px';
+                    
+                    lanes[note.lane].appendChild(el);
+                    note.domEl = el;
+                    activeNotes.push(note);
+                }
+            }
+
+            // Update Note Positions & Check Misses
+            const laneHeight = lanes[0].clientHeight;
+            const targetY = laneHeight - 75;
+
+            for (let i = activeNotes.length - 1; i >= 0; i--) {
+                const note = activeNotes[i];
+
+                if (note.hit) {
+                    activeNotes.splice(i, 1);
+                    continue;
+                }
+
+                const timeUntilHit = note.time - elapsedTime;
+                const currentY = targetY - (timeUntilHit / fallSpeedMs) * targetY;
+
+                if (note.domEl) {
+                    note.domEl.style.transform = `translateY(${currentY + 45}px)`;
+                }
+
+                // Check Miss (Passed line without tap)
+                if (elapsedTime - note.time > 300 && !note.missed) {
+                    note.missed = true;
+                    if (note.domEl) note.domEl.remove();
+                    combo = 0;
+                    missCount++;
+                    showJudgment('MISS', '#ef4444');
+                    shakeStage();
+                    updateScoreDisplay();
+                    activeNotes.splice(i, 1);
+                }
+            }
+
+            // Render Particle Canvas
+            renderFX();
+
+            // Check Song End
+            if (elapsedTime >= songDurationMs && activeNotes.length === 0) {
+                endGame();
+                return;
+            }
+
+            requestAnimationFrame(updateGameLoop);
+        }
+
+        function endGame() {
+            isGameRunning = false;
+            
+            const totalNotes = perfectCount + goodCount + missCount;
+            const accuracy = totalNotes > 0 ? Math.round(((perfectCount * 100 + goodCount * 50) / (totalNotes * 100)) * 100) : 100;
+
+            document.getElementById('result-stage-label').textContent = `STAGE ${currentStageNumber} CLEAR!`;
+            document.getElementById('res-score').textContent = String(score).padStart(6, '0');
+            document.getElementById('res-combo').textContent = `${maxCombo} COMBO`;
+            document.getElementById('res-perfect').textContent = perfectCount;
+            document.getElementById('res-good').textContent = goodCount;
+            document.getElementById('res-miss').textContent = missCount;
+            document.getElementById('res-accuracy').textContent = `${accuracy}%`;
+
+            let rank = 'F';
+            if (accuracy >= 98) rank = 'SSS';
+            else if (accuracy >= 92) rank = 'SS';
+            else if (accuracy >= 85) rank = 'S';
+            else if (accuracy >= 75) rank = 'A';
+            else if (accuracy >= 60) rank = 'B';
+            else rank = 'C';
+
+            document.getElementById('result-rank').textContent = rank;
+            resultScreen.classList.remove('hidden');
+        }
+
+        function restartCurrentStage() {
+            resultScreen.classList.add('hidden');
+            startStage(currentStageNumber);
+        }
+
+        // Global Keyboard Event Listener for PC
+        window.addEventListener('keydown', (e) => {
+            if (e.repeat) return;
+            const laneIndex = keyMap[e.key];
+            if (laneIndex !== undefined) {
+                pressLane(laneIndex);
+            }
+        });
+
+        // Touch & Mouse Button Pad Listeners (Full Multi-touch support for mobile phones)
+        [0, 1, 2, 3].forEach(index => {
+            const pad = pads[index];
+            const lane = lanes[index];
+
+            const handleTouchStart = (e) => {
+                e.preventDefault();
+                pressLane(index);
+            };
+
+            const handleMouseDown = (e) => {
+                if (e.button === 0) {
+                    pressLane(index);
+                }
+            };
+
+            pad.addEventListener('touchstart', handleTouchStart, { passive: false });
+            pad.addEventListener('mousedown', handleMouseDown);
+
+            lane.addEventListener('touchstart', handleTouchStart, { passive: false });
+            lane.addEventListener('mousedown', handleMouseDown);
+        });
+    </script>
+</body>
+</html>
