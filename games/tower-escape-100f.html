@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>100층 아파트 탈출 : 100 Floors Down</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js for Sound Effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Pretendard:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: #050811;
+            color: #f3f4f6;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', monospace;
+        }
+
+        .glass-panel {
+            background: rgba(13, 19, 33, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+        }
+
+        .glow-cyan {
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.4);
+        }
+
+        .glow-amber {
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.5);
+        }
+
+        .glow-text-cyan {
+            text-shadow: 0 0 12px rgba(6, 182, 212, 0.8);
+        }
+
+        .glow-text-amber {
+            text-shadow: 0 0 12px rgba(245, 158, 11, 0.8);
+        }
+
+        /* Elevator Door Slide Animations */
+        .door-left, .door-right {
+            transition: transform 0.8s cubic-bezier(0.77, 0, 0.175, 1);
+        }
+        .doors-closed .door-left {
+            transform: translateX(0%);
+        }
+        .doors-closed .door-right {
+            transform: translateX(0%);
+        }
+        .doors-open .door-left {
+            transform: translateX(-100%);
+        }
+        .doors-open .door-right {
+            transform: translateX(100%);
+        }
+
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(6, 182, 212, 0.4);
+            border-radius: 3px;
+        }
+
+        /* Pulse highlight for interactive hotspots */
+        @keyframes subtle-pulse {
+            0%, 100% { opacity: 0.2; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.04); }
+        }
+        .hotspot-glow {
+            animation: subtle-pulse 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col justify-between overflow-hidden relative">
+
+    <!-- START SCREEN -->
+    <div id="start-screen" class="absolute inset-0 z-50 flex flex-col justify-between items-center p-6 bg-slate-950 transition-opacity duration-700">
+        <!-- Canvas for Dynamic Apartment Night Graphic -->
+        <canvas id="apartment-canvas" class="absolute inset-0 w-full h-full object-cover opacity-80 z-0"></canvas>
+
+        <div class="relative z-10 text-center mt-10 md:mt-16 max-w-xl glass-panel p-6 md:p-8 rounded-3xl border border-cyan-500/30">
+            <div class="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded-full text-xs font-semibold mb-3 animate-pulse">
+                <i data-lucide="building" class="w-4 h-4"></i> 초고층 타워 아파트 탈출 추리
+            </div>
+            <h1 class="text-3xl md:text-5xl font-black font-orbitron tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-cyan-300 to-sky-400 mb-2 glow-text-cyan">
+                100 FLOORS DOWN
+            </h1>
+            <p class="text-lg md:text-xl font-bold text-gray-200 mb-4">100층 아파트 탈출</p>
+            <p class="text-xs md:text-sm text-gray-300 leading-relaxed max-w-md mx-auto">
+                당신은 100층 펜트하우스에 갇혔습니다.<br>
+                층마다 숨겨진 암호와 단서를 해결하고 엘리베이터를 가동하여<br>
+                <strong class="text-cyan-400">1층 로비</strong> 밖으로 무사히 탈출하십시오!
+            </p>
+        </div>
+
+        <div class="relative z-10 mb-12 flex flex-col items-center gap-4">
+            <button id="btn-start-game" class="px-10 py-4 bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-extrabold text-lg md:text-xl rounded-2xl shadow-xl shadow-cyan-500/30 active:scale-95 transition-all duration-200 flex items-center gap-3 border border-cyan-300/40 glow-cyan">
+                <i data-lucide="play-circle" class="w-7 h-7 text-cyan-200"></i>
+                탈출 시작하기 (100F)
+            </button>
+            <div class="flex items-center gap-4 text-xs text-gray-400">
+                <span class="flex items-center gap-1"><i data-lucide="mouse-pointer" class="w-3.5 h-3.5 text-cyan-400"></i> 포인트 앤 클릭</span>
+                <span>•</span>
+                <span class="flex items-center gap-1"><i data-lucide="volume-2" class="w-3.5 h-3.5 text-cyan-400"></i> 사운드 지원</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN GAME SCREEN -->
+    <div id="game-screen" class="relative w-full h-full flex flex-col justify-between p-3 md:p-6 hidden">
+
+        <!-- Header Dashboard / HUD -->
+        <header class="w-full flex justify-between items-center z-20">
+            <!-- Floor Indicator -->
+            <div class="glass-panel px-4 py-2.5 rounded-2xl flex items-center gap-3 border-l-4 border-l-cyan-400 shadow-lg">
+                <div class="p-2 bg-slate-900/80 rounded-xl border border-cyan-500/30">
+                    <i data-lucide="arrow-down-circle" class="w-6 h-6 text-cyan-400 animate-bounce"></i>
+                </div>
+                <div>
+                    <div class="text-[10px] text-gray-400 font-semibold uppercase tracking-widest">CURRENT LOCATION</div>
+                    <div class="text-2xl md:text-3xl font-black font-orbitron text-amber-400 glow-text-amber flex items-baseline gap-1.5">
+                        <span id="hud-floor">100</span><span class="text-xs font-semibold text-gray-300">F</span>
+                        <span id="hud-stage-title" class="text-xs font-normal text-cyan-300 ml-2 font-sans border-l border-gray-700 pl-2">펜트하우스 거실</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Header Controls -->
+            <div class="flex items-center gap-2">
+                <button id="btn-hint" class="px-3.5 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 font-bold text-xs md:text-sm rounded-xl transition-all flex items-center gap-1.5">
+                    <i data-lucide="lightbulb" class="w-4 h-4 text-amber-400"></i>
+                    <span>힌트</span>
+                </button>
+                <button id="btn-sound-toggle" class="p-2.5 bg-slate-800/80 hover:bg-slate-700 text-cyan-400 border border-slate-700 rounded-xl transition-all">
+                    <i data-lucide="volume-2" id="icon-sound" class="w-5 h-5"></i>
+                </button>
+                <button id="btn-restart" class="p-2.5 bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-800/40 rounded-xl transition-all" title="처음부터 다시하기">
+                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Interactive Escape Room Stage Area -->
+        <main class="relative flex-1 my-3 w-full max-w-5xl mx-auto glass-panel rounded-3xl border border-cyan-500/20 overflow-hidden flex flex-col items-center justify-center shadow-2xl">
+            <!-- Room Background View (Interactive SVG / Dynamic HTML Elements) -->
+            <div id="room-container" class="relative w-full h-full flex items-center justify-center p-4">
+                <!-- Dynamically Rendered Room Scene Elements Go Here -->
+            </div>
+
+            <!-- Floating Room Status Banner -->
+            <div id="status-toast" class="absolute bottom-4 left-1/2 -translate-x-1/2 px-5 py-2 bg-slate-900/90 text-cyan-300 text-xs md:text-sm font-semibold rounded-full border border-cyan-500/40 shadow-xl opacity-0 transition-opacity duration-300 pointer-events-none flex items-center gap-2">
+                <i data-lucide="info" class="w-4 h-4 text-cyan-400"></i>
+                <span id="toast-text">방 안을 조사해보세요.</span>
+            </div>
+        </main>
+
+        <!-- Bottom Inventory Deck -->
+        <footer class="w-full max-w-5xl mx-auto glass-panel p-3 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-3 border border-slate-700/60 z-20">
+            <div class="flex items-center gap-2 text-xs text-gray-400 font-bold uppercase tracking-wider min-w-[100px]">
+                <i data-lucide="briefcase" class="w-4 h-4 text-cyan-400"></i> 소지품 덱
+            </div>
+
+            <!-- Inventory Item Slots -->
+            <div id="inventory-slots" class="flex items-center gap-2 overflow-x-auto w-full py-1 px-2 justify-start md:justify-center">
+                <div class="text-xs text-gray-500 italic">획득한 아이템이 없습니다.</div>
+            </div>
+
+            <!-- Item Action / Description Info -->
+            <div id="selected-item-info" class="text-xs text-cyan-300 font-medium text-center md:text-right min-w-[180px] h-5 truncate">
+                선택된 아이템 없음
+            </div>
+        </footer>
+    </div>
+
+    <!-- PUZZLE MODALS OVERLAY LAYER -->
+    <div id="modal-container" class="fixed inset-0 z-40 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <!-- Dynamic Popup Modal Content Injected Here -->
+        <div id="modal-content" class="glass-panel p-6 rounded-3xl max-w-md w-full border border-cyan-500/40 shadow-2xl relative">
+            <!-- Modal Body -->
+        </div>
+    </div>
+
+    <!-- ELEVATOR ANIMATION OVERLAY -->
+    <div id="elevator-overlay" class="fixed inset-0 z-50 flex pointer-events-none opacity-0 transition-opacity duration-500">
+        <div class="door-left w-1/2 h-full bg-slate-900 border-r-2 border-cyan-500/50 flex flex-col justify-center items-end pr-6 shadow-2xl">
+            <div class="w-16 h-32 bg-slate-800 rounded-lg border border-slate-700 flex flex-col items-center justify-around p-2 shadow-inner">
+                <div class="w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500 text-amber-400 flex items-center justify-center font-black font-orbitron text-xs">▼</div>
+                <div id="elevator-floor-disp" class="text-xl font-black font-orbitron text-cyan-400 glow-text-cyan">100F</div>
+            </div>
+        </div>
+        <div class="door-right w-1/2 h-full bg-slate-900 border-l-2 border-cyan-500/50 flex flex-col justify-center items-start pl-6 shadow-2xl">
+            <div class="text-xs text-gray-400 font-orbitron tracking-widest uppercase">ELEVATOR SHAFT DESCENT</div>
+        </div>
+    </div>
+
+    <!-- ENDING / ESCAPE SUCCESS SCREEN -->
+    <div id="ending-screen" class="fixed inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center p-6 hidden">
+        <div class="glass-panel p-8 md:p-12 rounded-3xl max-w-lg w-full text-center border-2 border-emerald-500/50 shadow-2xl">
+            <div class="w-20 h-20 bg-emerald-500/20 rounded-full border border-emerald-500 text-emerald-400 flex items-center justify-center mx-auto mb-4 animate-bounce">
+                <i data-lucide="door-open" class="w-10 h-10"></i>
+            </div>
+            <h2 class="text-3xl md:text-4xl font-black font-orbitron text-emerald-400 glow-text-cyan mb-2">
+                ESCAPE SUCCESS!
+            </h2>
+            <p class="text-lg font-bold text-gray-200 mb-4">1층 메인 로비 탈출 성공!</p>
+            <p class="text-sm text-gray-300 leading-relaxed mb-6">
+                100층 펜트하우스에서 시작하여 모든 수수께끼와 암호를 풀고 무사히 지상 1층 밖으로 탈출하였습니다!
+            </p>
+
+            <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 mb-6 flex justify-around text-xs">
+                <div>
+                    <div class="text-gray-400">탈출 층수</div>
+                    <div class="text-lg font-bold font-orbitron text-cyan-400">100 F</div>
+                </div>
+                <div class="border-r border-slate-800"></div>
+                <div>
+                    <div class="text-gray-400">사용 힌트</div>
+                    <div id="end-stat-hints" class="text-lg font-bold font-orbitron text-amber-400">0 회</div>
+                </div>
+            </div>
+
+            <button id="btn-replay" class="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-lg rounded-2xl shadow-xl shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-2">
+                <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                다시 탈출 도전하기
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- GAME STAGES DATA & LOGIC ---
+        const GAME_STATE = {
+            currentStageIndex: 0,
+            inventory: [],
+            selectedItemId: null,
+            soundEnabled: true,
+            hintsCount: 0,
+            stageData: [
+                {
+                    floor: 100,
+                    title: "펜트하우스 (Top Penthouse)",
+                    hint: "벽의 그림 뒤를 확인하여 금고를 열고, 책상 서랍에서 돋보기를 얻으세요.",
+                    solved: false
+                },
+                {
+                    floor: 85,
+                    title: "전기 및 서버실 (Power & Server)",
+                    hint: "서버 퓨즈함에서 적색과 청색 퓨즈 위치를 맞추어 비상 전력을 가동하세요.",
+                    solved: false
+                },
+                {
+                    floor: 60,
+                    title: "비밀 연구원 서재 (Secret Library)",
+                    hint: "벽면에 UV 플래시를 비추어 숨겨진 암호를 확인하고 암호 락을 해제하세요.",
+                    solved: false
+                },
+                {
+                    floor: 35,
+                    title: "보안 통제실 (Security Control)",
+                    hint: "CCTV 모니터 화면의 숫자 순서를 분석하여 중앙 제어 보안 암호를 입력하세요.",
+                    solved: false
+                },
+                {
+                    floor: 10,
+                    title: "지하 기계실 (Mechanical Room)",
+                    hint: "배관 압력 밸브를 회전시켜 증기 압력을 정방향(Green)으로 맞추세요.",
+                    solved: false
+                },
+                {
+                    floor: 1,
+                    title: "메인 로비 (Main Lobby Exit)",
+                    hint: "마스터키 조각 2개가 자동으로 조합됩니다. 인벤토리에서 [완성된 마스터키]를 선택한 뒤 출구 게이트를 클릭해 탈출하세요!",
+                    solved: false
+                }
+            ]
+        };
+
+        // ITEMS DEFINITION
+        const ITEMS = {
+            keycard_piece1: { id: "keycard_piece1", name: "마스터키 조각 A", icon: "key", desc: "고급 카드키의 첫 번째 조각." },
+            keycard_piece2: { id: "keycard_piece2", name: "마스터키 조각 B", icon: "key-round", desc: "고급 카드키의 두 번째 조각." },
+            master_key: { id: "master_key", name: "완성된 마스터키", icon: "shield-check", desc: "1층 비상 탈출용 완성된 마스터 키카드." },
+            fuse_red: { id: "fuse_red", name: "빨간 퓨즈", icon: "zap", desc: "전력 공급용 15A 퓨즈." },
+            fuse_blue: { id: "fuse_blue", name: "파란 퓨즈", icon: "zap", desc: "서버 제어용 20A 퓨즈." },
+            uv_light: { id: "uv_light", name: "UV 자외선 라이트", icon: "flashlight", desc: "숨겨진 형광 자국을 비추는 전등." },
+            wrench: { id: "wrench", name: "대형 렌치", icon: "wrench", desc: "기계실 밸브 및 단단한 볼트를 조이는 도구." },
+            cipher_note: { id: "cipher_note", name: "의문의 메모지", icon: "file-text", desc: "숫자 공식이 적힌 메모 [ (7 x 8) - 12 = ? ]" }
+        };
+
+        // --- Sound Effects Engine (Tone.js) ---
+        let synth = null;
+
+        function initAudio() {
+            try {
+                if (window.Tone) {
+                    synth = new Tone.PolySynth(Tone.Synth, {
+                        oscillator: { type: "sine" },
+                        envelope: { attack: 0.01, decay: 0.1, sustain: 0.1, release: 0.3 }
+                    }).toDestination();
+                    synth.volume.value = -12;
+                }
+            } catch (e) {
+                console.warn("Audio init deferred.");
+            }
+        }
+
+        function playSFX(type) {
+            if (!GAME_STATE.soundEnabled) return;
+            if (!synth) initAudio();
+            try {
+                if (window.Tone && Tone.context.state !== 'running') {
+                    Tone.start();
+                }
+                if (!synth) return;
+
+                if (type === 'click') {
+                    synth.triggerAttackRelease("C5", "32n");
+                } else if (type === 'pickup') {
+                    synth.triggerAttackRelease(["E5", "A5"], "16n");
+                } else if (type === 'unlock') {
+                    synth.triggerAttackRelease(["C5", "E5", "G5", "C6"], "8n");
+                } else if (type === 'error') {
+                    synth.triggerAttackRelease(["A3", "G#3"], "16n");
+                } else if (type === 'elevator') {
+                    synth.triggerAttackRelease("G4", "8n");
+                } else if (type === 'win') {
+                    synth.triggerAttackRelease(["C4", "E4", "G4", "C5", "E5", "G5"], "4n");
+                }
+            } catch (err) {
+                // Ignore audio autoplay restrictions
+            }
+        }
+
+        // --- UI Helpers & Toast Notifications ---
+        function showToast(msg) {
+            const toast = document.getElementById('status-toast');
+            const toastText = document.getElementById('toast-text');
+            toastText.innerText = msg;
+            toast.classList.remove('opacity-0');
+            toast.classList.add('opacity-100');
+            setTimeout(() => {
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0');
+            }, 2500);
+        }
+
+        function updateInventoryUI() {
+            const container = document.getElementById('inventory-slots');
+            container.innerHTML = '';
+
+            if (GAME_STATE.inventory.length === 0) {
+                container.innerHTML = `<div class="text-xs text-gray-500 italic">획득한 아이템이 없습니다.</div>`;
+                document.getElementById('selected-item-info').innerText = '선택된 아이템 없음';
+                return;
+            }
+
+            GAME_STATE.inventory.forEach(itemId => {
+                const item = ITEMS[itemId];
+                if (!item) return;
+
+                const isSelected = GAME_STATE.selectedItemId === itemId;
+                const slot = document.createElement('button');
+                slot.className = `px-3 py-2 rounded-xl border flex items-center gap-2 text-xs font-bold transition-all shrink-0 ${
+                    isSelected
+                        ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 glow-cyan scale-105'
+                        : 'bg-slate-800/80 border-slate-700 text-gray-300 hover:border-slate-500'
+                }`;
+                slot.innerHTML = `<i data-lucide="${item.icon}" class="w-4 h-4 text-cyan-400"></i> ${item.name}`;
+
+                slot.addEventListener('click', () => {
+                    playSFX('click');
+                    if (GAME_STATE.selectedItemId === itemId) {
+                        GAME_STATE.selectedItemId = null; // deselect
+                        document.getElementById('selected-item-info').innerText = '선택 해제됨';
+                    } else {
+                        GAME_STATE.selectedItemId = itemId;
+                        document.getElementById('selected-item-info').innerText = `${item.name}: ${item.desc}`;
+                    }
+                    updateInventoryUI();
+                    checkItemCombination();
+                });
+
+                container.appendChild(slot);
+            });
+
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function addItemToInventory(itemId) {
+            if (!GAME_STATE.inventory.includes(itemId)) {
+                GAME_STATE.inventory.push(itemId);
+                playSFX('pickup');
+                showToast(`아이템 획득: [ ${ITEMS[itemId].name} ]`);
+                updateInventoryUI();
+                checkItemCombination();
+            }
+        }
+
+        function removeItemFromInventory(itemId) {
+            const idx = GAME_STATE.inventory.indexOf(itemId);
+            if (idx > -1) {
+                GAME_STATE.inventory.splice(idx, 1);
+                if (GAME_STATE.selectedItemId === itemId) GAME_STATE.selectedItemId = null;
+                updateInventoryUI();
+            }
+        }
+
+        // Automatic Item Combination check (e.g. keycard pieces)
+        function checkItemCombination() {
+            if (GAME_STATE.inventory.includes('keycard_piece1') && GAME_STATE.inventory.includes('keycard_piece2')) {
+                removeItemFromInventory('keycard_piece1');
+                removeItemFromInventory('keycard_piece2');
+                addItemToInventory('master_key');
+                showToast("마스터키 조각 2개를 조합하여 [완성된 마스터키]를 제작했습니다!");
+            }
+        }
+
+        // --- Stage Renderer Logic (100F -> 1F) ---
+        function renderCurrentRoom() {
+            const stage = GAME_STATE.stageData[GAME_STATE.currentStageIndex];
+            document.getElementById('hud-floor').innerText = stage.floor;
+            document.getElementById('hud-stage-title').innerText = stage.title;
+
+            const roomContainer = document.getElementById('room-container');
+            roomContainer.innerHTML = '';
+
+            // Render specific room scene depending on Stage Index
+            switch (GAME_STATE.currentStageIndex) {
+                case 0: // 100층 : 펜트하우스
+                    renderPenthouseRoom(roomContainer);
+                    break;
+                case 1: // 85층 : 전기 서버실
+                    renderServerRoom(roomContainer);
+                    break;
+                case 2: // 60층 : 비밀 서재
+                    renderLibraryRoom(roomContainer);
+                    break;
+                case 3: // 35층 : 보안실
+                    renderSecurityRoom(roomContainer);
+                    break;
+                case 4: // 10층 : 기계실
+                    renderMechanicalRoom(roomContainer);
+                    break;
+                case 5: // 1층 : 메인 로비
+                    renderLobbyRoom(roomContainer);
+                    break;
+            }
+
+            if (window.lucide) lucide.createIcons();
+        }
+
+        // --- STAGE 0: 100층 펜트하우스 ---
+        function renderPenthouseRoom(container) {
+            container.innerHTML = `
+                <div class="relative w-full max-w-2xl h-80 bg-slate-900 rounded-2xl border border-slate-800 p-6 flex flex-col justify-between overflow-hidden shadow-inner">
+                    <div class="text-xs text-cyan-400/60 font-orbitron flex justify-between">
+                        <span>PENTHOUSE SUITE</span>
+                        <span>ALTITUDE: 400m</span>
+                    </div>
+
+                    <!-- Room Objects -->
+                    <div class="grid grid-cols-3 gap-4 my-auto text-center">
+                        <!-- Object 1: Painting -->
+                        <button id="obj-painting" class="p-4 bg-slate-800/80 hover:bg-slate-700/80 rounded-2xl border border-slate-700 flex flex-col items-center gap-2 group transition-all hover:scale-105">
+                            <i data-lucide="image" class="w-10 h-10 text-amber-400 group-hover:rotate-6 transition-transform"></i>
+                            <span class="text-xs font-bold text-gray-300">벽화 액자</span>
+                        </button>
+
+                        <!-- Object 2: Desk -->
+                        <button id="obj-desk" class="p-4 bg-slate-800/80 hover:bg-slate-700/80 rounded-2xl border border-slate-700 flex flex-col items-center gap-2 group transition-all hover:scale-105">
+                            <i data-lucide="archive" class="w-10 h-10 text-cyan-400 group-hover:-translate-y-1 transition-transform"></i>
+                            <span class="text-xs font-bold text-gray-300">원목 서랍장</span>
+                        </button>
+
+                        <!-- Object 3: Elevator Door -->
+                        <button id="obj-elevator" class="p-4 bg-slate-800/90 hover:bg-cyan-950/80 rounded-2xl border-2 border-cyan-500/50 flex flex-col items-center gap-2 group transition-all hover:scale-105 glow-cyan">
+                            <i data-lucide="door-closed" class="w-10 h-10 text-cyan-300 animate-pulse"></i>
+                            <span class="text-xs font-bold text-cyan-300 font-orbitron">ELEVATOR DOOR</span>
+                        </button>
+                    </div>
+
+                    <div class="text-center text-xs text-gray-400">
+                        * 각 물체를 클릭하여 조사하십시오.
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('obj-painting').addEventListener('click', () => {
+                playSFX('click');
+                openKeypadModal("액자 뒤 숨겨진 비밀금고", "4자리 숫자를 입력하세요 (힌트: 액자 구석 [4492])", "4492", () => {
+                    addItemToInventory('keycard_piece1');
+                    showToast("금고에서 [마스터키 조각 A]를 발견했습니다!");
+                });
+            });
+
+            document.getElementById('obj-desk').addEventListener('click', () => {
+                playSFX('click');
+                addItemToInventory('cipher_note');
+            });
+
+            document.getElementById('obj-elevator').addEventListener('click', () => {
+                playSFX('click');
+                if (GAME_STATE.inventory.includes('keycard_piece1')) {
+                    playSFX('unlock');
+                    showToast("마스터키 조각 A를 인식하여 엘리베이터 승강기가 작동합니다!");
+                    triggerElevatorDescent(85, 1);
+                } else {
+                    playSFX('error');
+                    showToast("엘리베이터 키패드가 잠겨 있습니다. 카드키 조각을 찾으세요.");
+                }
+            });
+        }
+
+        // --- STAGE 1: 85층 전기 서버실 ---
+        function renderServerRoom(container) {
+            container.innerHTML = `
+                <div class="relative w-full max-w-2xl h-80 bg-slate-900 rounded-2xl border border-slate-800 p-6 flex flex-col justify-between overflow-hidden shadow-inner">
+                    <div class="text-xs text-amber-400/60 font-orbitron flex justify-between">
+                        <span>POWER CONTROL CENTER</span>
+                        <span>VOLTAGE: LOW</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-6 my-auto text-center">
+                        <button id="obj-fusebox" class="p-5 bg-slate-800/80 hover:bg-slate-700/80 rounded-2xl border border-amber-500/40 flex flex-col items-center gap-3 group transition-all hover:scale-105">
+                            <i data-lucide="cpu" class="w-10 h-10 text-amber-400 group-hover:rotate-12 transition-transform"></i>
+                            <span class="text-xs font-bold text-gray-300">비상 전력 회로함</span>
+                        </button>
+
+                        <button id="obj-server-elevator" class="p-5 bg-slate-800/90 hover:bg-cyan-950/80 rounded-2xl border-2 border-cyan-500/50 flex flex-col items-center gap-3 group transition-all hover:scale-105">
+                            <i data-lucide="door-closed" class="w-10 h-10 text-cyan-300"></i>
+                            <span class="text-xs font-bold text-cyan-300 font-orbitron">85F ELEVATOR</span>
+                        </button>
+                    </div>
+
+                    <div class="text-center text-xs text-gray-400">
+                        * 전선 복구 후 엘리베이터 재가동 가능
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('obj-fusebox').addEventListener('click', () => {
+                playSFX('click');
+                if (GAME_STATE.stageData[1].solved) {
+                    showToast("이미 전력이 복구되었습니다. 엘리베이터를 이용하세요.");
+                    return;
+                }
+                openFuseModal(() => {
+                    addItemToInventory('fuse_red');
+                    GAME_STATE.stageData[1].solved = true;
+                    showToast("퓨즈 연결 성공! 비상 전력이 승강기로 복구되었습니다.");
+                });
+            });
+
+            document.getElementById('obj-server-elevator').addEventListener('click', () => {
+                playSFX('click');
+                if (GAME_STATE.stageData[1].solved) {
+                    playSFX('unlock');
+                    triggerElevatorDescent(60, 2);
+                } else {
+                    playSFX('error');
+                    showToast("전력이 차단되어 있습니다. 회로함을 먼저 수리하세요.");
+                }
+            });
+        }
+
+        // --- STAGE 2: 60층 비밀 서재 ---
+        function renderLibraryRoom(container) {
+            container.innerHTML = `
+                <div class="relative w-full max-w-2xl h-80 bg-slate-900 rounded-2xl border border-slate-800 p-6 flex flex-col justify-between overflow-hidden shadow-inner">
+                    <div class="text-xs text-indigo-400/60 font-orbitron flex justify-between">
+                        <span>SECRET ARCHIVE LIBRARY</span>
+                        <span>UV SCANNER REQUIRED</span>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4 my-auto text-center">
+                        <button id="obj-desk-lamp" class="p-4 bg-slate-800/80 hover:bg-slate-700/80 rounded-2xl border border-slate-700 flex flex-col items-center gap-2 transition-all hover:scale-105">
+                            <i data-lucide="flashlight" class="w-9 h-9 text-indigo-400"></i>
+                            <span class="text-xs font-bold text-gray-300">책상 위 랜턴</span>
+                        </button>
+
+                        <button id="obj-uv-wall" class="p-4 bg-slate-800/80 hover:bg-slate-700/80 rounded-2xl border border-slate-700 flex flex-col items-center gap-2 transition-all hover:scale-105">
+                            <i data-lucide="scan" class="w-9 h-9 text-purple-400"></i>
+                            <span class="text-xs font-bold text-gray-300">어두운 벽면</span>
+                        </button>
+
+                        <button id="obj-lib-elevator" class="p-4 bg-slate-800/90 hover:bg-cyan-950/80 rounded-2xl border-2 border-cyan-500/50 flex flex-col items-center gap-2 transition-all hover:scale-105">
+                            <i data-lucide="door-closed" class="w-9 h-9 text-cyan-300"></i>
+                            <span class="text-xs font-bold text-cyan-300 font-orbitron">60F ELEVATOR</span>
+                        </button>
+                    </div>
+
+                    <div class="text-center text-xs text-gray-400">
+                        * UV 손전등을 이용하여 벽면의 비밀 기호를 확인하세요.
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('obj-desk-lamp').addEventListener('click', () => {
+                playSFX('click');
+                addItemToInventory('uv_light');
+            });
+
+            document.getElementById('obj-uv-wall').addEventListener('click', () => {
+                playSFX('click');
+                if (GAME_STATE.selectedItemId === 'uv_light') {
+                    playSFX('unlock');
+                    showToast("UV 조명을 비추자 벽면에 [ 7 3 1 9 ] 형광 문자가 나타났습니다!");
+                    GAME_STATE.stageData[2].solved = true;
+                } else {
+                    showToast("벽이 너무 어둡습니다. UV 자외선 조명을 인벤토리에서 선택해 사용하세요.");
+                }
+            });
+
+            document.getElementById('obj-lib-elevator').addEventListener('click', () => {
+                playSFX('click');
+                if (GAME_STATE.stageData[2].solved) {
+                    openKeypadModal("60층 승강기 암호 입력", "벽면에서 밝혀낸 4자리 비밀번호를 입력하세요", "7319", () => {
+                        triggerElevatorDescent(35, 3);
+                    });
+                } else {
+                    playSFX('error');
+                    showToast("승강기 비밀번호를 먼저 밝혀내야 합니다.");
+                }
+            });
+        }
+
+        // --- STAGE 3: 35층 보안 통제실 ---
+        function renderSecurityRoom(container) {
+            container.innerHTML = `
+                <div class="relative w-full max-w-2xl h-80 bg-slate-900 rounded-2xl border border-slate-800 p-6 flex flex-col justify-between overflow-hidden shadow-inner">
+                    <div class="text-xs text-sky-400/60 font-orbitron flex justify-between">
+                        <span>SECURITY CONTROL ROOM</span>
+                        <span>CCTV SYSTEM: ONLINE</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-6 my-auto text-center">
+                        <button id="obj-cctv" class="p-5 bg-slate-800/80 hover:bg-slate-700/80 rounded-2xl border border-sky-500/40 flex flex-col items-center gap-3 transition-all hover:scale-105">
+                            <i data-lucide="tv" class="w-10 h-10 text-sky-400"></i>
+                            <span class="text-xs font-bold text-gray-300">CCTV 모니터 관제탑</span>
+                        </button>
+
+                        <button id="obj-sec-elevator" class="p-5 bg-slate-800/90 hover:bg-cyan-950/80 rounded-2xl border-2 border-cyan-500/50 flex flex-col items-center gap-3 transition-all hover:scale-105">
+                            <i data-lucide="door-closed" class="w-10 h-10 text-cyan-300"></i>
+                            <span class="text-xs font-bold text-cyan-300 font-orbitron">35F ELEVATOR</span>
+                        </button>
+                    </div>
+
+                    <div class="text-center text-xs text-gray-400">
+                        * CCTV 모니터 모듈을 조사하여 패스코드 순서를 알아내세요.
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('obj-cctv').addEventListener('click', () => {
+                playSFX('click');
+                openTextModal("CCTV 모니터 분석", "CCTV 화면 4개의 채널 번호 순서: [ CH-1: 8 ] -> [ CH-2: 0 ] -> [ CH-3: 5 ] -> [ CH-4: 2 ]");
+                GAME_STATE.stageData[3].solved = true;
+            });
+
+            document.getElementById('obj-sec-elevator').addEventListener('click', () => {
+                playSFX('click');
+                if (GAME_STATE.stageData[3].solved) {
+                    openKeypadModal("35층 보안 해제 키패드", "CCTV 채널 순서대로 번호를 입력하세요 (8-0-5-2)", "8052", () => {
+                        addItemToInventory('keycard_piece2');
+                        showToast("보안 해제 완료! [마스터키 조각 B]를 획득했습니다.");
+                        triggerElevatorDescent(10, 4);
+                    });
+                } else {
+                    playSFX('error');
+                    showToast("CCTV 모니터를 확인하여 암호를 분석하세요.");
+                }
+            });
+        }
+
+        // --- STAGE 4: 10층 지하 기계실 ---
+        function renderMechanicalRoom(container) {
+            container.innerHTML = `
+                <div class="relative w-full max-w-2xl h-80 bg-slate-900 rounded-2xl border border-slate-800 p-6 flex flex-col justify-between overflow-hidden shadow-inner">
+                    <div class="text-xs text-emerald-400/60 font-orbitron flex justify-between">
+                        <span>BASEMENT MECHANICAL ROOM</span>
+                        <span>STEAM PRESSURE: HIGH</span>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4 my-auto text-center">
+                        <button id="obj-toolbox" class="p-4 bg-slate-800/80 hover:bg-slate-700/80 rounded-2xl border border-slate-700 flex flex-col items-center gap-2 transition-all hover:scale-105">
+                            <i data-lucide="wrench" class="w-9 h-9 text-emerald-400"></i>
+                            <span class="text-xs font-bold text-gray-300">녹슨 공구함</span>
+                        </button>
+
+                        <button id="obj-valve" class="p-4 bg-slate-800/80 hover:bg-slate-700/80 rounded-2xl border border-slate-700 flex flex-col items-center gap-2 transition-all hover:scale-105">
+                            <i data-lucide="disc" class="w-9 h-9 text-red-400 animate-spin"></i>
+                            <span class="text-xs font-bold text-gray-300">압력 배관 밸브</span>
+                        </button>
+
+                        <button id="obj-mech-elevator" class="p-4 bg-slate-800/90 hover:bg-cyan-950/80 rounded-2xl border-2 border-cyan-500/50 flex flex-col items-center gap-2 transition-all hover:scale-105">
+                            <i data-lucide="door-closed" class="w-9 h-9 text-cyan-300"></i>
+                            <span class="text-xs font-bold text-cyan-300 font-orbitron">10F ELEVATOR</span>
+                        </button>
+                    </div>
+
+                    <div class="text-center text-xs text-gray-400">
+                        * 대형 렌치로 압력 밸브를 잠가 1층 승강기를 가동시키세요.
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('obj-toolbox').addEventListener('click', () => {
+                playSFX('click');
+                addItemToInventory('wrench');
+            });
+
+            document.getElementById('obj-valve').addEventListener('click', () => {
+                playSFX('click');
+                if (GAME_STATE.selectedItemId === 'wrench') {
+                    playSFX('unlock');
+                    showToast("대형 렌치로 밸브를 조여 증기 누출을 막았습니다!");
+                    GAME_STATE.stageData[4].solved = true;
+                } else {
+                    showToast("밸브가 너무 조여져 있습니다. 인벤토리에서 렌치를 선택해 사용하세요.");
+                }
+            });
+
+            document.getElementById('obj-mech-elevator').addEventListener('click', () => {
+                playSFX('click');
+                if (GAME_STATE.stageData[4].solved) {
+                    triggerElevatorDescent(1, 5);
+                } else {
+                    playSFX('error');
+                    showToast("증기 압력이 너무 높아 승강기가 오작동 중입니다.");
+                }
+            });
+        }
+
+        // --- STAGE 5: 1층 메인 로비 (최종 탈출) ---
+        function renderLobbyRoom(container) {
+            container.innerHTML = `
+                <div class="relative w-full max-w-2xl h-80 bg-slate-900 rounded-2xl border border-emerald-500/40 p-6 flex flex-col justify-between overflow-hidden shadow-inner">
+                    <div class="text-xs text-emerald-400/80 font-orbitron flex justify-between">
+                        <span>1ST FLOOR MAIN LOBBY</span>
+                        <span>FINAL EXIT GATE</span>
+                    </div>
+
+                    <div class="flex flex-col items-center justify-center my-auto gap-4">
+                        <button id="obj-main-gate" class="px-8 py-6 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 rounded-3xl border-2 border-emerald-400 text-white font-extrabold flex items-center gap-4 transition-all hover:scale-105 shadow-xl shadow-emerald-500/20 glow-cyan">
+                            <i data-lucide="door-open" class="w-12 h-12 text-emerald-300"></i>
+                            <div class="text-left">
+                                <div class="text-lg font-orbitron tracking-wider">EXIT MAIN GATE</div>
+                                <div class="text-xs font-normal text-emerald-200">마스터키 태그 후 아파트 밖으로 탈출</div>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="text-center text-xs text-emerald-300 font-semibold">
+                        * 인벤토리의 [완성된 마스터키]를 선택(클릭)한 후 게이트를 태그하세요.
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('obj-main-gate').addEventListener('click', () => {
+                playSFX('click');
+                if (GAME_STATE.selectedItemId === 'master_key') {
+                    playSFX('win');
+                    showEndingScreen();
+                } else if (GAME_STATE.inventory.includes('master_key')) {
+                    playSFX('error');
+                    showToast("인벤토리에서 [완성된 마스터키]를 클릭해 선택한 뒤 게이트를 태그하세요.");
+                } else {
+                    playSFX('error');
+                    showToast("완성된 마스터키가 필요합니다. (조각 A와 B를 모두 모으세요)");
+                }
+            });
+        }
+
+        // --- Modal Interactive Dialogs (Keypads, Notes, Circuit Fuse Panel) ---
+        let activeKeypad = null; // keyboard input target for the currently open keypad modal
+
+        function closeModal() {
+            document.getElementById('modal-container').classList.add('hidden');
+            activeKeypad = null;
+        }
+
+        function openKeypadModal(title, desc, correctCode, onSuccess) {
+            const container = document.getElementById('modal-content');
+            container.innerHTML = `
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-cyan-300 font-orbitron">${title}</h3>
+                    <button id="modal-close" class="text-gray-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+                <p class="text-xs text-gray-300 mb-4">${desc}</p>
+
+                <!-- Digital Display -->
+                <div id="keypad-disp" class="w-full bg-slate-950 p-3 rounded-xl border border-cyan-500/40 text-center font-orbitron text-2xl tracking-widest text-cyan-400 font-black mb-4 h-12 flex items-center justify-center glow-text-cyan">
+                    ----
+                </div>
+
+                <!-- Keypad Buttons -->
+                <div class="grid grid-cols-3 gap-2 mb-4">
+                    ${[1,2,3,4,5,6,7,8,9,0].map(num => `
+                        <button class="btn-num p-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-orbitron font-bold text-lg text-gray-200 active:scale-95 transition-all" data-val="${num}">${num}</button>
+                    `).join('')}
+                    <button id="btn-num-clear" class="p-3 bg-red-900/60 hover:bg-red-800 rounded-xl font-bold text-xs text-red-300">C</button>
+                </div>
+                <p class="text-[10px] text-gray-500 text-center">키보드 숫자키로도 입력할 수 있습니다 (Backspace: 지우기, ESC: 닫기)</p>
+            `;
+
+            let currentInput = "";
+
+            function pressDigit(val) {
+                playSFX('click');
+                if (currentInput.length < 4) {
+                    currentInput += val;
+                    document.getElementById('keypad-disp').innerText = currentInput.padEnd(4, '-');
+                }
+
+                if (currentInput.length === 4) {
+                    if (currentInput === correctCode) {
+                        playSFX('unlock');
+                        closeModal();
+                        onSuccess();
+                    } else {
+                        playSFX('error');
+                        showToast("오답입니다. 비밀번호를 다시 확인하세요.");
+                        currentInput = "";
+                        document.getElementById('keypad-disp').innerText = "----";
+                    }
+                }
+            }
+
+            function clearInput() {
+                playSFX('click');
+                currentInput = "";
+                document.getElementById('keypad-disp').innerText = "----";
+            }
+
+            document.getElementById('modal-container').classList.remove('hidden');
+            document.getElementById('modal-close').addEventListener('click', closeModal);
+
+            document.querySelectorAll('.btn-num').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    pressDigit(e.target.getAttribute('data-val'));
+                });
+            });
+
+            document.getElementById('btn-num-clear').addEventListener('click', clearInput);
+
+            // Expose to global keyboard handler
+            activeKeypad = { pressDigit, clearInput };
+
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function openTextModal(title, textContent) {
+            const container = document.getElementById('modal-content');
+            container.innerHTML = `
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-amber-400 font-orbitron">${title}</h3>
+                    <button id="modal-close" class="text-gray-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+                <div class="p-4 bg-slate-950 rounded-2xl border border-slate-800 text-sm text-gray-200 font-mono leading-relaxed mb-4">
+                    ${textContent}
+                </div>
+            `;
+            activeKeypad = null;
+            document.getElementById('modal-container').classList.remove('hidden');
+            document.getElementById('modal-close').addEventListener('click', closeModal);
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function openFuseModal(onSuccess) {
+            const container = document.getElementById('modal-content');
+            container.innerHTML = `
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-amber-400 font-orbitron">비상 전력 퓨즈 스위치</h3>
+                    <button id="modal-close" class="text-gray-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+                <p class="text-xs text-gray-300 mb-4">스위치를 모두 [ ON (녹색) ] 상태로 전환하세요.</p>
+                <div class="grid grid-cols-3 gap-3 mb-6">
+                    <button class="fuse-sw p-4 bg-slate-800 rounded-xl border border-slate-700 font-bold text-xs text-red-400" data-idx="0">SW 1 [OFF]</button>
+                    <button class="fuse-sw p-4 bg-slate-800 rounded-xl border border-slate-700 font-bold text-xs text-red-400" data-idx="1">SW 2 [OFF]</button>
+                    <button class="fuse-sw p-4 bg-slate-800 rounded-xl border border-slate-700 font-bold text-xs text-red-400" data-idx="2">SW 3 [OFF]</button>
+                </div>
+            `;
+
+            const states = [false, false, false];
+            activeKeypad = null;
+            document.getElementById('modal-container').classList.remove('hidden');
+            document.getElementById('modal-close').addEventListener('click', closeModal);
+
+            document.querySelectorAll('.fuse-sw').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    playSFX('click');
+                    const idx = parseInt(e.target.getAttribute('data-idx'));
+                    states[idx] = !states[idx];
+
+                    if (states[idx]) {
+                        e.target.className = "fuse-sw p-4 bg-emerald-950 rounded-xl border border-emerald-500 font-bold text-xs text-emerald-400 glow-cyan";
+                        e.target.innerText = `SW ${idx+1} [ON]`;
+                    } else {
+                        e.target.className = "fuse-sw p-4 bg-slate-800 rounded-xl border border-slate-700 font-bold text-xs text-red-400";
+                        e.target.innerText = `SW ${idx+1} [OFF]`;
+                    }
+
+                    if (states.every(s => s === true)) {
+                        playSFX('unlock');
+                        closeModal();
+                        onSuccess();
+                    }
+                });
+            });
+
+            if (window.lucide) lucide.createIcons();
+        }
+
+        // Global keyboard support for puzzle modals (digits / Backspace / Escape)
+        document.addEventListener('keydown', (e) => {
+            const modal = document.getElementById('modal-container');
+            if (modal.classList.contains('hidden')) return;
+
+            if (e.key === 'Escape') {
+                closeModal();
+                return;
+            }
+            if (activeKeypad) {
+                if (/^[0-9]$/.test(e.key)) {
+                    activeKeypad.pressDigit(e.key);
+                } else if (e.key === 'Backspace' || e.key.toLowerCase() === 'c') {
+                    activeKeypad.clearInput();
+                }
+            }
+        });
+
+        // --- Elevator Descent Animation Controller ---
+        let elevatorMoving = false; // guard against double-trigger / duplicate intervals
+
+        function triggerElevatorDescent(targetFloor, nextStageIndex) {
+            if (elevatorMoving) return;
+            elevatorMoving = true;
+
+            playSFX('elevator');
+            const overlay = document.getElementById('elevator-overlay');
+            const disp = document.getElementById('elevator-floor-disp');
+
+            overlay.classList.remove('pointer-events-none', 'opacity-0', 'doors-open');
+            overlay.classList.add('opacity-100', 'doors-closed');
+
+            // Floor Counter Rapid Ticking Down Effect
+            let startFloor = GAME_STATE.stageData[GAME_STATE.currentStageIndex].floor;
+            let currentF = startFloor;
+            disp.innerText = `${currentF}F`;
+
+            const interval = setInterval(() => {
+                if (currentF > targetFloor) {
+                    currentF--;
+                    disp.innerText = `${currentF}F`;
+                } else {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        GAME_STATE.currentStageIndex = nextStageIndex;
+                        renderCurrentRoom();
+
+                        // Open elevator doors
+                        overlay.classList.remove('doors-closed');
+                        overlay.classList.add('doors-open');
+
+                        setTimeout(() => {
+                            overlay.classList.remove('opacity-100');
+                            overlay.classList.add('pointer-events-none', 'opacity-0');
+                            elevatorMoving = false;
+                        }, 800);
+                    }, 500);
+                }
+            }, 30);
+        }
+
+        function showEndingScreen() {
+            document.getElementById('end-stat-hints').innerText = `${GAME_STATE.hintsCount} 회`;
+            document.getElementById('ending-screen').classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        // --- Start Screen Apartment Building Background Canvas Graphic ---
+        let gameStarted = false; // stops the start-screen rAF loop once the game begins
+
+        function initApartmentCanvas() {
+            const canvas = document.getElementById('apartment-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            resize();
+            window.addEventListener('resize', resize);
+
+            // Draw Tall Apartment Silhouette with lit windows and moving elevator
+            let elevY = canvas.height - 100;
+
+            function draw() {
+                if (gameStarted) return; // stop animating behind the game screen
+
+                ctx.fillStyle = "#050811";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Moon
+                ctx.fillStyle = "#fef08a";
+                ctx.beginPath();
+                ctx.arc(canvas.width - 120, 100, 35, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Apartment Skyscraper Center
+                const aptWidth = Math.min(320, canvas.width * 0.6);
+                const aptLeft = (canvas.width - aptWidth) / 2;
+
+                ctx.fillStyle = "#0f172a";
+                ctx.fillRect(aptLeft, 50, aptWidth, canvas.height - 50);
+                ctx.strokeStyle = "#1e293b";
+                ctx.lineWidth = 3;
+                ctx.strokeRect(aptLeft, 50, aptWidth, canvas.height - 50);
+
+                // Windows Grid
+                const cols = 6;
+                const rows = 25;
+                const wWidth = aptWidth / (cols + 1);
+                const wHeight = (canvas.height - 100) / rows;
+
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        const wx = aptLeft + wWidth * c + 15;
+                        const wy = 70 + wHeight * r;
+                        // Pseudo-random window light status
+                        const isLit = (r * 7 + c * 13) % 5 === 0;
+                        ctx.fillStyle = isLit ? "#f59e0b" : "#1e293b";
+                        ctx.fillRect(wx, wy, wWidth - 10, wHeight - 6);
+                    }
+                }
+
+                // Elevator Shaft (Glass Beam)
+                ctx.fillStyle = "rgba(6, 182, 212, 0.2)";
+                ctx.fillRect(canvas.width / 2 - 15, 50, 30, canvas.height - 50);
+
+                // Moving Elevator Box
+                ctx.fillStyle = "#22d3ee";
+                ctx.fillRect(canvas.width / 2 - 12, elevY, 24, 30);
+
+                elevY -= 1.2;
+                if (elevY < 60) elevY = canvas.height - 80;
+
+                requestAnimationFrame(draw);
+            }
+
+            draw();
+        }
+
+        // --- EVENT LISTENERS & SETUP ---
+        document.getElementById('btn-start-game').addEventListener('click', () => {
+            playSFX('click');
+            gameStarted = true;
+            document.getElementById('start-screen').classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                document.getElementById('start-screen').classList.add('hidden');
+                document.getElementById('game-screen').classList.remove('hidden');
+                renderCurrentRoom();
+            }, 600);
+        });
+
+        document.getElementById('btn-hint').addEventListener('click', () => {
+            playSFX('click');
+            GAME_STATE.hintsCount++;
+            const currentStage = GAME_STATE.stageData[GAME_STATE.currentStageIndex];
+            openTextModal(`💡 ${currentStage.floor}층 탈출 힌트`, currentStage.hint);
+        });
+
+        document.getElementById('btn-sound-toggle').addEventListener('click', () => {
+            GAME_STATE.soundEnabled = !GAME_STATE.soundEnabled;
+            const icon = document.getElementById('icon-sound');
+            if (GAME_STATE.soundEnabled) {
+                if (icon) icon.setAttribute('data-lucide', 'volume-2');
+                showToast("사운드 활성화");
+            } else {
+                if (icon) icon.setAttribute('data-lucide', 'volume-x');
+                showToast("사운드 음소거");
+            }
+            if (window.lucide) lucide.createIcons();
+        });
+
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            location.reload();
+        });
+
+        document.getElementById('btn-replay').addEventListener('click', () => {
+            location.reload();
+        });
+
+        window.onload = function() {
+            initAudio();
+            initApartmentCanvas();
+            if (window.lucide) lucide.createIcons();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>네온 큐브 러너 (Geometry Dash Style)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Pretendard:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Pretendard', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+        /* Custom glow effects */
+        .neon-border-cyan {
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.4), inset 0 0 15px rgba(34, 211, 238, 0.2);
+        }
+        .neon-border-purple {
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+        }
+        .neon-text-cyan {
+            text-shadow: 0 0 10px rgba(34, 211, 238, 0.8);
+        }
+        .neon-text-amber {
+            text-shadow: 0 0 10px rgba(251, 191, 36, 0.8);
+        }
+        /* Custom scrollbar clean */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #9333ea;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-2 sm:p-4 overflow-x-hidden">
+
+    <div id="game-container" class="relative w-full max-w-md h-[650px] bg-slate-900 border-2 border-purple-600/50 rounded-2xl overflow-hidden shadow-2xl flex flex-col transition-all duration-300 neon-border-purple">
+        
+        <!-- Scoreboard Header -->
+        <div class="bg-purple-950/90 backdrop-blur px-4 py-2.5 flex justify-between items-center border-b border-purple-800/50 z-10 shrink-0">
+            <div>
+                <span class="text-[10px] text-purple-300 block font-semibold uppercase tracking-wider">점수 (SCORE)</span>
+                <div class="flex items-center gap-2">
+                    <span id="score" class="text-lg font-black text-cyan-400 font-orbitron neon-text-cyan">0</span>
+                    <span id="high-score-tag" class="text-[10px] text-amber-400/80 font-mono hidden">(BEST: <span id="high-score">0</span>)</span>
+                </div>
+            </div>
+
+            <!-- Mode Badge -->
+            <div id="mode-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                STAGE 1
+            </div>
+
+            <div class="flex items-center gap-3">
+                <div>
+                    <span class="text-[10px] text-purple-300 block font-semibold uppercase tracking-wider">코인 (COINS)</span>
+                    <span id="coins" class="text-base font-bold text-amber-400 neon-text-amber">🪙 0 / 3</span>
+                </div>
+                <!-- Audio Toggle -->
+                <button id="sound-btn" onclick="toggleSound()" class="p-1.5 rounded-lg bg-purple-900/50 hover:bg-purple-800 text-purple-300 transition text-sm">
+                    🔊
+                </button>
+            </div>
+        </div>
+
+        <!-- Stage Progress Bar (Visible in Stage mode) -->
+        <div id="progress-container" class="w-full bg-slate-950 h-1.5 overflow-hidden relative shrink-0">
+            <div id="progress-bar" class="h-full bg-gradient-to-r from-cyan-500 to-purple-500 w-0 transition-all duration-75"></div>
+        </div>
+
+        <!-- Canvas Container -->
+        <div class="relative flex-1 w-full h-full bg-slate-950 overflow-hidden">
+            <canvas id="gameCanvas" class="w-full h-full block cursor-pointer"></canvas>
+
+            <!-- Start / Stage Select Screen -->
+            <div id="start-screen" class="absolute inset-0 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-between p-6 z-20 overflow-y-auto">
+                <div class="text-center mt-2">
+                    <h1 class="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-500 font-orbitron tracking-wider">
+                        NEON RUNNER
+                    </h1>
+                    <p class="text-xs text-purple-300 mt-1 font-medium">점프 타이밍을 맞춰 장애물을 피하세요!</p>
+                </div>
+
+                <div class="w-full space-y-3 my-auto max-w-xs">
+                    <div class="text-xs font-bold text-slate-400 uppercase tracking-widest text-center mb-1">모드 선택</div>
+                    
+                    <button onclick="selectStage(1)" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold flex justify-between items-center shadow-lg transition active:scale-95 border border-cyan-400/30">
+                        <span>STAGE 1 <span class="text-xs font-normal text-cyan-200 block">이지 (노말 스피드)</span></span>
+                        <span class="text-xl">🚀</span>
+                    </button>
+
+                    <button onclick="selectStage(2)" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold flex justify-between items-center shadow-lg transition active:scale-95 border border-purple-400/30">
+                        <span>STAGE 2 <span class="text-xs font-normal text-purple-200 block">하드 (빠른 스피드)</span></span>
+                        <span class="text-xl">⚡</span>
+                    </button>
+
+                    <button onclick="selectStage(3)" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold flex justify-between items-center shadow-lg transition active:scale-95 border border-rose-400/30">
+                        <span>STAGE 3 <span class="text-xs font-normal text-rose-200 block">익스트림 (초고속)</span></span>
+                        <span class="text-xl">🔥</span>
+                    </button>
+
+                    <!-- INFINITE MODE CARD WITH SPEED CONTROLLER -->
+                    <div class="w-full p-2.5 rounded-xl bg-gradient-to-r from-amber-950/80 to-red-950/80 border-2 border-amber-400/50 space-y-2 neon-border-cyan">
+                        <button onclick="selectStage('infinite')" class="w-full py-2.5 px-3 rounded-lg bg-gradient-to-r from-amber-500 via-orange-600 to-red-600 hover:from-amber-400 hover:to-red-500 text-white font-black flex justify-between items-center shadow-xl transition active:scale-95 border border-amber-300/50">
+                            <div class="text-left">
+                                <div class="flex items-center gap-1.5 text-amber-100 text-sm">
+                                    ♾️ 무한 모드 (INFINITE)
+                                </div>
+                                <span class="text-[11px] font-normal text-amber-100/90 block">속도 조절 가능 &amp; 무한 도전</span>
+                            </div>
+                            <span class="text-2xl animate-pulse">🏆</span>
+                        </button>
+                        
+                        <!-- Speed Control Selector -->
+                        <div class="flex items-center justify-between text-xs pt-1.5 border-t border-amber-500/30 px-1">
+                            <span class="text-amber-300 font-bold text-[11px]">⚡ 속도 설정:</span>
+                            <div class="flex gap-1 overflow-x-auto py-0.5" id="speed-selector">
+                                <button type="button" onclick="setInfiniteSpeed(0.8, this)" class="speed-btn px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-amber-200 border border-amber-500/30 hover:bg-amber-600 transition shrink-0">0.8x</button>
+                                <button type="button" onclick="setInfiniteSpeed(1.0, this)" class="speed-btn px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-slate-950 border border-amber-300 hover:bg-amber-400 transition font-black shrink-0">1.0x</button>
+                                <button type="button" onclick="setInfiniteSpeed(1.3, this)" class="speed-btn px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-amber-200 border border-amber-500/30 hover:bg-amber-600 transition shrink-0">1.3x</button>
+                                <button type="button" onclick="setInfiniteSpeed(1.6, this)" class="speed-btn px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-amber-200 border border-amber-500/30 hover:bg-amber-600 transition shrink-0">1.6x</button>
+                                <button type="button" onclick="setInfiniteSpeed(2.0, this)" class="speed-btn px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-amber-200 border border-amber-500/30 hover:bg-amber-600 transition shrink-0">2.0x</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer control tips -->
+                <div class="text-center text-xs text-slate-400 space-y-2 w-full">
+                    <p class="bg-purple-950/60 py-1.5 px-3 rounded-lg border border-purple-800/40">
+                        ⌨️ <span class="text-cyan-300 font-bold">점프:</span> 스페이스바 / 방향키 위 / 화면 터치 (길게 누르면 연속 점프)
+                    </p>
+                    <div class="flex justify-between items-center px-1">
+                        <button onclick="toggleOrientation()" class="text-purple-300 hover:text-cyan-300 transition text-xs font-semibold flex items-center gap-1">
+                            🔄 <span id="orientation-text">가로모드</span>
+                        </button>
+                        <span class="text-[11px] text-slate-500">v2.1 Instant Jump Fixed</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Over Screen -->
+            <div id="gameover-screen" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20 hidden">
+                <div class="text-6xl mb-3 animate-bounce">💥</div>
+                <h2 class="text-4xl font-black text-rose-500 font-orbitron mb-1 tracking-wider">CRASH!</h2>
+                <p class="text-slate-300 mb-2">최종 점수: <span id="final-score" class="font-extrabold text-cyan-400 text-2xl font-orbitron">0</span>점</p>
+                <p id="high-score-notify" class="text-amber-400 text-xs font-bold mb-6 hidden">🎉 최고 기록 경신!</p>
+                <div class="flex gap-3 w-full max-w-xs">
+                    <button onclick="restartStage()" class="flex-1 py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold rounded-xl shadow-lg transition active:scale-95">
+                        🔄 다시 도전
+                    </button>
+                    <button onclick="showStageSelect()" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-purple-300 font-bold rounded-xl border border-purple-500/30 transition active:scale-95">
+                        📋 메뉴로
+                    </button>
+                </div>
+            </div>
+
+            <!-- Win Overlay -->
+            <div id="win-screen" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20 hidden">
+                <div class="text-6xl mb-3">👑</div>
+                <h2 class="text-3xl font-black text-amber-400 font-orbitron mb-1 tracking-wider">STAGE CLEAR!</h2>
+                <p class="text-slate-200 mb-1">획득 점수: <span id="win-score" class="font-bold text-cyan-400">0</span>점</p>
+                <p class="text-slate-400 text-xs mb-6">스테이지를 완벽하게 통과하셨습니다!</p>
+                <div class="flex gap-3 w-full max-w-xs">
+                    <button onclick="restartStage()" class="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold rounded-xl shadow-lg transition active:scale-95">
+                        🔄 다시하기
+                    </button>
+                    <button onclick="showStageSelect()" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-purple-300 font-bold rounded-xl border border-purple-500/30 transition active:scale-95">
+                        📋 메뉴로
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('gameover-screen');
+        const winScreen = document.getElementById('win-screen');
+        const scoreEl = document.getElementById('score');
+        const coinsEl = document.getElementById('coins');
+        const finalScoreEl = document.getElementById('final-score');
+        const winScoreEl = document.getElementById('win-score');
+        const gameContainer = document.getElementById('game-container');
+        const orientationText = document.getElementById('orientation-text');
+        const modeBadge = document.getElementById('mode-badge');
+        const progressBar = document.getElementById('progress-bar');
+        const progressContainer = document.getElementById('progress-container');
+        const highScoreEl = document.getElementById('high-score');
+        const highScoreTag = document.getElementById('high-score-tag');
+        const highScoreNotify = document.getElementById('high-score-notify');
+        const soundBtn = document.getElementById('sound-btn');
+
+        // State Variables
+        let isLandscape = false;
+        let isPlaying = false;
+        let soundEnabled = true;
+        let score = 0;
+        let collectedCoins = 0;
+        let currentStage = 1; // 1, 2, 3 or 'infinite'
+        let selectedInfiniteSpeedMultiplier = 1.0; // Infinite mode speed multiplier
+        let totalDistance = 3500; 
+        let gameSpeed = 6;
+        let baseSpeed = 6;
+        let frameCount = 0;
+        let distanceCovered = 0;
+        let infiniteHighScore = 0;
+        try {
+            infiniteHighScore = parseInt(localStorage.getItem('runner_infinite_highscore') || '0', 10) || 0;
+        } catch (e) { /* localStorage unavailable (e.g. sandboxed iframe) */ }
+
+        // Input state for instant delay-less continuous jumping
+        let isJumpPressed = false;
+        let jumpBufferTimer = 0;
+
+        // Player Object
+        let player = {
+            x: 80,
+            y: 0,
+            w: 34,
+            h: 34,
+            vy: 0,
+            gravity: 0.8,
+            jumpForce: -13.5,
+            isJumping: false,
+            rotation: 0,
+            groundY: 0
+        };
+
+        // Entities
+        let obstacles = [];
+        let coins = [];
+        let particles = [];
+        let floatingTexts = [];
+        let nextObstacleSpawnX = 500;
+
+        // Audio Context Synthesizer (Native Web Audio API)
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) audioCtx = new AudioContext();
+            }
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                initAudio();
+                if (!audioCtx) return;
+                
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                const now = audioCtx.currentTime;
+
+                if (type === 'jump') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(220, now);
+                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.12);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+                    osc.start(now);
+                    osc.stop(now + 0.12);
+                } else if (type === 'coin') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(987.77, now); // B5
+                    osc.frequency.setValueAtTime(1318.51, now + 0.08); // E6
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'crash') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(180, now);
+                    osc.frequency.exponentialRampToValueAtTime(40, now + 0.3);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                } else if (type === 'perfect') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(523.25, now);
+                    osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.15);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                }
+            } catch (e) {
+                console.log("Audio play error", e);
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            soundBtn.textContent = soundEnabled ? '🔊' : '🔇';
+        }
+
+        window.addEventListener('load', () => {
+            highScoreEl.textContent = infiniteHighScore;
+            showStageSelect();
+        });
+
+        function toggleOrientation() {
+            isLandscape = !isLandscape;
+            if (isLandscape) {
+                gameContainer.classList.remove('max-w-md', 'h-[650px]');
+                gameContainer.classList.add('max-w-3xl', 'h-[420px]');
+                orientationText.textContent = '세로모드';
+            } else {
+                gameContainer.classList.remove('max-w-3xl', 'h-[420px]');
+                gameContainer.classList.add('max-w-md', 'h-[650px]');
+                orientationText.textContent = '가로모드';
+            }
+            setTimeout(resizeCanvas, 50);
+        }
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            player.groundY = canvas.height - 90;
+            if (!isPlaying) {
+                player.y = player.groundY - player.h;
+            }
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function triggerJump() {
+            if (!isPlaying) return;
+            initAudio();
+            jumpBufferTimer = 10; // Buffer jump input for 10 frames (~160ms)
+            if (!player.isJumping) {
+                executeJump();
+            }
+        }
+
+        function executeJump() {
+            player.vy = player.jumpForce;
+            player.isJumping = true;
+            jumpBufferTimer = 0;
+            playSound('jump');
+            createJumpParticles();
+            checkPerfectJump();
+        }
+
+        function checkPerfectJump() {
+            for (let obs of obstacles) {
+                let dist = obs.x - player.x;
+                if (dist > 25 && dist < 120 && !obs.passed) {
+                    floatingTexts.push({
+                        text: 'PERFECT! +3',
+                        x: player.x + player.w / 2,
+                        y: player.y - 20,
+                        alpha: 1.0,
+                        color: '#fbbf24'
+                    });
+                    score += 3;
+                    playSound('perfect');
+                    break;
+                }
+            }
+        }
+
+        // Key & Touch input handling (with Hold and Release support)
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                e.preventDefault();
+                if (!isJumpPressed) {
+                    triggerJump();
+                }
+                isJumpPressed = true;
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                isJumpPressed = false;
+            }
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            triggerJump();
+            isJumpPressed = true;
+        });
+
+        window.addEventListener('mouseup', () => {
+            isJumpPressed = false;
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            triggerJump();
+            isJumpPressed = true;
+        }, { passive: false });
+
+        window.addEventListener('touchend', () => {
+            isJumpPressed = false;
+        });
+
+        // Infinite Mode Speed Selector
+        function setInfiniteSpeed(multiplier, btnEl) {
+            selectedInfiniteSpeedMultiplier = multiplier;
+            const buttons = document.querySelectorAll('.speed-btn');
+            buttons.forEach(btn => {
+                btn.className = 'speed-btn px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-amber-200 border border-amber-500/30 hover:bg-amber-600 transition';
+            });
+            if (btnEl) {
+                btnEl.className = 'speed-btn px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-slate-950 border border-amber-300 hover:bg-amber-400 transition font-black';
+            }
+        }
+
+        function selectStage(stageNum) {
+            currentStage = stageNum;
+            highScoreNotify.classList.add('hidden');
+
+            if (stageNum === 'infinite') {
+                baseSpeed = 6.0 * selectedInfiniteSpeedMultiplier;
+                gameSpeed = baseSpeed;
+                modeBadge.textContent = `♾️ INFINITE (${selectedInfiniteSpeedMultiplier}x)`;
+                modeBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40';
+                progressContainer.classList.add('hidden');
+                highScoreTag.classList.remove('hidden');
+                coinsEl.textContent = `🪙 ${collectedCoins}`;
+            } else {
+                progressContainer.classList.remove('hidden');
+                highScoreTag.classList.add('hidden');
+                if (stageNum === 1) {
+                    baseSpeed = 5.5;
+                    totalDistance = 3000;
+                    modeBadge.textContent = 'STAGE 1';
+                    modeBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40';
+                } else if (stageNum === 2) {
+                    baseSpeed = 7.0;
+                    totalDistance = 4000;
+                    modeBadge.textContent = 'STAGE 2';
+                    modeBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40';
+                } else if (stageNum === 3) {
+                    baseSpeed = 8.5;
+                    totalDistance = 5000;
+                    modeBadge.textContent = 'STAGE 3';
+                    modeBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40';
+                }
+                coinsEl.textContent = `🪙 0 / 3`;
+            }
+            startGame();
+        }
+
+        function startGame() {
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            winScreen.classList.add('hidden');
+            
+            score = 0;
+            collectedCoins = 0;
+            distanceCovered = 0;
+            obstacles = [];
+            coins = [];
+            particles = [];
+            floatingTexts = [];
+            frameCount = 0;
+            gameSpeed = baseSpeed;
+            nextObstacleSpawnX = 450;
+            
+            player.jumpForce = -13.5;
+            player.gravity = 0.8;
+            player.y = player.groundY - player.h;
+            player.vy = 0;
+            player.isJumping = false;
+            player.rotation = 0;
+            isJumpPressed = false;
+            jumpBufferTimer = 0;
+
+            if (currentStage !== 'infinite') {
+                generateStageLevelMap();
+            }
+
+            isPlaying = true;
+            requestAnimationFrame(gameLoop);
+        }
+
+        function restartStage() {
+            startGame();
+        }
+
+        function showStageSelect() {
+            isPlaying = false;
+            gameOverScreen.classList.add('hidden');
+            winScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+            render();
+        }
+
+        // LEVEL GENERATION LOGIC
+        function generateStageLevelMap() {
+            let currentDist = 450;
+            let spikeChance = currentStage === 1 ? 0.35 : (currentStage === 2 ? 0.5 : 0.65);
+            
+            while (currentDist < totalDistance - 300) {
+                let typeRand = Math.random();
+
+                if (typeRand < spikeChance) {
+                    obstacles.push({ x: currentDist, type: 'spike', w: 30, h: 32, passed: false });
+                    if (currentStage >= 2 && Math.random() > 0.5) {
+                        obstacles.push({ x: currentDist + 32, type: 'spike', w: 30, h: 32, passed: false });
+                    }
+                    currentDist += Math.floor(Math.random() * (220 - currentStage * 15)) + 220;
+                } else {
+                    obstacles.push({ x: currentDist, type: 'block', w: 70, h: 55, passed: false });
+                    if (Math.random() > 0.4) {
+                        obstacles.push({ x: currentDist + 20, type: 'spike', w: 26, h: 26, elevated: 55, passed: false });
+                    }
+                    currentDist += Math.floor(Math.random() * 200) + 300;
+                }
+
+                if (Math.random() < 0.35 && coins.length < 3) {
+                    coins.push({ x: currentDist - 120, y: player.groundY - 100, collected: false });
+                }
+            }
+        }
+
+        function spawnInfiniteObstacles() {
+            // Keep spawning obstacles in advance ahead of canvas view
+            while (nextObstacleSpawnX < distanceCovered + canvas.width + 600) {
+                let rand = Math.random();
+
+                // Dynamic speed ramp in infinite mode
+                gameSpeed = baseSpeed + Math.min(6, Math.floor(score / 50) * 0.4);
+
+                // Speed gap scaling factor for high speeds (up to 2.0x)
+                let speedGapScale = Math.max(1.0, selectedInfiniteSpeedMultiplier * 0.85);
+
+                if (rand < 0.4) {
+                    // Single Spike
+                    obstacles.push({ x: nextObstacleSpawnX - distanceCovered + player.x, type: 'spike', w: 30, h: 32, passed: false });
+                    nextObstacleSpawnX += (Math.floor(Math.random() * 120) + 260) * speedGapScale;
+                } else if (rand < 0.65) {
+                    // Double Spike
+                    obstacles.push({ x: nextObstacleSpawnX - distanceCovered + player.x, type: 'spike', w: 30, h: 32, passed: false });
+                    obstacles.push({ x: nextObstacleSpawnX + 32 - distanceCovered + player.x, type: 'spike', w: 30, h: 32, passed: false });
+                    nextObstacleSpawnX += (Math.floor(Math.random() * 140) + 300) * speedGapScale;
+                } else if (rand < 0.85) {
+                    // Block with or without spike on top
+                    obstacles.push({ x: nextObstacleSpawnX - distanceCovered + player.x, type: 'block', w: 70, h: 55, passed: false });
+                    if (Math.random() > 0.5) {
+                        obstacles.push({ x: nextObstacleSpawnX + 22 - distanceCovered + player.x, type: 'spike', w: 26, h: 26, elevated: 55, passed: false });
+                    }
+                    nextObstacleSpawnX += (Math.floor(Math.random() * 180) + 320) * speedGapScale;
+                } else {
+                    // Floating Platform / Elevated block pattern
+                    obstacles.push({ x: nextObstacleSpawnX - distanceCovered + player.x, type: 'block', w: 90, h: 50, passed: false });
+                    nextObstacleSpawnX += (Math.floor(Math.random() * 150) + 340) * speedGapScale;
+                }
+
+                // Coin spawn chance
+                if (Math.random() < 0.4) {
+                    coins.push({ 
+                        x: nextObstacleSpawnX - 140 - distanceCovered + player.x, 
+                        y: player.groundY - (Math.random() > 0.5 ? 100 : 45), 
+                        collected: false 
+                    });
+                }
+            }
+        }
+
+        function createJumpParticles() {
+            for (let i = 0; i < 7; i++) {
+                particles.push({
+                    x: player.x + player.w / 2,
+                    y: player.groundY,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: Math.random() * 3,
+                    alpha: 1.0,
+                    size: Math.random() * 3 + 2,
+                    color: '#38bdf8'
+                });
+            }
+        }
+
+        function createCrashParticles() {
+            for (let i = 0; i < 25; i++) {
+                particles.push({
+                    x: player.x + player.w / 2,
+                    y: player.y + player.h / 2,
+                    vx: (Math.random() - 0.5) * 12,
+                    vy: (Math.random() - 0.5) * 12,
+                    alpha: 1.0,
+                    size: Math.random() * 6 + 3,
+                    color: i % 2 === 0 ? '#22d3ee' : '#f43f5e'
+                });
+            }
+        }
+
+        function update() {
+            frameCount++;
+            distanceCovered += gameSpeed;
+
+            if (jumpBufferTimer > 0) {
+                jumpBufferTimer--;
+            }
+
+            // Handle mode-specific progression
+            if (currentStage === 'infinite') {
+                spawnInfiniteObstacles();
+                scoreEl.textContent = score;
+                coinsEl.textContent = `🪙 ${collectedCoins}`;
+            } else {
+                let pct = Math.min(100, (distanceCovered / totalDistance) * 100);
+                progressBar.style.width = `${pct}%`;
+
+                if (distanceCovered >= totalDistance) {
+                    winGame();
+                    return;
+                }
+                scoreEl.textContent = score;
+                coinsEl.textContent = `🪙 ${collectedCoins} / 3`;
+            }
+
+            // Player Physics
+            player.vy += player.gravity;
+            player.y += player.vy;
+
+            let currentFloorY = player.groundY;
+
+            // Check block top landing
+            for (let obs of obstacles) {
+                if (obs.type === 'block') {
+                    if (
+                        player.x + player.w > obs.x + 4 &&
+                        player.x < obs.x + obs.w - 4 &&
+                        player.y + player.h >= player.groundY - obs.h &&
+                        player.y + player.h - player.vy <= player.groundY - obs.h + 14 &&
+                        player.vy >= 0
+                    ) {
+                        currentFloorY = player.groundY - obs.h;
+                    }
+                }
+            }
+
+            // Ground & Floor Collision
+            if (player.y + player.h >= currentFloorY) {
+                player.y = currentFloorY - player.h;
+                player.vy = 0;
+                player.isJumping = false;
+                player.rotation = Math.round(player.rotation / (Math.PI / 2)) * (Math.PI / 2);
+
+                // Instant continuous jump without delay if button is held or buffer active
+                if (isJumpPressed || jumpBufferTimer > 0) {
+                    executeJump();
+                }
+            } else {
+                if (player.isJumping) player.rotation += 0.14;
+            }
+
+            // Move & prune obstacles
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obs = obstacles[i];
+                obs.x -= gameSpeed;
+
+                // Point award for passing obstacle
+                if (!obs.passed && obs.x + obs.w < player.x) {
+                    obs.passed = true;
+                    score += 1;
+                }
+
+                // Cleanup offscreen objects
+                if (obs.x < -100) {
+                    obstacles.splice(i, 1);
+                }
+            }
+
+            // Move & prune coins
+            for (let i = coins.length - 1; i >= 0; i--) {
+                let coin = coins[i];
+                coin.x -= gameSpeed;
+
+                if (!coin.collected) {
+                    let dx = (player.x + player.w / 2) - coin.x;
+                    let dy = (player.y + player.h / 2) - coin.y;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 28) {
+                        coin.collected = true;
+                        collectedCoins++;
+                        score += 5;
+                        playSound('coin');
+                        floatingTexts.push({
+                            text: '+5 🪙',
+                            x: coin.x,
+                            y: coin.y - 10,
+                            alpha: 1.0,
+                            color: '#fbbf24'
+                        });
+                    }
+                }
+
+                if (coin.x < -100) {
+                    coins.splice(i, 1);
+                }
+            }
+
+            // Collision Detection with Obstacles
+            // Player hitbox is inset by `padding` so it is slightly smaller than the drawn cube (forgiving).
+            let padding = 6;
+            for (let obs of obstacles) {
+                let obsY = obs.type === 'block' ? player.groundY - obs.h : (obs.elevated ? player.groundY - obs.elevated - obs.h : player.groundY - obs.h);
+
+                // Obstacle hitbox matched to its drawn shape:
+                // - Spikes are drawn as triangles (apex at top-center), so use a narrow box
+                //   around the lower-center that stays inside the triangle. This prevents
+                //   "I didn't touch it!" deaths when grazing the empty corners near the tip.
+                // - Blocks are drawn as full rectangles, so keep the padded rectangle.
+                let hx, hy, hw, hh;
+                if (obs.type === 'spike') {
+                    hw = obs.w * 0.4;
+                    hx = obs.x + obs.w * 0.3;
+                    hh = obs.h * 0.6;
+                    hy = obsY + obs.h * 0.4;
+                } else {
+                    hw = obs.w - padding * 2;
+                    hx = obs.x + padding;
+                    hh = obs.h - padding * 2;
+                    hy = obsY + padding;
+                }
+
+                if (
+                    player.x + padding < hx + hw &&
+                    player.x + player.w - padding > hx &&
+                    player.y + padding < hy + hh &&
+                    player.y + player.h - padding > hy
+                ) {
+                    createCrashParticles();
+                    playSound('crash');
+                    endGame();
+                    return;
+                }
+            }
+
+            // Update particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx - (isPlaying ? gameSpeed * 0.2 : 0);
+                p.y += p.vy;
+                p.alpha -= 0.03;
+                if (p.alpha <= 0) particles.splice(i, 1);
+            }
+
+            // Floating Text updates
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                let ft = floatingTexts[i];
+                ft.x -= gameSpeed * 0.5;
+                ft.y -= 1;
+                ft.alpha -= 0.025;
+                if (ft.alpha <= 0) floatingTexts.splice(i, 1);
+            }
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Background Grid Lines
+            ctx.strokeStyle = 'rgba(168, 85, 247, 0.08)';
+            ctx.lineWidth = 1;
+            let gridOffset = (distanceCovered % 40);
+            for (let i = -gridOffset; i < canvas.width; i += 40) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, canvas.height);
+                ctx.stroke();
+            }
+
+            // Draw Ground Line
+            ctx.strokeStyle = '#22d3ee';
+            ctx.shadowColor = '#22d3ee';
+            ctx.shadowBlur = 10;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, player.groundY);
+            ctx.lineTo(canvas.width, player.groundY);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Ground Fill Gradient
+            let grad = ctx.createLinearGradient(0, player.groundY, 0, canvas.height);
+            grad.addColorStop(0, 'rgba(34, 211, 238, 0.2)');
+            grad.addColorStop(1, 'rgba(15, 23, 42, 0.95)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, player.groundY, canvas.width, canvas.height - player.groundY);
+
+            // Draw Obstacles (Blocks and Spikes)
+            for (let obs of obstacles) {
+                if (obs.x < -60 || obs.x > canvas.width + 60) continue;
+                ctx.save();
+                if (obs.type === 'block') {
+                    ctx.fillStyle = '#9333ea';
+                    ctx.shadowColor = '#c084fc';
+                    ctx.shadowBlur = 8;
+                    let by = player.groundY - obs.h;
+                    ctx.fillRect(obs.x, by, obs.w, obs.h);
+                    ctx.strokeStyle = '#e879f9';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(obs.x, by, obs.w, obs.h);
+                } else {
+                    ctx.fillStyle = '#f43f5e';
+                    ctx.shadowColor = '#fb7185';
+                    ctx.shadowBlur = 10;
+                    let sy = obs.elevated ? player.groundY - obs.elevated - obs.h : player.groundY - obs.h;
+                    ctx.beginPath();
+                    ctx.moveTo(obs.x + obs.w / 2, sy);
+                    ctx.lineTo(obs.x, sy + obs.h);
+                    ctx.lineTo(obs.x + obs.w, sy + obs.h);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+
+            // Draw Coins
+            for (let coin of coins) {
+                if (!coin.collected && coin.x > -40 && coin.x < canvas.width + 40) {
+                    ctx.save();
+                    ctx.font = '22px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.shadowColor = '#fbbf24';
+                    ctx.shadowBlur = 10;
+                    ctx.fillText('🪙', coin.x, coin.y);
+                    ctx.restore();
+                }
+            }
+
+            // Draw Player Cube
+            if (isPlaying) {
+                ctx.save();
+                ctx.translate(player.x + player.w / 2, player.y + player.h / 2);
+                ctx.rotate(player.rotation);
+                ctx.fillStyle = '#22d3ee';
+                ctx.shadowColor = '#38bdf8';
+                ctx.shadowBlur = 15;
+                ctx.fillRect(-player.w / 2, -player.h / 2, player.w, player.h);
+
+                // Inner detail
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(-player.w / 4, -player.h / 4, player.w / 2, player.h / 2);
+                ctx.restore();
+            }
+
+            // Draw Particles
+            for (let p of particles) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, p.alpha);
+                ctx.fillStyle = p.color || '#38bdf8';
+                ctx.fillRect(p.x, p.y, p.size, p.size);
+                ctx.restore();
+            }
+
+            // Draw Floating Texts
+            for (let ft of floatingTexts) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, ft.alpha);
+                ctx.font = '900 16px Pretendard, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = ft.color;
+                ctx.shadowColor = ft.color;
+                ctx.shadowBlur = 8;
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.restore();
+            }
+        }
+
+        function gameLoop() {
+            if (!isPlaying) return;
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function endGame() {
+            isPlaying = false;
+            finalScoreEl.textContent = score;
+
+            if (currentStage === 'infinite') {
+                if (score > infiniteHighScore) {
+                    infiniteHighScore = score;
+                    try {
+                        localStorage.setItem('runner_infinite_highscore', infiniteHighScore.toString());
+                    } catch (e) { /* localStorage unavailable */ }
+                    highScoreEl.textContent = infiniteHighScore;
+                    highScoreNotify.classList.remove('hidden');
+                }
+            }
+
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        function winGame() {
+            isPlaying = false;
+            winScoreEl.textContent = score;
+            winScreen.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

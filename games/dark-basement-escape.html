@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>어두운 지하실 탈출 (Dark Basement Escape)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        code: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        basement: {
+                            900: '#0d0f12',
+                            800: '#16191f',
+                            700: '#232833',
+                            accent: '#f59e0b'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0d0f12;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #232833;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #f59e0b;
+        }
+        .hotspot-pulse {
+            animation: pulse-glow 2s infinite ease-in-out;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 5px rgba(245, 158, 11, 0.3); transform: scale(1); }
+            50% { box-shadow: 0 0 15px rgba(245, 158, 11, 0.8); transform: scale(1.03); }
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 font-sans min-h-screen flex flex-col justify-between select-none overflow-x-hidden">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-gray-900/90 backdrop-blur border-b border-gray-800 sticky top-0 z-30 px-4 py-3">
+        <div class="max-w-5xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-dungeon text-amber-500 text-xl"></i>
+                <h1 class="text-base font-bold tracking-wide text-gray-200 hidden sm:inline">어두운 지하실 탈출</h1>
+            </div>
+
+            <div class="flex items-center space-x-3 sm:space-x-4">
+                <!-- Timer -->
+                <div class="bg-gray-950 px-3 py-1 rounded border border-gray-800 font-code text-amber-400 text-sm flex items-center gap-2">
+                    <i class="fa-regular fa-clock text-xs"></i>
+                    <span id="timerDisplay">00:00</span>
+                </div>
+
+                <!-- Selected Item Indicator -->
+                <div id="selectedItemContainer" class="hidden sm:flex items-center bg-gray-950 border border-amber-500/40 px-2.5 py-1 rounded text-xs gap-2">
+                    <span class="text-gray-400">선택:</span>
+                    <span id="selectedItemName" class="text-amber-300 font-semibold">없음</span>
+                    <button id="deselectItemBtn" class="text-gray-400 hover:text-red-400 ml-1">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Inventory Modal Toggle Button -->
+                <button id="inventoryModalBtn" class="bg-amber-950/80 hover:bg-amber-900 text-amber-300 text-xs px-3 py-1.5 rounded transition flex items-center gap-1.5 border border-amber-700/80 shadow cursor-pointer">
+                    <i class="fa-solid fa-briefcase text-amber-400"></i>
+                    <span>인벤토리</span>
+                    <span id="inventoryBadge" class="bg-amber-500 text-gray-950 font-bold font-mono text-[10px] px-1.5 py-0.2 rounded-full">0</span>
+                </button>
+
+                <!-- Hint Button -->
+                <button id="hintBtn" class="bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs px-3 py-1.5 rounded transition flex items-center gap-1.5 border border-gray-700">
+                    <i class="fa-solid fa-lightbulb text-yellow-500"></i>
+                    <span>힌트</span>
+                </button>
+
+                <!-- Audio Toggle -->
+                <button id="audioToggleBtn" class="bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs p-1.5 rounded transition border border-gray-700">
+                    <i id="audioIcon" class="fa-solid fa-volume-high text-gray-400"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content / Room Graphic View -->
+    <main class="flex-1 max-w-5xl w-full mx-auto p-4 flex flex-col justify-center items-center relative">
+        
+        <!-- Game Screen Box -->
+        <div class="relative w-full aspect-[16/9] max-h-[70vh] bg-gray-900 rounded-2xl border-2 border-gray-800 shadow-2xl overflow-hidden flex flex-col items-center justify-center">
+            
+            <!-- Room Background SVG / Art Simulation -->
+            <svg class="absolute inset-0 w-full h-full object-cover pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450">
+                <defs>
+                    <radialGradient id="lightGlow" cx="50%" cy="20%" r="60%">
+                        <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.15" />
+                        <stop offset="100%" stop-color="#000000" stop-opacity="0.95" />
+                    </radialGradient>
+                    <linearGradient id="wallGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#1e293b" />
+                        <stop offset="100%" stop-color="#0f172a" />
+                    </linearGradient>
+                </defs>
+
+                <!-- Room Walls & Floor -->
+                <rect width="800" height="450" fill="url(#wallGrad)" />
+                <polygon points="0,350 800,350 800,450 0,450" fill="#0b0f17" />
+                <line x1="0" y1="350" x2="800" y2="350" stroke="#334155" stroke-width="2" />
+                
+                <!-- Room Lamp Light Projection -->
+                <polygon points="400,0 200,450 600,450" fill="url(#lightGlow)" />
+                
+                <!-- Wall Bricks Texture Lines -->
+                <path d="M 50 80 H 250 M 150 120 H 350 M 500 90 H 700 M 580 140 H 780" stroke="#1e293b" stroke-width="2" stroke-dasharray="8 8" />
+
+                <!-- UV Secret Message Display (Only visible if UV flashlight active) -->
+                <g id="uvSecretMessage" class="opacity-0 transition-opacity duration-500">
+                    <text x="380" y="110" font-family="monospace" font-size="22" font-weight="bold" fill="#38bdf8" letter-spacing="3" text-anchor="middle" filter="drop-shadow(0 0 5px #0284c7)">
+                        금고 암호: [ 7 - 4 - 1 - 9 ]
+                    </text>
+                </g>
+            </svg>
+
+            <!-- Hotspot Overlay Buttons -->
+            <div class="absolute inset-0 p-4 relative z-10 w-full h-full">
+                
+                <!-- Hotspot 1: Wooden Desk & Drawer -->
+                <button onclick="handleHotspot('desk')" class="absolute left-[12%] top-[55%] w-[20%] h-[30%] bg-amber-950/20 hover:bg-amber-500/20 border-2 border-amber-600/40 hover:border-amber-400 rounded-lg flex flex-col items-center justify-center text-amber-300 transition-all cursor-pointer group shadow-lg">
+                    <i class="fa-solid fa-table text-2xl group-hover:scale-110 transition-transform"></i>
+                    <span class="text-xs font-semibold mt-1 bg-gray-950/80 px-2 py-0.5 rounded border border-gray-800">책상 & 서랍</span>
+                </button>
+
+                <!-- Hotspot 2: Steel Safe -->
+                <button onclick="handleHotspot('safe')" class="absolute right-[12%] top-[58%] w-[15%] h-[28%] bg-slate-900/40 hover:bg-amber-500/20 border-2 border-slate-700 hover:border-amber-400 rounded-lg flex flex-col items-center justify-center text-slate-300 hover:text-amber-300 transition-all cursor-pointer group shadow-lg">
+                    <i class="fa-solid fa-vault text-2xl group-hover:scale-110 transition-transform"></i>
+                    <span class="text-xs font-semibold mt-1 bg-gray-950/80 px-2 py-0.5 rounded border border-gray-800">철제 금고</span>
+                </button>
+
+                <!-- Hotspot 3: Bookshelf -->
+                <button onclick="handleHotspot('bookshelf')" class="absolute left-[5%] top-[15%] w-[18%] h-[35%] bg-amber-950/20 hover:bg-amber-500/20 border-2 border-amber-800/40 hover:border-amber-400 rounded-lg flex flex-col items-center justify-center text-amber-200 transition-all cursor-pointer group shadow-lg">
+                    <i class="fa-solid fa-book text-xl mb-1 group-hover:scale-110 transition-transform"></i>
+                    <span class="text-xs font-semibold bg-gray-950/80 px-2 py-0.5 rounded border border-gray-800">책장</span>
+                </button>
+
+                <!-- Hotspot 4: Dark Brick Wall (UV Light usage area) -->
+                <button onclick="handleHotspot('wall')" class="absolute left-[36%] top-[12%] w-[28%] h-[25%] bg-blue-900/10 hover:bg-blue-500/20 border-2 border-dashed border-blue-900/40 hover:border-blue-400 rounded-lg flex flex-col items-center justify-center text-blue-300 transition-all cursor-pointer group">
+                    <i class="fa-solid fa-eye text-xl group-hover:scale-110 transition-transform opacity-60"></i>
+                    <span class="text-xs font-semibold mt-1 bg-gray-950/80 px-2 py-0.5 rounded border border-gray-800">수상한 벽면</span>
+                </button>
+
+                <!-- Hotspot 5: Exit Door -->
+                <button onclick="handleHotspot('door')" class="absolute right-[35%] top-[38%] w-[16%] h-[42%] bg-red-950/30 hover:bg-amber-500/20 border-2 border-red-900/60 hover:border-amber-400 rounded-lg flex flex-col items-center justify-center text-red-300 hover:text-amber-300 transition-all cursor-pointer group shadow-2xl">
+                    <i class="fa-solid fa-door-closed text-3xl group-hover:scale-110 transition-transform"></i>
+                    <span class="text-xs font-semibold mt-2 bg-gray-950/80 px-2 py-0.5 rounded border border-gray-800">탈출용 철문</span>
+                </button>
+
+            </div>
+
+            <!-- Toast Notification Box -->
+            <div id="toast" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-900/95 border border-amber-500/60 text-amber-200 text-xs px-4 py-2.5 rounded-xl shadow-2xl transition-all duration-300 opacity-0 pointer-events-none z-20 flex items-center gap-2">
+                <i class="fa-solid fa-circle-info text-amber-400"></i>
+                <span id="toastMessage">안내 메시지입니다.</span>
+            </div>
+
+        </div>
+
+        <!-- Quick Item Toolbar (Bottom bar view) -->
+        <div class="w-full mt-4 bg-gray-900/90 border border-gray-800 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="text-xs text-gray-400 flex items-center gap-2">
+                <i class="fa-solid fa-hand-pointer text-amber-500"></i>
+                <span>오브젝트 탐색 또는 아이템을 클릭해 건전지 장착 및 사용을 진행하세요.</span>
+            </div>
+            <div id="quickInventory" class="flex items-center gap-2 overflow-x-auto py-1 max-w-full">
+                <!-- Dynamically populated quick items -->
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal Container -->
+    <div id="gameModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-gray-900 border border-amber-600/40 w-full max-w-md rounded-2xl p-5 shadow-2xl transform scale-95 transition-transform duration-300 relative text-gray-200" id="modalBox">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-100 transition">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <div id="modalContent">
+                <!-- Dynamic Content Injected Here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global Game State
+        const gameState = {
+            inventory: [],
+            selectedItemId: null,
+            timerSeconds: 0,
+            timerInterval: null,
+            audioEnabled: true,
+            unlocked: {
+                deskDrawer: false,
+                safe: false,
+                bookshelfBattery: false,
+                wallRevealed: false,
+                doorUnlocked: false
+            }
+        };
+
+        // Item Database definition
+        const ITEM_DATABASE = {
+            'flashlight_empty': {
+                id: 'flashlight_empty',
+                name: '방전된 UV 라이트 (0/1)',
+                desc: '자외선 전등입니다. 작동시키려면 AA 건전지 1개를 장착해야 합니다.',
+                icon: 'fa-lightbulb'
+            },
+            'flashlight_working': {
+                id: 'flashlight_working',
+                name: '작동하는 UV 라이트 (완성)',
+                desc: '건전지가 장착되어 밝은 자외선을 비출 수 있는 손전등입니다.',
+                icon: 'fa-bolt'
+            },
+            'battery_1': {
+                id: 'battery_1',
+                name: 'AA 건전지 (1)',
+                desc: '손전등이나 전자기기에 장착할 수 있는 AA 규격 건전지입니다.',
+                icon: 'fa-battery-half'
+            },
+            'battery_2': {
+                id: 'battery_2',
+                name: 'AA 건전지 (2)',
+                desc: '손전등이나 전자기기에 장착할 수 있는 AA 규격 건전지입니다.',
+                icon: 'fa-battery-half'
+            },
+            'key_drawer': {
+                id: 'key_drawer',
+                name: '작은 은색 열쇠',
+                desc: '책상 서랍을 열 수 있을 것 같은 정교한 열쇠입니다.',
+                icon: 'fa-key'
+            },
+            'key_exit': {
+                id: 'key_exit',
+                name: '지하실 비상 열쇠',
+                desc: '탈출용 육중한 철문을 열 수 있는 무거운 열쇠입니다.',
+                icon: 'fa-key'
+            }
+        };
+
+        // Web Audio Synthesizer for SFX (shared context to avoid browser context limit)
+        let sharedAudioCtx = null;
+        function playSound(type) {
+            if (!gameState.audioEnabled) return;
+            try {
+                if (!sharedAudioCtx) {
+                    sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                const ctx = sharedAudioCtx;
+                if (ctx.state === 'suspended') ctx.resume();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                const now = ctx.currentTime;
+
+                if (type === 'click') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, now);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                } else if (type === 'pickup') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(440, now);
+                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } else if (type === 'combine') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(350, now);
+                    osc.frequency.exponentialRampToValueAtTime(700, now + 0.2);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'unlock') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, now);
+                    osc.frequency.setValueAtTime(659.25, now + 0.1);
+                    osc.frequency.setValueAtTime(783.99, now + 0.2);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+                    osc.start(now);
+                    osc.stop(now + 0.35);
+                } else if (type === 'error') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(150, now);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                }
+            } catch (e) {
+                console.error("Audio error", e);
+            }
+        }
+
+        // Timer Logic
+        function startTimer() {
+            gameState.timerInterval = setInterval(() => {
+                gameState.timerSeconds++;
+                const mins = Math.floor(gameState.timerSeconds / 60).toString().padStart(2, '0');
+                const secs = (gameState.timerSeconds % 60).toString().padStart(2, '0');
+                const timerDisplay = document.getElementById('timerDisplay');
+                if (timerDisplay) timerDisplay.textContent = `${mins}:${secs}`;
+            }, 1000);
+        }
+
+        // Toast Notification System
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            if (!toast || !toastMessage) return;
+
+            toastMessage.textContent = msg;
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            toast.classList.add('opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+
+        // Modal Utilities
+        function openModal(htmlContent) {
+            const modal = document.getElementById('gameModal');
+            const modalContent = document.getElementById('modalContent');
+            const modalBox = document.getElementById('modalBox');
+
+            if (!modal || !modalContent) return;
+
+            modalContent.innerHTML = htmlContent;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.classList.add('opacity-100');
+            modalBox.classList.remove('scale-95');
+            modalBox.classList.add('scale-100');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('gameModal');
+            const modalBox = document.getElementById('modalBox');
+            if (!modal) return;
+
+            modal.classList.remove('opacity-100');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            if (modalBox) {
+                modalBox.classList.remove('scale-100');
+                modalBox.classList.add('scale-95');
+            }
+        }
+
+        // Add item to inventory
+        function addItem(itemId) {
+            if (!gameState.inventory.find(i => i.id === itemId)) {
+                const item = ITEM_DATABASE[itemId];
+                if (item) {
+                    gameState.inventory.push(item);
+                    playSound('pickup');
+                    showToast(`'${item.name}' 아이템을 획득했습니다!`);
+                    
+                    // Check if battery can be attached
+                    const hasBattery = gameState.inventory.some(i => i.id === 'battery_1' || i.id === 'battery_2');
+                    const hasFlashlight = gameState.inventory.some(i => i.id === 'flashlight_empty');
+                    if (hasBattery && hasFlashlight) {
+                        showToast(`💡 손전등과 건전지가 있습니다! 인벤토리나 아이템을 눌러 건전지를 끼워보세요.`);
+                    }
+
+                    renderInventory();
+                }
+            }
+        }
+
+        // Insert Battery into Flashlight (Manual or Quick action)
+        function insertBattery() {
+            const batteryIndex = gameState.inventory.findIndex(i => i.id === 'battery_1' || i.id === 'battery_2');
+            if (batteryIndex === -1) {
+                playSound('error');
+                showToast('장착할 AA 건전지가 없습니다.');
+                return false;
+            }
+
+            const usedBattery = gameState.inventory[batteryIndex];
+            const hasEmpty = gameState.inventory.some(i => i.id === 'flashlight_empty');
+
+            if (hasEmpty) {
+                // Remove battery used and update empty flashlight directly to working
+                gameState.inventory.splice(batteryIndex, 1);
+                gameState.inventory = gameState.inventory.filter(i => i.id !== 'flashlight_empty');
+                gameState.inventory.push(ITEM_DATABASE['flashlight_working']);
+
+                if (gameState.selectedItemId === 'flashlight_empty' || gameState.selectedItemId === usedBattery.id) {
+                    gameState.selectedItemId = 'flashlight_working';
+                }
+
+                playSound('unlock');
+                showToast(`⚡ ${usedBattery.name}을(를) 장착했습니다! '작동하는 UV 라이트'가 완성되었습니다!`);
+                renderInventory();
+                return true;
+            } else {
+                playSound('error');
+                showToast('건전지를 끼울 손전등이 없습니다.');
+                return false;
+            }
+        }
+
+        // Handle item clicks with combination logic
+        function handleItemClick(clickedItemId) {
+            const isBattery = clickedItemId === 'battery_1' || clickedItemId === 'battery_2';
+            const isFlashlight = clickedItemId === 'flashlight_empty';
+
+            // If a battery or flashlight is currently selected, combine them directly!
+            if (gameState.selectedItemId) {
+                const selectedIsBattery = gameState.selectedItemId === 'battery_1' || gameState.selectedItemId === 'battery_2';
+                const selectedIsFlashlight = gameState.selectedItemId === 'flashlight_empty';
+
+                if ((selectedIsBattery && isFlashlight) || (selectedIsFlashlight && isBattery)) {
+                    insertBattery();
+                    return;
+                }
+            }
+
+            // Normal toggle selection
+            if (gameState.selectedItemId === clickedItemId) {
+                gameState.selectedItemId = null;
+            } else {
+                gameState.selectedItemId = clickedItemId;
+                const itemObj = ITEM_DATABASE[clickedItemId];
+                showToast(`'${itemObj ? itemObj.name : '아이템'}' 선택됨`);
+            }
+            playSound('click');
+            renderInventory();
+        }
+
+        // Render Inventory UI Components
+        function renderInventory() {
+            const badge = document.getElementById('inventoryBadge');
+            const selectedNameDisplay = document.getElementById('selectedItemName');
+            const selectedContainer = document.getElementById('selectedItemContainer');
+            const quickInventory = document.getElementById('quickInventory');
+
+            if (badge) badge.textContent = gameState.inventory.length;
+
+            // Selected item UI display
+            if (gameState.selectedItemId) {
+                const selectedItem = ITEM_DATABASE[gameState.selectedItemId];
+                if (selectedNameDisplay) selectedNameDisplay.textContent = selectedItem ? selectedItem.name : '없음';
+                if (selectedContainer) selectedContainer.classList.remove('hidden');
+            } else {
+                if (selectedNameDisplay) selectedNameDisplay.textContent = '없음';
+                if (selectedContainer) selectedContainer.classList.add('hidden');
+            }
+
+            // Quick Inventory bar
+            if (quickInventory) {
+                quickInventory.innerHTML = '';
+                if (gameState.inventory.length === 0) {
+                    quickInventory.innerHTML = `<span class="text-xs text-gray-500 italic">소지품 없음</span>`;
+                } else {
+                    gameState.inventory.forEach(item => {
+                        const isSelected = gameState.selectedItemId === item.id;
+                        const btn = document.createElement('button');
+                        btn.className = `px-2.5 py-1 text-xs rounded-lg border transition flex items-center gap-1.5 cursor-pointer flex-shrink-0 ${
+                            isSelected 
+                            ? 'bg-amber-500 text-gray-950 font-bold border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.5)]' 
+                            : 'bg-gray-800 text-amber-300 hover:bg-gray-700 border-gray-700'
+                        }`;
+                        btn.innerHTML = `<i class="fa-solid ${item.icon}"></i><span>${item.name}</span>`;
+                        btn.onclick = () => handleItemClick(item.id);
+                        quickInventory.appendChild(btn);
+                    });
+                }
+            }
+        }
+
+        // Expose openInventoryModal on window object
+        window.openInventoryModal = function() {
+            playSound('click');
+            if (gameState.inventory.length === 0) {
+                openModal(`
+                    <div class="space-y-4 text-center py-4">
+                        <div class="w-16 h-16 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center mx-auto text-gray-500 text-2xl">
+                            <i class="fa-solid fa-briefcase"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-amber-400">인벤토리 (가방)</h3>
+                        <p class="text-sm text-gray-400">현재 소지하고 있는 아이템이 없습니다.<br>지하실 내부를 탐색하여 아이템을 수집해보세요!</p>
+                        <button onclick="closeModal()" class="w-full bg-gray-800 hover:bg-gray-700 text-gray-200 py-2 rounded-xl transition text-xs">닫기</button>
+                    </div>
+                `);
+                return;
+            }
+
+            const hasBatteries = gameState.inventory.some(i => i.id === 'battery_1' || i.id === 'battery_2');
+
+            let itemsHtml = gameState.inventory.map(item => {
+                const isSelected = gameState.selectedItemId === item.id;
+                const isFlashlightUnfinished = item.id === 'flashlight_empty';
+                
+                return `
+                    <div class="p-3 rounded-xl border-2 transition ${isSelected ? 'border-amber-400 bg-amber-950/60 shadow-[0_0_12px_rgba(245,158,11,0.4)]' : 'border-gray-800 bg-gray-950 hover:border-gray-700'} flex items-center justify-between gap-3">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-11 h-11 rounded-lg bg-gray-900 border border-gray-800 flex items-center justify-center text-amber-400 text-lg flex-shrink-0">
+                                <i class="fa-solid ${item.icon}"></i>
+                            </div>
+                            <div class="text-left">
+                                <div class="text-sm font-bold text-gray-200 flex items-center gap-2">
+                                    ${item.name}
+                                    ${isSelected ? '<span class="text-[10px] bg-amber-500 text-gray-950 font-bold px-1.5 py-0.2 rounded">선택됨</span>' : ''}
+                                </div>
+                                <div class="text-xs text-gray-400 leading-snug">${item.desc}</div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-end gap-1 flex-shrink-0">
+                            ${isFlashlightUnfinished && hasBatteries ? `
+                                <button onclick="window.insertBatteryFromModal()" class="px-2.5 py-1 text-xs font-bold rounded-lg bg-amber-500 text-gray-950 hover:bg-amber-400 transition flex items-center gap-1 shadow">
+                                    <i class="fa-solid fa-bolt text-xs"></i> 건전지 끼우기
+                                </button>
+                            ` : ''}
+                            <button onclick="window.selectItemFromModal('${item.id}')" class="px-3 py-1.5 text-xs font-bold rounded-lg transition ${isSelected ? 'bg-amber-500 text-gray-950 hover:bg-amber-400' : 'bg-gray-800 hover:bg-gray-700 text-amber-300 border border-gray-700'}">
+                                ${isSelected ? '선택 해제' : '사용 선택'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            openModal(`
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                        <h3 class="text-lg font-bold text-amber-400 flex items-center gap-2">
+                            <i class="fa-solid fa-briefcase"></i> 소지품 인벤토리
+                        </h3>
+                        <span class="text-xs text-gray-400 font-mono">보유량: ${gameState.inventory.length}개</span>
+                    </div>
+                    <div class="space-y-2.5 max-h-[55vh] overflow-y-auto pr-1">
+                        ${itemsHtml}
+                    </div>
+                    <button onclick="closeModal()" class="w-full bg-gray-800 hover:bg-gray-700 text-gray-200 py-2 rounded-xl transition text-xs">닫기</button>
+                </div>
+            `);
+        };
+
+        window.selectItemFromModal = function(itemId) {
+            playSound('click');
+            if (gameState.selectedItemId === itemId) {
+                gameState.selectedItemId = null;
+            } else {
+                gameState.selectedItemId = itemId;
+                const itemObj = ITEM_DATABASE[itemId];
+                showToast(`'${itemObj ? itemObj.name : '아이템'}' 사용 준비 완료. 클릭하여 상호작용하세요.`);
+            }
+            renderInventory();
+            window.openInventoryModal();
+        };
+
+        window.insertBatteryFromModal = function() {
+            if (insertBattery()) {
+                window.openInventoryModal();
+            }
+        };
+
+        // Hotspot Interaction Handler
+        function handleHotspot(type) {
+            playSound('click');
+
+            if (type === 'desk') {
+                if (!gameState.unlocked.deskDrawer) {
+                    if (gameState.selectedItemId === 'key_drawer') {
+                        gameState.unlocked.deskDrawer = true;
+                        playSound('unlock');
+                        addItem('battery_1');
+                        openModal(`
+                            <div class="space-y-4 text-center">
+                                <i class="fa-solid fa-unlock text-4xl text-amber-400"></i>
+                                <h3 class="text-lg font-bold text-amber-400">책상 서랍 해제</h3>
+                                <p class="text-sm text-gray-300">작은 은색 열쇠로 서랍을 열었습니다.<br>서랍 내부에서 <strong class="text-amber-400">AA 건전지 (1)</strong>을(를) 발견했습니다!</p>
+                                <button onclick="closeModal()" class="w-full bg-amber-600 hover:bg-amber-500 text-gray-950 font-bold py-2 rounded-xl transition text-xs">확인</button>
+                            </div>
+                        `);
+                    } else {
+                        addItem('flashlight_empty');
+                        openModal(`
+                            <div class="space-y-4">
+                                <h3 class="text-lg font-bold text-amber-400 flex items-center gap-2">
+                                    <i class="fa-solid fa-table"></i> 먼지 쌓인 책상
+                                </h3>
+                                <p class="text-sm text-gray-300">책상 위에서 <strong class="text-amber-400">방전된 UV 라이트</strong>를 발견했습니다!</p>
+                                <div class="bg-gray-950 p-3 rounded-lg border border-gray-800 text-xs text-gray-400 leading-relaxed">
+                                    💡 <strong>힌트:</strong> AA 건전지 1개를 찾아 UV 라이트에 끼우면 자외선을 사용할 수 있습니다.<br>밑 서랍은 열쇠로 잠겨 있습니다.
+                                </div>
+                                <button onclick="closeModal()" class="w-full bg-gray-800 hover:bg-gray-700 text-gray-200 py-2 rounded-xl transition text-xs">닫기</button>
+                            </div>
+                        `);
+                    }
+                } else {
+                    openModal(`
+                        <div class="space-y-3">
+                            <h3 class="text-lg font-bold text-amber-400">책상 서랍</h3>
+                            <p class="text-sm text-gray-300">열린 책상 서랍입니다. 더 이상 특별한 것은 없습니다.</p>
+                            <button onclick="closeModal()" class="w-full bg-gray-800 hover:bg-gray-700 text-gray-200 py-2 rounded-xl transition text-xs">닫기</button>
+                        </div>
+                    `);
+                }
+            } 
+            else if (type === 'bookshelf') {
+                if (!gameState.unlocked.bookshelfBattery) {
+                    gameState.unlocked.bookshelfBattery = true;
+                    addItem('battery_2');
+                    openModal(`
+                        <div class="space-y-4">
+                            <h3 class="text-lg font-bold text-amber-400 flex items-center gap-2">
+                                <i class="fa-solid fa-book"></i> 오래된 책장
+                            </h3>
+                            <p class="text-sm text-gray-300">책장 사이에 꽂힌 두꺼운 고서 사이에서 <strong class="text-amber-400">AA 건전지 (2)</strong>을(를) 발견했습니다!</p>
+                            <button onclick="closeModal()" class="w-full bg-amber-600 hover:bg-amber-500 text-gray-950 font-bold py-2 rounded-xl transition text-xs">수집하기</button>
+                        </div>
+                    `);
+                } else {
+                    openModal(`
+                        <div class="space-y-3">
+                            <h3 class="text-lg font-bold text-amber-400">오래된 책장</h3>
+                            <p class="text-sm text-gray-300">오래된 고서들이 수북히 쌓여있습니다.</p>
+                            <button onclick="closeModal()" class="w-full bg-gray-800 hover:bg-gray-700 text-gray-200 py-2 rounded-xl transition text-xs">닫기</button>
+                        </div>
+                    `);
+                }
+            }
+            else if (type === 'wall') {
+                if (gameState.selectedItemId === 'flashlight_working') {
+                    gameState.unlocked.wallRevealed = true;
+                    document.getElementById('uvSecretMessage')?.classList.remove('opacity-0');
+                    playSound('unlock');
+                    openModal(`
+                        <div class="space-y-4 text-center">
+                            <i class="fa-solid fa-lightbulb text-4xl text-blue-400"></i>
+                            <h3 class="text-lg font-bold text-blue-400">특수 인쇄 암호 발견!</h3>
+                            <p class="text-sm text-gray-300">작동하는 UV 라이트를 벽면에 비추자 형광 물질로 적힌 비밀번호가 선명하게 드러납니다!</p>
+                            <div class="bg-gray-950 p-4 rounded-xl border border-blue-500/50 text-xl font-mono font-bold text-blue-300 tracking-wider">
+                                금고 암호: 7 - 4 - 1 - 9
+                            </div>
+                            <button onclick="closeModal()" class="w-full bg-blue-600 hover:bg-blue-500 text-gray-950 font-bold py-2 rounded-xl transition text-xs">기억하기</button>
+                        </div>
+                    `);
+                } else if (gameState.selectedItemId === 'flashlight_empty') {
+                    playSound('error');
+                    openModal(`
+                        <div class="space-y-3">
+                            <h3 class="text-lg font-bold text-amber-400">방전된 UV 라이트</h3>
+                            <p class="text-sm text-gray-300">건전지가 장착되지 않아 불빛이 들어오지 않습니다.<br>AA 건전지 1개를 장착해야 불빛을 비출 수 있습니다!</p>
+                            <button onclick="closeModal()" class="w-full bg-gray-800 hover:bg-gray-700 text-gray-200 py-2 rounded-xl transition text-xs">닫기</button>
+                        </div>
+                    `);
+                } else {
+                    openModal(`
+                        <div class="space-y-3">
+                            <h3 class="text-lg font-bold text-gray-300">수상한 벽면</h3>
+                            <p class="text-sm text-gray-400">얼룩덜룩한 시멘트 벽면입니다. 육안으로는 아무것도 보이지 않지만 특수한 자외선 불빛(UV 라이트)을 비추면 무언가 보일지도 모릅니다...</p>
+                            <button onclick="closeModal()" class="w-full bg-gray-800 hover:bg-gray-700 text-gray-200 py-2 rounded-xl transition text-xs">닫기</button>
+                        </div>
+                    `);
+                }
+            }
+            else if (type === 'safe') {
+                if (!gameState.unlocked.safe) {
+                    openModal(`
+                        <div class="space-y-4">
+                            <h3 class="text-lg font-bold text-amber-400 flex items-center gap-2">
+                                <i class="fa-solid fa-vault"></i> 4자리 철제 금고
+                            </h3>
+                            <p class="text-sm text-gray-300">4자리 비밀번호를 입력해야 합니다.</p>
+                            <div class="flex justify-center gap-2 my-4">
+                                <input id="pass1" type="text" inputmode="numeric" maxlength="1" oninput="if(this.value)document.getElementById('pass2').focus()" onkeydown="if(event.key==='Enter')checkSafeCode()" class="w-12 h-14 text-center text-xl font-bold bg-gray-950 border border-amber-500/50 rounded-lg text-amber-400 focus:outline-none focus:border-amber-400">
+                                <input id="pass2" type="text" inputmode="numeric" maxlength="1" oninput="if(this.value)document.getElementById('pass3').focus()" onkeydown="if(event.key==='Enter')checkSafeCode()" class="w-12 h-14 text-center text-xl font-bold bg-gray-950 border border-amber-500/50 rounded-lg text-amber-400 focus:outline-none focus:border-amber-400">
+                                <input id="pass3" type="text" inputmode="numeric" maxlength="1" oninput="if(this.value)document.getElementById('pass4').focus()" onkeydown="if(event.key==='Enter')checkSafeCode()" class="w-12 h-14 text-center text-xl font-bold bg-gray-950 border border-amber-500/50 rounded-lg text-amber-400 focus:outline-none focus:border-amber-400">
+                                <input id="pass4" type="text" inputmode="numeric" maxlength="1" onkeydown="if(event.key==='Enter')checkSafeCode()" class="w-12 h-14 text-center text-xl font-bold bg-gray-950 border border-amber-500/50 rounded-lg text-amber-400 focus:outline-none focus:border-amber-400">
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="checkSafeCode()" class="flex-1 bg-amber-600 hover:bg-amber-500 text-gray-950 font-bold py-2 rounded-xl transition text-xs">비밀번호 잠금 해제</button>
+                                <button onclick="closeModal()" class="px-4 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl transition text-xs">취소</button>
+                            </div>
+                        </div>
+                    `);
+                    setTimeout(() => {
+                        const p1 = document.getElementById('pass1');
+                        if (p1) p1.focus();
+                    }, 100);
+                } else {
+                    openModal(`
+                        <div class="space-y-3">
+                            <h3 class="text-lg font-bold text-amber-400">열린 금고</h3>
+                            <p class="text-sm text-gray-300">이미 금고 내부의 내용물을 모두 수집했습니다.</p>
+                            <button onclick="closeModal()" class="w-full bg-gray-800 hover:bg-gray-700 text-gray-200 py-2 rounded-xl transition text-xs">닫기</button>
+                        </div>
+                    `);
+                }
+            }
+            else if (type === 'door') {
+                if (gameState.selectedItemId === 'key_exit') {
+                    playSound('unlock');
+                    clearInterval(gameState.timerInterval);
+                    openModal(`
+                        <div class="space-y-4 text-center py-2">
+                            <i class="fa-solid fa-door-open text-5xl text-amber-400 animate-bounce"></i>
+                            <h2 class="text-2xl font-bold text-amber-400">탈출 성공!</h2>
+                            <p class="text-sm text-gray-300">지하실 비상 열쇠로 문을 열고 무사히 탈출했습니다!</p>
+                            <div class="bg-gray-950 p-3 rounded-lg border border-amber-500/30 text-xs text-amber-300 font-mono">
+                                소요 시간: ${document.getElementById('timerDisplay')?.textContent || '00:00'}
+                            </div>
+                            <button onclick="location.reload()" class="w-full bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold py-2.5 rounded-xl transition text-xs">다시 플레이하기</button>
+                        </div>
+                    `);
+                } else {
+                    playSound('error');
+                    openModal(`
+                        <div class="space-y-3">
+                            <h3 class="text-lg font-bold text-red-400 flex items-center gap-2">
+                                <i class="fa-solid fa-lock"></i> 잠긴 탈출문
+                            </h3>
+                            <p class="text-sm text-gray-300">육중한 철문이 굳게 잠겨 있습니다. 올바른 비상 열쇠를 선택한 후 클릭해야 합니다.</p>
+                            <button onclick="closeModal()" class="w-full bg-gray-800 hover:bg-gray-700 text-gray-200 py-2 rounded-xl transition text-xs">닫기</button>
+                        </div>
+                    `);
+                }
+            }
+        }
+
+        // Safe Code Verification logic
+        window.checkSafeCode = function() {
+            const p1 = document.getElementById('pass1')?.value || '';
+            const p2 = document.getElementById('pass2')?.value || '';
+            const p3 = document.getElementById('pass3')?.value || '';
+            const p4 = document.getElementById('pass4')?.value || '';
+
+            const code = (p1 + p2 + p3 + p4).replace(/\s/g, '');
+            if (code === '7419') {
+                gameState.unlocked.safe = true;
+                playSound('unlock');
+                addItem('key_exit');
+                addItem('key_drawer');
+                openModal(`
+                    <div class="space-y-4 text-center">
+                        <i class="fa-solid fa-vault text-4xl text-amber-400"></i>
+                        <h3 class="text-lg font-bold text-amber-400">금고 잠금 해제!</h3>
+                        <p class="text-sm text-gray-300">금고가 맞춰진 암호로 열렸습니다!<br>내부에서 <strong class="text-amber-400">지하실 비상 열쇠</strong>와 <strong class="text-amber-400">작은 은색 열쇠</strong>를 획득했습니다.</p>
+                        <button onclick="closeModal()" class="w-full bg-amber-600 hover:bg-amber-500 text-gray-950 font-bold py-2 rounded-xl transition text-xs">확인</button>
+                    </div>
+                `);
+            } else {
+                playSound('error');
+                showToast('비밀번호가 올바르지 않습니다!');
+            }
+        };
+
+        // Attach Event Handlers & Initialize Global State on Load
+        window.onload = function() {
+            startTimer();
+            renderInventory();
+
+            // Escape key closes the modal (keyboard support)
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') closeModal();
+            });
+
+            // Deselect Item Button
+            document.getElementById('deselectItemBtn')?.addEventListener('click', () => {
+                gameState.selectedItemId = null;
+                playSound('click');
+                renderInventory();
+            });
+
+            // Inventory Modal Button
+            document.getElementById('inventoryModalBtn')?.addEventListener('click', window.openInventoryModal);
+
+            // Hint Button Dynamic Logic
+            document.getElementById('hintBtn')?.addEventListener('click', () => {
+                playSound('click');
+                let hintMsg = "";
+                
+                const hasEmpty = gameState.inventory.some(i => i.id === 'flashlight_empty');
+                const hasWorking = gameState.inventory.some(i => i.id === 'flashlight_working');
+                const bat1 = gameState.inventory.some(i => i.id === 'battery_1');
+                const bat2 = gameState.inventory.some(i => i.id === 'battery_2');
+
+                if (!hasEmpty && !hasWorking) {
+                    hintMsg = "책상을 조사하여 '방전된 UV 라이트'를 먼저 수집하세요.";
+                } else if (hasEmpty && (bat1 || bat2)) {
+                    hintMsg = "인벤토리를 열거나 하단 아이템을 선택하여 손전등에 AA 건전지 1개를 장착해 보세요!";
+                } else if (!hasWorking) {
+                    hintMsg = "책상(서랍 열쇠 필요)이나 책장에서 AA 건전지를 찾아 손전등에 끼우세요.";
+                } else if (!gameState.unlocked.wallRevealed) {
+                    hintMsg = "'작동하는 UV 라이트'를 선택한 상태에서 수상한 벽면을 조명해보세요.";
+                } else if (!gameState.unlocked.safe) {
+                    hintMsg = "벽에 드러난 4자리 암호(7419)를 철제 금고에 입력하세요.";
+                } else if (!gameState.unlocked.deskDrawer) {
+                    hintMsg = "금고에서 얻은 '작은 은색 열쇠'를 선택해 책상 서랍을 열 수 있습니다.";
+                } else {
+                    hintMsg = "인벤토리에서 '지하실 비상 열쇠'를 선택한 후 탈출용 철문을 클릭하세요!";
+                }
+
+                openModal(`
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-bold text-yellow-400 flex items-center gap-2">
+                            <i class="fa-solid fa-lightbulb"></i> 현재 단계 힌트
+                        </h3>
+                        <div class="bg-gray-950 p-3.5 rounded-xl border border-yellow-500/30 text-xs text-gray-200 leading-relaxed">
+                            ${hintMsg}
+                        </div>
+                        <button onclick="closeModal()" class="w-full bg-gray-800 hover:bg-gray-700 text-gray-200 py-2 rounded-xl transition text-xs">확인</button>
+                    </div>
+                `);
+            });
+
+            // Audio Toggle
+            document.getElementById('audioToggleBtn')?.addEventListener('click', () => {
+                gameState.audioEnabled = !gameState.audioEnabled;
+                const icon = document.getElementById('audioIcon');
+                if (icon) {
+                    icon.className = gameState.audioEnabled ? "fa-solid fa-volume-high text-gray-400" : "fa-solid fa-volume-xmark text-red-400";
+                }
+                showToast(gameState.audioEnabled ? "사운드 효과 켜짐" : "사운드 효과 꺼짐");
+            });
+
+            // Expose utility modals globally
+            window.showToast = showToast;
+            window.openModal = openModal;
+            window.closeModal = closeModal;
+            window.handleHotspot = handleHotspot;
+        };
+    </script>
+</body>
+</html>
