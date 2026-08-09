@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>맛있는 음식을 잡아라! 🐻 3D</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts (Jua Font) -->
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+    <!-- Three.js 3D Engine -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Jua', 'Nunito', sans-serif;
+            background-color: #064e3b;
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Catch Floating Text Animation */
+        @keyframes float-up-fade {
+            0% { opacity: 1; transform: translate(-50%, 0) scale(0.8); }
+            50% { opacity: 1; transform: translate(-50%, -30px) scale(1.2); }
+            100% { opacity: 0; transform: translate(-50%, -60px) scale(1); }
+        }
+
+        .catch-float-text {
+            animation: float-up-fade 0.75s ease-out forwards;
+            pointer-events: none;
+        }
+
+        /* Screen Shake Effect for Junk Food */
+        @keyframes shake-3d {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            20% { transform: translate(-10px, 6px) rotate(-1.5deg); }
+            40% { transform: translate(10px, -6px) rotate(1.5deg); }
+            60% { transform: translate(-6px, -4px) rotate(-1deg); }
+            80% { transform: translate(6px, 4px) rotate(1deg); }
+        }
+
+        .animate-shake-3d {
+            animation: shake-3d 0.35s ease-in-out;
+        }
+
+        /* Junk Food Red Flash Screen Effect */
+        @keyframes flash-dark-red {
+            0% { opacity: 0.6; }
+            100% { opacity: 0; }
+        }
+
+        .junk-flash-overlay {
+            animation: flash-dark-red 0.35s ease-out forwards;
+        }
+
+        /* Level Up Banner Pop Effect */
+        @keyframes level-up-pop {
+            0% { transform: scale(0.3) translateY(30px); opacity: 0; }
+            50% { transform: scale(1.1) translateY(0); opacity: 1; }
+            70% { transform: scale(1.0) translateY(0); opacity: 1; }
+            100% { transform: scale(0.9) translateY(-30px); opacity: 0; }
+        }
+
+        .animate-level-up {
+            animation: level-up-pop 1.5s ease-out forwards;
+        }
+
+        /* Soft Floating Pulse Animation */
+        @keyframes gentle-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .animate-gentle-pulse {
+            animation: gentle-pulse 2s infinite ease-in-out;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen relative flex items-center justify-center">
+
+    <div id="canvas-container"></div>
+
+    <!-- Red Flash Overlay for Junk Food -->
+    <div id="junk-overlay" class="absolute inset-0 bg-red-950 pointer-events-none opacity-0 z-30"></div>
+
+    <div id="ui-overlay" class="absolute inset-0 z-20 flex flex-col justify-between p-3 sm:p-5 pointer-events-none">
+        
+        <!-- Top HUD Header -->
+        <header class="w-full max-w-xl mx-auto flex justify-between items-center bg-white/90 backdrop-blur-md px-4 py-2.5 rounded-3xl shadow-xl border-4 border-emerald-300 pointer-events-auto transition-transform">
+            
+            <!-- Score Badge -->
+            <div class="flex items-center gap-2 bg-emerald-100/90 px-3 py-1.5 rounded-2xl border-2 border-emerald-300 shadow-inner">
+                <span class="text-2xl animate-bounce">⭐</span>
+                <div class="flex flex-col leading-none">
+                    <span class="text-[10px] text-emerald-800 font-extrabold tracking-wider">점수</span>
+                    <span id="score-display" class="text-2xl font-black text-emerald-950 transition-transform">0</span>
+                </div>
+            </div>
+
+            <!-- Level Stage Badge -->
+            <div class="flex items-center gap-1.5 bg-amber-300/90 px-3.5 py-1.5 rounded-2xl border-2 border-amber-400 shadow-sm">
+                <span class="text-xs text-amber-950 font-black">LV.</span>
+                <span id="level-display" class="text-2xl font-black text-amber-950">1</span>
+            </div>
+
+            <!-- Active Cheat Badges -->
+            <div class="flex gap-1.5">
+                <div id="healthy-badge" class="hidden bg-emerald-600 text-white px-2.5 py-1 rounded-full text-xs font-black shadow-md animate-pulse border border-emerald-300">
+                    🥗 건강 모드 ON
+                </div>
+                <div id="heart-protect-badge" class="hidden bg-rose-500 text-white px-2.5 py-1 rounded-full text-xs font-black shadow-md animate-pulse border border-rose-300">
+                    🛡️ 하트 보호 ON
+                </div>
+            </div>
+
+            <!-- Lives Hearts Display -->
+            <div class="flex items-center gap-1 bg-rose-50 px-3 py-1.5 rounded-2xl border-2 border-rose-200 shadow-inner">
+                <span class="text-[10px] text-rose-800 font-black mr-0.5">기회</span>
+                <div id="lives-display" class="flex gap-0.5 text-lg leading-none">
+                    <span>❤️</span>
+                    <span>❤️</span>
+                    <span>❤️</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Gemini AI Quest & Nutrition Widget Header Bar -->
+        <div class="w-full max-w-xl mx-auto mt-2 flex gap-2 pointer-events-auto">
+            <button id="ai-quest-btn" class="flex-1 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 text-amber-950 font-black py-2 px-3 rounded-2xl shadow-lg border-2 border-amber-300 text-xs sm:text-sm flex items-center justify-center gap-1.5 active:scale-95 transition-transform">
+                <span>🎯</span> <span>AI 건강 퀘스트</span>
+            </button>
+            <button id="ai-chef-btn" class="flex-1 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white font-black py-2 px-3 rounded-2xl shadow-lg border-2 border-emerald-300 text-xs sm:text-sm flex items-center justify-center gap-1.5 active:scale-95 transition-transform">
+                <span>🐻</span> <span>AI 곰돌이 셰프 영양소</span>
+            </button>
+        </div>
+
+        <!-- Floating Pop Effects Container -->
+        <div id="effects-container" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+
+        <!-- Level Up Visual Banner Overlay -->
+        <div id="level-up-banner" class="absolute inset-x-0 top-1/3 mx-auto w-3/4 max-w-xs bg-amber-400 border-4 border-amber-200 text-amber-950 text-center py-4 rounded-3xl shadow-2xl z-40 hidden pointer-events-none">
+            <div class="text-3xl font-black drop-shadow-md">✨ LEVEL UP! ✨</div>
+            <div id="level-up-text" class="text-xl font-black text-amber-900 mt-1">단계 2 달성!</div>
+        </div>
+
+        <!-- Gemini AI Advice & Speech Modal Overlay -->
+        <div id="ai-advice-modal" class="absolute inset-0 bg-emerald-950/80 backdrop-blur-md flex flex-col items-center justify-center p-4 z-50 pointer-events-auto hidden">
+            <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-2xl border-8 border-emerald-400 max-w-md w-full flex flex-col items-center gap-3">
+                <div class="flex items-center gap-2 text-emerald-800 font-black text-xl">
+                    <span class="text-3xl">🐻‍❄️</span>
+                    <span id="ai-modal-title">AI 곰 셰프의 영양 조언</span>
+                </div>
+                
+                <div id="ai-advice-content" class="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4 w-full text-emerald-900 text-sm font-bold min-h-[100px] flex items-center justify-center text-center">
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-6 h-6 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                        <span class="text-xs text-emerald-700">Gemini AI 곰돌이가 영양 조언을 생성하는 중...</span>
+                    </div>
+                </div>
+
+                <div class="flex gap-2 w-full mt-1">
+                    <button id="ai-tts-btn" class="flex-1 py-2.5 bg-purple-500 hover:bg-purple-600 text-white font-black text-sm rounded-xl shadow-md border-b-4 border-purple-700 flex items-center justify-center gap-2 active:translate-y-0.5 transition-all">
+                        <span>🔊</span> <span id="tts-btn-label">목소리로 듣기 (TTS)</span>
+                    </button>
+                    <button id="ai-modal-close-btn" class="py-2.5 px-5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-black text-sm rounded-xl active:translate-y-0.5 transition-all">
+                        닫기
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Modal -->
+        <div id="game-over-modal" class="absolute inset-0 bg-emerald-950/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-50 pointer-events-auto hidden">
+            <div class="bg-white p-6 rounded-3xl shadow-2xl border-8 border-rose-400 max-w-xs w-full flex flex-col items-center gap-3 animate-gentle-pulse">
+                <div class="text-6xl mb-1">💔</div>
+                <h2 class="text-3xl font-black text-rose-600 leading-tight">게임 오버!</h2>
+                <p class="text-base font-bold text-gray-700">
+                    건강한 식습관 완성 실패!
+                </p>
+                <div class="bg-amber-100 text-amber-950 px-4 py-2.5 rounded-2xl font-black text-base border-2 border-amber-300 w-full my-1">
+                    최종 점수: <span id="final-score" class="text-emerald-700 text-2xl font-black">0</span>점
+                </div>
+
+                <!-- Gemini Game Over AI Feedback Button -->
+                <button id="gameover-ai-btn" class="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black text-sm rounded-2xl shadow-md border-2 border-emerald-300 flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-transform">
+                    ✨ Gemini AI 영양 평가 받기
+                </button>
+
+                <p class="text-xs text-emerald-900 font-bold bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-300 animate-pulse">
+                    ⌨️ [스페이스 바]를 눌러 다시 시작!
+                </p>
+                <button id="restart-btn" class="w-full py-3 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-black text-lg rounded-2xl shadow-lg border-b-4 border-emerald-700 active:translate-y-1 active:border-b-0 transition-all cursor-pointer">
+                    다시 도전하기 🚀
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Touch Controls overlay -->
+        <div class="w-full max-w-md mx-auto flex justify-between items-center gap-4 pointer-events-auto mb-2 sm:mb-4 px-2">
+            <button id="btn-left" class="flex-1 py-4 bg-white/80 active:bg-emerald-300 text-emerald-950 rounded-2xl font-black text-2xl shadow-xl border-b-4 border-emerald-400 active:border-b-0 active:translate-y-1 transition-all select-none">
+                ◀
+            </button>
+            <div class="bg-emerald-900/80 backdrop-blur-md px-3 py-2 rounded-xl text-white text-[11px] font-bold text-center border border-emerald-400 shadow-md">
+                🎮 방향키: ←, → | H: 건강모드 | A: 하트보호
+            </div>
+            <button id="btn-right" class="flex-1 py-4 bg-white/80 active:bg-emerald-300 text-emerald-950 rounded-2xl font-black text-2xl shadow-xl border-b-4 border-emerald-400 active:border-b-0 active:translate-y-1 transition-all select-none">
+                ▶
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Web Audio API Synthesizer ---
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    audioCtx = new AudioContext();
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playCatchSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(450, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(950, audioCtx.currentTime + 0.12);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.12);
+        }
+
+        function playJunkSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.25);
+            gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.25);
+        }
+
+        function playMissSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(320, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(140, audioCtx.currentTime + 0.22);
+            gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.22);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.22);
+        }
+
+        function playGoldenSound() {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            [1046.5, 1318.5, 1567.98, 2093.0].forEach((freq, idx) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+                gain.gain.setValueAtTime(0.2, now + idx * 0.06);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.25);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + idx * 0.06);
+                osc.stop(now + idx * 0.06 + 0.25);
+            });
+        }
+
+        function playLevelUpSound() {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                gain.gain.setValueAtTime(0.25, now + idx * 0.08);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.3);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + idx * 0.08);
+                osc.stop(now + idx * 0.08 + 0.3);
+            });
+        }
+
+        function playGameOverSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(260, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(200, audioCtx.currentTime + 0.15);
+            osc.frequency.setValueAtTime(120, audioCtx.currentTime + 0.35);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.6);
+        }
+
+        let score = 0;
+        let level = 1;
+        let lives = 3;
+        let isGameOver = false;
+        let healthyOnlyMode = false;
+        let heartProtectMode = false;
+
+        let caughtHealthyCount = 0;
+        let caughtJunkCount = 0;
+        let caughtGoldenCount = 0;
+        let currentAiAdviceText = "";
+
+        // DOM Elements
+        const scoreDisplay = document.getElementById('score-display');
+        const levelDisplay = document.getElementById('level-display');
+        const livesDisplay = document.getElementById('lives-display');
+        const healthyBadge = document.getElementById('healthy-badge');
+        const heartProtectBadge = document.getElementById('heart-protect-badge');
+        const levelUpBanner = document.getElementById('level-up-banner');
+        const levelUpText = document.getElementById('level-up-text');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const restartBtn = document.getElementById('restart-btn');
+        const effectsContainer = document.getElementById('effects-container');
+        const junkOverlay = document.getElementById('junk-overlay');
+
+        const aiAdviceModal = document.getElementById('ai-advice-modal');
+        const aiModalTitle = document.getElementById('ai-modal-title');
+        const aiAdviceContent = document.getElementById('ai-advice-content');
+        const aiTtsBtn = document.getElementById('ai-tts-btn');
+        const ttsBtnLabel = document.getElementById('tts-btn-label');
+        const aiModalCloseBtn = document.getElementById('ai-modal-close-btn');
+        const aiQuestBtn = document.getElementById('ai-quest-btn');
+        const aiChefBtn = document.getElementById('ai-chef-btn');
+        const gameoverAiBtn = document.getElementById('gameover-ai-btn');
+
+        // Gemini API Config
+        const GEMINI_API_KEY = "";
+        const TEXT_MODEL = "gemini-3-flash-preview";
+        const TTS_MODEL = "gemini-2.5-flash-preview-tts";
+
+        async function fetchWithRetry(url, options, retries = 3, backoff = 1000) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const res = await fetch(url, options);
+                    if (res.ok) return await res.json();
+                } catch (e) {
+                    if (i === retries - 1) throw e;
+                }
+                await new Promise(resolve => setTimeout(resolve, backoff * Math.pow(2, i)));
+            }
+        }
+
+        async function askGemini(prompt, systemInstruction) {
+            // API 키가 없으면 요청 없이 바로 대체 문구 (빈 키로는 무조건 실패 + 재시도 대기만 함)
+            if (!GEMINI_API_KEY) return "곰돌이가 잠시 생각에 잠겼어요!";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${TEXT_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined
+            };
+
+            const data = await fetchWithRetry(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            return data?.candidates?.[0]?.content?.parts?.[0]?.text || "곰돌이가 잠시 생각에 잠겼어요!";
+        }
+
+        async function speakGeminiTTS(textToSpeak) {
+            ttsBtnLabel.textContent = "음성 생성 중...";
+            aiTtsBtn.disabled = true;
+
+            try {
+                if (!GEMINI_API_KEY) throw new Error("No API key");
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${TTS_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+                const payload = {
+                    contents: [{
+                        parts: [{ text: `Say in a cheerful, friendly, energetic bear chef style in Korean: ${textToSpeak}` }]
+                    }],
+                    generationConfig: {
+                        responseModalities: ["AUDIO"],
+                        speechConfig: {
+                            voiceConfig: {
+                                prebuiltVoiceConfig: { voiceName: "Puck" }
+                            }
+                        }
+                    }
+                };
+
+                const data = await fetchWithRetry(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const part = data?.candidates?.[0]?.content?.parts?.[0];
+                const audioData = part?.inlineData?.data;
+                const mimeType = part?.inlineData?.mimeType || "";
+
+                if (audioData) {
+                    let sampleRate = 24000;
+                    const match = mimeType.match(/rate=(\d+)/);
+                    if (match) sampleRate = parseInt(match[1], 10);
+
+                    const pcmData = base64ToArrayBuffer(audioData);
+                    const pcm16 = new Int16Array(pcmData);
+                    const wavBlob = pcmToWav(pcm16, sampleRate);
+                    const audioUrl = URL.createObjectURL(wavBlob);
+
+                    const audio = new Audio(audioUrl);
+                    audio.play();
+                    ttsBtnLabel.textContent = "🔊 재생 중...";
+                    audio.onended = () => {
+                        ttsBtnLabel.textContent = "🔊 다시 듣기 (TTS)";
+                        aiTtsBtn.disabled = false;
+                    };
+                } else {
+                    throw new Error("No audio data");
+                }
+            } catch (err) {
+                console.error("TTS Error:", err);
+                ttsBtnLabel.textContent = "🔊 재생 실패";
+                setTimeout(() => {
+                    ttsBtnLabel.textContent = "🔊 목소리로 듣기 (TTS)";
+                    aiTtsBtn.disabled = false;
+                }, 2000);
+            }
+        }
+
+        function base64ToArrayBuffer(base64) {
+            const binaryString = atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        function pcmToWav(pcm16Data, sampleRate = 24000) {
+            const numChannels = 1;
+            const byteRate = sampleRate * numChannels * 2;
+            const blockAlign = numChannels * 2;
+            const dataSize = pcm16Data.length * 2;
+            const buffer = new ArrayBuffer(44 + dataSize);
+            const view = new DataView(buffer);
+
+            function writeString(v, offset, str) {
+                for (let i = 0; i < str.length; i++) {
+                    v.setUint8(offset + i, str.charCodeAt(i));
+                }
+            }
+
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + dataSize, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, byteRate, true);
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, 16, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, dataSize, true);
+
+            let offset = 44;
+            for (let i = 0; i < pcm16Data.length; i++, offset += 2) {
+                view.setInt16(offset, pcm16Data[i], true);
+            }
+
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        async function openAiChefAdviceModal() {
+            aiAdviceModal.classList.remove('hidden');
+            aiModalTitle.textContent = "🐻 AI 곰 셰프의 영양 조언";
+            aiAdviceContent.innerHTML = `
+                <div class="flex flex-col items-center gap-2">
+                    <div class="w-6 h-6 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span class="text-xs text-emerald-700">Gemini AI가 건강 리포트를 분석 중입니다...</span>
+                </div>`;
+
+            const sysPrompt = "당신은 3D 게임 '맛있는 음식을 잡아라'의 귀엽고 유쾌한 곰돌이 AI 셰프입니다. 사용자의 게임 스탯을 바탕으로 2~3문장의 짧고 위트 있는 영양 조언과 건강 칭찬을 한국어로 해주세요.";
+            const userPrompt = `현재 점수: ${score}점, 레벨: ${level}, 잡은 건강 음식: ${caughtHealthyCount}개, 황금 사과: ${caughtGoldenCount}개, 정크푸드 실수: ${caughtJunkCount}개.`;
+
+            try {
+                const result = await askGemini(userPrompt, sysPrompt);
+                currentAiAdviceText = result;
+                aiAdviceContent.textContent = result;
+            } catch (e) {
+                aiAdviceContent.textContent = "🐻 사과랑 브로콜리를 많이 먹으면 키가 쑥쑥 커요!";
+                currentAiAdviceText = aiAdviceContent.textContent;
+            }
+        }
+
+        async function openAiQuestModal() {
+            aiAdviceModal.classList.remove('hidden');
+            aiModalTitle.textContent = "🎯 오늘의 AI 건강 퀘스트";
+            aiAdviceContent.innerHTML = `
+                <div class="flex flex-col items-center gap-2">
+                    <div class="w-6 h-6 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span class="text-xs text-amber-700">Gemini AI가 새 퀘스트를 생성하는 중...</span>
+                </div>`;
+
+            const sysPrompt = "당신은 건강 식습관 게임의 AI 미션 마스터입니다. 어린이/선수를 위한 신나는 건강 음식 퀘스트 1개와 짧은 건강 상식 퀴즈를 생성하세요.";
+            const userPrompt = `현재 레벨 ${level} 플레이어를 위한 특별 퀘스트 및 짧은 건강 퀴즈를 작성해줘.`;
+
+            try {
+                const result = await askGemini(userPrompt, sysPrompt);
+                currentAiAdviceText = result;
+                aiAdviceContent.textContent = result;
+            } catch (e) {
+                aiAdviceContent.textContent = "🎯 미션: 황금 사과 1개 포함 건강 음식 5개를 연속으로 잡아라!";
+                currentAiAdviceText = aiAdviceContent.textContent;
+            }
+        }
+
+        aiChefBtn.addEventListener('click', () => { initAudio(); openAiChefAdviceModal(); });
+        aiQuestBtn.addEventListener('click', () => { initAudio(); openAiQuestModal(); });
+        gameoverAiBtn.addEventListener('click', () => { initAudio(); openAiChefAdviceModal(); });
+        aiModalCloseBtn.addEventListener('click', () => aiAdviceModal.classList.add('hidden'));
+        aiTtsBtn.addEventListener('click', () => {
+            initAudio();
+            if (currentAiAdviceText) speakGeminiTTS(currentAiAdviceText);
+        });
+
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xa7f3d0); // Light pastel mint green
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 3.5, 9.5);
+        camera.lookAt(0, 1, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
+        dirLight.position.set(5, 12, 8);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        scene.add(dirLight);
+
+        // Kitchen Wooden Table Surface Ground
+        const tableGeo = new THREE.BoxGeometry(16, 0.5, 6);
+        const tableMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.4 }); // Warm Wood
+        const table = new THREE.Mesh(tableGeo, tableMat);
+        table.position.set(0, -0.25, 0);
+        table.receiveShadow = true;
+        scene.add(table);
+
+        // Back Wall
+        const wallGeo = new THREE.PlaneGeometry(30, 20);
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x6ee7b7, roughness: 0.8 });
+        const wall = new THREE.Mesh(wallGeo, wallMat);
+        wall.position.set(0, 8, -3);
+        scene.add(wall);
+
+        const bearGroup = new THREE.Group();
+
+        // Bear Head
+        const bearHeadGeo = new THREE.SphereGeometry(0.8, 32, 32);
+        const bearMat = new THREE.MeshStandardMaterial({ color: 0x8b5cf6, roughness: 0.5 }); // Purple/Brown cute bear
+        const bearMatMain = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.5 }); // Cute Brown Bear
+        const bearHead = new THREE.Mesh(bearHeadGeo, bearMatMain);
+        bearHead.castShadow = true;
+        bearGroup.add(bearHead);
+
+        // Ears
+        const earGeo = new THREE.SphereGeometry(0.3, 16, 16);
+        const earLeft = new THREE.Mesh(earGeo, bearMatMain);
+        earLeft.position.set(-0.65, 0.65, 0);
+        bearGroup.add(earLeft);
+
+        const earRight = new THREE.Mesh(earGeo, bearMatMain);
+        earRight.position.set(0.65, 0.65, 0);
+        bearGroup.add(earRight);
+
+        // Inner Ears
+        const innerEarGeo = new THREE.SphereGeometry(0.18, 16, 16);
+        const innerEarMat = new THREE.MeshStandardMaterial({ color: 0xfbcfe8 });
+        const innerEarL = new THREE.Mesh(innerEarGeo, innerEarMat);
+        innerEarL.position.set(-0.65, 0.65, 0.12);
+        bearGroup.add(innerEarL);
+
+        const innerEarR = new THREE.Mesh(innerEarGeo, innerEarMat);
+        innerEarR.position.set(0.65, 0.65, 0.12);
+        bearGroup.add(innerEarR);
+
+        // Snout
+        const snoutGeo = new THREE.SphereGeometry(0.35, 16, 16);
+        const snoutMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7 });
+        const snout = new THREE.Mesh(snoutGeo, snoutMat);
+        snout.position.set(0, -0.1, 0.65);
+        snout.scale.set(1, 0.7, 0.8);
+        bearGroup.add(snout);
+
+        // Nose
+        const noseGeo = new THREE.SphereGeometry(0.1, 16, 16);
+        const noseMat = new THREE.MeshStandardMaterial({ color: 0x18181b });
+        const nose = new THREE.Mesh(noseGeo, noseMat);
+        nose.position.set(0, -0.02, 0.9);
+        bearGroup.add(nose);
+
+        // Mouth (Open Mouth Container)
+        const mouthGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.3, 16);
+        const mouthMat = new THREE.MeshStandardMaterial({ color: 0x881337 });
+        const mouth = new THREE.Mesh(mouthGeo, mouthMat);
+        mouth.position.set(0, 0.3, 0);
+        bearGroup.add(mouth);
+
+        bearGroup.position.set(0, 0.4, 0);
+        scene.add(bearGroup);
+
+        function create3DFoodMesh(type) {
+            const group = new THREE.Group();
+
+            if (type === 'apple' || type === 'golden') {
+                const isGold = (type === 'golden');
+                const appleGeo = new THREE.SphereGeometry(0.4, 16, 16);
+                const appleMat = new THREE.MeshStandardMaterial({
+                    color: isGold ? 0xfacc15 : 0xef4444,
+                    metalness: isGold ? 0.8 : 0.1,
+                    roughness: isGold ? 0.2 : 0.3
+                });
+                const apple = new THREE.Mesh(appleGeo, appleMat);
+                apple.castShadow = true;
+                group.add(apple);
+
+                // Stem
+                const stemGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.25);
+                const stemMat = new THREE.MeshStandardMaterial({ color: 0x78350f });
+                const stem = new THREE.Mesh(stemGeo, stemMat);
+                stem.position.set(0, 0.42, 0);
+                group.add(stem);
+
+                // Leaf
+                const leafGeo = new THREE.SphereGeometry(0.1, 8, 8);
+                const leafMat = new THREE.MeshStandardMaterial({ color: 0x22c55e });
+                const leaf = new THREE.Mesh(leafGeo, leafMat);
+                leaf.scale.set(1.5, 0.3, 0.8);
+                leaf.position.set(0.12, 0.42, 0);
+                group.add(leaf);
+
+            } else if (type === 'broccoli') {
+                // Stem
+                const stemGeo = new THREE.CylinderGeometry(0.12, 0.18, 0.4, 12);
+                const stemMat = new THREE.MeshStandardMaterial({ color: 0x86efac });
+                const stem = new THREE.Mesh(stemGeo, stemMat);
+                stem.position.y = -0.1;
+                group.add(stem);
+
+                // Head (Bumpy Spheres)
+                const headMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.9 });
+                const pos = [[0, 0.2, 0], [-0.15, 0.15, 0.1], [0.15, 0.15, -0.1], [0, 0.3, 0.1]];
+                pos.forEach(p => {
+                    const bGeo = new THREE.SphereGeometry(0.22, 12, 12);
+                    const bMesh = new THREE.Mesh(bGeo, headMat);
+                    bMesh.position.set(...p);
+                    group.add(bMesh);
+                });
+
+            } else if (type === 'milk') {
+                // Carton Body
+                const boxGeo = new THREE.BoxGeometry(0.45, 0.6, 0.45);
+                const boxMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8 });
+                const box = new THREE.Mesh(boxGeo, boxMat);
+                group.add(box);
+
+                // Roof Top
+                const roofGeo = new THREE.ConeGeometry(0.35, 0.25, 4);
+                const roofMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc });
+                const roof = new THREE.Mesh(roofGeo, roofMat);
+                roof.position.y = 0.4;
+                roof.rotation.y = Math.PI / 4;
+                group.add(roof);
+
+            } else if (type === 'banana') {
+                const bananaGeo = new THREE.CylinderGeometry(0.08, 0.1, 0.7, 8);
+                const bananaMat = new THREE.MeshStandardMaterial({ color: 0xfde047 });
+                const banana = new THREE.Mesh(bananaGeo, bananaMat);
+                banana.rotation.z = Math.PI / 3;
+                group.add(banana);
+
+            } else if (type === 'donut') {
+                const donutGeo = new THREE.TorusGeometry(0.3, 0.15, 12, 24);
+                const donutMat = new THREE.MeshStandardMaterial({ color: 0xec4899 });
+                const donut = new THREE.Mesh(donutGeo, donutMat);
+                group.add(donut);
+
+            } else if (type === 'fries') {
+                const boxGeo = new THREE.BoxGeometry(0.4, 0.45, 0.25);
+                const boxMat = new THREE.MeshStandardMaterial({ color: 0xef4444 });
+                const box = new THREE.Mesh(boxGeo, boxMat);
+                group.add(box);
+
+                const fryMat = new THREE.MeshStandardMaterial({ color: 0xfacc15 });
+                [-0.1, 0, 0.1].forEach(x => {
+                    const fryGeo = new THREE.BoxGeometry(0.06, 0.35, 0.06);
+                    const fry = new THREE.Mesh(fryGeo, fryMat);
+                    fry.position.set(x, 0.25, 0);
+                    group.add(fry);
+                });
+
+            } else if (type === 'candy') {
+                const bodyGeo = new THREE.SphereGeometry(0.22, 12, 12);
+                const bodyMat = new THREE.MeshStandardMaterial({ color: 0xa855f7 });
+                const body = new THREE.Mesh(bodyGeo, bodyMat);
+                group.add(body);
+
+                const twistGeo = new THREE.ConeGeometry(0.15, 0.2, 8);
+                const twist1 = new THREE.Mesh(twistGeo, bodyMat);
+                twist1.rotation.z = -Math.PI / 2;
+                twist1.position.x = -0.28;
+                group.add(twist1);
+
+                const twist2 = new THREE.Mesh(twistGeo, bodyMat);
+                twist2.rotation.z = Math.PI / 2;
+                twist2.position.x = 0.28;
+                group.add(twist2);
+
+            } else if (type === 'chicken') {
+                const meatGeo = new THREE.SphereGeometry(0.28, 12, 12);
+                const meatMat = new THREE.MeshStandardMaterial({ color: 0xb45309 });
+                const meat = new THREE.Mesh(meatGeo, meatMat);
+                meat.scale.set(1.2, 0.9, 0.9);
+                group.add(meat);
+
+                const boneGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.3, 8);
+                const boneMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+                const bone = new THREE.Mesh(boneGeo, boneMat);
+                bone.position.x = -0.3;
+                bone.rotation.z = Math.PI / 2;
+                group.add(bone);
+
+            } else if (type === 'pudding') {
+                const pudGeo = new THREE.CylinderGeometry(0.2, 0.3, 0.35, 12);
+                const pudMat = new THREE.MeshStandardMaterial({ color: 0xfde047 });
+                const pud = new THREE.Mesh(pudGeo, pudMat);
+                group.add(pud);
+
+                const topGeo = new THREE.CylinderGeometry(0.21, 0.21, 0.08, 12);
+                const topMat = new THREE.MeshStandardMaterial({ color: 0x78350f });
+                const top = new THREE.Mesh(topGeo, topMat);
+                top.position.y = 0.15;
+                group.add(top);
+
+            } else if (type === 'soda') {
+                const cupGeo = new THREE.CylinderGeometry(0.22, 0.16, 0.55, 12);
+                const cupMat = new THREE.MeshStandardMaterial({ color: 0xd97706 });
+                const cup = new THREE.Mesh(cupGeo, cupMat);
+                group.add(cup);
+
+                const lidGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.06, 12);
+                const lidMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+                const lid = new THREE.Mesh(lidGeo, lidMat);
+                lid.position.y = 0.28;
+                group.add(lid);
+            }
+
+            return group;
+        }
+
+        let fallingItems = [];
+        let particles = [];
+        let spawnTimer = 0;
+
+        function create3DParticles(pos, colorHex, count = 15) {
+            for (let i = 0; i < count; i++) {
+                const pGeo = new THREE.SphereGeometry(0.08, 8, 8);
+                const pMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.2 });
+                const pMesh = new THREE.Mesh(pGeo, pMat);
+                pMesh.position.copy(pos);
+
+                const vel = new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.18,
+                    (Math.random() * 0.15) + 0.05,
+                    (Math.random() - 0.5) * 0.18
+                );
+
+                scene.add(pMesh);
+                particles.push({ mesh: pMesh, vel: vel, life: 1.0 });
+            }
+        }
+
+        function spawnFood() {
+            let type = 'healthy';
+            let foodKind = 'apple';
+
+            const rand = Math.random();
+
+            if (rand < 0.08) {
+                type = 'golden';
+                foodKind = 'golden';
+            } else if (!healthyOnlyMode && rand > 0.65) {
+                type = 'junk';
+                const junks = ['donut', 'fries', 'candy', 'chicken', 'pudding', 'soda'];
+                foodKind = junks[Math.floor(Math.random() * junks.length)];
+            } else {
+                type = 'healthy';
+                const healthies = ['apple', 'broccoli', 'milk', 'banana'];
+                foodKind = healthies[Math.floor(Math.random() * healthies.length)];
+            }
+
+            const mesh = create3DFoodMesh(foodKind);
+            const xPos = (Math.random() - 0.5) * 7.0; // Random X from -3.5 to 3.5
+            mesh.position.set(xPos, 6.5, 0);
+
+            scene.add(mesh);
+
+            fallingItems.push({
+                mesh: mesh,
+                type: type,
+                kind: foodKind,
+                speed: 0.04 + (level * 0.01) + (Math.random() * 0.02),
+                rotSpeed: (Math.random() - 0.5) * 0.05
+            });
+        }
+
+        let keyState = { left: false, right: false };
+        let bearX = 0;
+        const MOVE_SPEED = 0.15;
+
+        window.addEventListener('keydown', (e) => {
+            initAudio();
+            if (e.key === 'ArrowLeft') keyState.left = true;
+            if (e.key === 'ArrowRight') keyState.right = true;
+            if (e.key === 'h' || e.key === 'H') {
+                healthyOnlyMode = !healthyOnlyMode;
+                healthyBadge.classList.toggle('hidden', !healthyOnlyMode);
+            }
+            if (e.key === 'a' || e.key === 'A') {
+                heartProtectMode = !heartProtectMode;
+                heartProtectBadge.classList.toggle('hidden', !heartProtectMode);
+            }
+            if (e.code === 'Space' && isGameOver) {
+                resetGame();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft') keyState.left = false;
+            if (e.key === 'ArrowRight') keyState.right = false;
+        });
+
+        // Mobile touch controls
+        const btnLeft = document.getElementById('btn-left');
+        const btnRight = document.getElementById('btn-right');
+
+        btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); initAudio(); keyState.left = true; });
+        btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); keyState.left = false; });
+        btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); initAudio(); keyState.right = true; });
+        btnRight.addEventListener('touchend', (e) => { e.preventDefault(); keyState.right = false; });
+
+        // Mouse fallback for on-screen buttons (desktop click & hold)
+        btnLeft.addEventListener('mousedown', () => { initAudio(); keyState.left = true; });
+        btnLeft.addEventListener('mouseup', () => { keyState.left = false; });
+        btnLeft.addEventListener('mouseleave', () => { keyState.left = false; });
+        btnRight.addEventListener('mousedown', () => { initAudio(); keyState.right = true; });
+        btnRight.addEventListener('mouseup', () => { keyState.right = false; });
+        btnRight.addEventListener('mouseleave', () => { keyState.right = false; });
+
+        function updateLivesDisplay() {
+            let heartsHtml = '';
+            for (let i = 0; i < lives; i++) heartsHtml += '❤️';
+            livesDisplay.innerHTML = heartsHtml || '💀';
+        }
+
+        function createCatchEffect(text, colorClass) {
+            const el = document.createElement('div');
+            el.className = `absolute left-1/2 bottom-20 -translate-x-1/2 font-black text-2xl drop-shadow-md catch-float-text ${colorClass}`;
+            el.textContent = text;
+            effectsContainer.appendChild(el);
+            setTimeout(() => el.remove(), 800);
+        }
+
+        function triggerScreenShake() {
+            document.body.classList.add('animate-shake-3d');
+            junkOverlay.classList.add('junk-flash-overlay');
+            setTimeout(() => {
+                document.body.classList.remove('animate-shake-3d');
+                junkOverlay.classList.remove('junk-flash-overlay');
+            }, 350);
+        }
+
+        function triggerLevelUp() {
+            levelUpText.textContent = `단계 ${level} 달성!`;
+            levelUpBanner.classList.remove('hidden');
+            levelUpBanner.classList.add('animate-level-up');
+            playLevelUpSound();
+            setTimeout(() => {
+                levelUpBanner.classList.add('hidden');
+                levelUpBanner.classList.remove('animate-level-up');
+            }, 1500);
+        }
+
+        function triggerGameOver() {
+            isGameOver = true;
+            playGameOverSound();
+            finalScoreDisplay.textContent = score;
+            gameOverModal.classList.remove('hidden');
+        }
+
+        function resetGame() {
+            score = 0;
+            level = 1;
+            lives = 3;
+            isGameOver = false;
+            caughtHealthyCount = 0;
+            caughtJunkCount = 0;
+            caughtGoldenCount = 0;
+            scoreDisplay.textContent = '0';
+            levelDisplay.textContent = '1';
+            updateLivesDisplay();
+            gameOverModal.classList.add('hidden');
+            aiAdviceModal.classList.add('hidden');
+
+            for (let item of fallingItems) {
+                scene.remove(item.mesh);
+            }
+            fallingItems = [];
+        }
+
+        restartBtn.addEventListener('click', resetGame);
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (!isGameOver) {
+                // Bear movement logic
+                if (keyState.left) bearX = Math.max(-3.8, bearX - MOVE_SPEED);
+                if (keyState.right) bearX = Math.min(3.8, bearX + MOVE_SPEED);
+                bearGroup.position.x = bearX;
+
+                // Spawn logic
+                spawnTimer++;
+                const spawnInterval = Math.max(30, 80 - (level * 8));
+                if (spawnTimer >= spawnInterval) {
+                    spawnFood();
+                    spawnTimer = 0;
+                }
+
+                // Update falling items
+                for (let i = fallingItems.length - 1; i >= 0; i--) {
+                    const item = fallingItems[i];
+                    item.mesh.position.y -= item.speed;
+                    item.mesh.rotation.y += item.rotSpeed;
+                    item.mesh.rotation.x += item.rotSpeed;
+
+                    // Collision check with Bear Mouth
+                    const dx = Math.abs(item.mesh.position.x - bearGroup.position.x);
+                    const dy = item.mesh.position.y - bearGroup.position.y;
+
+                    if (dx < 0.85 && dy > -0.2 && dy < 0.6) {
+                        // Catch logic
+                        if (item.type === 'golden') {
+                            score += 50;
+                            caughtGoldenCount++;
+                            let recovered = false;
+                            if (lives < 3) {
+                                lives++;
+                                updateLivesDisplay();
+                                recovered = true;
+                            }
+                            playGoldenSound();
+                            create3DParticles(item.mesh.position, 0xfacc15, 25);
+                            createCatchEffect(`✨ +50점!${recovered ? ' ❤️+1' : ''}`, 'text-amber-500');
+                        } else if (item.type === 'junk') {
+                            score = Math.max(0, score - 10);
+                            caughtJunkCount++;
+                            playJunkSound();
+                            triggerScreenShake();
+                            create3DParticles(item.mesh.position, 0xef4444, 15);
+                            createCatchEffect('앗! -10', 'text-rose-600');
+                        } else {
+                            score += 10;
+                            caughtHealthyCount++;
+                            playCatchSound();
+                            create3DParticles(item.mesh.position, 0x10b981, 15);
+                            createCatchEffect('냠! +10', 'text-emerald-600');
+                        }
+
+                        // Check Level Up
+                        const newLevel = Math.floor(score / 100) + 1;
+                        if (newLevel > level) {
+                            level = newLevel;
+                            levelDisplay.textContent = level;
+                            triggerLevelUp();
+                        }
+
+                        scoreDisplay.textContent = score;
+                        scene.remove(item.mesh);
+                        fallingItems.splice(i, 1);
+                        continue;
+                    }
+
+                    // Missed item hits the floor
+                    if (item.mesh.position.y <= -0.2) {
+                        if (item.type === 'healthy' && !heartProtectMode) {
+                            lives--;
+                            updateLivesDisplay();
+                            playMissSound();
+
+                            if (lives <= 0) {
+                                triggerGameOver();
+                            }
+                        }
+                        scene.remove(item.mesh);
+                        fallingItems.splice(i, 1);
+                    }
+                }
+
+                // Update 3D Particles
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i];
+                    p.mesh.position.add(p.vel);
+                    p.life -= 0.04;
+                    p.mesh.scale.setScalar(p.life);
+
+                    if (p.life <= 0) {
+                        scene.remove(p.mesh);
+                        particles.splice(i, 1);
+                    }
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Start 3D Animation loop
+        window.onload = () => {
+            updateLivesDisplay();
+            animate();
+        };
+    </script>
+</body>
+</html>

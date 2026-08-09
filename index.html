@@ -393,7 +393,7 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
     <nav class="tabs" role="tablist" aria-label="저장소 메뉴">
       <button class="tabbtn" id="tab-games"   role="tab" aria-selected="true"  aria-controls="panel-games"   data-tab="games">🕹️ 게임 저장소<span class="n">18</span></button>
       <button class="tabbtn" id="tab-prompts" role="tab" aria-selected="false" aria-controls="panel-prompts" data-tab="prompts" tabindex="-1">💬 프롬프트 저장소<span class="n">+9</span></button>
-      <button class="tabbtn" id="tab-new"     role="tab" aria-selected="false" aria-controls="panel-new"     data-tab="new" tabindex="-1">✨ 새 게임<span class="n">18</span></button>
+      <button class="tabbtn" id="tab-new"     role="tab" aria-selected="false" aria-controls="panel-new"     data-tab="new" tabindex="-1">✨ 새 게임<span class="n">24</span></button>
       <button class="tabbtn" id="tab-next"    role="tab" aria-selected="false" aria-controls="panel-next"    data-tab="next" tabindex="-1">🌱 추가 개발 예정</button>
     </nav>
   </div>
@@ -417,7 +417,7 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
           반곡초등학교 친구들이 AI와 대화하면서 만든 HTML 게임 저장소예요.
           카드의 미리보기는 <b>진짜 게임 화면</b>이에요.</p>
         <div class="stats">
-          <div class="stat"><b>36</b><span>아이들이 만든 게임</span></div>
+          <div class="stat"><b>42</b><span>아이들이 만든 게임</span></div>
           <div class="stat"><b>17</b><span>완성 예시 게임</span></div>
           <div class="stat"><b>109</b><span>단계별 프롬프트</span></div>
           <div class="stat"><b>∞</b><span>만들 수 있는 것</span></div>
@@ -662,7 +662,13 @@ const NEWGAMES = [
   {f:'tower-escape-100f.html',       t:'100층 아파트 탈출',         d:'암호를 풀며 100층에서 탈출!',       c:'마우스/터치 클릭 · 숫자키',  k:'2d', e:'🏢'},
   {f:'neon-qwer-rhythm.html',        t:'네온 QWER 리듬게임',        d:'QWER 4레인 스테이지 리듬 게임',     c:'Q W E R · 화면 버튼 터치',  k:'canvas', e:'🎹'},
   {f:'dark-basement-escape.html',    t:'어두운 지하실 탈출',        d:'단서 모아 지하실 탈출!',            c:'마우스/터치로 클릭 탐색',    k:'2d', e:'🔦'},
-  {f:'neon-cube-runner.html',        t:'네온 큐브 러너',            d:'점프 타이밍으로 가시 피하기',       c:'스페이스/↑ · 화면 터치 점프', k:'canvas', e:'🟦'}
+  {f:'neon-cube-runner.html',        t:'네온 큐브 러너',            d:'점프 타이밍으로 가시 피하기',       c:'스페이스/↑ · 화면 터치 점프', k:'canvas', e:'🟦'},
+  {f:'bear-food-catch-3d.html',      t:'맛있는 음식을 잡아라! 3D',  d:'곰돌이 입으로 건강 음식 냠냠',      c:'← → 이동 · 스페이스 재시작', k:'3d', e:'🐻'},
+  {f:'bear-mukbang-basket.html',     t:'곰돌이의 먹방 바구니',      d:'떨어지는 음식을 바구니로 받아요',   c:'← → 이동 · 마우스 드래그',   k:'3d', e:'🧸'},
+  {f:'cat-healthy-snack.html',       t:'고양이 건강 간식 모으기',   d:'건강 간식만 받아 점수 모으기',      c:'← → 이동 · Enter 간식폭탄',  k:'2d', e:'🐱'},
+  {f:'food-catch-basic.html',        t:'음식 받기 게임',            d:'건강 간식만 바구니에 쏙!',          c:'← → 이동 · 마우스/터치',     k:'2d', e:'🍎'},
+  {f:'healthy-food-catcher.html',    t:'건강 음식 받아먹기',        d:'건강한 음식만 골라 담아요',         c:'← → · 마우스/터치 · Shift 클린', k:'2d', e:'🥗'},
+  {f:'healthy-snack-3d.html',        t:'건강 간식을 모아라! 3D',    d:'떨어지는 건강 간식을 바구니로!',    c:'← → 이동 · 스페이스 시작',   k:'3d', e:'🧺', by:'배0경'}
 ];
 
 /* ─────────── 유틸 ─────────── */

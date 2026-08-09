@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🐻 곰돌이의 맛있는 먹방 바구니</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Jua', 'Gowun Dodum', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* Floating Score Popup Animation */
+        @keyframes fadeUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            50% { opacity: 1; transform: translateY(-20px) scale(1.1); }
+            100% { opacity: 0; transform: translateY(-40px) scale(0.9); }
+        }
+        .animate-fade-up {
+            animation: fadeUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Food Pop-in inside Basket */
+        @keyframes popInFood {
+            0% { transform: scale(0) translateY(-10px); opacity: 0; }
+            70% { transform: scale(1.3) translateY(2px); opacity: 1; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        .basket-food-pop {
+            animation: popInFood 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        /* Golden Basket Full Glow Effect */
+        @keyframes basketFullGlow {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px rgba(234, 179, 8, 0.8)); }
+            50% { transform: scale(1.18); filter: drop-shadow(0 0 20px rgba(234, 179, 8, 1)); }
+        }
+        .basket-full-anim {
+            animation: basketFullGlow 0.4s ease-in-out 2;
+        }
+
+        /* Screen Shake on Damage */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+        .shake-anim {
+            animation: shake 0.3s ease-in-out;
+        }
+
+        /* Pulsing Start Button */
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 15px rgba(245, 158, 11, 0.6); }
+            50% { box-shadow: 0 0 28px rgba(245, 158, 11, 0.95); }
+        }
+        .btn-pulse {
+            animation: pulseGlow 1.8s infinite;
+        }
+
+        /* Food items drop scatter animation when spilled */
+        @keyframes scatterSpill {
+            0% { opacity: 1; transform: translateY(0) rotate(0deg); }
+            100% { opacity: 0; transform: translateY(40px) rotate(180deg); }
+        }
+        .spill-anim {
+            animation: scatterSpill 0.4s ease-out forwards;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(251, 191, 36, 0.5);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-amber-50 text-amber-950 min-h-screen flex flex-col items-center justify-center p-2 sm:p-4 overflow-hidden select-none">
+
+    <!-- Game Outer Wrapper -->
+    <div class="relative w-full max-w-md h-[92vh] max-h-[820px] bg-gradient-to-b from-sky-200 via-amber-50 to-orange-100 rounded-3xl shadow-2xl border-4 border-amber-300 flex flex-col overflow-hidden">
+
+        <!-- Top Status Bar (Score, Hearts, High Score) -->
+        <header class="relative z-30 p-3 bg-white/85 backdrop-blur-md border-b-2 border-amber-200/80 flex items-center justify-between shadow-sm">
+            <div class="flex items-center gap-2">
+                <div class="bg-amber-100 p-1.5 px-3 rounded-2xl border border-amber-300 shadow-inner flex flex-col items-center">
+                    <span class="text-[10px] text-amber-700 font-bold leading-none">점수</span>
+                    <span id="score-text" class="text-xl sm:text-2xl font-black text-amber-800 leading-tight">0</span>
+                </div>
+                <div class="bg-orange-100 p-1.5 px-3 rounded-2xl border border-orange-300 shadow-inner flex flex-col items-center">
+                    <span class="text-[10px] text-orange-700 font-bold leading-none">최고점수</span>
+                    <span id="highscore-text" class="text-base sm:text-lg font-bold text-orange-800 leading-tight">0</span>
+                </div>
+            </div>
+
+            <!-- Hearts (Lives) and Basket Gauge -->
+            <div class="flex flex-col items-end gap-1">
+                <div id="hearts-container" class="flex gap-1 text-xl sm:text-2xl drop-shadow">
+                    <span>❤️</span><span>❤️</span><span>❤️</span>
+                </div>
+                <span id="basket-count-badge" class="text-[11px] bg-amber-500 text-white font-bold px-2 py-0.5 rounded-full shadow-sm">
+                    바구니: 0 / 8
+                </span>
+            </div>
+        </header>
+
+        <!-- Top Right Toast Popups Container -->
+        <div id="top-right-popups" class="absolute top-16 right-3 z-40 flex flex-col gap-1.5 pointer-events-none max-w-[200px]"></div>
+
+        <!-- 3D Play Area -->
+        <main id="play-area" class="relative flex-1 w-full overflow-hidden cursor-crosshair">
+
+            <!-- Three.js Canvas Container -->
+            <div id="three-canvas-container" class="absolute inset-0 z-0"></div>
+
+            <!-- Floating Score Popup Layer -->
+            <div id="popup-container" class="absolute inset-0 pointer-events-none z-30 overflow-hidden"></div>
+
+            <!-- 곰돌이 & 바구니 캐릭터 영역 -->
+            <div id="basket" class="absolute bottom-3 -translate-x-1/2 flex flex-col items-center pointer-events-none z-20 transition-transform duration-75 ease-out">
+
+                <!-- 곰돌이 머리 및 반응 표정 -->
+                <div class="relative flex flex-col items-center -mb-2 z-10">
+                    <div id="bear-emoji" class="text-4xl sm:text-5xl drop-shadow-md select-none transform transition-transform duration-200">🐻</div>
+                    <!-- 곰돌이 양손 (바구니 잡기) -->
+                    <div class="absolute bottom-1 w-16 sm:w-20 flex justify-between px-1 text-sm sm:text-base z-30 select-none">
+                        <span>🐾</span>
+                        <span>🐾</span>
+                    </div>
+                </div>
+
+                <!-- 바구니 및 내부 음식 채우기 레이어 -->
+                <div class="relative flex items-center justify-center">
+
+                    <!-- 수거 판정 가이드 라인 -->
+                    <div class="absolute -top-3 w-28 border-b-2 border-dashed border-amber-500/70 flex items-center justify-center">
+                        <span class="text-[9px] bg-amber-100/90 text-amber-900 px-1.5 py-0.2 rounded-full font-bold shadow-sm opacity-90">
+                            🧺 수거선
+                        </span>
+                    </div>
+
+                    <!-- ★ 바구니 내부: 차곡차곡 채워지는 음식들 ★ -->
+                    <div id="basket-contents" class="absolute bottom-3.5 w-14 sm:w-16 h-8 flex flex-wrap-reverse items-center justify-center gap-0.5 overflow-visible z-20 pointer-events-none px-0.5">
+                        <!-- 담긴 음식 이모지들이 여기에 실시간으로 쌓입니다 -->
+                    </div>
+
+                    <!-- 바구니 본체 이모지 -->
+                    <div id="basket-icon" class="text-5xl sm:text-6xl drop-shadow-lg select-none relative z-10 transform transition-transform">🧺</div>
+                </div>
+
+                <!-- 곰돌이 발 -->
+                <div class="w-12 sm:w-16 flex justify-between px-2 -mt-2 text-xs sm:text-sm z-0 select-none">
+                    <span>🐾</span>
+                    <span>🐾</span>
+                </div>
+            </div>
+        </main>
+
+        <!-- Mobile Controls -->
+        <footer class="relative z-30 p-2 bg-amber-100/90 backdrop-blur border-t border-amber-200 flex justify-between items-center gap-2">
+            <button id="btn-left" class="flex-1 py-3 bg-amber-400 hover:bg-amber-500 active:scale-95 text-amber-950 font-bold text-lg rounded-2xl shadow-md border-b-4 border-amber-600 transition">
+                ◀ 왼쪽
+            </button>
+            <div class="text-[11px] text-amber-800 text-center font-bold px-1 leading-tight">
+                좌우 터치 / 드래그<br>키보드 방향키 ◀ ▶
+            </div>
+            <button id="btn-right" class="flex-1 py-3 bg-amber-400 hover:bg-amber-500 active:scale-95 text-amber-950 font-bold text-lg rounded-2xl shadow-md border-b-4 border-amber-600 transition">
+                오른쪽 ▶
+            </button>
+        </footer>
+
+        <!-- Start Modal Overlay -->
+        <div id="start-modal" class="absolute inset-0 z-50 bg-amber-950/60 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+            <div class="bg-white rounded-3xl p-6 shadow-2xl border-4 border-amber-300 max-w-xs w-full flex flex-col items-center">
+                <div class="text-6xl mb-2 animate-bounce">🐻🧺</div>
+                <h1 class="text-2xl font-black text-amber-900 mb-1">곰돌이의 먹방 바구니</h1>
+                <p class="text-xs text-amber-700 font-semibold mb-4">하늘에서 떨어지는 맛있는 음식을 받아주세요!</p>
+
+                <div class="w-full bg-amber-50 p-3 rounded-2xl border border-amber-200 text-left text-xs space-y-1.5 mb-5 text-amber-900">
+                    <p class="flex items-center gap-1.5 font-bold text-emerald-700">
+                        <span>🍎 🥦 🍌</span> 맛있는 음식: +10 ~ +20점 (바구니 수집)
+                    </p>
+                    <p class="flex items-center gap-1.5 font-bold text-amber-600">
+                        <span>🧺 8개 가득 채우기</span> 보너스 +50점!
+                    </p>
+                    <p class="flex items-center gap-1.5 font-bold text-orange-600">
+                        <span>🍩 🍕 🍟</span> 불량식품: -5점 감점
+                    </p>
+                    <p class="flex items-center gap-1.5 font-bold text-rose-600">
+                        <span>💣 🐛 🪰</span> 폭탄/벌레: 하트 차감 & 음식 쏟아짐!
+                    </p>
+                </div>
+
+                <button id="start-btn" class="w-full py-3.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-white font-black text-xl rounded-2xl shadow-lg border-b-4 border-orange-600 transition active:scale-95 btn-pulse">
+                    🎮 게임 시작하기
+                </button>
+            </div>
+        </div>
+
+        <!-- Game Over Modal Overlay -->
+        <div id="gameover-modal" class="hidden absolute inset-0 z-50 bg-amber-950/70 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+            <div class="bg-white rounded-3xl p-6 shadow-2xl border-4 border-rose-300 max-w-xs w-full flex flex-col items-center">
+                <div class="text-6xl mb-2">😭💥</div>
+                <h2 class="text-2xl font-black text-rose-900 mb-1">게임 오버!</h2>
+                <p class="text-xs text-amber-700 font-semibold mb-4">곰돌이가 기절했어요...</p>
+
+                <div class="w-full bg-amber-50 p-4 rounded-2xl border border-amber-200 mb-5 flex flex-col gap-2">
+                    <div class="flex justify-between items-center text-sm font-bold text-amber-900">
+                        <span>최종 점수:</span>
+                        <span id="final-score" class="text-2xl font-black text-amber-600">0</span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs font-bold text-amber-700">
+                        <span>최고 기록:</span>
+                        <span id="final-highscore" class="text-base font-bold text-orange-600">0</span>
+                    </div>
+                </div>
+
+                <button id="restart-btn" class="w-full py-3.5 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-black text-xl rounded-2xl shadow-lg border-b-4 border-teal-700 transition active:scale-95">
+                    🔄 다시 도전하기
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Web Audio Synthesizer Sound Generator
+        class SoundEffects {
+            constructor() {
+                this.ctx = null;
+            }
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+            playCatch() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, this.ctx.currentTime); // C5
+                osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.12); // A5
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.12);
+            }
+            playBonus() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C, E, G, C
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                    gain.gain.setValueAtTime(0.25, now + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.08 + 0.18);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.08);
+                    osc.stop(now + idx * 0.08 + 0.18);
+                });
+            }
+            playBad() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(130, this.ctx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.2);
+            }
+            playBomb() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.35);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.35);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.35);
+            }
+        }
+
+        const sound = new SoundEffects();
+
+        // Items Configuration Dictionary
+        const ITEM_TYPES = [
+            // Good Healthy Foods
+            { icon: '🍎', name: '사과', score: 10, type: 'good' },
+            { icon: '🍌', name: '바나나', score: 10, type: 'good' },
+            { icon: '🥦', name: '브로콜리', score: 15, type: 'healthy' },
+            { icon: '🥕', name: '당근', score: 15, type: 'healthy' },
+            { icon: '🍇', name: '포도', score: 12, type: 'good' },
+            { icon: '🍓', name: '딸기', score: 15, type: 'good' },
+            { icon: '🥑', name: '아보카도', score: 20, type: 'healthy' },
+
+            // Unhealthy Junk Foods
+            { icon: '🍩', name: '도넛', score: -5, type: 'bad' },
+            { icon: '🍕', name: '피자', score: -5, type: 'bad' },
+            { icon: '🍟', name: '감자튀김', score: -5, type: 'bad' },
+            { icon: '🍬', name: '사탕', score: -5, type: 'bad' },
+
+            // Hazards
+            { icon: '💣', name: '폭탄', score: 0, type: 'bomb' },
+            { icon: '🐛', name: '애벌레', score: 0, type: 'bomb' },
+            { icon: '🪰', name: '파리', score: 0, type: 'bomb' }
+        ];
+
+        // Safe localStorage helpers (iframe/privacy mode can throw)
+        function loadHighScore() {
+            try {
+                return parseInt(localStorage.getItem('bearGame_highScore') || '0', 10);
+            } catch (e) {
+                return 0;
+            }
+        }
+        function saveHighScore(value) {
+            try {
+                localStorage.setItem('bearGame_highScore', value.toString());
+            } catch (e) { /* storage unavailable */ }
+        }
+
+        // Global Game State
+        const state = {
+            isPlaying: false,
+            score: 0,
+            highScore: loadHighScore(),
+            lives: 3,
+            basketX: 0,
+            basketWidth: 80,
+            items: [],
+            basketContents: [], // Current food emojis inside basket
+            maxBasketCapacity: 8,
+            speedMultiplier: 1.0,
+            spawnInterval: 850, // ms
+            lastSpawnTime: 0,
+            keys: { left: false, right: false },
+            bearResetTimer: null
+        };
+
+        // DOM Element Cache
+        let playArea, basket, basketContents, basketIcon, bearEmoji;
+        let scoreText, highscoreText, heartsContainer, basketBadge;
+        let popupContainer, topRightPopups, startModal, gameoverModal;
+        let finalScore, finalHighscore;
+
+        function cacheDOMElements() {
+            playArea = document.getElementById('play-area');
+            basket = document.getElementById('basket');
+            basketContents = document.getElementById('basket-contents');
+            basketIcon = document.getElementById('basket-icon');
+            bearEmoji = document.getElementById('bear-emoji');
+            scoreText = document.getElementById('score-text');
+            highscoreText = document.getElementById('highscore-text');
+            heartsContainer = document.getElementById('hearts-container');
+            basketBadge = document.getElementById('basket-count-badge');
+            popupContainer = document.getElementById('popup-container');
+            topRightPopups = document.getElementById('top-right-popups');
+            startModal = document.getElementById('start-modal');
+            gameoverModal = document.getElementById('gameover-modal');
+            finalScore = document.getElementById('final-score');
+            finalHighscore = document.getElementById('final-highscore');
+        }
+
+        let scene, camera, renderer;
+        function initThreeJS() {
+            const container = document.getElementById('three-canvas-container');
+            const width = container.clientWidth || 360;
+            const height = container.clientHeight || 600;
+
+            scene = new THREE.Scene();
+
+            // Orthographic Camera for perfect aligned physics
+            const aspect = width / height;
+            const viewSize = 10;
+            camera = new THREE.OrthographicCamera(
+                -viewSize * aspect / 2, viewSize * aspect / 2,
+                viewSize / 2, -viewSize / 2,
+                0.1, 1000
+            );
+            camera.position.z = 10;
+
+            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+            scene.add(ambientLight);
+        }
+
+        // Texture generator for Emoji Sprites in Three.js
+        function createEmojiTexture(emojiStr) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.font = '88px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(emojiStr, 64, 68);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+
+        // Spawn a falling item mesh
+        function spawnFallingItem() {
+            if (!state.isPlaying) return;
+
+            const rand = Math.random();
+            let config;
+            if (rand < 0.58) {
+                const goods = ITEM_TYPES.filter(i => i.type === 'good' || i.type === 'healthy');
+                config = goods[Math.floor(Math.random() * goods.length)];
+            } else if (rand < 0.82) {
+                const bads = ITEM_TYPES.filter(i => i.type === 'bad');
+                config = bads[Math.floor(Math.random() * bads.length)];
+            } else {
+                const hazards = ITEM_TYPES.filter(i => i.type === 'bomb');
+                config = hazards[Math.floor(Math.random() * hazards.length)];
+            }
+
+            const texture = createEmojiTexture(config.icon);
+            const material = new THREE.SpriteMaterial({ map: texture });
+            const sprite = new THREE.Sprite(material);
+
+            const width = playArea.clientWidth || 360;
+            const height = playArea.clientHeight || 600;
+            const aspect = width / height;
+            const viewWidth = 10 * aspect;
+
+            const xPos = (Math.random() - 0.5) * (viewWidth - 1.6);
+            const yPos = 5.5;
+
+            sprite.position.set(xPos, yPos, 0);
+            sprite.scale.set(1.2, 1.2, 1);
+            scene.add(sprite);
+
+            state.items.push({
+                mesh: sprite,
+                config: config,
+                speed: (0.045 + Math.random() * 0.02) * state.speedMultiplier,
+                rotSpeed: (Math.random() - 0.5) * 0.05
+            });
+        }
+
+        // Set bear expression temporarily
+        function triggerBearExpression(emoji, duration = 800) {
+            if (!bearEmoji) return;
+            if (state.bearResetTimer) clearTimeout(state.bearResetTimer);
+            bearEmoji.textContent = emoji;
+            state.bearResetTimer = setTimeout(() => {
+                if (bearEmoji) bearEmoji.textContent = '🐻';
+            }, duration);
+        }
+
+        // Add Food Emoji into Basket Visual Stack
+        function addFoodToBasket(foodIcon) {
+            if (!basketContents) return;
+
+            state.basketContents.push(foodIcon);
+
+            // Create mini food emoji inside basket
+            const foodEl = document.createElement('span');
+            foodEl.className = 'text-xs sm:text-sm select-none basket-food-pop inline-block leading-none drop-shadow-sm';
+            foodEl.textContent = foodIcon;
+            basketContents.appendChild(foodEl);
+
+            updateBasketBadge();
+
+            // Check if Basket is full (8 items)
+            if (state.basketContents.length >= state.maxBasketCapacity) {
+                triggerBasketFullBonus();
+            }
+        }
+
+        // Trigger Full Basket Bonus (+50 pts & glow animation)
+        function triggerBasketFullBonus() {
+            state.score += 50;
+            if (scoreText) scoreText.textContent = state.score;
+            sound.playBonus();
+
+            if (basketIcon) {
+                basketIcon.classList.add('basket-full-anim');
+                setTimeout(() => {
+                    if (basketIcon) basketIcon.classList.remove('basket-full-anim');
+                }, 800);
+            }
+
+            triggerBearExpression('🥳', 1200);
+            showScorePopup('🎉 바구니 가득 참! +50점 🧺✨', 'bg-amber-500 text-white font-black text-lg border-2 border-yellow-200');
+
+            setTimeout(() => {
+                clearBasketContents();
+            }, 500);
+        }
+
+        // Clear Basket Contents
+        function clearBasketContents() {
+            state.basketContents = [];
+            if (basketContents) basketContents.innerHTML = '';
+            updateBasketBadge();
+        }
+
+        // Spill foods when hit by Bomb/Bug
+        function spillBasketFoods() {
+            if (state.basketContents.length > 0 && basketContents) {
+                basketContents.classList.add('spill-anim');
+                setTimeout(() => {
+                    clearBasketContents();
+                    if (basketContents) basketContents.classList.remove('spill-anim');
+                }, 380);
+                showScorePopup('음식을 쏟았어요! 😱', 'bg-red-500 text-white font-bold');
+            }
+            triggerBearExpression('😵', 1000);
+        }
+
+        // Update Basket Badge Text
+        function updateBasketBadge() {
+            if (basketBadge) {
+                basketBadge.textContent = `바구니: ${state.basketContents.length} / ${state.maxBasketCapacity}`;
+            }
+        }
+
+        // Catch Item Handler
+        function handleCatch(item) {
+            const config = item.config;
+
+            if (config.type === 'good' || config.type === 'healthy') {
+                state.score += config.score;
+                sound.playCatch();
+                triggerBearExpression('😋', 500);
+
+                if (config.type === 'healthy') {
+                    showTopRightScorePopup(`건강간식! +${config.score}점 (${config.icon})`);
+                } else {
+                    showScorePopup(`+${config.score}점 ${config.icon}`, 'bg-emerald-500 text-white font-bold');
+                }
+
+                addFoodToBasket(config.icon || '🍎');
+
+            } else if (config.type === 'bad') {
+                state.score = Math.max(0, state.score - 5);
+                sound.playBad();
+                triggerBearExpression('🤮', 600);
+                showScorePopup(`-5점 🤢 ${config.icon}`, 'bg-orange-500 text-white font-bold');
+
+            } else if (config.type === 'bomb') {
+                state.lives--;
+                sound.playBomb();
+                spillBasketFoods();
+
+                const wrapper = playArea.parentElement;
+                if (wrapper) {
+                    wrapper.classList.add('shake-anim');
+                    setTimeout(() => wrapper.classList.remove('shake-anim'), 350);
+                }
+
+                if (state.lives <= 0) {
+                    gameOver();
+                }
+            }
+
+            state.speedMultiplier = 1.0 + Math.floor(state.score / 50) * 0.12;
+            updateUI();
+        }
+
+        // Floating Score Popup inside play area
+        function showScorePopup(text, extraClasses = 'bg-white text-amber-900 font-bold') {
+            if (!popupContainer) return;
+            const popup = document.createElement('div');
+            popup.className = `absolute left-1/2 bottom-20 -translate-x-1/2 px-3 py-1.5 rounded-full shadow-lg text-sm sm:text-base animate-fade-up whitespace-nowrap z-40 pointer-events-none ${extraClasses}`;
+            popup.textContent = text;
+            popupContainer.appendChild(popup);
+
+            setTimeout(() => {
+                if (popup.parentElement) popup.parentElement.removeChild(popup);
+            }, 1200);
+        }
+
+        // Top Right Notification Toast
+        function showTopRightScorePopup(text) {
+            if (!topRightPopups) return;
+            const toast = document.createElement('div');
+            toast.className = 'bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-md border border-emerald-300 animate-bounce';
+            toast.textContent = text;
+            topRightPopups.appendChild(toast);
+
+            setTimeout(() => {
+                if (toast.parentElement) toast.parentElement.removeChild(toast);
+            }, 1800);
+        }
+
+        // Update UI Text & Hearts
+        function updateUI() {
+            if (scoreText) scoreText.textContent = state.score;
+            if (highscoreText) highscoreText.textContent = state.highScore;
+
+            if (heartsContainer) {
+                let heartsHTML = '';
+                for (let i = 0; i < 3; i++) {
+                    if (i < state.lives) {
+                        heartsHTML += '<span>❤️</span>';
+                    } else {
+                        heartsHTML += '<span class="opacity-30 grayscale">🖤</span>';
+                    }
+                }
+                heartsContainer.innerHTML = heartsHTML;
+            }
+        }
+
+        // Update Basket Position
+        function updateBasketPosition() {
+            if (!playArea || !basket) return;
+            const width = playArea.clientWidth || 320;
+            state.basketX = Math.max(state.basketWidth / 2, Math.min(width - state.basketWidth / 2, state.basketX));
+            basket.style.left = `${state.basketX}px`;
+        }
+
+        // Main Game Loop
+        let animationFrameId;
+        function gameLoop(timestamp) {
+            if (!state.isPlaying) return;
+
+            const moveSpeed = 7;
+            if (state.keys.left) state.basketX -= moveSpeed;
+            if (state.keys.right) state.basketX += moveSpeed;
+            updateBasketPosition();
+
+            if (timestamp - state.lastSpawnTime > state.spawnInterval / Math.sqrt(state.speedMultiplier)) {
+                spawnFallingItem();
+                state.lastSpawnTime = timestamp;
+            }
+
+            const containerWidth = playArea.clientWidth || 360;
+            const containerHeight = playArea.clientHeight || 600;
+            const aspect = containerWidth / containerHeight;
+            const viewWidth = 10 * aspect;
+
+            const basketNormalizedX = ((state.basketX / containerWidth) - 0.5) * viewWidth;
+            const catchYThreshold = -3.8;
+
+            for (let i = state.items.length - 1; i >= 0; i--) {
+                const item = state.items[i];
+                item.mesh.position.y -= item.speed;
+
+                if (item.mesh.position.y <= catchYThreshold && item.mesh.position.y >= catchYThreshold - 0.8) {
+                    const distX = Math.abs(item.mesh.position.x - basketNormalizedX);
+                    if (distX < 1.1) {
+                        handleCatch(item);
+                        scene.remove(item.mesh);
+                        state.items.splice(i, 1);
+                        continue;
+                    }
+                }
+
+                if (item.mesh.position.y < -5.5) {
+                    scene.remove(item.mesh);
+                    state.items.splice(i, 1);
+                }
+            }
+
+            renderer.render(scene, camera);
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        // Start Game
+        function startGame() {
+            sound.init();
+
+            state.items.forEach(item => {
+                if (item.mesh) scene.remove(item.mesh);
+            });
+            state.items = [];
+            clearBasketContents();
+
+            state.score = 0;
+            state.lives = 3;
+            state.speedMultiplier = 1.0;
+            state.isPlaying = true;
+            state.lastSpawnTime = performance.now();
+
+            updateUI();
+
+            if (startModal) startModal.classList.add('hidden');
+            if (gameoverModal) gameoverModal.classList.add('hidden');
+
+            state.basketX = (playArea.clientWidth || 320) / 2;
+            updateBasketPosition();
+
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        // Game Over Handler
+        function gameOver() {
+            state.isPlaying = false;
+            cancelAnimationFrame(animationFrameId);
+
+            if (state.score > state.highScore) {
+                state.highScore = state.score;
+                saveHighScore(state.highScore);
+            }
+
+            if (finalScore) finalScore.textContent = state.score;
+            if (finalHighscore) finalHighscore.textContent = state.highScore;
+
+            if (gameoverModal) gameoverModal.classList.remove('hidden');
+        }
+
+        // Setup Controls & Handlers
+        function setupEventListeners() {
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowLeft' || e.key === 'a') state.keys.left = true;
+                if (e.key === 'ArrowRight' || e.key === 'd') state.keys.right = true;
+            });
+            window.addEventListener('keyup', (e) => {
+                if (e.key === 'ArrowLeft' || e.key === 'a') state.keys.left = false;
+                if (e.key === 'ArrowRight' || e.key === 'd') state.keys.right = false;
+            });
+
+            let isDragging = false;
+            const handlePointerMove = (e) => {
+                if (!state.isPlaying || !playArea) return;
+                const rect = playArea.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                state.basketX = clientX - rect.left;
+                updateBasketPosition();
+            };
+
+            playArea.addEventListener('mousedown', (e) => { isDragging = true; handlePointerMove(e); });
+            window.addEventListener('mousemove', (e) => { if (isDragging) handlePointerMove(e); });
+            window.addEventListener('mouseup', () => { isDragging = false; });
+
+            playArea.addEventListener('touchstart', (e) => { isDragging = true; handlePointerMove(e); }, { passive: true });
+            playArea.addEventListener('touchmove', (e) => { if (isDragging) handlePointerMove(e); }, { passive: true });
+            playArea.addEventListener('touchend', () => { isDragging = false; });
+
+            const btnLeft = document.getElementById('btn-left');
+            const btnRight = document.getElementById('btn-right');
+
+            const bindBtn = (btn, dirKey) => {
+                if (!btn) return;
+                btn.addEventListener('touchstart', (e) => { e.preventDefault(); state.keys[dirKey] = true; });
+                btn.addEventListener('touchend', (e) => { e.preventDefault(); state.keys[dirKey] = false; });
+                btn.addEventListener('mousedown', () => { state.keys[dirKey] = true; });
+                btn.addEventListener('mouseup', () => { state.keys[dirKey] = false; });
+                btn.addEventListener('mouseleave', () => { state.keys[dirKey] = false; });
+            };
+            bindBtn(btnLeft, 'left');
+            bindBtn(btnRight, 'right');
+
+            document.getElementById('start-btn').addEventListener('click', startGame);
+            document.getElementById('restart-btn').addEventListener('click', startGame);
+
+            window.addEventListener('resize', () => {
+                if (!renderer || !camera || !playArea) return;
+                const width = playArea.clientWidth || 360;
+                const height = playArea.clientHeight || 600;
+                renderer.setSize(width, height);
+
+                const aspect = width / height;
+                const viewSize = 10;
+                camera.left = -viewSize * aspect / 2;
+                camera.right = viewSize * aspect / 2;
+                camera.top = viewSize / 2;
+                camera.bottom = -viewSize / 2;
+                camera.updateProjectionMatrix();
+
+                updateBasketPosition();
+            });
+        }
+
+        // Initialize Game
+        function init() {
+            cacheDOMElements();
+            initThreeJS();
+            setupEventListeners();
+
+            state.basketX = (playArea.clientWidth || 320) / 2;
+            updateBasketPosition();
+            updateUI();
+        }
+
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

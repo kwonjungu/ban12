@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>고양이의 건강 간식 모으기 🐱</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Jua', 'Nunito', sans-serif;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        @keyframes float-gentle {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-6px) rotate(3deg); }
+        }
+        @keyframes pop-bounce {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes fever-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(132, 204, 22, 0.6); }
+            50% { box-shadow: 0 0 40px rgba(234, 179, 8, 0.9); }
+        }
+        @keyframes float-cloud-slow {
+            0% { transform: translateX(-5%); }
+            50% { transform: translateX(5%); }
+            100% { transform: translateX(-5%); }
+        }
+        @keyframes float-cloud-fast {
+            0% { transform: translateX(8%); }
+            50% { transform: translateX(-8%); }
+            100% { transform: translateX(8%); }
+        }
+        @keyframes ambient-pulse {
+            0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.5; }
+            50% { transform: scale(1.15) rotate(10deg); opacity: 0.8; }
+        }
+        .animate-float {
+            animation: float-gentle 2.5s ease-in-out infinite;
+        }
+        .animate-pop {
+            animation: pop-bounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        .fever-active {
+            animation: fever-glow 0.8s ease-in-out infinite alternate;
+        }
+        .animate-cloud-slow {
+            animation: float-cloud-slow 14s ease-in-out infinite;
+        }
+        .animate-cloud-fast {
+            animation: float-cloud-fast 10s ease-in-out infinite;
+        }
+        .animate-ambient {
+            animation: ambient-pulse 8s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-amber-100 via-emerald-100 to-sky-100 min-h-screen flex flex-col items-center justify-center p-2 sm:p-4 overflow-hidden select-none relative">
+
+    <div class="absolute -top-24 -left-24 w-96 h-96 bg-amber-300/40 rounded-full blur-3xl pointer-events-none animate-ambient"></div>
+    <div class="absolute -bottom-24 -right-24 w-96 h-96 bg-emerald-300/40 rounded-full blur-3xl pointer-events-none animate-ambient" style="animation-delay: -4s;"></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-sky-200/30 rounded-full blur-3xl pointer-events-none"></div>
+
+    <!-- 게임 전체 메인 컨테이너 -->
+    <div class="relative w-full max-w-2xl bg-white/85 backdrop-blur-lg rounded-3xl shadow-2xl border-4 border-lime-400/80 overflow-hidden flex flex-col justify-between min-h-[90vh] sm:min-h-[850px] z-10">
+
+        <!-- 상단 헤더 HUD 영역 -->
+        <header class="p-3 sm:p-4 bg-lime-100/80 border-b-2 border-lime-300 flex items-center justify-between z-30">
+            <div class="flex items-center gap-3 sm:gap-6">
+                <div class="flex flex-col items-center">
+                    <span class="text-xs text-slate-500 font-bold">현재 점수</span>
+                    <span id="score-display" class="text-xl sm:text-2xl font-black text-lime-600">0</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-xs text-slate-500 font-bold">콤보</span>
+                    <span id="combo-display" class="text-xl sm:text-2xl font-black text-amber-500">0x</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-xs text-slate-500 font-bold">최고 점수</span>
+                    <span id="high-score-display" class="text-xl sm:text-2xl font-black text-emerald-600">0</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 sm:gap-4">
+                <div class="flex flex-col items-center mr-2">
+                    <span class="text-xs text-slate-500 font-bold">남은 시간</span>
+                    <span id="time-display" class="text-xl sm:text-2xl font-black text-rose-500">60s</span>
+                </div>
+                <!-- 조작 버튼들 -->
+                <button id="pause-btn" class="bg-amber-400 hover:bg-amber-500 active:scale-95 text-amber-950 text-xs sm:text-sm font-extrabold px-3 py-1.5 rounded-xl border border-amber-500 shadow-xs transition-all cursor-pointer">
+                    ⏸️ 일시정지
+                </button>
+                <button id="sound-toggle-btn" class="bg-emerald-400 hover:bg-emerald-500 active:scale-95 text-emerald-950 text-sm font-bold p-1.5 rounded-xl border border-emerald-500 shadow-xs transition-all cursor-pointer">
+                    🔊
+                </button>
+            </div>
+        </header>
+
+        <!-- 메인 게임 영역 (아이템 떨어지는 영역) -->
+        <main id="game-area" class="relative flex-1 w-full overflow-hidden bg-gradient-to-b from-sky-200/70 via-lime-100/50 to-emerald-100/80 flex flex-col justify-between">
+
+            <!-- 감성 일러스트 배경 레이어 (구름, 햇살, 원경 산, 발자국) -->
+            <div class="absolute inset-0 pointer-events-none overflow-hidden select-none z-0">
+                <!-- 상단 은은한 햇살 광원 효과 -->
+                <div class="absolute -top-16 left-1/2 -translate-x-1/2 w-80 h-80 bg-amber-200/50 rounded-full blur-2xl"></div>
+
+                <!-- 둥둥 떠다니는 귀여운 입체 구름 -->
+                <div class="absolute top-4 left-6 text-4xl opacity-75 animate-cloud-slow">☁️</div>
+                <div class="absolute top-12 right-10 text-5xl opacity-60 animate-cloud-fast">☁️</div>
+                <div class="absolute top-28 left-1/3 text-3xl opacity-50 animate-cloud-slow" style="animation-delay: -3s;">☁️</div>
+
+                <!-- 배경 반짝임 및 파스텔 고양이 발자국 이펙트 -->
+                <div class="absolute top-20 right-1/4 text-xl text-amber-400/60 animate-bounce">✨</div>
+                <div class="absolute top-40 left-12 text-2xl text-emerald-400/50 rotate-12">🐾</div>
+                <div class="absolute top-52 right-16 text-2xl text-amber-400/50 -rotate-12">🐾</div>
+                <div class="absolute top-16 left-1/2 text-lg text-lime-500/60 animate-pulse">✨</div>
+
+                <!-- 부드러운 산 / 언덕 레이어 SVG -->
+                <div class="absolute bottom-28 w-full flex justify-between opacity-40">
+                    <svg class="w-full h-24 text-emerald-300" viewBox="0 0 500 150" preserveAspectRatio="none">
+                        <path fill="currentColor" d="M0,80 Q125,20 250,80 T500,80 L500,150 L0,150 Z"></path>
+                    </svg>
+                </div>
+                <div class="absolute bottom-24 w-full flex justify-between opacity-50">
+                    <svg class="w-full h-20 text-lime-300" viewBox="0 0 500 150" preserveAspectRatio="none">
+                        <path fill="currentColor" d="M0,100 Q180,30 350,110 T500,90 L500,150 L0,150 Z"></path>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- 플레이 필드 레이어 (낙하 물체들이 생성되는 공간) -->
+            <div id="falling-items-container" class="absolute inset-0 pointer-events-none z-10"></div>
+
+            <!-- 피버 타임 알림 팝업 Banner -->
+            <div id="fever-banner" class="hidden absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-amber-400 text-amber-950 font-black px-6 py-2 rounded-full border-2 border-amber-600 shadow-xl text-lg sm:text-xl animate-bounce whitespace-nowrap">
+                🎉 건강 간식 레인 활성화! (Enter) 🎉
+            </div>
+
+            <!-- 상단 가이드 및 안내 영역 -->
+            <div class="p-4 relative z-20 pointer-events-none">
+                <!-- 시작 준비 안내 텍스트 -->
+                <div class="text-center bg-lime-500/20 px-4 py-2.5 rounded-2xl border border-lime-400/50 backdrop-blur-sm shadow-xs">
+                    <p class="text-sm font-semibold text-lime-900">
+                        🍎 🥦 고양이에게 건강 간식(+10점)을 모아주세요! 🐱
+                    </p>
+                    <p class="text-xs font-bold text-rose-700 mt-0.5">
+                        ⚠️ 🍩 🍟 정크푸드는 받으면 -10점 감점돼요!
+                    </p>
+                    <p id="enter-key-hint" class="text-xs font-extrabold text-emerald-800 mt-1 bg-white/80 py-1 px-3 rounded-full inline-block shadow-xs border border-lime-300 pointer-events-auto cursor-pointer hover:bg-white transition-all">
+                        💡 Enter 키를 누르면 건강 간식이 우두두! 🎉 <span id="fever-status-tag" class="ml-1 text-lime-600">(Ready!)</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Floating visual score effects overlay -->
+            <div id="effect-layer" class="absolute inset-0 pointer-events-none z-30"></div>
+
+            <!-- 하단 식탁 및 고양이 캐릭터 영역 -->
+            <div class="relative w-full z-20">
+                <!-- 식탁 상판 디테일 -->
+                <div id="table-area" class="w-full h-32 bg-gradient-to-b from-lime-200/60 to-emerald-300/40 border-t-4 border-lime-500/50 relative overflow-hidden backdrop-blur-xs">
+
+                    <!-- 식탁 배경에 잔디 및 꽃 장식 -->
+                    <div class="absolute top-1 left-4 text-sm opacity-80 select-none">🌱 🌸</div>
+                    <div class="absolute top-1 right-6 text-sm opacity-80 select-none">🌼 🌱</div>
+                    <div class="absolute top-2 left-1/3 text-xs opacity-70 select-none">☘️</div>
+                    <div class="absolute top-2 right-1/3 text-xs opacity-70 select-none">🌷</div>
+
+                    <!-- 고양이 컨테이너 (자바스크립트로 좌우 위치 제어) -->
+                    <div id="basket-container" class="absolute bottom-6 group cursor-pointer touch-none select-none transition-transform duration-75 ease-out" style="left: 50%; transform: translateX(-50%);">
+                        <!-- 정밀 충돌 감지 판정 레이어 -->
+                        <div id="basket-catch-zone" class="absolute top-2 left-2 right-2 h-8 pointer-events-none"></div>
+
+                        <!-- 고양이 그림자 -->
+                        <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-20 h-4 bg-lime-900/20 rounded-full blur-xs"></div>
+
+                        <!-- 고양이 이모지 및 베이스 영역 -->
+                        <div id="cat-body" class="basket-idle relative flex items-center justify-center w-24 h-24 bg-amber-100/90 backdrop-blur-xs rounded-full border-2 border-amber-300 shadow-md transition-all">
+                            <span id="cat-emoji" class="text-6xl filter drop-shadow-md select-none transform transition-transform group-hover:scale-110">
+                                🐱
+                            </span>
+                        </div>
+
+                        <!-- 좌우 이동 가이드 아이콘 표시 -->
+                        <div class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold text-amber-900 bg-white/90 px-2 py-0.5 rounded-full border border-amber-300 shadow-xs whitespace-nowrap">
+                            👈 고양이 이동 👉
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- 식탁 밑 테두리 마무리 -->
+                <div class="w-full h-4 bg-lime-600"></div>
+            </div>
+        </main>
+
+        <!-- 모바일 터치 조작 패널 -->
+        <footer class="sm:hidden bg-amber-100/90 p-2 flex items-center justify-around border-t border-amber-200 z-30">
+            <button id="btn-touch-left" class="bg-amber-500 active:bg-amber-600 text-white font-extrabold px-6 py-3 rounded-2xl shadow-md text-lg active:scale-95">
+                ◀️ 왼쪽
+            </button>
+            <button id="btn-touch-fever" class="bg-lime-500 active:bg-lime-600 text-white font-extrabold px-5 py-3 rounded-2xl shadow-md text-sm active:scale-95 flex flex-col items-center">
+                <span>🎉 간식우두두</span>
+                <span class="text-[10px] opacity-90">(Enter)</span>
+            </button>
+            <button id="btn-touch-right" class="bg-amber-500 active:bg-amber-600 text-white font-extrabold px-6 py-3 rounded-2xl shadow-md text-lg active:scale-95">
+                오른쪽 ▶️
+            </button>
+        </footer>
+
+        <!-- 게임 시작 모달 -->
+        <div id="start-modal" class="absolute inset-0 bg-amber-950/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center shadow-2xl border-4 border-amber-300 animate-pop">
+                <div class="text-7xl mb-2 animate-bounce">🐱</div>
+                <h2 class="text-2xl font-black text-amber-950 mb-1">고양이 건강 간식 게임</h2>
+                <p class="text-sm text-slate-600 mb-6 font-bold">신선한 과일과 채소를 모아 최고 점수를 기록하세요!</p>
+
+                <div class="bg-amber-50 rounded-2xl p-4 text-left text-xs text-amber-900 font-bold mb-6 space-y-2 border border-amber-200">
+                    <div class="flex items-center gap-2">
+                        <span class="text-base">🍎🥦</span>
+                        <span>건강 간식 Catch: <strong class="text-lime-600">+10점</strong></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-base">🍩🍟</span>
+                        <span>정크푸드 Catch: <strong class="text-rose-600">-10점 감점</strong></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-base">⌨️</span>
+                        <span>조작: 방향키 / A, D / 마우스 / Touch</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-base">💡</span>
+                        <span>스킬: <strong class="text-emerald-700">Enter 키</strong>로 건강 간식 폭탄!</span>
+                    </div>
+                </div>
+
+                <button id="start-game-btn" class="w-full bg-gradient-to-r from-lime-500 to-emerald-600 hover:from-lime-600 hover:to-emerald-700 text-white font-black text-xl py-3.5 rounded-2xl shadow-lg transform transition-all active:scale-95 border-b-4 border-emerald-800 cursor-pointer">
+                    게임 시작하기 🚀
+                </button>
+            </div>
+        </div>
+
+        <!-- 게임 오버 모달 -->
+        <div id="game-over-modal" class="hidden absolute inset-0 bg-amber-950/75 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center shadow-2xl border-4 border-lime-400 animate-pop">
+                <div id="game-over-emoji" class="text-7xl mb-2">🏆</div>
+                <h2 class="text-2xl font-black text-amber-950 mb-1">게임 종료!</h2>
+                <p id="game-over-rank" class="text-sm font-extrabold text-lime-600 mb-4">멋진 고양이 수집가!</p>
+
+                <div class="bg-lime-50 rounded-2xl p-4 text-amber-950 font-bold mb-6 space-y-2 border border-lime-200">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-slate-600">최종 점수</span>
+                        <span id="final-score" class="text-2xl font-black text-lime-600">0</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-slate-600">최고 기록</span>
+                        <span id="final-high-score" class="text-xl font-extrabold text-amber-600">0</span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs text-slate-500 pt-1 border-t border-lime-200">
+                        <span>획득 간식</span>
+                        <span id="stat-healthy-count" class="text-emerald-600 font-bold">0개</span>
+                    </div>
+                </div>
+
+                <button id="restart-game-btn" class="w-full bg-gradient-to-r from-amber-500 to-lime-500 hover:from-amber-600 hover:to-lime-600 text-white font-black text-xl py-3.5 rounded-2xl shadow-lg transform transition-all active:scale-95 border-b-4 border-amber-700 cursor-pointer">
+                    다시 도전하기 🔄
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 게임 아이템 데이터 구조 ---
+        const HEALTHY_SNACKS = [
+            { emoji: '🍎', name: '사과', score: 10 },
+            { emoji: '🥦', name: '브로콜리', score: 10 },
+            { emoji: '🍌', name: '바나나', score: 10 },
+            { emoji: '🥕', name: '당근', score: 10 },
+            { emoji: '🥑', name: '아보카도', score: 10 },
+            { emoji: '🍓', name: '딸기', score: 10 },
+            { emoji: '🍇', name: '포도', score: 10 }
+        ];
+
+        const JUNK_FOODS = [
+            { emoji: '🍩', name: '도넛', score: -10 },
+            { emoji: '🍟', name: '감자튀김', score: -10 },
+            { emoji: '🍔', name: '햄버거', score: -10 },
+            { emoji: '🍕', name: '피자', score: -10 },
+            { emoji: '🧁', name: '컵케이크', score: -10 },
+            { emoji: '🍬', name: '사탕', score: -10 }
+        ];
+
+        // --- 사운드 효과 시스템 (Web Audio API) ---
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playCatchHealthy() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, this.ctx.currentTime); // C5
+                osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.15); // A5
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+
+            playCatchJunk() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(100, this.ctx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.2);
+            }
+
+            playFever() {
+                if (!this.enabled || !this.ctx) return;
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.08);
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.08 + 0.12);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + idx * 0.08);
+                    osc.stop(this.ctx.currentTime + idx * 0.08 + 0.12);
+                });
+            }
+        }
+
+        const sfx = new SoundFX();
+
+        // --- 게임 내부 상태 ---
+        const GAME_DURATION = 60; // 60초
+        let score = 0;
+        let combo = 0;
+        let highScore = 0;
+        try { highScore = parseInt(localStorage.getItem('cat_game_high_score') || '0', 10); } catch (e) {}
+        let timeLeft = GAME_DURATION;
+        let gameActive = false;
+        let isPaused = false;
+        let feverCooldown = false;
+        let healthyCount = 0;
+
+        // 위치 및 이동 처리
+        let catX = 50; // 퍼센트 (0% ~ 100%)
+        const CAT_SPEED = 2.4; // 키보드 프레임당 고양이 이동 속도 (기존 1.2 -> 2.4 상향)
+        let keysPressed = {};
+
+        let fallingItems = [];
+        let animationFrameId = null;
+        let timerInterval = null;
+        let spawnerInterval = null;
+
+        // DOM 요소 렌더링 참조
+        const gameArea = document.getElementById('game-area');
+        const fallingItemsContainer = document.getElementById('falling-items-container');
+        const basketContainer = document.getElementById('basket-container');
+        const catchZone = document.getElementById('basket-catch-zone');
+        const catBody = document.getElementById('cat-body');
+        const catEmoji = document.getElementById('cat-emoji');
+        const effectLayer = document.getElementById('effect-layer');
+
+        const scoreDisplay = document.getElementById('score-display');
+        const comboDisplay = document.getElementById('combo-display');
+        const highScoreDisplay = document.getElementById('high-score-display');
+        const timeDisplay = document.getElementById('time-display');
+        const feverStatusTag = document.getElementById('fever-status-tag');
+        const enterKeyHint = document.getElementById('enter-key-hint');
+        const feverBanner = document.getElementById('fever-banner');
+
+        const startModal = document.getElementById('start-modal');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const soundToggleBtn = document.getElementById('sound-toggle-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+
+        // 초기 화면 업데이트
+        highScoreDisplay.textContent = highScore;
+
+        // --- 조작 및 이벤트 리스너 ---
+        window.addEventListener('keydown', (e) => {
+            sfx.init();
+            keysPressed[e.key] = true;
+
+            // Enter 키 조작: 건강 간식 폭탄 (Fever Rain)
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                triggerFeverSnackRain();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keysPressed[e.key] = false;
+        });
+
+        // 마우스 및 터치 드래그 이동 지원
+        let isDragging = false;
+
+        const handlePointerMove = (clientX) => {
+            if (!gameActive || isPaused) return;
+            const rect = gameArea.getBoundingClientRect();
+            const relativeX = clientX - rect.left;
+            let percent = (relativeX / rect.width) * 100;
+            catX = Math.max(8, Math.min(92, percent));
+            updateCatPosition();
+        };
+
+        gameArea.addEventListener('pointerdown', (e) => {
+            isDragging = true;
+            handlePointerMove(e.clientX);
+        });
+
+        gameArea.addEventListener('pointermove', (e) => {
+            if (isDragging) handlePointerMove(e.clientX);
+        });
+
+        window.addEventListener('pointerup', () => { isDragging = false; });
+
+        // 모바일 보조 버튼 클릭
+        document.getElementById('btn-touch-left').addEventListener('pointerdown', () => {
+            if (!gameActive) return;
+            catX = Math.max(8, catX - 18);
+            updateCatPosition();
+        });
+
+        document.getElementById('btn-touch-right').addEventListener('pointerdown', () => {
+            if (!gameActive) return;
+            catX = Math.min(92, catX + 18);
+            updateCatPosition();
+        });
+
+        document.getElementById('btn-touch-fever').addEventListener('click', () => {
+            triggerFeverSnackRain();
+        });
+
+        enterKeyHint.addEventListener('click', () => {
+            triggerFeverSnackRain();
+        });
+
+        function updateCatPosition() {
+            basketContainer.style.left = `${catX}%`;
+        }
+
+        // --- 아이템 생성 및 물리학 처리 ---
+        function spawnItem(forceHealthy = false) {
+            if (!gameActive || isPaused) return;
+
+            // 72% 확률로 건강 간식, 28% 확률로 정크푸드 생성 (forceHealthy일 경우 100% 건강 간식)
+            const isHealthy = forceHealthy || Math.random() < 0.72;
+            const itemPool = isHealthy ? HEALTHY_SNACKS : JUNK_FOODS;
+            const template = itemPool[Math.floor(Math.random() * itemPool.length)];
+
+            const itemEl = document.createElement('div');
+            itemEl.className = 'absolute text-4xl sm:text-5xl select-none filter drop-shadow-sm transition-transform';
+            itemEl.textContent = template.emoji;
+
+            // 랜덤 X 좌표 설정 (5% ~ 95%)
+            const posX = 5 + Math.random() * 90;
+            const speed = 4.5 + Math.random() * 3.5; // 낙하 속도 증가 (기존 2.5~5.0 -> 4.5~8.0)
+
+            itemEl.style.left = `${posX}%`;
+            itemEl.style.top = `-50px`;
+
+            fallingItemsContainer.appendChild(itemEl);
+
+            fallingItems.push({
+                element: itemEl,
+                x: posX,
+                y: -50,
+                speed: speed,
+                isHealthy: isHealthy,
+                data: template
+            });
+        }
+
+        // --- Enter 키 건강 간식 우두두 폭탄 스킬 ---
+        function triggerFeverSnackRain() {
+            if (!gameActive || isPaused || feverCooldown) return;
+
+            feverCooldown = true;
+            sfx.playFever();
+
+            // UI 스킬 쿨다운 표시
+            feverStatusTag.textContent = '(쿨다운 중...)';
+            feverStatusTag.className = 'ml-1 text-slate-400 font-normal';
+
+            // 고양이 이모지 애니메이션
+            catBody.classList.add('fever-active');
+            catEmoji.textContent = '😽';
+
+            // 피버 알림 팝업
+            feverBanner.classList.remove('hidden');
+            setTimeout(() => feverBanner.classList.add('hidden'), 1500);
+
+            // 건강 간식 연속 생성 (연사)
+            let drops = 0;
+            const feverInterval = setInterval(() => {
+                spawnItem(true);
+                drops++;
+                if (drops >= 12) {
+                    clearInterval(feverInterval);
+                }
+            }, 100);
+
+            // 고양이 원래 상태 복귀
+            setTimeout(() => {
+                catBody.classList.remove('fever-active');
+                catEmoji.textContent = '🐱';
+            }, 2000);
+
+            // 8초 쿨다운
+            setTimeout(() => {
+                feverCooldown = false;
+                feverStatusTag.textContent = '(Ready!)';
+                feverStatusTag.className = 'ml-1 text-lime-600 font-bold';
+            }, 8000);
+        }
+
+        // 아이템 획득 로직
+        function handleItemCatch(item) {
+            if (item.isHealthy) {
+                // 건강 간식 (+10점)
+                combo++;
+                const bonus = Math.floor(combo / 5) * 2; // 콤보 보너스
+                const gain = item.data.score + bonus;
+                score += gain;
+                healthyCount++;
+
+                sfx.playCatchHealthy();
+                showScoreEffect(`+${gain}`, 'text-lime-600', item.x);
+
+                // 고양이 표정 기쁨
+                catEmoji.textContent = '😻';
+                setTimeout(() => { if (gameActive) catEmoji.textContent = '🐱'; }, 300);
+
+            } else {
+                // 정크푸드 (-10점 감점)
+                combo = 0;
+                score = Math.max(0, score + item.data.score); // 0점 이하로 떨어지지 않음
+
+                sfx.playCatchJunk();
+                showScoreEffect(`-10`, 'text-rose-600', item.x);
+
+                // 고양이 표정 당황
+                catEmoji.textContent = '🙀';
+                catBody.classList.add('animate-bounce');
+                setTimeout(() => {
+                    if (gameActive) {
+                        catEmoji.textContent = '🐱';
+                        catBody.classList.remove('animate-bounce');
+                    }
+                }, 400);
+            }
+
+            updateHUD();
+        }
+
+        // Floating 스코어 텍스트 이펙트
+        function showScoreEffect(text, colorClass, xPosPercent) {
+            const el = document.createElement('div');
+            el.className = `absolute text-xl sm:text-2xl font-black ${colorClass} pointer-events-none transition-all duration-500 animate-pop`;
+            el.textContent = text;
+            el.style.left = `${xPosPercent}%`;
+            el.style.bottom = `120px`;
+
+            effectLayer.appendChild(el);
+
+            setTimeout(() => {
+                el.style.transform = 'translateY(-30px)';
+                el.style.opacity = '0';
+            }, 50);
+
+            setTimeout(() => el.remove(), 550);
+        }
+
+        function updateHUD() {
+            scoreDisplay.textContent = score;
+            comboDisplay.textContent = `${combo}x`;
+            if (score > highScore) {
+                highScore = score;
+                highScoreDisplay.textContent = highScore;
+                try { localStorage.setItem('cat_game_high_score', highScore.toString()); } catch (e) {}
+            }
+        }
+
+        // 메인 프레임 별 게임 루프
+        function gameLoop() {
+            if (!gameActive) return;
+
+            if (!isPaused) {
+                // 키보드 방향키 제어
+                if (keysPressed['ArrowLeft'] || keysPressed['a'] || keysPressed['A']) {
+                    catX = Math.max(8, catX - CAT_SPEED);
+                    updateCatPosition();
+                }
+                if (keysPressed['ArrowRight'] || keysPressed['d'] || keysPressed['D']) {
+                    catX = Math.min(92, catX + CAT_SPEED);
+                    updateCatPosition();
+                }
+
+                // 낙하 물체 위치 업데이트 및 충돌 검사
+                const catchZoneRect = catchZone.getBoundingClientRect();
+                const gameAreaRect = gameArea.getBoundingClientRect();
+
+                for (let i = fallingItems.length - 1; i >= 0; i--) {
+                    const item = fallingItems[i];
+                    item.y += item.speed;
+                    item.element.style.top = `${item.y}px`;
+
+                    const itemRect = item.element.getBoundingClientRect();
+
+                    // 고양이 바구니와 충돌 판단
+                    if (
+                        itemRect.bottom >= catchZoneRect.top &&
+                        itemRect.top <= catchZoneRect.bottom &&
+                        itemRect.right >= catchZoneRect.left &&
+                        itemRect.left <= catchZoneRect.right
+                    ) {
+                        handleItemCatch(item);
+                        item.element.remove();
+                        fallingItems.splice(i, 1);
+                        continue;
+                    }
+
+                    // 화면 밑바닥 이탈 처리
+                    if (itemRect.top > gameAreaRect.bottom) {
+                        item.element.remove();
+                        fallingItems.splice(i, 1);
+                    }
+                }
+            }
+
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        // --- 게임 시작 / 종료 관리 ---
+        function startGame() {
+            score = 0;
+            combo = 0;
+            timeLeft = GAME_DURATION;
+            healthyCount = 0;
+            gameActive = true;
+            isPaused = false;
+            feverCooldown = false;
+
+            if (pauseBtn) pauseBtn.textContent = '⏸️ 일시정지';
+
+            // UI 초기화
+            updateHUD();
+            timeDisplay.textContent = `${timeLeft}s`;
+            startModal.classList.add('hidden');
+            gameOverModal.classList.add('hidden');
+
+            // 기존 아이템 청소
+            fallingItemsContainer.innerHTML = '';
+            fallingItems = [];
+
+            // 고양이 중앙 위치
+            catX = 50;
+            updateCatPosition();
+
+            // 생성 타이머 및 제한 시간 타이머 설정
+            if (spawnerInterval) clearInterval(spawnerInterval);
+            if (timerInterval) clearInterval(timerInterval);
+
+            spawnerInterval = setInterval(() => {
+                if (!isPaused) spawnItem();
+            }, 380); // 아이템 생성 주기 단축 (기존 650ms -> 380ms)
+
+            timerInterval = setInterval(() => {
+                if (!isPaused) {
+                    timeLeft--;
+                    timeDisplay.textContent = `${timeLeft}s`;
+
+                    if (timeLeft <= 0) {
+                        endGame();
+                    }
+                }
+            }, 1000);
+
+            // 게임 메인 애니메이션 루프 시작
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            gameLoop();
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearInterval(spawnerInterval);
+            clearInterval(timerInterval);
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+
+            // 최종 점수 및 랭크 반영
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('final-high-score').textContent = highScore;
+            document.getElementById('stat-healthy-count').textContent = `${healthyCount}개`;
+
+            const rankEl = document.getElementById('game-over-rank');
+            const rankEmoji = document.getElementById('game-over-emoji');
+
+            if (score >= 400) {
+                rankEl.textContent = '🌟 신의 영역! 전설의 고양이 마스터!';
+                rankEmoji.textContent = '👑';
+            } else if (score >= 250) {
+                rankEl.textContent = '🥦 건강왕 고양이!';
+                rankEmoji.textContent = '🏆';
+            } else if (score >= 100) {
+                rankEl.textContent = '🍎 성실한 간식 수집가!';
+                rankEmoji.textContent = '🐱';
+            } else {
+                rankEl.textContent = '🍟 정크푸드는 조금만 줄여보아요!';
+                rankEmoji.textContent = '🥺';
+            }
+
+            gameOverModal.classList.remove('hidden');
+        }
+
+        // 이벤트 바인딩
+        document.getElementById('start-game-btn').addEventListener('click', () => {
+            sfx.init();
+            startGame();
+        });
+
+        document.getElementById('restart-game-btn').addEventListener('click', () => {
+            sfx.init();
+            startGame();
+        });
+
+        // 일시정지 토글
+        if (pauseBtn) {
+            pauseBtn.addEventListener('click', () => {
+                if (!gameActive) return;
+                isPaused = !isPaused;
+                pauseBtn.textContent = isPaused ? '▶️ 계속하기' : '⏸️ 일시정지';
+            });
+        }
+
+        // 사운드 토글
+        if (soundToggleBtn) {
+            soundToggleBtn.addEventListener('click', () => {
+                sfx.enabled = !sfx.enabled;
+                soundToggleBtn.textContent = sfx.enabled ? '🔊' : '🔇';
+            });
+        }
+
+    </script>
+</body>
+</html>

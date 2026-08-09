@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>건강 간식을 모아라! 3D</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js CDN for 3D graphics -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Gowun Dodum', 'Fredoka', sans-serif;
+            will-change: filter;
+        }
+
+        /* 67 Kitchen 체크 패턴 배경 */
+        .kitchen-bg {
+            background-color: #d8f3dc;
+            background-image:
+                linear-gradient(90deg, rgba(183, 228, 199, 0.4) 50%, transparent 50%),
+                linear-gradient(rgba(183, 228, 199, 0.4) 50%, transparent 50%);
+            background-size: 40px 40px;
+        }
+
+        /* 피격 / 충격 화면 흔들림 */
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0); }
+            20%, 60% { transform: translate(-8px, 4px); }
+            40%, 80% { transform: translate(8px, -4px); }
+        }
+        .shake-effect {
+            animation: shake 0.35s ease-in-out;
+        }
+
+        /* 펄스 글로우 이펙트 */
+        @keyframes pulseGlow {
+            0%, 100% { filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.8)); }
+            50% { filter: drop-shadow(0 0 15px rgba(255, 223, 0, 1)); }
+        }
+        .golden-glow {
+            animation: pulseGlow 1.2s infinite;
+        }
+
+        /* 색상 반전 (네온/다크) 테마 */
+        body.invert-theme {
+            filter: invert(1) hue-rotate(180deg);
+            background-color: #270c23;
+        }
+
+        /* 커스텀 스크롤바 */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #74c69d;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body class="kitchen-bg h-screen w-screen flex flex-col items-center justify-between p-3 md:p-5 overflow-hidden select-none">
+
+    <!-- 상단 헤더 & HUD (게임 진행 중에만 활성화) -->
+    <header id="game-hud" class="w-full max-w-3xl bg-white/95 backdrop-blur-md rounded-2xl p-3 md:p-4 shadow-xl border-4 border-[#95d5b2] flex justify-between items-center z-10 transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div class="flex items-center space-x-2">
+            <span class="text-3xl">🧺</span>
+            <div>
+                <h1 class="text-base md:text-xl font-black text-[#2d6a4f] flex items-center gap-1.5">
+                    <span>건강 간식을 모아라!</span>
+                    <span id="mode-badge" class="text-xs px-2 py-0.5 rounded-full bg-[#2d6a4f] text-white font-bold">이지</span>
+                </h1>
+                <p id="shield-indicator" class="text-xs text-blue-600 font-bold hidden animate-pulse">🛡️ 초반 3초 방어막 작동 중!</p>
+            </div>
+        </div>
+
+        <!-- 점수 / 스톱워치/타이머 / 목숨 상태판 및 종료 X 버튼 -->
+        <div class="flex items-center space-x-2 md:space-x-3">
+            <div id="lives-container" class="bg-[#ffebee] px-2.5 py-1.5 md:px-3 md:py-2 rounded-xl border border-[#ffcdd2] text-center shadow-sm">
+                <span class="text-[10px] md:text-xs font-semibold text-red-500 block">목숨</span>
+                <span id="lives" class="text-sm md:text-base font-black tracking-wider whitespace-nowrap">❤️ ❤️ ❤️</span>
+            </div>
+
+            <div class="bg-[#e8f5e9] px-3 py-1.5 md:px-4 md:py-2 rounded-xl border-2 border-[#b7e4c7] text-center shadow-sm">
+                <span id="score-label" class="text-[10px] md:text-xs font-semibold text-[#2d6a4f] block">점수</span>
+                <span id="score" class="text-xl md:text-2xl font-black text-[#2d6a4f] transition-transform duration-150 inline-block">0</span>
+            </div>
+
+            <div class="bg-[#fff3e0] px-2.5 py-1.5 md:px-3 md:py-2 rounded-xl border border-[#ffe0b2] text-center shadow-sm">
+                <span id="timer-label" class="text-[10px] md:text-xs text-gray-500 block">생존 시간</span>
+                <span id="stopwatch" class="text-sm md:text-base font-black text-[#e65100] whitespace-nowrap">00:00</span>
+            </div>
+
+            <button onclick="quitGame()" title="게임 중단 후 메뉴로" class="bg-red-500 hover:bg-red-600 active:scale-95 text-white font-black w-8 h-8 md:w-9 md:h-9 rounded-xl shadow border-2 border-white flex items-center justify-center text-sm md:text-base transition">
+                ✕
+            </button>
+        </div>
+    </header>
+
+    <!-- 메인 3D 게임 스테이지 -->
+    <main id="game-stage" class="relative w-full max-w-3xl h-[88vh] bg-gradient-to-b from-sky-100 to-emerald-50 rounded-3xl border-4 border-dashed border-[#74c69d] shadow-2xl overflow-hidden my-auto flex items-center justify-center">
+
+        <!-- Three.js 3D 캔버스 -->
+        <canvas id="three-canvas" class="w-full h-full block rounded-2xl"></canvas>
+
+        <!-- 정크푸드/핵 피격시 붉은 플래시 레이어 -->
+        <div id="dark-overlay" class="absolute inset-0 bg-red-950/40 opacity-0 pointer-events-none transition-opacity duration-150 z-20"></div>
+
+        <!-- 1. 시작 화면 (Start Screen) Overlay -->
+        <div id="start-menu" class="absolute inset-0 bg-emerald-900/80 backdrop-blur-md z-40 flex flex-col items-center justify-center p-6 text-center text-white">
+            <div class="bg-white/10 p-5 rounded-3xl border-2 border-white/20 max-w-md w-full shadow-2xl flex flex-col items-center">
+                <div class="text-6xl mb-2 select-none flex items-center gap-1">
+                    <span>🧺</span>
+                    <span onclick="toggleThemeInvert()" title="클릭하여 색상 반전!" class="cursor-pointer hover:scale-125 transition-transform inline-block animate-bounce active:scale-90">🍎</span>
+                    <span>✨</span>
+                </div>
+                <h2 class="text-2xl md:text-3xl font-black mb-1 text-yellow-300 drop-shadow">건강 간식을 모아라! 3D</h2>
+                <p class="text-xs md:text-sm text-emerald-100 mb-2">시원하게 넓어진 3D 식탁에서 떨어진 맛있는 간식을 받아보세요!</p>
+                <p class="text-[11px] text-yellow-200/90 mb-3">(💡 팁: 위 사과🍎 이모지를 누르면 색상이 반전됩니다!)</p>
+
+                <div class="bg-amber-400/20 border border-amber-300/40 rounded-xl px-4 py-1.5 mb-4 text-xs font-bold text-yellow-200">
+                    🏆 이지 모드 최고 점수: <span id="high-score-display" class="text-base text-yellow-300 font-extrabold">0</span> 점
+                </div>
+
+                <!-- 난이도 선택 버튼 그룹 -->
+                <div class="w-full space-y-2 mb-4">
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="selectMode('EASY')" id="btn-easy" class="mode-btn bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-1 rounded-xl text-xs md:text-sm shadow-md border-2 border-white/40 transition">
+                            🌱 이지 모드
+                        </button>
+                        <button onclick="selectMode('HARD')" id="btn-hard" class="mode-btn bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-1 rounded-xl text-xs md:text-sm shadow-md border-2 border-white/20 transition">
+                            🔥 하드 모드
+                        </button>
+                        <button onclick="selectMode('UNLIMITED')" id="btn-unlimited" class="mode-btn bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-1 rounded-xl text-xs md:text-sm shadow-md border-2 border-white/20 transition">
+                            ⚡ 10초 과일폭풍
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="openTutorial()" class="bg-amber-400 hover:bg-amber-500 text-emerald-950 font-extrabold py-2 px-2 rounded-xl text-xs md:text-sm shadow-md transition border-2 border-amber-200">
+                            📖 튜토리얼
+                        </button>
+                        <button onclick="openLeaderboard()" class="bg-yellow-400 hover:bg-yellow-500 text-emerald-950 font-extrabold py-2 px-2 rounded-xl text-xs md:text-sm shadow-md transition border-2 border-yellow-200 flex items-center justify-center gap-1">
+                            <span>🏆</span>
+                            <span>개인 리더보드</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-black/20 rounded-xl p-3 w-full mb-4 text-xs text-emerald-100 text-left space-y-1">
+                    <p class="font-bold text-yellow-200 text-center mb-1">🎮 선택된 모드 안내</p>
+                    <p>• 선택 모드: <span id="selected-mode-text" class="font-extrabold text-white">이지 모드</span></p>
+                    <p>• 아래 버튼 클릭 또는 <span class="bg-white/20 px-1.5 py-0.5 rounded font-mono text-yellow-300">[ Space ]</span> 키로 바로 시작!</p>
+                </div>
+
+                <button onclick="startGame()" class="w-full bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-emerald-950 font-black text-lg py-3.5 px-6 rounded-2xl shadow-xl border-2 border-yellow-200 transform transition active:scale-95 animate-pulse">
+                    🚀 게임 시작하기 (Space)
+                </button>
+            </div>
+        </div>
+
+        <!-- 2. 튜토리얼 모달 -->
+        <div id="tutorial-modal" class="hidden absolute inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-5 md:p-6 max-w-lg w-full text-gray-800 shadow-2xl max-h-[85vh] flex flex-col">
+                <div class="flex justify-between items-center mb-3 border-b pb-2">
+                    <h3 class="text-lg md:text-xl font-bold text-[#2d6a4f] flex items-center gap-2">
+                        <span>📖 게임 가이드 & 튜토리얼</span>
+                    </h3>
+                    <button onclick="closeTutorial()" class="text-gray-400 hover:text-gray-700 font-bold text-xl px-2">✕</button>
+                </div>
+
+                <div class="flex border-b border-gray-200 mb-3 text-xs md:text-sm font-bold gap-1">
+                    <button onclick="setTutorialSlide(0)" id="tut-tab-0" class="tut-tab flex-1 py-1.5 rounded-t-lg bg-emerald-600 text-white border-b-2 border-emerald-600">
+                        🕹️ 조작법
+                    </button>
+                    <button onclick="setTutorialSlide(1)" id="tut-tab-1" class="tut-tab flex-1 py-1.5 rounded-t-lg bg-gray-100 text-gray-600">
+                        🥗 간식 안내
+                    </button>
+                    <button onclick="setTutorialSlide(2)" id="tut-tab-2" class="tut-tab flex-1 py-1.5 rounded-t-lg bg-gray-100 text-gray-600">
+                        🎮 모드 설명
+                    </button>
+                </div>
+
+                <div class="overflow-y-auto flex-1 pr-1 space-y-3 text-xs md:text-sm">
+                    <div id="tut-slide-0" class="tut-slide space-y-2">
+                        <div class="bg-emerald-50 p-3 rounded-2xl border border-emerald-200 space-y-1.5">
+                            <h4 class="font-bold text-[#2d6a4f] text-sm flex items-center gap-1">🕹️ 기본 조작 방법</h4>
+                            <p class="text-gray-700">• 키보드: <span class="font-bold text-emerald-800">방향키(← →)</span> 또는 <span class="font-bold text-emerald-800">A / D</span> 키 누르기</p>
+                            <p class="text-gray-700">• 터치/마우스: 화면 내 식탁을 드래그하여 바구니 위치 조정</p>
+                            <p class="text-gray-700">• 게임 시작/재시작: <span class="font-bold text-emerald-800">[ Space ]</span> 키 이용</p>
+                        </div>
+                    </div>
+
+                    <div id="tut-slide-1" class="tut-slide hidden space-y-2">
+                        <div class="grid grid-cols-1 gap-2">
+                            <div class="bg-green-100/70 p-2.5 rounded-xl flex items-center gap-2">
+                                <span class="text-2xl">🍎🥦🥛🍌</span>
+                                <div>
+                                    <p class="font-bold text-green-900">건강 간식 (+10점)</p>
+                                    <p class="text-[11px] text-green-700">몸에 좋은 영양 만점 간식! 놓치면 목숨 차감</p>
+                                </div>
+                            </div>
+                            <div class="bg-amber-100/70 p-2.5 rounded-xl flex items-center gap-2 border border-amber-300">
+                                <span class="text-2xl">🟡🍎</span>
+                                <div>
+                                    <p class="font-bold text-amber-900">노란 황금 사과 (+50점 / ❤️+1)</p>
+                                    <p class="text-[11px] text-amber-800">빛나는 황금 사과! 목숨 부족시 하트 회복</p>
+                                </div>
+                            </div>
+                            <div class="bg-red-100/70 p-2.5 rounded-xl flex items-center gap-2">
+                                <span class="text-2xl">🍩🍟🍬🍕</span>
+                                <div>
+                                    <p class="font-bold text-red-900">정크푸드 (-10점)</p>
+                                    <p class="text-[11px] text-red-700">칼로리가 높고 영양 불균형! 점수 차감 & 화면 흔들림</p>
+                                </div>
+                            </div>
+                            <div class="bg-purple-100/70 p-2.5 rounded-xl flex items-center gap-2 border border-purple-300">
+                                <span class="text-2xl">💣</span>
+                                <div>
+                                    <p class="font-bold text-purple-900">하드모드 재난 핵폭탄 (점수 0점 초기화)</p>
+                                    <p class="text-[11px] text-purple-700">닿는 순간 모은 점수가 즉시 0점으로 초기화됩니다!</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="tut-slide-2" class="tut-slide hidden space-y-2">
+                        <div class="bg-gray-50 p-3 rounded-2xl border border-gray-200 space-y-2 text-xs">
+                            <p><span class="font-bold text-emerald-600 text-sm">🌱 이지 모드:</span><br>목숨 3개, 시작 후 3초간 방어막 제공!</p>
+                            <p><span class="font-bold text-red-600 text-sm">🔥 하드 모드:</span><br>목숨 단 1개, 축소된 바구니, 빠르고 촘촘한 정크푸드 및 핵(💣) 출현!</p>
+                            <p><span class="font-bold text-blue-600 text-sm">⚡ 10초 과일폭풍 (무제한):</span><br>10초간 과일이 소나기처럼 3배 쏟아지는 스트레스 해소 모드!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 flex gap-2">
+                    <button onclick="prevTutorialSlide()" class="flex-1 bg-gray-200 hover:bg-gray-300 font-bold py-2 rounded-xl text-xs transition">
+                        ◀ 이전
+                    </button>
+                    <button onclick="nextTutorialSlide()" class="flex-1 bg-gray-200 hover:bg-gray-300 font-bold py-2 rounded-xl text-xs transition">
+                        다음 ▶
+                    </button>
+                    <button onclick="closeTutorial()" class="flex-2 bg-[#2d6a4f] text-white font-bold px-4 py-2 rounded-xl shadow hover:bg-[#1b4332] text-xs transition">
+                        확인 및 닫기
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. 개인 리더보드 모달 -->
+        <div id="leaderboard-modal" class="hidden absolute inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-5 md:p-6 max-w-lg w-full text-gray-800 shadow-2xl max-h-[85vh] flex flex-col">
+                <div class="flex justify-between items-center mb-3 border-b pb-2">
+                    <h3 class="text-lg md:text-xl font-bold text-[#2d6a4f] flex items-center gap-2">
+                        <span>🏆 개인 명예의 전당 (Top 10)</span>
+                    </h3>
+                    <button onclick="closeLeaderboard()" class="text-gray-400 hover:text-gray-700 font-bold text-xl px-2">✕</button>
+                </div>
+
+                <p class="text-xs text-gray-500 mb-3">🍪 쿠키 및 브라우저에 안전하게 기록된 내 최고 점수 Top 10 입니다.</p>
+
+                <div class="overflow-y-auto flex-1 pr-1">
+                    <table class="w-full text-left text-xs md:text-sm border-collapse">
+                        <thead>
+                            <tr class="bg-emerald-100/80 text-[#2d6a4f] font-bold border-b border-emerald-200">
+                                <th class="p-2 rounded-l-lg">순위</th>
+                                <th class="p-2">모드</th>
+                                <th class="p-2">점수/개수</th>
+                                <th class="p-2">기록</th>
+                                <th class="p-2 rounded-r-lg">날짜</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-tbody" class="divide-y divide-gray-100"></tbody>
+                    </table>
+                    <div id="leaderboard-empty" class="hidden text-center py-10 text-gray-400 text-xs">
+                        🎮 아직 저장된 기록이 없습니다.<br>지금 새로운 최고 기록에 도전해보세요!
+                    </div>
+                </div>
+
+                <div class="mt-4 flex gap-2 justify-between items-center border-t pt-3">
+                    <button onclick="clearLeaderboard()" class="bg-red-50 hover:bg-red-100 text-red-600 font-bold px-3 py-2 rounded-xl text-xs transition border border-red-200">
+                        🗑️ 기록 전체 초기화
+                    </button>
+                    <button onclick="closeLeaderboard()" class="bg-[#2d6a4f] text-white font-bold px-5 py-2 rounded-xl shadow hover:bg-[#1b4332] text-xs transition">
+                        닫기
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. 게임 오버 Modal -->
+        <div id="game-over-modal" class="hidden absolute inset-0 bg-black/75 backdrop-blur-md z-30 flex flex-col items-center justify-center p-6 text-center text-white">
+            <span id="game-over-icon" class="text-5xl mb-2">💔</span>
+            <h2 id="game-over-title" class="text-2xl md:text-3xl font-bold mb-1">게임 오버!</h2>
+            <p id="game-over-msg" class="text-base md:text-lg font-semibold text-red-300 mb-3">건강한 식습관 완성 실패!</p>
+
+            <div class="bg-white/10 rounded-2xl p-4 w-full max-w-xs mb-4 border border-white/20">
+                <p class="text-sm text-gray-200 mb-1">최종 기록</p>
+                <p id="final-score-container" class="text-lg font-bold">점수: <span id="final-score" class="text-yellow-300 text-2xl">0</span>점</p>
+                <p id="final-time-container" class="text-xs text-emerald-200 mt-1">기록: <span id="final-time" class="font-mono text-white font-bold">00:00</span></p>
+            </div>
+
+            <p class="text-xs text-gray-300 mb-4 animate-pulse">⌨️ [ Space ] 키를 누르면 바로 다시 시작됩니다!</p>
+            <div class="flex gap-2">
+                <button onclick="openStartMenu()" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition">
+                    🏠 메뉴로
+                </button>
+                <button onclick="restartGame()" class="bg-[#2d6a4f] hover:bg-[#1b4332] text-white font-bold py-2.5 px-6 rounded-xl shadow-lg border-2 border-white/40 transition transform active:scale-95 text-xs md:text-sm">
+                    🔄 다시 하기
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 하단 상태 표시줄 -->
+    <footer class="text-center text-xs text-[#2d6a4f] font-semibold py-1 opacity-90">
+        🌱 67 Kitchen Game Studio
+    </footer>
+
+    <script>
+        // --- 글로벌 상태 변수 ---
+        let currentMode = 'EASY'; // EASY, HARD, UNLIMITED
+        let score = 0;
+        let easyHighScore = 0;
+        let lives = 3;
+        let maxLives = 3;
+        let survivalSeconds = 0;
+        let unlimitedTimer = 10;
+        let totalEatenHealthyCount = 0;
+        let isGameOver = false;
+        let isGameStarted = false;
+        let currentTutSlide = 0;
+
+        let stopwatchInterval = null;
+        let shieldActive = false;
+        let shieldTimer = null;
+
+        // 조작 변수
+        const keysPressed = {};
+        let moveSpeed = 0.35;
+        let basketX = 0;
+
+        // DOM 요소 캐싱
+        const gameHud = document.getElementById('game-hud');
+        const startMenu = document.getElementById('start-menu');
+        const tutorialModal = document.getElementById('tutorial-modal');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const gameOverTitle = document.getElementById('game-over-title');
+        const gameOverMsg = document.getElementById('game-over-msg');
+        const gameOverIcon = document.getElementById('game-over-icon');
+        const finalScoreContainer = document.getElementById('final-score-container');
+        const finalTime = document.getElementById('final-time');
+        const highScoreDisplay = document.getElementById('high-score-display');
+
+        const scoreEl = document.getElementById('score');
+        const scoreLabel = document.getElementById('score-label');
+        const livesEl = document.getElementById('lives');
+        const livesContainer = document.getElementById('lives-container');
+        const stopwatchEl = document.getElementById('stopwatch');
+        const timerLabel = document.getElementById('timer-label');
+        const modeBadge = document.getElementById('mode-badge');
+        const shieldIndicator = document.getElementById('shield-indicator');
+        const darkOverlay = document.getElementById('dark-overlay');
+        const selectedModeText = document.getElementById('selected-mode-text');
+        const gameStage = document.getElementById('game-stage');
+
+        // --- 싱글톤 Web Audio 엔진 (메모리 최적화) ---
+        let audioCtx = null;
+        function getAudioContext() {
+            if (!audioCtx) {
+                const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioCtxClass) {
+                    audioCtx = new AudioCtxClass();
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playSound(type) {
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                const now = ctx.currentTime;
+
+                if (type === 'catch') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(440, now);
+                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.08);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                } else if (type === 'golden') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(523, now);
+                    osc.frequency.exponentialRampToValueAtTime(1046, now + 0.2);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                } else if (type === 'junk') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220, now);
+                    osc.frequency.linearRampToValueAtTime(110, now + 0.15);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } else if (type === 'bomb') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.linearRampToValueAtTime(40, now + 0.35);
+                    gain.gain.setValueAtTime(0.4, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+                    osc.start(now);
+                    osc.stop(now + 0.35);
+                }
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+            } catch (e) {}
+        }
+
+        // --- Three.js 3D 엔진 & 재질/지오메트리 캐싱 ---
+        let scene, camera, renderer;
+        let basketMesh;
+        const active3DItems = [];
+        const itemMeshPool = []; // 3D 오브젝트 재사용 풀링
+
+        // 캐시 및 공유 리소스
+        const itemMaterialCache = new Map();
+        const sharedGlowGeo = new THREE.SphereGeometry(0.7, 8, 8);
+        const sharedGlowMat = new THREE.MeshBasicMaterial({ color: 0xffe066, transparent: true, opacity: 0.4 });
+
+        function initThreeJS() {
+            const container = document.getElementById('game-stage');
+            const canvas = document.getElementById('three-canvas');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xe8f5e9);
+
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(0, 0, 11);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // 모바일 GPU 가부하 방지
+            renderer.shadowMap.enabled = false; // 불필요한 그림자 패스 제거로 FPS 상승
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            dirLight.position.set(5, 10, 7);
+            scene.add(dirLight);
+
+            // 3D 식탁 무늬 판
+            const tableGeo = new THREE.PlaneGeometry(16, 20);
+            const tableMat = new THREE.MeshLambertMaterial({ color: 0xd8f3dc });
+            const tableMesh = new THREE.Mesh(tableGeo, tableMat);
+            tableMesh.position.z = -1;
+            scene.add(tableMesh);
+
+            create3DBasket();
+            window.addEventListener('resize', onWindowResize, { passive: true });
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('game-stage');
+            if (!container || !renderer || !camera) return;
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        function create3DBasket() {
+            const basketGroup = new THREE.Group();
+
+            const bodyGeo = new THREE.CylinderGeometry(1.0, 0.75, 0.65, 16);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.6 });
+            const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+            basketGroup.add(bodyMesh);
+
+            const rimGeo = new THREE.TorusGeometry(1.0, 0.09, 8, 20);
+            const rimMat = new THREE.MeshStandardMaterial({ color: 0xb45309 });
+            const rimMesh = new THREE.Mesh(rimGeo, rimMat);
+            rimMesh.rotation.x = Math.PI / 2;
+            rimMesh.position.y = 0.32;
+            basketGroup.add(rimMesh);
+
+            basketGroup.position.set(0, -4.1, 0);
+            basketMesh = basketGroup;
+            scene.add(basketMesh);
+        }
+
+        function getItemMaterial(type, isGolden = false) {
+            const key = isGolden ? 'GOLDEN_APPLE' : type.emoji;
+            if (itemMaterialCache.has(key)) {
+                return itemMaterialCache.get(key);
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+
+            if (isGolden) {
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.arc(64, 68, 42, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#FFF8DC';
+                ctx.beginPath();
+                ctx.arc(50, 52, 12, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.font = '36px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('🍃✨', 64, 28);
+            } else {
+                ctx.font = '80px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(type.emoji, 64, 64);
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMat = new THREE.SpriteMaterial({ map: texture });
+            itemMaterialCache.set(key, spriteMat);
+            return spriteMat;
+        }
+
+        // 3D 아이템 오브젝트 풀링 생성/재활용
+        function createItem3DMesh(type, isGolden = false) {
+            let group, sprite, glowMesh;
+
+            if (itemMeshPool.length > 0) {
+                group = itemMeshPool.pop();
+                sprite = group.children[0];
+                glowMesh = group.children[1] || null;
+            } else {
+                group = new THREE.Group();
+                sprite = new THREE.Sprite();
+                sprite.scale.set(1.3, 1.3, 1);
+                group.add(sprite);
+            }
+
+            sprite.material = getItemMaterial(type, isGolden);
+
+            if (isGolden) {
+                if (!glowMesh) {
+                    glowMesh = new THREE.Mesh(sharedGlowGeo, sharedGlowMat);
+                    group.add(glowMesh);
+                } else {
+                    glowMesh.visible = true;
+                }
+            } else if (glowMesh) {
+                glowMesh.visible = false;
+            }
+
+            group.rotation.z = 0;
+            return group;
+        }
+
+        function recycleItem3DMesh(mesh) {
+            mesh.position.set(0, -999, 0);
+            scene.remove(mesh);
+            itemMeshPool.push(mesh);
+        }
+
+        // --- 최적화된 DOM 플로팅 텍스트 ---
+        let lastFloatTime = 0;
+        function showFloatingText(text, isDanger = false, isGolden = false) {
+            const now = Date.now();
+            // 무제한 모드 고속 연사 시 DOM 생성 폭주 스로틀링 (min 50ms 간격)
+            if (now - lastFloatTime < 50 && !isGolden && !isDanger) return;
+            lastFloatTime = now;
+
+            const container = document.getElementById('game-stage');
+            if (!container) return;
+
+            const floatEl = document.createElement('div');
+            floatEl.innerText = text;
+            floatEl.className = `absolute font-black text-sm md:text-lg pointer-events-none transition-all duration-500 ease-out transform -translate-x-1/2 z-30 ${
+                isGolden ? 'text-yellow-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] scale-125' :
+                isDanger ? 'text-red-500 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] scale-110' :
+                'text-emerald-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]'
+            }`;
+
+            const posXPercent = Math.max(10, Math.min(90, ((basketX + 5.2) / 10.4) * 80 + 10));
+            floatEl.style.left = `${posXPercent}%`;
+            floatEl.style.bottom = '22%';
+            floatEl.style.opacity = '1';
+
+            container.appendChild(floatEl);
+
+            requestAnimationFrame(() => {
+                floatEl.style.transform = 'translate(-50%, -30px)';
+                floatEl.style.opacity = '0';
+            });
+
+            setTimeout(() => {
+                if (floatEl.parentNode) floatEl.parentNode.removeChild(floatEl);
+            }, 500);
+        }
+
+        function triggerScreenShake(isBomb = false) {
+            gameStage.classList.remove('shake-effect');
+            void gameStage.offsetWidth;
+            gameStage.classList.add('shake-effect');
+
+            darkOverlay.style.opacity = isBomb ? '0.9' : '0.6';
+            setTimeout(() => { darkOverlay.style.opacity = '0'; }, isBomb ? 400 : 200);
+        }
+
+        function toggleThemeInvert() {
+            document.body.classList.toggle('invert-theme');
+            playSound('golden');
+            showFloatingText('🎨 색상 반전 테마!', false, true);
+        }
+
+        function quitGame() {
+            isGameStarted = false;
+            isGameOver = false;
+            clearInterval(stopwatchInterval);
+
+            for (let i = active3DItems.length - 1; i >= 0; i--) {
+                recycleItem3DMesh(active3DItems[i].mesh);
+            }
+            active3DItems.length = 0;
+
+            openStartMenu();
+        }
+
+        function selectMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.className = 'mode-btn bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-1 rounded-xl text-xs md:text-sm shadow-md border-2 border-white/20 transition';
+            });
+
+            const activeBtn = document.getElementById(`btn-${mode.toLowerCase()}`);
+            if (activeBtn) {
+                activeBtn.className = 'mode-btn bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-1 rounded-xl text-xs md:text-sm shadow-md border-2 border-white/60 transition scale-105';
+            }
+
+            if (mode === 'EASY') {
+                selectedModeText.innerText = '🌱 이지 모드 (방어막 3초, 목숨 3개)';
+            } else if (mode === 'HARD') {
+                selectedModeText.innerText = '🔥 하드 모드 (작은 바구니, 목숨 1개, 고속, 핵 폭탄)';
+            } else if (mode === 'UNLIMITED') {
+                selectedModeText.innerText = '⚡ 10초 과일폭풍 (3배 폭발 과일 & 초고속 바구니!)';
+            }
+        }
+
+        function openTutorial() {
+            setTutorialSlide(0);
+            tutorialModal.classList.remove('hidden');
+        }
+
+        function closeTutorial() {
+            tutorialModal.classList.add('hidden');
+        }
+
+        function setTutorialSlide(index) {
+            currentTutSlide = index;
+            document.querySelectorAll('.tut-slide').forEach((slide, idx) => {
+                slide.classList.toggle('hidden', idx !== index);
+            });
+            document.querySelectorAll('.tut-tab').forEach((tab, idx) => {
+                tab.className = idx === index
+                    ? 'tut-tab flex-1 py-1.5 rounded-t-lg bg-emerald-600 text-white border-b-2 border-emerald-600 font-bold'
+                    : 'tut-tab flex-1 py-1.5 rounded-t-lg bg-gray-100 text-gray-600 font-bold';
+            });
+        }
+
+        function nextTutorialSlide() { setTutorialSlide((currentTutSlide + 1) % 3); }
+        function prevTutorialSlide() { setTutorialSlide((currentTutSlide - 1 + 3) % 3); }
+
+        function openStartMenu() {
+            isGameStarted = false;
+            isGameOver = false;
+            clearInterval(stopwatchInterval);
+
+            gameHud.classList.add('opacity-0', 'pointer-events-none');
+            startMenu.classList.remove('hidden');
+            gameOverModal.classList.add('hidden');
+
+            updateHighScoreFromRecords();
+        }
+
+        // --- 쿠키 / LocalStorage 개인 리더보드 ---
+        function getLeaderboardFromCookie() {
+            try {
+                const name = "snack_game_leaderboard=";
+                const decodedCookie = decodeURIComponent(document.cookie);
+                const ca = decodedCookie.split(';');
+                for(let i = 0; i < ca.length; i++) {
+                    let c = ca[i].trim();
+                    if (c.indexOf(name) === 0) return JSON.parse(c.substring(name.length));
+                }
+            } catch(e) {}
+            try {
+                const stored = localStorage.getItem('snack_game_leaderboard');
+                if (stored) return JSON.parse(stored);
+            } catch(e) {}
+            return [];
+        }
+
+        function saveLeaderboardToCookie(records) {
+            const jsonStr = JSON.stringify(records);
+            try {
+                const d = new Date();
+                d.setTime(d.getTime() + (365 * 24 * 60 * 60 * 1000));
+                document.cookie = "snack_game_leaderboard=" + encodeURIComponent(jsonStr) + ";expires=" + d.toUTCString() + ";path=/;SameSite=Lax";
+            } catch(e) {}
+            try { localStorage.setItem('snack_game_leaderboard', jsonStr); } catch(e) {}
+        }
+
+        function saveNewRecord(mode, finalScore, durationText) {
+            const records = getLeaderboardFromCookie();
+            const today = new Date();
+            const dateStr = `${today.getMonth()+1}/${today.getDate()} ${String(today.getHours()).padStart(2,'0')}:${String(today.getMinutes()).padStart(2,'0')}`;
+
+            let modeName = mode === 'HARD' ? '하드' : mode === 'UNLIMITED' ? '10초폭풍' : '이지';
+
+            records.push({ mode: modeName, rawMode: mode, score: finalScore, time: durationText, date: dateStr, timestamp: Date.now() });
+            records.sort((a, b) => b.score - a.score);
+            saveLeaderboardToCookie(records.slice(0, 10));
+            updateHighScoreFromRecords();
+        }
+
+        function updateHighScoreFromRecords() {
+            const records = getLeaderboardFromCookie();
+            const easyRecords = records.filter(r => r.rawMode === 'EASY');
+            easyHighScore = easyRecords.length > 0 ? easyRecords[0].score : 0;
+            if (highScoreDisplay) highScoreDisplay.innerText = easyHighScore;
+        }
+
+        function openLeaderboard() {
+            renderLeaderboard();
+            document.getElementById('leaderboard-modal').classList.remove('hidden');
+        }
+
+        function closeLeaderboard() {
+            document.getElementById('leaderboard-modal').classList.add('hidden');
+        }
+
+        function renderLeaderboard() {
+            const tbody = document.getElementById('leaderboard-tbody');
+            const emptyMsg = document.getElementById('leaderboard-empty');
+            const records = getLeaderboardFromCookie();
+
+            tbody.innerHTML = '';
+            if (!records || records.length === 0) {
+                emptyMsg.classList.remove('hidden');
+                return;
+            }
+            emptyMsg.classList.add('hidden');
+
+            records.forEach((rec, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = idx % 2 === 0 ? 'bg-white' : 'bg-emerald-50/40';
+                const rankBadge = idx === 0 ? '🥇 1위' : idx === 1 ? '🥈 2위' : idx === 2 ? '🥉 3위' : `${idx + 1}위`;
+
+                tr.innerHTML = `
+                    <td class="p-2 font-black ${idx === 0 ? 'text-amber-500 text-sm' : idx === 1 ? 'text-gray-500' : idx === 2 ? 'text-amber-700' : 'text-gray-700'}">${rankBadge}</td>
+                    <td class="p-2 font-bold"><span class="px-1.5 py-0.5 rounded text-[10px] ${rec.rawMode === 'HARD' ? 'bg-red-100 text-red-700' : rec.rawMode === 'UNLIMITED' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}">${rec.mode}</span></td>
+                    <td class="p-2 font-black text-[#2d6a4f]">${rec.score}점</td>
+                    <td class="p-2 text-gray-600 font-mono text-xs">${rec.time}</td>
+                    <td class="p-2 text-gray-400 text-[11px]">${rec.date}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function clearLeaderboard() {
+            saveLeaderboardToCookie([]);
+            renderLeaderboard();
+            updateHighScoreFromRecords();
+            showFloatingText('🗑️ 리더보드가 초기화되었습니다!', true);
+        }
+
+        // --- 게임 시작 ---
+        function startGame() {
+            getAudioContext(); // 사운드 엔진 활성화
+
+            startMenu.classList.add('hidden');
+            gameOverModal.classList.add('hidden');
+            gameHud.classList.remove('opacity-0', 'pointer-events-none');
+
+            score = 0;
+            survivalSeconds = 0;
+            unlimitedTimer = 10;
+            totalEatenHealthyCount = 0;
+            isGameOver = false;
+            isGameStarted = true;
+
+            if (currentMode === 'EASY') {
+                lives = 3; maxLives = 3; moveSpeed = 0.35;
+                if (basketMesh) basketMesh.scale.set(1.0, 1.0, 1.0);
+                modeBadge.innerText = '이지';
+                modeBadge.className = 'text-xs px-2 py-0.5 rounded-full bg-emerald-600 text-white font-bold';
+                scoreLabel.innerText = '점수'; timerLabel.innerText = '생존 시간';
+                livesContainer.classList.remove('hidden');
+
+                shieldActive = true;
+                shieldIndicator.classList.remove('hidden');
+                clearTimeout(shieldTimer);
+                shieldTimer = setTimeout(() => {
+                    shieldActive = false;
+                    shieldIndicator.classList.add('hidden');
+                }, 3000);
+
+            } else if (currentMode === 'HARD') {
+                lives = 1; maxLives = 1; moveSpeed = 0.40;
+                if (basketMesh) basketMesh.scale.set(0.68, 0.68, 0.68);
+                modeBadge.innerText = '하드';
+                modeBadge.className = 'text-xs px-2 py-0.5 rounded-full bg-red-600 text-white font-bold';
+                scoreLabel.innerText = '점수'; timerLabel.innerText = '생존 시간';
+                livesContainer.classList.remove('hidden');
+                shieldActive = false; shieldIndicator.classList.add('hidden');
+
+            } else if (currentMode === 'UNLIMITED') {
+                lives = 999; maxLives = 999; moveSpeed = 0.62;
+                if (basketMesh) basketMesh.scale.set(1.15, 1.15, 1.15);
+                modeBadge.innerText = '10초과일폭풍';
+                modeBadge.className = 'text-xs px-2 py-0.5 rounded-full bg-blue-600 text-white font-bold';
+                scoreLabel.innerText = '수집 개수'; timerLabel.innerText = '남은 시간';
+                livesContainer.classList.add('hidden');
+                shieldActive = false; shieldIndicator.classList.add('hidden');
+            }
+
+            updateScoreDisplay();
+            updateLivesDisplay();
+            startTimerLogic();
+
+            for (let i = active3DItems.length - 1; i >= 0; i--) {
+                recycleItem3DMesh(active3DItems[i].mesh);
+            }
+            active3DItems.length = 0;
+
+            basketX = 0;
+            if (basketMesh) basketMesh.position.x = 0;
+        }
+
+        function startTimerLogic() {
+            clearInterval(stopwatchInterval);
+
+            if (currentMode === 'UNLIMITED') {
+                stopwatchEl.innerText = `${unlimitedTimer}초`;
+                stopwatchInterval = setInterval(() => {
+                    if (!isGameStarted || isGameOver) return;
+                    unlimitedTimer--;
+                    stopwatchEl.innerText = `${unlimitedTimer}초`;
+                    if (unlimitedTimer <= 0) triggerGameOver('10초 종결!', '과일 폭풍 수집 완료!', '🎉');
+                }, 1000);
+            } else {
+                stopwatchEl.innerText = '00:00';
+                stopwatchInterval = setInterval(() => {
+                    if (!isGameStarted || isGameOver) return;
+                    survivalSeconds++;
+                    const mins = String(Math.floor(survivalSeconds / 60)).padStart(2, '0');
+                    const secs = String(survivalSeconds % 60).padStart(2, '0');
+                    stopwatchEl.innerText = `${mins}:${secs}`;
+                }, 1000);
+            }
+        }
+
+        function updateScoreDisplay() {
+            scoreEl.innerText = currentMode === 'UNLIMITED' ? totalEatenHealthyCount : score;
+            if (currentMode === 'EASY' && score > easyHighScore) {
+                easyHighScore = score;
+                highScoreDisplay.innerText = easyHighScore;
+            }
+        }
+
+        function updateLivesDisplay() {
+            if (currentMode === 'UNLIMITED') return;
+            let hearts = '';
+            for (let i = 0; i < maxLives; i++) {
+                hearts += (i < lives) ? '❤️ ' : '🖤 ';
+            }
+            livesEl.innerText = hearts.trim();
+        }
+
+        function loseLife() {
+            if (isGameOver || currentMode === 'UNLIMITED') return;
+            lives--;
+            updateLivesDisplay();
+
+            darkOverlay.style.opacity = '0.5';
+            setTimeout(() => darkOverlay.style.opacity = '0', 200);
+
+            if (lives <= 0) triggerGameOver('게임 오버!', '건강한 식습관 완성 실패!', '💔');
+        }
+
+        function applyScorePenalty(penalty) {
+            if (shieldActive) {
+                showFloatingText('🛡️ 방어막 보호!', false);
+                return;
+            }
+
+            score -= penalty;
+            if (score < 0) {
+                score = 0;
+                showFloatingText('점수 미달! 목숨 -1', true);
+                loseLife();
+            } else {
+                showFloatingText(`으악! -${penalty}`, true);
+            }
+            updateScoreDisplay();
+        }
+
+        function triggerGameOver(title, msg, icon) {
+            isGameOver = true;
+            clearInterval(stopwatchInterval);
+
+            gameOverTitle.innerText = title;
+            gameOverMsg.innerText = msg;
+            gameOverIcon.innerText = icon;
+
+            let finalScoreVal = 0;
+            let timeStr = '00:00';
+
+            if (currentMode === 'UNLIMITED') {
+                finalScoreVal = totalEatenHealthyCount;
+                timeStr = '10초';
+                finalScoreContainer.innerHTML = `수집한 건강 과일: <span class="text-yellow-300 text-2xl font-black">${totalEatenHealthyCount}</span>개`;
+                finalTime.innerText = `10초 완주!`;
+            } else {
+                finalScoreVal = score;
+                const mins = String(Math.floor(survivalSeconds / 60)).padStart(2, '0');
+                const secs = String(survivalSeconds % 60).padStart(2, '0');
+                timeStr = `${mins}:${secs}`;
+                finalScoreContainer.innerHTML = `최종 점수: <span class="text-yellow-300 text-2xl font-black">${score}</span>점`;
+                finalTime.innerText = timeStr;
+            }
+
+            saveNewRecord(currentMode, finalScoreVal, timeStr);
+            gameOverModal.classList.remove('hidden');
+        }
+
+        function restartGame() { startGame(); }
+
+        // --- 간식 아이템 데이터 ---
+        const HEALTHY_TYPES = [
+            { name: '사과', emoji: '🍎' }, { name: '브로콜리', emoji: '🥦' },
+            { name: '우유', emoji: '🥛' }, { name: '바나나', emoji: '🍌' },
+            { name: '당근', emoji: '🥕' }, { name: '딸기', emoji: '🍓' },
+            { name: '포도', emoji: '🍇' }, { name: '수박', emoji: '🍉' }
+        ];
+
+        const JUNK_TYPES = [
+            { name: '도넛', emoji: '🍩' }, { name: '감자튀김', emoji: '🍟' },
+            { name: '캔디', emoji: '🍬' }, { name: '피자', emoji: '🍕' },
+            { name: '햄버거', emoji: '🍔' }
+        ];
+
+        let spawnTimer = 0;
+
+        function spawnSnackItem() {
+            if (!isGameStarted || isGameOver) return;
+
+            let isGolden = false, isBomb = false, isJunk = false;
+
+            if (currentMode === 'UNLIMITED') {
+                if (Math.random() < 0.1) isGolden = true;
+            } else {
+                const rand = Math.random();
+                if (rand < 0.06) isGolden = true;
+                else if (currentMode === 'HARD' && rand < 0.20) isBomb = true;
+                else if (rand < (currentMode === 'HARD' ? 0.52 : 0.32)) isJunk = true;
+            }
+
+            let typeObj = { name: '황금사과', emoji: '🟡🍎' };
+            if (isBomb) typeObj = { name: '핵폭탄', emoji: '💣' };
+            else if (isJunk) typeObj = JUNK_TYPES[Math.floor(Math.random() * JUNK_TYPES.length)];
+            else if (!isGolden) typeObj = HEALTHY_TYPES[Math.floor(Math.random() * HEALTHY_TYPES.length)];
+
+            const itemMesh = createItem3DMesh(typeObj, isGolden);
+            const startX = (Math.random() - 0.5) * 10.0;
+            const startY = 5.8;
+
+            itemMesh.position.set(startX, startY, 0);
+            scene.add(itemMesh);
+
+            const baseSpeed = Math.random() * 0.035 + (currentMode === 'UNLIMITED' ? 0.08 : currentMode === 'HARD' ? 0.095 : 0.06);
+
+            active3DItems.push({
+                mesh: itemMesh,
+                x: startX,
+                y: startY,
+                speed: baseSpeed,
+                isJunk: isJunk,
+                isGolden: isGolden,
+                isBomb: isBomb,
+                state: 'falling'
+            });
+        }
+
+        // --- 메인 게임 루프 ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (isGameStarted && !isGameOver) {
+                const moveLeft = keysPressed['ArrowLeft'] || keysPressed['a'];
+                const moveRight = keysPressed['ArrowRight'] || keysPressed['d'];
+
+                if (moveLeft && !moveRight) basketX -= moveSpeed;
+                if (moveRight && !moveLeft) basketX += moveSpeed;
+
+                basketX = Math.max(-5.2, Math.min(5.2, basketX));
+                if (basketMesh) basketMesh.position.x = basketX;
+
+                // 스폰 제어
+                spawnTimer++;
+                if (currentMode === 'UNLIMITED') {
+                    if (spawnTimer % 3 === 0) {
+                        spawnSnackItem();
+                        spawnSnackItem();
+                        spawnSnackItem();
+                    }
+                } else {
+                    const spawnInterval = currentMode === 'HARD' ? 30 : 45;
+                    if (spawnTimer >= spawnInterval) {
+                        spawnSnackItem();
+                        spawnTimer = 0;
+                    }
+                }
+
+                // 물리 이동 및 충돌 판정
+                const basketY = -4.1;
+                const catchRadiusX = (currentMode === 'HARD') ? 0.85 : (currentMode === 'UNLIMITED') ? 1.4 : 1.15;
+
+                for (let i = active3DItems.length - 1; i >= 0; i--) {
+                    const item = active3DItems[i];
+
+                    if (item.state === 'falling') {
+                        item.y -= item.speed;
+                        item.mesh.position.y = item.y;
+                        item.mesh.rotation.z += 0.025;
+
+                        const dx = Math.abs(item.x - basketX);
+                        const dy = Math.abs(item.y - basketY);
+
+                        if (dx < catchRadiusX && dy < 0.55) {
+                            if (item.isGolden) {
+                                playSound('golden');
+                                if (lives < maxLives && currentMode !== 'UNLIMITED') {
+                                    lives++;
+                                    updateLivesDisplay();
+                                    showFloatingText('✨ 하트 +1 회복!', false, true);
+                                } else {
+                                    score += 50;
+                                    totalEatenHealthyCount += 5;
+                                    updateScoreDisplay();
+                                    showFloatingText('✨ 노란 황금사과! +50점', false, true);
+                                }
+                            } else if (item.isBomb) {
+                                playSound('bomb');
+                                triggerScreenShake(true);
+                                score = 0;
+                                updateScoreDisplay();
+                                showFloatingText('💣 핵폭탄! 점수 초기화!', true);
+                            } else if (item.isJunk) {
+                                playSound('junk');
+                                triggerScreenShake(false);
+                                applyScorePenalty(10);
+                            } else {
+                                playSound('catch');
+                                totalEatenHealthyCount++;
+                                if (currentMode === 'UNLIMITED') {
+                                    updateScoreDisplay();
+                                    showFloatingText('쏙! 🍎', false);
+                                } else {
+                                    score += 10;
+                                    updateScoreDisplay();
+                                    showFloatingText('쏙! +10', false);
+                                }
+                            }
+
+                            recycleItem3DMesh(item.mesh);
+                            active3DItems.splice(i, 1);
+                            continue;
+                        }
+
+                        if (item.y <= -5.2) {
+                            if (!item.isJunk && !item.isGolden && !item.isBomb) loseLife();
+                            recycleItem3DMesh(item.mesh);
+                            active3DItems.splice(i, 1);
+                        }
+                    }
+                }
+            }
+
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        // --- 키보드 및 포인터 이벤트 핸들러 ---
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.key === ' ') {
+                if (tutorialModal && !tutorialModal.classList.contains('hidden')) return;
+                e.preventDefault();
+                if (!isGameStarted) startGame();
+                else if (isGameOver) restartGame();
+                return;
+            }
+
+            const key = e.key.toLowerCase();
+            keysPressed[e.key] = true;
+            keysPressed[key] = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            const key = e.key.toLowerCase();
+            delete keysPressed[e.key];
+            delete keysPressed[key];
+        });
+
+        let isDragging = false;
+        let cachedStageRect = null;
+
+        function updateStageRectCache() {
+            if (gameStage) cachedStageRect = gameStage.getBoundingClientRect();
+        }
+
+        function handlePointerMove(clientX) {
+            if (!isGameStarted || isGameOver) return;
+            if (!cachedStageRect) updateStageRectCache();
+            const relX = (clientX - cachedStageRect.left) / cachedStageRect.width;
+            basketX = Math.max(-5.2, Math.min(5.2, (relX - 0.5) * 10.8));
+        }
+
+        gameStage.addEventListener('mousedown', (e) => { updateStageRectCache(); isDragging = true; handlePointerMove(e.clientX); });
+        gameStage.addEventListener('mousemove', (e) => { if (isDragging) handlePointerMove(e.clientX); });
+        window.addEventListener('mouseup', () => { isDragging = false; });
+
+        gameStage.addEventListener('touchstart', (e) => {
+            updateStageRectCache();
+            if (e.touches[0]) { isDragging = true; handlePointerMove(e.touches[0].clientX); }
+        }, { passive: true });
+
+        gameStage.addEventListener('touchmove', (e) => {
+            if (isDragging && e.touches[0]) handlePointerMove(e.touches[0].clientX);
+        }, { passive: true });
+
+        gameStage.addEventListener('touchend', () => { isDragging = false; });
+        window.addEventListener('resize', updateStageRectCache, { passive: true });
+
+        window.onload = () => {
+            initThreeJS();
+            selectMode('EASY');
+            openStartMenu();
+            requestAnimationFrame(animate);
+        };
+    </script>
+</body>
+</html>

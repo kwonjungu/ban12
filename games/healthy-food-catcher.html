@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>건강 음식 받아먹기 게임</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;600;700&display=swap');
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .font-jua {
+            font-family: 'Jua', sans-serif;
+        }
+
+        .game-canvas {
+            background: linear-gradient(180deg, #e0f2fe 0%, #f0fdf4 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .falling-item {
+            position: absolute;
+            will-change: transform, top;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+            line-height: 1;
+        }
+
+        .player-basket {
+            position: absolute;
+            bottom: 20px;
+            transform: translateX(-50%);
+            transition: left 0.05s linear;
+        }
+
+        .shift-badge-active {
+            animation: pulse 1s infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.9; }
+            100% { transform: scale(1.05); opacity: 1; }
+        }
+
+        .catch-effect {
+            position: absolute;
+            pointer-events: none;
+            animation: floatUp 0.6s ease-out forwards;
+        }
+
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-30px) scale(1.3); }
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-800 flex items-center justify-center min-h-screen p-2 md:p-4">
+
+    <div class="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden border-4 border-emerald-400 flex flex-col">
+        <!-- 상단 헤더 및 점수판 -->
+        <header class="bg-emerald-500 text-white p-4 flex flex-wrap justify-between items-center gap-2 shadow-md">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-jua tracking-wide flex items-center gap-2">
+                    🥗 건강 파수꾼 <span class="text-xs bg-emerald-700 px-2 py-1 rounded-full">v1.2</span>
+                </h1>
+                <p class="text-xs text-emerald-100">건강한 음식만 골라 담으세요!</p>
+            </div>
+
+            <div class="flex items-center gap-4 bg-emerald-600/80 px-4 py-2 rounded-2xl border border-emerald-400/30">
+                <div class="text-center">
+                    <div class="text-xs text-emerald-100 font-semibold">점수</div>
+                    <div id="scoreDisplay" class="text-2xl font-jua text-yellow-300">0</div>
+                </div>
+                <div class="w-px h-8 bg-emerald-400/50"></div>
+                <div class="text-center">
+                    <div class="text-xs text-emerald-100 font-semibold">체력</div>
+                    <div id="livesDisplay" class="text-xl tracking-wider">❤️❤️❤️</div>
+                </div>
+                <div class="w-px h-8 bg-emerald-400/50"></div>
+                <div class="text-center">
+                    <div class="text-xs text-emerald-100 font-semibold">최고 기록</div>
+                    <div id="highScoreDisplay" class="text-lg font-jua text-white">0</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Shift 키 활성화 알림 바 -->
+        <div id="shiftBanner" class="bg-amber-100 border-b border-amber-300 text-amber-900 text-xs md:text-sm px-4 py-2 flex justify-between items-center transition-all duration-300">
+            <div class="flex items-center gap-2 font-semibold">
+                <span id="shiftStatusBadge" class="bg-amber-500 text-white text-xs px-2 py-0.5 rounded font-bold">Shift 비활성</span>
+                <span id="shiftStatusText">💡 Shift 키를 누르고 있는 동안에는 정크푸드가 생성되지 않습니다!</span>
+            </div>
+            <div id="comboBadge" class="hidden bg-emerald-600 text-white px-2 py-0.5 rounded-full text-xs font-bold font-jua">
+                COMBO x<span id="comboCount">0</span>
+            </div>
+        </div>
+
+        <!-- 메인 게임 영역 -->
+        <div id="gameArea" class="game-canvas w-full h-[450px] md:h-[500px] relative cursor-none select-none">
+
+            <!-- 플레이어 바구니 -->
+            <div id="player" class="player-basket text-5xl md:text-6xl flex flex-col items-center select-none pointer-events-none">
+                <span class="text-xs bg-slate-800/80 text-white px-2 py-0.5 rounded-full font-bold mb-1 shadow">🛒 나</span>
+                <span>🧺</span>
+            </div>
+
+            <!-- 시작/재시작 오버레이 -->
+            <div id="startOverlay" class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm flex flex-col items-center justify-center text-white p-6 z-20">
+                <div class="text-6xl mb-4 animate-bounce">🍎🥦🥑</div>
+                <h2 class="text-3xl md:text-4xl font-jua text-emerald-400 mb-2">건강 음식 받아먹기</h2>
+                <p class="text-sm text-slate-300 text-center max-w-md mb-6 leading-relaxed">
+                    하늘에서 떨어지는 건강한 음식을 받아서 점수를 올리세요!<br>
+                    <span class="text-rose-300 font-semibold">정크푸드(🍔, 🍕 등)</span>를 받으면 체력이 감소합니다.<br>
+                    <span class="text-amber-300 font-semibold">⚡ [Shift] 키를 누르고 있으면 안전한 음식만 스폰됩니다!</span>
+                </p>
+
+                <div class="bg-slate-800/90 p-4 rounded-xl border border-slate-700 text-xs text-slate-300 mb-6 w-full max-w-sm space-y-2">
+                    <div class="flex justify-between"><span>이동:</span> <span class="font-bold text-white">방향키 (← →) 또는 마우스 이동</span></div>
+                    <div class="flex justify-between"><span>클린 모드:</span> <span class="font-bold text-amber-400">Shift 키 홀드</span></div>
+                    <div class="flex justify-between"><span>황금 사과:</span> <span class="font-bold text-yellow-300">점수 +50 & 체력 회복</span></div>
+                </div>
+
+                <button id="startBtn" class="bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-jua text-2xl px-8 py-3 rounded-2xl shadow-lg transition transform">
+                    게임 시작 🚀
+                </button>
+            </div>
+
+            <!-- 게임 오버 오버레이 -->
+            <div id="gameOverOverlay" class="hidden absolute inset-0 bg-slate-900/85 backdrop-blur-md flex flex-col items-center justify-center text-white p-6 z-20">
+                <div class="text-6xl mb-3">😵</div>
+                <h2 class="text-3xl font-jua text-rose-400 mb-1">게임 오버!</h2>
+                <p class="text-slate-300 text-sm mb-4">정크푸드를 너무 많이 먹었습니다!</p>
+
+                <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-6 w-full max-w-xs text-center mb-6 shadow-xl">
+                    <div class="text-sm text-slate-400 mb-1">최종 점수</div>
+                    <div id="finalScore" class="text-4xl font-jua text-yellow-300 mb-4">0</div>
+                    <div class="flex justify-between text-xs text-slate-300 pt-3 border-t border-slate-700">
+                        <span>획득 최고 기록:</span>
+                        <span id="finalHighScore" class="font-bold text-emerald-400">0</span>
+                    </div>
+                </div>
+
+                <button id="restartBtn" class="bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-jua text-xl px-8 py-3 rounded-2xl shadow-lg transition transform">
+                    다시 도전하기 🔄
+                </button>
+            </div>
+        </div>
+
+        <!-- 하단 조작 안내 -->
+        <footer class="bg-slate-100 p-3 text-center text-xs text-slate-500 border-t flex flex-wrap justify-between items-center px-6">
+            <div>조작: <kbd class="px-1.5 py-0.5 bg-white border border-slate-300 rounded shadow-sm font-mono text-slate-700">←</kbd> <kbd class="px-1.5 py-0.5 bg-white border border-slate-300 rounded shadow-sm font-mono text-slate-700">→</kbd> 또는 마우스</div>
+            <div class="text-amber-600 font-medium">⚡ 특수 기능: <kbd class="px-1.5 py-0.5 bg-amber-200 border border-amber-300 rounded shadow-sm font-mono text-amber-900 font-bold">Shift</kbd> 눌러서 정크푸드 차단</div>
+        </footer>
+    </div>
+
+    <script>
+        // --- 아이템 데이터베이스 ---
+        const ITEMS_DATABASE = [
+            // 일반 건강 음식 (food)
+            { id: 'apple', name: '사과', emoji: '🍎', type: 'food', score: 10, speedMultiplier: 1.0 },
+            { id: 'banana', name: '바나나', emoji: '🍌', type: 'food', score: 10, speedMultiplier: 1.1 },
+            { id: 'carrot', name: '당근', emoji: '🥕', type: 'food', score: 12, speedMultiplier: 1.0 },
+            { id: 'broccoli', name: '브로콜리', emoji: '🥦', type: 'food', score: 15, speedMultiplier: 0.9 },
+            { id: 'avocado', name: '아보카도', emoji: '🥑', type: 'food', score: 15, speedMultiplier: 1.0 },
+            { id: 'watermelon', name: '수박', emoji: '🍉', type: 'food', score: 12, speedMultiplier: 1.2 },
+            { id: 'strawberry', name: '딸기', emoji: '🍓', type: 'food', score: 10, speedMultiplier: 1.1 },
+            { id: 'grapes', name: '포도', emoji: '🍇', type: 'food', score: 12, speedMultiplier: 1.0 },
+
+            // 스페셜 아이템 (special)
+            { id: 'golden_apple', name: '황금 사과', emoji: '🍏', type: 'special', score: 50, speedMultiplier: 1.4 },
+
+            // 정크 푸드 (junk)
+            { id: 'burger', name: '햄버거', emoji: '🍔', type: 'junk', score: -15, speedMultiplier: 1.1 },
+            { id: 'pizza', name: '피자', emoji: '🍕', type: 'junk', score: -15, speedMultiplier: 1.0 },
+            { id: 'fries', name: '감자튀김', emoji: '🍟', type: 'junk', score: -10, speedMultiplier: 1.2 },
+            { id: 'donut', name: '도넛', emoji: '🍩', type: 'junk', score: -10, speedMultiplier: 0.9 },
+            { id: 'candy', name: '사탕', emoji: '🍬', type: 'junk', score: -5, speedMultiplier: 1.3 }
+        ];
+
+        // --- 게임 상태 변수 ---
+        let isPlaying = false;
+        let score = 0;
+        let lives = 3;
+        let combo = 0;
+        let highScore = 0;
+        try {
+            highScore = parseInt(localStorage.getItem('food_catcher_highscore'), 10) || 0;
+        } catch (e) {
+            highScore = 0; // 미리보기(iframe) 등 localStorage 접근 불가 환경 대비
+        }
+
+        let playerX = 50; // 백분율 (%)
+        const playerSpeed = 1.8;
+
+        const keysPressed = {};
+        let activeItems = [];
+        let spawnIntervalId = null;
+        let gameLoopAnimationId = null;
+
+        // DOM 엘리먼트 참조
+        const gameArea = document.getElementById('gameArea');
+        const playerEl = document.getElementById('player');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const livesDisplay = document.getElementById('livesDisplay');
+        const highScoreDisplay = document.getElementById('highScoreDisplay');
+        const startOverlay = document.getElementById('startOverlay');
+        const gameOverOverlay = document.getElementById('gameOverOverlay');
+        const startBtn = document.getElementById('startBtn');
+        const restartBtn = document.getElementById('restartBtn');
+        const finalScore = document.getElementById('finalScore');
+        const finalHighScore = document.getElementById('finalHighScore');
+        const shiftBanner = document.getElementById('shiftBanner');
+        const shiftStatusBadge = document.getElementById('shiftStatusBadge');
+        const shiftStatusText = document.getElementById('shiftStatusText');
+        const comboBadge = document.getElementById('comboBadge');
+        const comboCount = document.getElementById('comboCount');
+
+        // 초기 최고 기록 표시
+        highScoreDisplay.innerText = highScore;
+
+        // --- 키보드 & 마우스 이벤트 리스너 ---
+        window.addEventListener('keydown', (e) => {
+            keysPressed[e.key] = true;
+            keysPressed[e.code] = true;
+            updateShiftUI();
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keysPressed[e.key] = false;
+            keysPressed[e.code] = false;
+            updateShiftUI();
+        });
+
+        // 마우스 및 터치 이동 제어
+        gameArea.addEventListener('mousemove', (e) => {
+            if (!isPlaying) return;
+            const rect = gameArea.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            playerX = Math.max(5, Math.min(95, (mouseX / rect.width) * 100));
+            updatePlayerPosition();
+        });
+
+        gameArea.addEventListener('touchmove', (e) => {
+            if (!isPlaying || !e.touches[0]) return;
+            const rect = gameArea.getBoundingClientRect();
+            const touchX = e.touches[0].clientX - rect.left;
+            playerX = Math.max(5, Math.min(95, (touchX / rect.width) * 100));
+            updatePlayerPosition();
+        }, { passive: true });
+
+        // Shift 키 상태에 따른 UI 업데이트
+        function updateShiftUI() {
+            const isShiftActive = keysPressed['Shift'] || keysPressed['ShiftLeft'] || keysPressed['ShiftRight'] || keysPressed['shift'];
+
+            if (isShiftActive) {
+                shiftBanner.className = 'bg-amber-400 border-b border-amber-500 text-amber-950 text-xs md:text-sm px-4 py-2 flex justify-between items-center transition-all duration-300 font-bold shadow-md';
+                shiftStatusBadge.className = 'bg-slate-900 text-amber-300 text-xs px-2 py-0.5 rounded font-bold shift-badge-active';
+                shiftStatusBadge.innerText = '⚡ SHIFT 클린 모드';
+                shiftStatusText.innerText = '🛡️ 정크푸드가 스폰되지 않는 안전 상태입니다!';
+            } else {
+                shiftBanner.className = 'bg-amber-100 border-b border-amber-300 text-amber-900 text-xs md:text-sm px-4 py-2 flex justify-between items-center transition-all duration-300';
+                shiftStatusBadge.className = 'bg-amber-500 text-white text-xs px-2 py-0.5 rounded font-bold';
+                shiftStatusBadge.innerText = 'Shift 비활성';
+                shiftStatusText.innerText = '💡 Shift 키를 누르고 있는 동안에는 정크푸드가 생성되지 않습니다!';
+            }
+        }
+
+        // --- 아이템 생성 로직 (요청된 디버깅 처리 및 예외 안전 구문 적용) ---
+        function spawnFallingItem() {
+            if (!isPlaying) return;
+
+            // Shift 키 입력 감지 (대소문자 및 좌우 Shift 대응)
+            const isShiftActive = keysPressed['Shift'] || keysPressed['ShiftLeft'] || keysPressed['ShiftRight'] || keysPressed['shift'];
+
+            let selectedItem;
+
+            if (isShiftActive) {
+                // 정크푸드 제외: 건강 음식(food) 및 황금 사과(special) 중에서만 선택
+                const healthyPool = ITEMS_DATABASE.filter(item => item && (item.type === 'food' || item.type === 'special'));
+                if (healthyPool.length > 0) {
+                    selectedItem = healthyPool[Math.floor(Math.random() * healthyPool.length)];
+                }
+            } else {
+                // 일반 확률: 황금 사과 8%, 정크푸드 32%, 일반 건강식품 60%
+                const rand = Math.random();
+
+                if (rand < 0.08) {
+                    selectedItem = ITEMS_DATABASE.find(item => item && item.id === 'golden_apple');
+                } else if (rand < 0.40) {
+                    const junkPool = ITEMS_DATABASE.filter(item => item && item.type === 'junk');
+                    if (junkPool.length > 0) {
+                        selectedItem = junkPool[Math.floor(Math.random() * junkPool.length)];
+                    }
+                } else {
+                    const foodPool = ITEMS_DATABASE.filter(item => item && item.type === 'food');
+                    if (foodPool.length > 0) {
+                        selectedItem = foodPool[Math.floor(Math.random() * foodPool.length)];
+                    }
+                }
+            }
+
+            // 예외 처리: 만약 필터링 조건에 맞는 아이템을 찾지 못했을 경우 기본 첫번째 아이템 사용
+            if (!selectedItem) {
+                selectedItem = ITEMS_DATABASE[0];
+            }
+
+            // 아이템 데이터 자체가 누락된 경우 생성 중단
+            if (!selectedItem || !selectedItem.emoji) return;
+
+            // DOM 엘리먼트 생성 및 배치
+            const itemEl = document.createElement('div');
+            itemEl.className = 'falling-item text-3xl md:text-4xl transition-transform hover:scale-110';
+            itemEl.innerText = selectedItem.emoji;
+
+            const randomX = Math.random() * 88 + 6; // 6% ~ 94% 범위
+            const fallSpeed = (Math.random() * 1.5 + 2.0) * (selectedItem.speedMultiplier || 1.0);
+
+            const itemObj = {
+                element: itemEl,
+                data: selectedItem,
+                x: randomX,
+                y: -40,
+                speed: fallSpeed
+            };
+
+            itemEl.style.left = `${randomX}%`;
+            itemEl.style.top = `-40px`;
+
+            gameArea.appendChild(itemEl);
+            activeItems.push(itemObj);
+        }
+
+        // --- 메인 게임 루프 ---
+        function gameLoop() {
+            if (!isPlaying) return;
+
+            // 1. 키보드 입력 기반 플레이어 이동 처리
+            if (keysPressed['ArrowLeft'] || keysPressed['KeyA']) {
+                playerX = Math.max(5, playerX - playerSpeed);
+            }
+            if (keysPressed['ArrowRight'] || keysPressed['KeyD']) {
+                playerX = Math.min(95, playerX + playerSpeed);
+            }
+            updatePlayerPosition();
+
+            // 2. 떨어진 아이템 이동 및 충돌 체크
+            const areaHeight = gameArea.clientHeight;
+            const playerY = areaHeight - 65; // 바구니 높이 근처
+
+            for (let i = activeItems.length - 1; i >= 0; i--) {
+                const item = activeItems[i];
+                item.y += item.speed;
+                item.element.style.top = `${item.y}px`;
+
+                // 바구니 충돌 감지 (x 범위 및 y 범위 비교)
+                const playerPixelX = (playerX / 100) * gameArea.clientWidth;
+                const itemPixelX = (item.x / 100) * gameArea.clientWidth;
+
+                const distanceX = Math.abs(playerPixelX - itemPixelX);
+                const isVerticalOverlap = item.y >= playerY - 20 && item.y <= playerY + 30;
+
+                if (distanceX < 45 && isVerticalOverlap) {
+                    // 아이템 획득!
+                    handleCatchItem(item);
+                    item.element.remove();
+                    activeItems.splice(i, 1);
+                    continue;
+                }
+
+                // 바닥 도착 (놓침)
+                if (item.y > areaHeight - 10) {
+                    item.element.remove();
+                    activeItems.splice(i, 1);
+                }
+            }
+
+            gameLoopAnimationId = requestAnimationFrame(gameLoop);
+        }
+
+        function updatePlayerPosition() {
+            playerEl.style.left = `${playerX}%`;
+        }
+
+        // 아이템 획득 처리
+        function handleCatchItem(item) {
+            const itemData = item.data;
+
+            if (itemData.type === 'food' || itemData.type === 'special') {
+                combo++;
+                const bonusComboScore = Math.floor(combo / 5) * 5;
+                const addedScore = itemData.score + bonusComboScore;
+                score += addedScore;
+
+                if (itemData.id === 'golden_apple') {
+                    if (lives < 5) lives++;
+                    showFloatingText(`🌟 황금 사과! +${addedScore} (체력회복)`, item.x, item.y, 'text-yellow-500 font-bold');
+                } else {
+                    showFloatingText(`+${addedScore}`, item.x, item.y, 'text-emerald-600 font-bold');
+                }
+            } else if (itemData.type === 'junk') {
+                combo = 0; // 콤보 초기화
+                lives--;
+                score = Math.max(0, score + itemData.score);
+                showFloatingText(`💥 ${itemData.score} (체력 -1)`, item.x, item.y, 'text-rose-600 font-bold');
+
+                // 화면 흔들림 효과
+                gameArea.classList.add('animate-bounce');
+                setTimeout(() => gameArea.classList.remove('animate-bounce'), 300);
+            }
+
+            updateUI();
+
+            if (lives <= 0) {
+                endGame();
+            }
+        }
+
+        // 시각적 텍스트 효과
+        function showFloatingText(text, xPercent, yPx, colorClass) {
+            const floatingEl = document.createElement('div');
+            floatingEl.className = `catch-effect text-sm md:text-base font-jua ${colorClass}`;
+            floatingEl.innerText = text;
+            floatingEl.style.left = `${xPercent}%`;
+            floatingEl.style.top = `${yPx}px`;
+
+            gameArea.appendChild(floatingEl);
+            setTimeout(() => floatingEl.remove(), 600);
+        }
+
+        // UI 갱신
+        function updateUI() {
+            scoreDisplay.innerText = score;
+
+            // 하트 체력 표시
+            let heartsStr = '';
+            for (let i = 0; i < lives; i++) heartsStr += '❤️';
+            livesDisplay.innerText = heartsStr || '💀';
+
+            // 콤보 표시
+            if (combo >= 3) {
+                comboBadge.classList.remove('hidden');
+                comboCount.innerText = combo;
+            } else {
+                comboBadge.classList.add('hidden');
+            }
+
+            // 최고 점수 갱신
+            if (score > highScore) {
+                highScore = score;
+                try {
+                    localStorage.setItem('food_catcher_highscore', highScore);
+                } catch (e) {
+                    // localStorage 접근 불가 환경에서는 저장 생략
+                }
+                highScoreDisplay.innerText = highScore;
+            }
+        }
+
+        // --- 게임 시작 & 종료 ---
+        function startGame() {
+            // 초기화
+            score = 0;
+            lives = 3;
+            combo = 0;
+            playerX = 50;
+
+            // 이전 아이템 청소
+            activeItems.forEach(item => item.element.remove());
+            activeItems = [];
+
+            updateUI();
+            startOverlay.classList.add('hidden');
+            gameOverOverlay.classList.add('hidden');
+
+            isPlaying = true;
+
+            // 아이템 스폰 타이머 설정 (0.75초 마다)
+            clearInterval(spawnIntervalId);
+            spawnIntervalId = setInterval(spawnFallingItem, 750);
+
+            // 게임 루프 시작
+            cancelAnimationFrame(gameLoopAnimationId);
+            gameLoop();
+        }
+
+        function endGame() {
+            isPlaying = false;
+            clearInterval(spawnIntervalId);
+            cancelAnimationFrame(gameLoopAnimationId);
+
+            finalScore.innerText = score;
+            finalHighScore.innerText = highScore;
+
+            gameOverOverlay.classList.remove('hidden');
+        }
+
+        // 버튼 이벤트 바인딩
+        startBtn.addEventListener('click', startGame);
+        restartBtn.addEventListener('click', startGame);
+    </script>
+</body>
+</html>
