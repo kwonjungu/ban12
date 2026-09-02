@@ -43,7 +43,7 @@ Add-Type -AssemblyName System.Drawing
 # ── 경로 ──────────────────────────────────────────────
 $root = Split-Path -Parent $PSScriptRoot
 $out  = Join-Path $root 'assets\shots'
-$work = Join-Path $env:TEMP 'bangok-shots'
+$work = Join-Path $env:TEMP 'vibe-shots'
 $stage = Join-Path $work 'stage'
 $raws  = Join-Path $work 'raw'
 $prof  = Join-Path $work 'edge-profile'

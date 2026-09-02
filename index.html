@@ -4,8 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="color-scheme" content="light only" />
-<title>반곡초등학교 바이브코딩 저장소</title>
-<meta name="description" content="반곡초등학교 학생들이 바이브코딩으로 만든 게임 저장소" />
+<title>초등학교 바이브코딩 저장소</title>
+<meta name="description" content="초등학생들이 AI와 대화하며 바이브코딩으로 만든 게임 저장소" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.9em'%20font-size='90'%3E%F0%9F%A7%BA%3C/text%3E%3C/svg%3E" />
@@ -380,6 +380,38 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
   .pvtoggle{margin-left:0;width:100%}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* -- 사용법 슬라이드 -------------------------------- */
+.deck{border:var(--bw) solid var(--ink);border-radius:var(--r);background:#fff;box-shadow:var(--shadow-lg);overflow:hidden}
+.slide{display:none;padding:clamp(18px,3vw,34px);gap:clamp(16px,3vw,32px);grid-template-columns:1fr 1.05fr;align-items:center}
+.slide.on{display:grid;animation:fade .28s ease}
+.slide .step{display:inline-block;background:var(--violet);color:#fff;border-radius:999px;padding:5px 13px;font-size:13px;font-weight:800;letter-spacing:-.02em}
+.slide h3{font-size:clamp(23px,3.2vw,33px);font-weight:900;letter-spacing:-.045em;margin:12px 0 15px;line-height:1.2}
+.slide ul{margin:0;padding-left:19px;display:grid;gap:9px}
+.slide li{font-size:clamp(15px,1.6vw,17px);font-weight:600;line-height:1.5}
+.slide li b{background:var(--lime);padding:0 4px;border-radius:5px}
+.slide .tipline{margin:17px 0 0;padding:11px 14px;border:var(--bw-s) dashed var(--ink);border-radius:14px;font-size:14px;font-weight:700;background:#FBFAF4;line-height:1.5}
+.slide-shot{margin:0}
+.slide-shot img{display:block;width:100%;height:auto;border:var(--bw) solid var(--ink);border-radius:16px;box-shadow:var(--shadow)}
+.slide-shot figcaption{margin-top:9px;font-size:12.5px;font-weight:700;color:rgba(11,11,16,.55);text-align:center}
+.slide-shot .ph{display:none}
+.slide-shot.empty img{display:none}
+.slide-shot.empty .ph{display:flex;align-items:center;justify-content:center;text-align:center;min-height:220px;padding:22px;border:var(--bw) dashed var(--ink);border-radius:16px;background:#FBFAF4;font-size:14px;font-weight:700;line-height:1.65}
+.deck-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 18px;border-top:var(--bw) solid var(--ink);background:var(--paper);flex-wrap:wrap}
+.deck-btn{background:#fff;border:var(--bw) solid var(--ink);border-radius:999px;padding:9px 17px;font:inherit;font-weight:800;letter-spacing:-.02em;cursor:pointer;box-shadow:2px 2px 0 var(--ink)}
+.deck-btn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--ink)}
+.deck-btn.primary{background:var(--ink);color:var(--lime)}
+.deck-btn:disabled{opacity:.35;cursor:default;transform:none;box-shadow:2px 2px 0 var(--ink)}
+.deck-mid{display:flex;align-items:center;gap:12px}
+.deck-num{font-size:13px;font-weight:800;color:rgba(11,11,16,.55)}
+.dots{display:flex;gap:7px}
+.dot{width:11px;height:11px;border-radius:50%;border:var(--bw-s) solid var(--ink);background:#fff;cursor:pointer;padding:0}
+.dot.on{background:var(--ink)}
+@media (max-width:760px){
+  .slide.on{grid-template-columns:1fr}
+  .slide-shot{order:-1}
+  .deck-bar{justify-content:center}
+}
 </style>
 </head>
 <body>
@@ -388,21 +420,22 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
   <div class="nav-in">
     <a class="brand" href="#top">
       <span class="dot" aria-hidden="true">🧺</span>
-      <span>반곡초 바이브코딩 저장소<small>BANGOK VIBE CODING</small></span>
+      <span>초등학교 바이브코딩 저장소<small>ELEMENTARY VIBE CODING</small></span>
     </a>
     <nav class="tabs" role="tablist" aria-label="저장소 메뉴">
       <button class="tabbtn" id="tab-games"   role="tab" aria-selected="true"  aria-controls="panel-games"   data-tab="games">🕹️ 게임 저장소<span class="n">18</span></button>
       <button class="tabbtn" id="tab-prompts" role="tab" aria-selected="false" aria-controls="panel-prompts" data-tab="prompts" tabindex="-1">💬 프롬프트 저장소<span class="n">+9</span></button>
       <button class="tabbtn" id="tab-new"     role="tab" aria-selected="false" aria-controls="panel-new"     data-tab="new" tabindex="-1">✨ 새 게임<span class="n">36</span></button>
       <button class="tabbtn" id="tab-next"    role="tab" aria-selected="false" aria-controls="panel-next"    data-tab="next" tabindex="-1">🌱 추가 개발 예정</button>
+      <button class="tabbtn" id="tab-howto"  role="tab" aria-selected="false" aria-controls="panel-howto"  data-tab="howto" tabindex="-1">📘 사용법</button>
     </nav>
   </div>
 </header>
 
 <div class="ticker" aria-hidden="true">
   <div class="ticker-track">
-    <span>바이브코딩 ✦ 건강 간식을 모아라 ✦ 내가 만든 게임 ✦ AI와 함께 ✦ 반곡초등학교 ✦ HTML 한 파일 ✦ 한 번에 한 단계씩 ✦ 바이브코딩 ✦ 건강 간식을 모아라 ✦ 내가 만든 게임 ✦ AI와 함께 ✦ 반곡초등학교 ✦ HTML 한 파일 ✦ 한 번에 한 단계씩 ✦</span>
-    <span>바이브코딩 ✦ 건강 간식을 모아라 ✦ 내가 만든 게임 ✦ AI와 함께 ✦ 반곡초등학교 ✦ HTML 한 파일 ✦ 한 번에 한 단계씩 ✦ 바이브코딩 ✦ 건강 간식을 모아라 ✦ 내가 만든 게임 ✦ AI와 함께 ✦ 반곡초등학교 ✦ HTML 한 파일 ✦ 한 번에 한 단계씩 ✦</span>
+    <span>바이브코딩 ✦ 건강 간식을 모아라 ✦ 내가 만든 게임 ✦ AI와 함께 ✦ 초등학교 ✦ HTML 한 파일 ✦ 한 번에 한 단계씩 ✦ 바이브코딩 ✦ 건강 간식을 모아라 ✦ 내가 만든 게임 ✦ AI와 함께 ✦ 초등학교 ✦ HTML 한 파일 ✦ 한 번에 한 단계씩 ✦</span>
+    <span>바이브코딩 ✦ 건강 간식을 모아라 ✦ 내가 만든 게임 ✦ AI와 함께 ✦ 초등학교 ✦ HTML 한 파일 ✦ 한 번에 한 단계씩 ✦ 바이브코딩 ✦ 건강 간식을 모아라 ✦ 내가 만든 게임 ✦ AI와 함께 ✦ 초등학교 ✦ HTML 한 파일 ✦ 한 번에 한 단계씩 ✦</span>
   </div>
 </div>
 
@@ -414,7 +447,7 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
         <span class="eyebrow">⚡ 2026 여름 바이브코딩 수업</span>
         <h1 class="title">아이들이 만든<br /><span class="hl">진짜 게임</span>,<br /><span class="box">전부 여기에</span></h1>
         <p class="lead">코드를 한 줄도 안 외웠어요. 대신 <b>말로 시켰어요.</b><br />
-          반곡초등학교 친구들이 AI와 대화하면서 만든 HTML 게임 저장소예요.
+          여러 초등학교 친구들이 AI와 대화하면서 만든 HTML 게임 저장소예요.
           카드의 미리보기는 <b>진짜 게임 화면</b>이에요.</p>
         <div class="stats">
           <div class="stat"><b>54</b><span>아이들이 만든 게임</span></div>
@@ -522,6 +555,138 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
     <div class="slots" id="slots"></div>
   </section>
 
+  <section class="panel" id="panel-howto" role="tabpanel" aria-labelledby="tab-howto" tabindex="0">
+    <div class="sec-head">
+      <h2>📘 사용법</h2>
+      <p>4~6학년을 위한 바이브코딩 안내 · ‹ › 버튼이나 방향키로 넘겨요</p>
+    </div>
+
+    <div class="deck" id="deck">
+    <article class="slide">
+      <div class="slide-txt">
+        <span class="step">시작</span>
+        <h3>바이브코딩이 뭐예요?</h3>
+        <ul>
+          <li>코드를 외우지 않아요. 대신 <b>말로 시켜요.</b></li>
+          <li>"이런 게임 만들어줘" 하면 AI가 코드를 써 줘요.</li>
+          <li>화면을 보고 "여기는 이렇게 바꿔줘" 라고 다시 말해요.</li>
+        </ul>
+        <p class="tipline">💡 이 저장소에 있는 게임은 전부 이렇게 만들었어요.</p>
+      </div>
+      <figure class="slide-shot">
+        <img src="assets/howto/site-home.jpg" alt="저장소 첫 화면 캡처" width="1000" height="625" loading="lazy" />
+        <figcaption>우리 저장소 첫 화면</figcaption>
+      </figure>
+    </article>
+    <article class="slide">
+      <div class="slide-txt">
+        <span class="step">1단계</span>
+        <h3>먼저 친구들 게임을 해봐요</h3>
+        <ul>
+          <li>🕹️ <b>게임 저장소</b> 탭에서 카드를 눌러요.</li>
+          <li>카드 그림은 그림이 아니라 <b>진짜 게임 화면</b>이에요.</li>
+          <li>"나도 이런 거 만들래!" 하나를 골라요.</li>
+        </ul>
+        <p class="tipline">💡 만들고 싶은 게임을 정하는 게 가장 먼저예요.</p>
+      </div>
+      <figure class="slide-shot">
+        <img src="assets/howto/site-games.jpg" alt="게임 저장소 탭 캡처" width="1000" height="625" loading="lazy" />
+        <figcaption>게임 저장소 탭</figcaption>
+      </figure>
+    </article>
+    <article class="slide">
+      <div class="slide-txt">
+        <span class="step">2단계</span>
+        <h3>프롬프트를 복사해요</h3>
+        <ul>
+          <li>💬 <b>프롬프트 저장소</b> 탭으로 가요.</li>
+          <li>1단계 프롬프트의 <b>복사</b> 버튼을 눌러요.</li>
+          <li>한 번에 <b>한 단계씩만</b> 복사해요.</li>
+        </ul>
+        <p class="tipline">💡 프롬프트 = AI에게 부탁하는 말이에요.</p>
+      </div>
+      <figure class="slide-shot">
+        <img src="assets/howto/site-prompts.jpg" alt="프롬프트 저장소 탭 캡처" width="1000" height="625" loading="lazy" />
+        <figcaption>프롬프트 저장소 탭</figcaption>
+      </figure>
+    </article>
+    <article class="slide">
+      <div class="slide-txt">
+        <span class="step">3단계</span>
+        <h3>AI에게 붙여넣어요</h3>
+        <ul>
+          <li>오른쪽 아래 <b>✨ 재미나이 열기</b> 를 눌러요.</li>
+          <li>복사한 프롬프트를 붙여넣고 <b>엔터!</b></li>
+          <li>코드가 다 나올 때까지 기다려요.</li>
+        </ul>
+        <p class="tipline">💡 게임이 잘 되는지 확인한 다음에 다음 단계로 가요.</p>
+      </div>
+      <figure class="slide-shot">
+        <img src="assets/howto/ai-chat-1.jpg" alt="AI 채팅 화면 캡처" width="1000" height="625" loading="lazy" onerror="this.parentNode.classList.add(&quot;empty&quot;)" />
+        <div class="ph">AI와 이야기한 <b>진짜 채팅 화면</b>이 여기에 들어가요.<br />캡처한 사진을 <b>assets/howto/</b> 폴더에 넣어 주세요.</div>
+        <figcaption>AI에게 프롬프트를 붙여넣은 화면</figcaption>
+      </figure>
+    </article>
+    <article class="slide">
+      <div class="slide-txt">
+        <span class="step">4단계</span>
+        <h3>"지금 만든 게임에서," 로 이어 말해요</h3>
+        <ul>
+          <li>2단계부터는 꼭 이 말로 <b>시작</b>해요.</li>
+          <li>안 그러면 AI가 처음부터 새로 만들어요.</li>
+          <li>그러면 앞에서 만든 게 <b>사라져요!</b></li>
+        </ul>
+        <p class="tipline">💡 이상하면 이렇게 말해요 — "시작 버튼을 눌렀는데 안 움직여. 고쳐줘."</p>
+      </div>
+      <figure class="slide-shot">
+        <img src="assets/howto/ai-chat-2.jpg" alt="AI 채팅 화면 캡처" width="1000" height="625" loading="lazy" onerror="this.parentNode.classList.add(&quot;empty&quot;)" />
+        <div class="ph">AI와 이야기한 <b>진짜 채팅 화면</b>이 여기에 들어가요.<br />캡처한 사진을 <b>assets/howto/</b> 폴더에 넣어 주세요.</div>
+        <figcaption>이어서 고쳐 달라고 말하는 화면</figcaption>
+      </figure>
+    </article>
+    <article class="slide">
+      <div class="slide-txt">
+        <span class="step">5단계</span>
+        <h3>파일로 저장해서 놀아봐요</h3>
+        <ul>
+          <li>코드를 복사해 <b>메모장</b>에 붙여넣어요.</li>
+          <li>이름을 <b>my-game.html</b> 로 저장해요.</li>
+          <li>파일을 더블클릭하면 바로 게임이 열려요!</li>
+        </ul>
+        <p class="tipline">💡 게임 하나 = HTML 파일 하나. 그게 전부예요.</p>
+      </div>
+      <figure class="slide-shot">
+        <img src="assets/howto/game-play.jpg" alt="게임 실행 화면 캡처" width="1000" height="625" loading="lazy" />
+        <figcaption>저장한 게임을 실행한 화면</figcaption>
+      </figure>
+    </article>
+    <article class="slide">
+      <div class="slide-txt">
+        <span class="step">마지막</span>
+        <h3>꼭 기억할 3가지</h3>
+        <ul>
+          <li>① 한 번에 <b>한 단계씩!</b></li>
+          <li>② 2단계부터는 <b>"지금 만든 게임에서,"</b></li>
+          <li>③ 안 되면 <b>무엇이</b> 안 되는지 자세히 말하기</li>
+        </ul>
+        <p class="tipline">💡 완성한 게임은 선생님께 보여주면 ✨ 새 게임 탭에 올라가요.</p>
+      </div>
+      <figure class="slide-shot">
+        <img src="assets/howto/site-new.jpg" alt="새 게임 탭 캡처" width="1000" height="625" loading="lazy" />
+        <figcaption>새 게임 탭에 올라간 친구들 게임</figcaption>
+      </figure>
+    </article>
+      <div class="deck-bar">
+        <button class="deck-btn" type="button" id="deck-prev">‹ 이전</button>
+        <div class="deck-mid">
+          <div class="dots" id="deck-dots"></div>
+          <span class="deck-num" id="deck-num">1 / 7</span>
+        </div>
+        <button class="deck-btn primary" type="button" id="deck-next">다음 ›</button>
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <div class="gemfab" id="gemfab">
@@ -554,8 +719,8 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
 <footer class="foot">
   <div class="foot-in">
     <div>
-      <b>반곡초등학교 바이브코딩 저장소</b>
-      <p>© 2026 반곡초등학교 · 학생들이 AI와 함께 만든 작품입니다</p>
+      <b>초등학교 바이브코딩 저장소</b>
+      <p>© 2026 초등학교 바이브코딩 저장소 · 학생들이 AI와 함께 만든 작품입니다</p>
     </div>
     <a href="https://github.com/kwonjungu/ban12" target="_blank" rel="noopener">⌘ GitHub 저장소 →</a>
   </div>
@@ -1127,5 +1292,58 @@ document.addEventListener('visibilitychange', () => {
   else if (previewOn && document.getElementById('panel-games').classList.contains('on')) startPreviews();
 });
 </script>
+<script>
+/* 사용법 슬라이드 */
+(function(){
+  var deck = document.getElementById('deck');
+  if (!deck) return;
+  var slides = [].slice.call(deck.querySelectorAll('.slide'));
+  var dots = document.getElementById('deck-dots');
+  var num  = document.getElementById('deck-num');
+  var prev = document.getElementById('deck-prev');
+  var next = document.getElementById('deck-next');
+  var idx = 0;
+
+  slides.forEach(function(s, i){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'dot';
+    b.setAttribute('aria-label', (i + 1) + '번째 장으로');
+    b.addEventListener('click', function(){ go(i); });
+    dots.appendChild(b);
+  });
+
+  function go(n){
+    idx = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach(function(s, i){ s.classList.toggle('on', i === idx); });
+    [].forEach.call(dots.children, function(d, i){ d.classList.toggle('on', i === idx); });
+    num.textContent = (idx + 1) + ' / ' + slides.length;
+    prev.disabled = idx === 0;
+    next.disabled = idx === slides.length - 1;
+  }
+
+  prev.addEventListener('click', function(){ go(idx - 1); });
+  next.addEventListener('click', function(){ go(idx + 1); });
+
+  addEventListener('keydown', function(e){
+    var p = document.getElementById('panel-howto');
+    if (!p || !p.classList.contains('on')) return;
+    if (e.key === 'ArrowLeft')  { go(idx - 1); }
+    if (e.key === 'ArrowRight') { go(idx + 1); }
+  });
+
+  var sx = null;
+  deck.addEventListener('touchstart', function(e){ sx = e.touches[0].clientX; }, {passive:true});
+  deck.addEventListener('touchend', function(e){
+    if (sx === null) return;
+    var dx = e.changedTouches[0].clientX - sx;
+    if (Math.abs(dx) > 50) go(idx + (dx < 0 ? 1 : -1));
+    sx = null;
+  }, {passive:true});
+
+  go(0);
+})();
+</script>
+
 </body>
 </html>

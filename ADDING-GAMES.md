@@ -191,7 +191,7 @@ git push
 ## 참고 — 폴더 구조
 
 ```
-bangok-vibe-coding/
+ban12/
 ├── index.html              ← 메인 페이지 (게임 목록도 여기 안에)
 ├── ADDING-GAMES.md         ← 지금 읽고 있는 파일
 ├── README.md
