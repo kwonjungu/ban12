@@ -42,7 +42,9 @@ $shots = @(
   [pscustomobject]@{ Name='site-games';   Src='index.html';               Tab='games';   Scroll=1000 },
   [pscustomobject]@{ Name='site-prompts'; Src='index.html';               Tab='prompts'; Scroll=1250 },
   [pscustomobject]@{ Name='site-new';     Src='index.html';               Tab='new';     Scroll=1000 },
-  [pscustomobject]@{ Name='game-play';    Src='games\whack-a-puppy.html'; Tab='';        Scroll=0 }
+  [pscustomobject]@{ Name='game-play';    Src='games\whack-a-puppy.html'; Tab='';        Scroll=0 },
+  [pscustomobject]@{ Name='ai-chat-1';    Src='tools\mock-ai-chat-1.html'; Tab='';       Scroll=0 },
+  [pscustomobject]@{ Name='ai-chat-2';    Src='tools\mock-ai-chat-2.html'; Tab='';       Scroll=0 }
 )
 if ($Only) { $shots = $shots | Where-Object { $Only -contains $_.Name } }
 if (-not $shots) { Write-Warning "Nothing to shoot."; exit 0 }
@@ -52,7 +54,9 @@ foreach ($s in $shots) {
   $i++
   $srcHtml = [System.IO.File]::ReadAllText((Join-Path $root $s.Src))
 
-  if ($s.Src -like 'games*') {
+  if ($s.Src -like 'tools*') {
+    $inject = ''
+  } elseif ($s.Src -like 'games*') {
     $inject = [System.IO.File]::ReadAllText($autoStart)
   } else {
     $inject = @"

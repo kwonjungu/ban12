@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>AI 채팅 예시 화면 2</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1280px;height:800px;overflow:hidden}
+  body{
+    font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;
+    background:#EEF1F6;color:#1B1D22;display:flex;flex-direction:column;
+  }
+
+  /* 상단 바 */
+  .bar{height:56px;flex:0 0 56px;background:#fff;border-bottom:1px solid #E3E7EE;
+       display:flex;align-items:center;gap:12px;padding:0 20px}
+  .bar .logo{font-size:19px;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+  .bar .logo .sp{font-size:20px}
+  .bar .chip{font-size:12.5px;font-weight:700;color:#5566FF;background:#EDF0FF;
+             border:1px solid #D5DBFF;border-radius:999px;padding:5px 11px}
+  .bar .spacer{flex:1}
+  .bar .demo{font-size:12px;font-weight:800;color:#8A6A00;background:#FFF3C4;
+             border:1px solid #F0DC8A;border-radius:999px;padding:5px 12px}
+
+  .body{flex:1;display:flex;min-height:0}
+
+  /* 왼쪽 : 대화 */
+  .chat{width:472px;flex:0 0 472px;background:#fff;border-right:1px solid #E3E7EE;
+        display:flex;flex-direction:column;min-height:0}
+  .chat-scroll{flex:1;padding:22px 22px 8px;display:flex;flex-direction:column;gap:16px;min-height:0}
+  .who{font-size:12.5px;font-weight:800;color:#7A828F;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+  .bub{border-radius:16px;padding:14px 16px;font-size:15px;line-height:1.62;font-weight:500}
+  .me .bub{background:#F1F4F9;border:1px solid #E3E7EE}
+  .ai .bub{background:#F6F9F2;border:1px solid #DFEBD2}
+  .bub .hl{background:#D6FF3E;border-radius:5px;padding:0 4px;font-weight:800}
+  .bub .dim{color:#6B7280}
+  .bub ul{margin:8px 0 0 18px;display:grid;gap:4px}
+  .bub li{font-size:14.5px}
+  .send{flex:0 0 auto;padding:14px 22px 20px}
+  .send .box{border:1.5px solid #D3D9E4;border-radius:16px;background:#fff;
+             padding:13px 15px;display:flex;align-items:center;gap:12px;
+             box-shadow:0 2px 8px rgba(20,30,60,.05)}
+  .send .ph{flex:1;font-size:14.5px;color:#98A0AE;font-weight:500}
+  .send .btn{width:36px;height:36px;border-radius:50%;background:#4C6EF5;color:#fff;
+             display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto}
+
+  /* 오른쪽 : 캔버스 */
+  .canvas{flex:1;display:flex;flex-direction:column;min-width:0;background:#F7F9FC}
+  .canvas-bar{flex:0 0 50px;height:50px;background:#fff;border-bottom:1px solid #E3E7EE;
+              display:flex;align-items:center;gap:8px;padding:0 16px}
+  .canvas-bar .name{font-size:14px;font-weight:800;letter-spacing:-.02em;margin-right:6px}
+  .tab{font-size:13px;font-weight:700;color:#6B7280;padding:6px 13px;border-radius:9px}
+  .tab.on{background:#1B1D22;color:#fff}
+  .canvas-bar .ver{margin-left:auto;font-size:12px;font-weight:800;color:#4C6EF5;
+                   background:#EDF0FF;border:1px solid #D5DBFF;border-radius:999px;padding:5px 11px}
+  .canvas-body{flex:1;padding:18px;min-height:0}
+  .screen{width:100%;height:100%;border-radius:16px;border:1px solid #DDE3EC;overflow:hidden;
+          background:linear-gradient(#BFE9FF,#EAF9E0);position:relative;box-shadow:0 6px 18px rgba(20,30,60,.07)}
+  .screen .hud{position:absolute;top:14px;left:16px;right:16px;display:flex;justify-content:space-between;
+               font-size:15px;font-weight:800;color:#20303F}
+  .screen .fall{position:absolute;font-size:34px}
+  .screen .basket{position:absolute;bottom:26px;font-size:52px}
+  .screen .ground{position:absolute;left:0;right:0;bottom:0;height:52px;background:#CFEFAF;
+                  border-top:2px solid #B4DE90}
+  .screen .zoom{position:absolute;bottom:24px;right:20px;font-size:12.5px;font-weight:800;
+                color:#20303F;background:rgba(255,255,255,.82);border-radius:999px;padding:6px 12px}
+  /* 코드 보기 */
+  .code{width:100%;height:100%;border-radius:16px;border:1px solid #2A2F3A;background:#14161C;
+        padding:18px 20px;overflow:hidden;box-shadow:0 6px 18px rgba(20,30,60,.12)}
+  .code pre{font-family:'Cascadia Mono','Consolas',monospace;font-size:13.5px;line-height:1.75;color:#C9D3E0}
+  .k{color:#FF7CC3}.s{color:#B6F06A}.c{color:#6C7A8C}.t{color:#7CD9FF}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div class="logo"><span class="sp">✨</span> 재미나이</div>
+  <div class="chip">캔버스</div>
+  <div class="spacer"></div>
+  <div class="demo">예시 화면</div>
+</div>
+
+<div class="body">
+  <div class="chat">
+    <div class="chat-scroll">
+      <div class="me">
+        <div class="who">🙋 나</div>
+        <div class="bub"><span class="hl">지금 만든 게임에서,</span> 바구니를 <b>더 빠르게</b> 움직이게 해줘.<br />그리고 과일을 받으면 점수가 <b>10점씩</b> 올라가게 해줘.</div>
+      </div>
+      <div class="ai">
+        <div class="who">✨ 재미나이</div>
+        <div class="bub">바구니 속도를 <b>4 → 8</b> 로 올리고 점수 기능을 넣었어요.<br />앞에서 만든 화면은 <b>그대로</b> 두었어요. 👍</div>
+      </div>
+    </div>
+    <div class="send">
+      <div class="box">
+        <div class="ph">"지금 만든 게임에서," 로 시작해서 말하기</div>
+        <div class="btn">↑</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="canvas">
+    <div class="canvas-bar">
+      <div class="name">🧺 건강 간식 잡기</div>
+      <div class="tab ">미리보기</div>
+      <div class="tab on">코드</div>
+      <div class="ver">버전 2</div>
+    </div>
+    <div class="canvas-body">
+      <div class="code"><pre><span class="c">&lt;!-- 게임 화면 만들기 --&gt;</span>
+<span class="k">const</span> basket = { x: <span class="s">180</span>, <span class="t">speed</span>: <span class="s">8</span> };
+
+<span class="k">function</span> <span class="t">moveBasket</span>(dir) {
+  basket.x += dir * basket.<span class="t">speed</span>;
+}
+
+<span class="k">function</span> <span class="t">catchFood</span>(food) {
+  <span class="k">if</span> (hit(basket, food)) score += <span class="s">10</span>;
+}</pre></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
