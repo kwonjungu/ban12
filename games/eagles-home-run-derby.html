@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>한화 이글스 홈런 더비 ⚾🦅</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    background: radial-gradient(circle at 50% -10%, #2b1405 0%, #120902 60%, #050301 100%);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #wrap {
+    width: 100%;
+    max-width: 430px;
+    max-width: min(430px, calc((100vh - 24px) * 0.75));
+  }
+
+  #stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    max-height: calc(100vh - 20px);
+    margin: 0 auto;
+    border-radius: 20px;
+    overflow: hidden;
+    background: #0d0703;
+    box-shadow: 0 20px 50px rgba(0,0,0,.85), 0 0 0 3px rgba(255, 102, 0, 0.25) inset;
+    touch-action: none;
+    cursor: pointer;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* ---------- HUD ---------- */
+  #hud {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    padding: 10px;
+    display: flex; flex-direction: column; gap: 6px;
+    font-weight: 800;
+  }
+  #hudTop { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
+  .chip {
+    background: rgba(20, 10, 4, 0.82);
+    border: 2px solid rgba(255, 102, 0, 0.4);
+    border-radius: 12px;
+    padding: 5px 10px;
+    font-size: 13px;
+    line-height: 1.25;
+    letter-spacing: .2px;
+    backdrop-filter: blur(6px);
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+  }
+  .chip small { display: block; font-size: 9px; opacity: .8; font-weight: 700; letter-spacing: 1px; color: #ffb380; }
+  #scoreChip { color: #ffe27a; font-size: 18px; padding: 5px 10px; border-color: rgba(255, 226, 122, 0.5); }
+  #runChip { color: #ff6600; font-size: 18px; padding: 5px 10px; border-color: rgba(255, 102, 0, 0.6); }
+  #ballsChip { color: #ff8b8b; }
+  #comboChip { color: #7bf0c8; border-color: rgba(123, 240, 200, 0.5); }
+  #lvChip { color: #ffaa66; }
+  #hudLeft { display: flex; gap: 6px; }
+  #hudRight { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  #comboChip.hide { opacity: 0; transform: translateY(-8px); }
+  #comboChip { transition: opacity .2s, transform .2s; }
+  #scoreChip.pop, #runChip.pop { animation: popk .28s ease-out; }
+  @keyframes popk { 0%{transform:scale(1)} 35%{transform:scale(1.25)} 100%{transform:scale(1)} }
+
+  /* ---------- 배너 ---------- */
+  #banner {
+    position: absolute; left: 0; right: 0; top: 28%;
+    text-align: center; pointer-events: none;
+    font-size: 32px; font-weight: 900;
+    color: #fff;
+    text-shadow: 0 4px 0 rgba(0,0,0,.8), 0 0 30px rgba(255, 102, 0, 0.9);
+    opacity: 0;
+  }
+  #banner.show { animation: bann 1.1s ease-out; }
+  @keyframes bann {
+    0% { opacity: 0; transform: scale(.4) rotate(-6deg); }
+    20% { opacity: 1; transform: scale(1.2) rotate(2deg); }
+    38% { transform: scale(1) rotate(0deg); }
+    80% { opacity: 1; }
+    100% { opacity: 0; transform: scale(1.08) translateY(-20px); }
+  }
+
+  /* ---------- 오버레이 ---------- */
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 12px; text-align: center;
+    padding: 24px;
+    background: linear-gradient(180deg, rgba(18, 9, 3, 0.78) 0%, rgba(8, 4, 1, 0.95) 100%);
+    backdrop-filter: blur(5px);
+  }
+  .overlay.hidden { display: none; }
+
+  .bigTitle {
+    font-size: 42px; font-weight: 900; letter-spacing: -1px;
+    line-height: 1;
+    background: linear-gradient(180deg, #ffffff 0%, #ff8000 50%, #ff4500 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 4px 0 rgba(0,0,0,.7));
+    margin: 0;
+  }
+  .ballEmoji { font-size: 58px; line-height: 1; animation: bounceE 1.4s ease-in-out infinite; filter: drop-shadow(0 6px 12px rgba(255,102,0,0.4)); }
+  @keyframes bounceE { 0%,100%{ transform: translateY(0) rotate(-6deg);} 50%{ transform: translateY(-14px) rotate(8deg);} }
+  .sub { font-size: 14px; font-weight: 700; opacity: .92; line-height: 1.6; color: #fed7aa; }
+  .howto {
+    font-size: 12.5px; font-weight: 700; line-height: 1.7;
+    background: rgba(255, 102, 0, 0.12);
+    border: 1.5px solid rgba(255, 102, 0, 0.3);
+    border-radius: 16px; padding: 12px 18px;
+    max-width: 330px; color: #ffedd5;
+  }
+  .howto b { color: #ffaa66; }
+  .best { font-size: 14px; font-weight: 800; color: #7bf0c8; }
+  .btn {
+    margin-top: 6px;
+    font-family: inherit;
+    font-size: 19px; font-weight: 900;
+    color: #ffffff;
+    background: linear-gradient(180deg, #ff7700 0%, #cc4400 100%);
+    border: none; border-radius: 999px;
+    padding: 13px 40px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #882b00, 0 12px 24px rgba(0,0,0,.6);
+    transition: transform .08s, box-shadow .08s;
+    touch-action: manipulation;
+  }
+  .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #882b00, 0 6px 14px rgba(0,0,0,.6); }
+  .hint { font-size: 11.5px; opacity: .7; font-weight: 700; color: #fdba74; }
+
+  #overTitle { font-size: 34px; font-weight: 900; margin: 0; color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.6); }
+  #overScore { font-size: 52px; font-weight: 900; line-height: 1; color: #ff9933; text-shadow: 0 4px 0 rgba(0,0,0,.5); }
+  #overMsg { font-size: 15px; font-weight: 800; color: #ffb0b0; }
+  #overStats { font-size: 13px; font-weight: 700; opacity: .9; line-height: 1.7; color: #fed7aa; }
+
+  @media (max-width: 400px) {
+    .bigTitle { font-size: 36px; }
+    .ballEmoji { font-size: 48px; }
+    #overScore { font-size: 44px; }
+    .chip { font-size: 11px; padding: 4px 7px; }
+    #scoreChip, #runChip { font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="stage">
+    <canvas id="cv"></canvas>
+
+    <div id="hud">
+      <div id="hudTop">
+        <div id="hudLeft">
+          <div class="chip" id="runChip"><small>득점 (RUNS)</small><span id="runVal">0점</span></div>
+          <div class="chip" id="scoreChip"><small>비거리</small><span id="scoreVal">0m</span></div>
+        </div>
+        <div id="hudRight">
+          <div class="chip" id="ballsChip"><small>아웃 기회</small><span id="ballsVal">❤️❤️❤️</span></div>
+          <div class="chip" id="lvChip"><small>구속</small><span id="lvVal">125km/h</span></div>
+        </div>
+      </div>
+      <div class="chip hide" id="comboChip" style="align-self:flex-start"><small>연속 홈런</small><span id="comboVal">0콤보</span></div>
+    </div>
+
+    <div id="banner"></div>
+
+    <!-- 시작 화면 -->
+    <div class="overlay" id="titleScreen">
+      <div class="ballEmoji">🦅</div>
+      <h1 class="bigTitle">한화 이글스 ⚾</h1>
+      <div class="sub">최강한화 이글스의 홈런포가 터진다!<br>대전 구장 담장을 넘겨 장외 홈런을 완성하라!</div>
+      <div class="howto">
+        <b>타격</b> 공이 붉은 타격존에 올 때 클릭 / 스페이스!<br>
+        <b>최강한화</b> 완벽한 타이밍에 시원한 대형 홈런! 🚀<br>
+        <b>주루 & 득점</b> 베이스를 돌아 홈인하면 +1득점! 🏃‍♂️
+      </div>
+      <div class="best" id="bestTitle">최고 기록 0m</div>
+      <button class="btn" id="startBtn">PLAY BALL!</button>
+      <div class="hint">스페이스바를 눌러도 시작돼</div>
+    </div>
+
+    <!-- 게임오버 화면 -->
+    <div class="overlay hidden" id="overScreen">
+      <h2 id="overTitle">GAME OVER</h2>
+      <div id="overScore">0m</div>
+      <div id="overMsg"></div>
+      <div id="overStats"></div>
+      <div class="best" id="bestOver">최고 기록 0m</div>
+      <button class="btn" id="retryBtn">다시 도전!</button>
+      <div class="hint">스페이스바로 빠른 재시작</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ===================== 기본 디자인 좌표계 =====================
+  var DW = 420, DH = 560;
+  var cv = document.getElementById('cv');
+  var ctx = cv.getContext('2d');
+  var stage = document.getElementById('stage');
+
+  var el = {
+    score: document.getElementById('scoreVal'),
+    scoreChip: document.getElementById('scoreChip'),
+    run: document.getElementById('runVal'),
+    runChip: document.getElementById('runChip'),
+    balls: document.getElementById('ballsVal'),
+    combo: document.getElementById('comboVal'),
+    comboChip: document.getElementById('comboChip'),
+    lv: document.getElementById('lvVal'),
+    banner: document.getElementById('banner'),
+    titleScreen: document.getElementById('titleScreen'),
+    overScreen: document.getElementById('overScreen'),
+    startBtn: document.getElementById('startBtn'),
+    retryBtn: document.getElementById('retryBtn'),
+    bestTitle: document.getElementById('bestTitle'),
+    bestOver: document.getElementById('bestOver'),
+    overTitle: document.getElementById('overTitle'),
+    overScore: document.getElementById('overScore'),
+    overMsg: document.getElementById('overMsg'),
+    overStats: document.getElementById('overStats')
+  };
+
+  // ===================== 스토리지 =====================
+  var BEST_KEY = 'baseballHomeRunBest_hanwha_v1';
+  function loadBest() {
+    try {
+      var v = window.localStorage.getItem(BEST_KEY);
+      var n = parseInt(v, 10);
+      return isFinite(n) && n > 0 ? n : 0;
+    } catch (e) { return 0; }
+  }
+  function saveBest(v) {
+    try { window.localStorage.setItem(BEST_KEY, String(v)); } catch (e) { /* 무시 */ }
+  }
+  var best = loadBest();
+  el.bestTitle.textContent = '최고 기록 ' + best + 'm';
+
+  // ===================== 오디오 효과음 (Synthesizer) =====================
+  var AC = null, master = null;
+  function ensureAudio() {
+    if (!AC) {
+      try {
+        var Ctor = window.AudioContext || window.webkitAudioContext;
+        if (!Ctor) return;
+        AC = new Ctor();
+        master = AC.createGain();
+        master.gain.value = 0.38;
+        master.connect(AC.destination);
+      } catch (e) { AC = null; master = null; return; }
+    }
+    if (AC && AC.state === 'suspended') {
+      try {
+        var pr = AC.resume();
+        if (pr && pr.catch) pr.catch(function () { /* 무시 */ });
+      } catch (e) { /* 무시 */ }
+    }
+  }
+
+  function tone(freq, dur, type, vol, delay, freq2) {
+    if (!AC || !master) return;
+    try {
+      var t0 = AC.currentTime + (delay || 0);
+      var o = AC.createOscillator();
+      var g = AC.createGain();
+      o.type = type || 'sine';
+      o.frequency.setValueAtTime(freq, t0);
+      if (freq2) o.frequency.exponentialRampToValueAtTime(Math.max(20, freq2), t0 + dur);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol || 0.2), t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g); g.connect(master);
+      o.start(t0); o.stop(t0 + dur + 0.03);
+    } catch (e) { /* 무시 */ }
+  }
+
+  function noise(dur, f1, f2, vol, delay) {
+    if (!AC || !master) return;
+    try {
+      var t0 = AC.currentTime + (delay || 0);
+      var len = Math.max(1, Math.floor(AC.sampleRate * dur));
+      var buf = AC.createBuffer(1, len, AC.sampleRate);
+      var d = buf.getChannelData(0);
+      for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      var src = AC.createBufferSource(); src.buffer = buf;
+      var bp = AC.createBiquadFilter(); bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(f1, t0);
+      bp.frequency.exponentialRampToValueAtTime(Math.max(60, f2 || f1), t0 + dur);
+      bp.Q.value = 1.0;
+      var g = AC.createGain();
+      g.gain.setValueAtTime(vol || 0.2, t0);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      src.connect(bp); bp.connect(g); g.connect(master);
+      src.start(t0); src.stop(t0 + dur + 0.02);
+    } catch (e) { /* 무시 */ }
+  }
+
+  function sfxHit(isHomeRun) {
+    if (isHomeRun) {
+      noise(0.45, 1400, 180, 0.45);
+      tone(260, 0.2, 'triangle', 0.4, 0, 70);
+      tone(523, 0.35, 'sine', 0.25, 0.04);
+      tone(659, 0.35, 'sine', 0.25, 0.1);
+      tone(784, 0.45, 'sine', 0.3, 0.18);
+      noise(1.2, 800, 1200, 0.14, 0.1);
+    } else {
+      noise(0.2, 900, 250, 0.3);
+      tone(200, 0.15, 'triangle', 0.22, 0, 90);
+    }
+  }
+
+  function sfxHomeIn() {
+    tone(523.25, 0.15, 'sine', 0.3, 0);
+    tone(659.25, 0.15, 'sine', 0.3, 0.08);
+    tone(783.99, 0.15, 'sine', 0.3, 0.16);
+    tone(1046.50, 0.3, 'triangle', 0.35, 0.24);
+  }
+
+  function sfxSwing() { noise(0.18, 2400, 350, 0.2); }
+  function sfxOut() { tone(280, 0.28, 'sawtooth', 0.16, 0, 100); }
+  function sfxOver() {
+    tone(440, 0.2, 'sawtooth', 0.16, 0);
+    tone(349, 0.2, 'sawtooth', 0.16, 0.15);
+    tone(261, 0.4, 'sawtooth', 0.18, 0.3);
+  }
+
+  // ===================== 화면 레스폰시브 반응 =====================
+  var dpr = 1, cssScale = 1;
+  function resize() {
+    var rect = stage.getBoundingClientRect();
+    var w = Math.max(60, rect.width), h = Math.max(60, rect.height);
+    dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    cv.width = Math.round(w * dpr);
+    cv.height = Math.round(h * dpr);
+    cssScale = w / DW;
+    if (h / DH < cssScale) cssScale = h / DH;
+  }
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', function () { setTimeout(resize, 120); });
+
+  // ===================== 게임 데이터 상태 =====================
+  var S = {
+    mode: 'title',
+    score: 0,             // 총 거리 (m)
+    runs: 0,              // 득점 수
+    outs: 3,
+    homeRuns: 0,
+    combo: 0,
+    bestCombo: 0,
+    speed: 125,
+    pitchCount: 0,
+    shake: 0, shakeMag: 0,
+    overDelay: 0,
+    lightFlash: 0
+  };
+
+  // 주요 좌표 설정
+  var PITCHER_X = DW / 2;
+  var PITCHER_Y = 225;
+  var BATTER_X = DW / 2;
+  var BATTER_Y = 460;
+  var HIT_ZONE_Y = 460;
+
+  var pitch = {
+    active: false,
+    x: PITCHER_X,
+    y: PITCHER_Y,
+    z: 0.15,
+    speed: 1.0,
+    type: 'fast',
+    targetX: PITCHER_X,
+    swung: false,
+    hit: false,
+    rot: 0
+  };
+
+  var batterHand = {
+    swinging: false,
+    angle: 0,
+    t: 0
+  };
+
+  // 타자 다이아몬드 완주 주루(Full Base Running) 상태
+  var runner = {
+    running: false,
+    x: BATTER_X - 42,
+    y: BATTER_Y,
+    scale: 1.0,
+    progress: 0,      // 0.0 ~ 1.0 (다이아몬드 한바퀴 전체)
+    isHomeRun: false,  // 홈런 여부
+    animFrame: 0,
+    scored: false     // 해당 타석 홈인 판정 처리 여부
+  };
+
+  var pitcherAnim = {
+    windup: 0,
+    pitching: false
+  };
+
+  var hitBall = {
+    active: false,
+    x: 0, y: 0,
+    vx: 0, vy: 0, vz: 0,
+    z: 1,
+    dist: 0,
+    isHomeRun: false,
+    trail: []
+  };
+
+  var particles = [];
+  var pops = [];
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+
+  function shake(mag, dur) {
+    S.shakeMag = Math.max(S.shakeMag, mag);
+    S.shake = Math.max(S.shake, dur);
+  }
+
+  function banner(txt) {
+    el.banner.textContent = txt;
+    el.banner.classList.remove('show');
+    void el.banner.offsetWidth;
+    el.banner.classList.add('show');
+  }
+
+  function popText(x, y, txt, color, size) {
+    pops.push({ x: x, y: y, txt: txt, color: color || '#fff', size: size || 24, life: 1, vy: -45 });
+  }
+
+  function burst(x, y, n, colors, spd) {
+    for (var i = 0; i < n; i++) {
+      var a = Math.random() * Math.PI * 2;
+      var s = rand(spd * 0.3, spd);
+      particles.push({
+        x: x, y: y,
+        vx: Math.cos(a) * s, vy: Math.sin(a) * s - 40,
+        life: rand(0.6, 1.2), max: 1,
+        r: rand(3, 8),
+        c: colors[(Math.random() * colors.length) | 0]
+      });
+    }
+  }
+
+  // ===================== 투구 및 주루 메커니즘 =====================
+  function startPitchSequence() {
+    if (S.mode !== 'play') return;
+    
+    // 타자 주루 상태 초기화
+    runner.running = false;
+    runner.progress = 0;
+    runner.x = BATTER_X - 42;
+    runner.y = BATTER_Y;
+    runner.scale = 1.0;
+    runner.scored = false;
+
+    pitcherAnim.pitching = true;
+    pitcherAnim.windup = 0;
+  }
+
+  function launchPitch() {
+    S.pitchCount++;
+    S.speed = 120 + Math.min(48, Math.floor(S.pitchCount / 2) * 3 + rand(-3, 3));
+    S.speed = Math.round(S.speed);
+    el.lv.textContent = S.speed + 'km/h';
+
+    pitch.active = true;
+    pitch.x = PITCHER_X;
+    pitch.y = PITCHER_Y;
+    pitch.z = 0.15;
+    pitch.swung = false;
+    pitch.hit = false;
+    pitch.rot = 0;
+
+    var speedMul = S.speed / 125;
+    
+    // 직구 투구
+    pitch.type = 'fast';
+    pitch.speed = 1.35 * speedMul;
+    pitch.targetX = PITCHER_X + rand(-18, 18);
+  }
+
+  function swing() {
+    if (S.mode !== 'play') return;
+    if (batterHand.swinging) return;
+
+    batterHand.swinging = true;
+    batterHand.t = 0;
+    sfxSwing();
+
+    if (pitch.active && !pitch.hit) {
+      pitch.swung = true;
+      var distY = Math.abs(pitch.y - HIT_ZONE_Y);
+
+      if (distY < 36) {
+        pitch.hit = true;
+        pitch.active = false;
+
+        var accuracy = 1 - (distY / 36);
+        var isHR = accuracy > 0.42;
+        var hrDist = Math.floor(105 + accuracy * 55 + rand(0, 18));
+
+        // 주루 모션 시작
+        runner.running = true;
+        runner.progress = 0;
+        runner.isHomeRun = isHR;
+        runner.scored = false;
+
+        if (isHR) {
+          S.homeRuns++;
+          S.combo++;
+          if (S.combo > S.bestCombo) S.bestCombo = S.combo;
+
+          var gained = hrDist + (S.combo > 1 ? S.combo * 25 : 0);
+          S.score += gained;
+          S.lightFlash = 1.2;
+
+          sfxHit(true);
+          shake(12, 0.35);
+          banner(accuracy > 0.85 ? '최.강.한.화! 장외 홈런! 🦅🚀' : '이글스 홈런!! ⚾');
+          popText(PITCHER_X, 230, hrDist + 'm EAGLES HOMERUN!', '#ffaa66', 30);
+          burst(PITCHER_X, 190, 35, ['#ff6600', '#ff9933', '#ffffff', '#222222'], 280);
+          el.comboChip.classList.remove('hide');
+        } else {
+          S.combo = 0;
+          sfxHit(false);
+          shake(5, 0.18);
+          banner('이글스 안타! ⚾');
+          popText(PITCHER_X, 270, '안타!', '#7bf0c8', 22);
+          el.comboChip.classList.add('hide');
+        }
+
+        hitBall.active = true;
+        hitBall.x = pitch.x;
+        hitBall.y = pitch.y;
+        hitBall.vx = rand(-140, 140);
+        hitBall.vy = isHR ? -420 : -200;
+        hitBall.vz = isHR ? 2.8 : 1.1;
+        hitBall.z = 1.0;
+        hitBall.dist = hrDist;
+        hitBall.isHomeRun = isHR;
+        hitBall.trail = [];
+
+        updateHUD();
+        var nextPitchDelay = isHR ? 3400 : 2300;
+        setTimeout(startPitchSequence, nextPitchDelay);
+      } else {
+        handleOut('헛스윙 스트라이크! ❌');
+      }
+    }
+  }
+
+  function handleOut(msg) {
+    pitch.active = false;
+    S.combo = 0;
+    S.outs--;
+    sfxOut();
+    shake(7, 0.22);
+    banner(msg);
+    popText(BATTER_X, BATTER_Y - 45, 'STRIKE / OUT!', '#ff6b6b', 25);
+    el.comboChip.classList.add('hide');
+    updateHUD();
+
+    if (S.outs <= 0) {
+      gameOver();
+    } else {
+      setTimeout(startPitchSequence, 1700);
+    }
+  }
+
+  function gameOver() {
+    S.mode = 'over';
+    S.overDelay = 0.6;
+    sfxOver();
+
+    var isNew = S.score > best;
+    if (isNew) { best = S.score; saveBest(best); }
+
+    el.overScore.textContent = S.score + 'm';
+    if (isNew) {
+      el.overTitle.textContent = '최강한화 신기록! 🎉';
+      el.overMsg.textContent = '이글스의 전설적인 홈런왕 탄생!';
+      el.overMsg.style.color = '#ffaa66';
+    } else {
+      el.overTitle.textContent = 'GAME OVER';
+      el.overMsg.textContent = '불꽃 한화! 다음 기회에 더 멋진 홈런을!';
+      el.overMsg.style.color = '#ffb0b0';
+    }
+
+    el.overStats.innerHTML =
+      '총 득점 <b>' + S.runs + '</b>점 · 총 홈런 <b>' + S.homeRuns + '</b>개<br>' +
+      '최고 연속 <b>' + S.bestCombo + '</b>콤보';
+    el.bestOver.textContent = '최고 기록 ' + best + 'm';
+    el.overScreen.classList.remove('hidden');
+  }
+
+  function resetGame() {
+    S.mode = 'play';
+    S.score = 0;
+    S.runs = 0;
+    S.outs = 3;
+    S.homeRuns = 0;
+    S.combo = 0;
+    S.bestCombo = 0;
+    S.pitchCount = 0;
+    hitBall.active = false;
+    runner.running = false;
+    particles.length = 0;
+    pops.length = 0;
+    updateHUD();
+    el.comboChip.classList.add('hide');
+    setTimeout(startPitchSequence, 800);
+  }
+
+  function updateHUD() {
+    el.score.textContent = S.score + 'm';
+    el.run.textContent = S.runs + '점';
+    var hearts = '';
+    for (var i = 0; i < S.outs; i++) hearts += '❤️';
+    if (S.outs <= 0) hearts = 'OUT';
+    el.balls.textContent = hearts;
+    el.combo.textContent = S.combo + '콤보';
+  }
+
+  // ===================== 이벤트 리스너 =====================
+  function onInput(e) {
+    ensureAudio();
+    if (S.mode === 'title') return;
+    if (S.mode === 'over') {
+      if (S.overDelay <= 0) startGame();
+      return;
+    }
+    swing();
+  }
+
+  stage.addEventListener('pointerdown', onInput);
+
+  window.addEventListener('keydown', function (e) {
+    if (e.key === ' ' || e.key === 'Spacebar' || e.key === 'Enter') {
+      e.preventDefault();
+      ensureAudio();
+      if (S.mode === 'title') startGame();
+      else if (S.mode === 'over' && S.overDelay <= 0) startGame();
+      else swing();
+    }
+  });
+
+  function startGame() {
+    ensureAudio();
+    el.titleScreen.classList.add('hidden');
+    el.overScreen.classList.add('hidden');
+    resetGame();
+  }
+
+  el.startBtn.addEventListener('click', function (e) {
+    e.preventDefault();
+    if (S.mode === 'title') startGame();
+  });
+  el.retryBtn.addEventListener('click', function (e) {
+    e.preventDefault();
+    if (S.mode === 'over' && S.overDelay <= 0) startGame();
+  });
+
+  // 베이스 좌표 계산 유틸 (홈, 1루, 2루, 3루)
+  var baseHome = { x: DW / 2, y: BATTER_Y };
+  var base1st  = { x: DW / 2 + 105, y: BATTER_Y - 110 };
+  var base2nd  = { x: DW / 2, y: BATTER_Y - 200 };
+  var base3rd  = { x: DW / 2 - 105, y: BATTER_Y - 110 };
+
+  function lerpPoint(p1, p2, t) {
+    return {
+      x: p1.x + (p2.x - p1.x) * t,
+      y: p1.y + (p2.y - p1.y) * t
+    };
+  }
+
+  // ===================== 프레임 업데이트 =====================
+  function update(dt) {
+    if (S.shake > 0) {
+      S.shake -= dt;
+      if (S.shake <= 0) { S.shake = 0; S.shakeMag = 0; }
+    }
+
+    if (S.lightFlash > 0) {
+      S.lightFlash -= dt * 2;
+      if (S.lightFlash < 0) S.lightFlash = 0;
+    }
+
+    if (S.mode === 'over' && S.overDelay > 0) {
+      S.overDelay -= dt;
+    }
+
+    // 투수 피칭 애니메이션
+    if (pitcherAnim.pitching) {
+      pitcherAnim.windup += dt * 3.5;
+      if (pitcherAnim.windup >= 1.0) {
+        pitcherAnim.pitching = false;
+        pitcherAnim.windup = 0;
+        launchPitch();
+      }
+    }
+
+    // 타자 스윙 애니메이션
+    if (batterHand.swinging) {
+      batterHand.t += dt * 8.5;
+      batterHand.angle = Math.sin(batterHand.t) * Math.PI * 0.85;
+      if (batterHand.t >= Math.PI) {
+        batterHand.swinging = false;
+        batterHand.angle = 0;
+      }
+    }
+
+    // 타자 주루(Base Running) 다이아몬드 순회 계산
+    if (runner.running) {
+      var runSpeed = runner.isHomeRun ? 0.35 : 0.8;
+      runner.progress += dt * runSpeed;
+      runner.animFrame += dt * 18;
+
+      var p = runner.progress;
+      var curPos = { x: baseHome.x, y: baseHome.y };
+
+      if (!runner.isHomeRun) {
+        var subP = clamp(p, 0, 1);
+        curPos = lerpPoint(baseHome, base1st, subP);
+      } else {
+        if (p < 0.25) {
+          curPos = lerpPoint(baseHome, base1st, p / 0.25);
+        } else if (p < 0.5) {
+          curPos = lerpPoint(base1st, base2nd, (p - 0.25) / 0.25);
+        } else if (p < 0.75) {
+          curPos = lerpPoint(base2nd, base3rd, (p - 0.5) / 0.25);
+        } else {
+          var finalP = clamp((p - 0.75) / 0.25, 0, 1);
+          curPos = lerpPoint(base3rd, baseHome, finalP);
+
+          if (finalP >= 0.98 && !runner.scored) {
+            runner.scored = true;
+            S.runs++;
+            sfxHomeIn();
+            shake(8, 0.25);
+            popText(BATTER_X, BATTER_Y - 30, 'HOME IN! +1 RUN 🦅', '#ff6600', 28);
+            burst(BATTER_X, BATTER_Y, 25, ['#ff6600', '#ffffff', '#ffaa66'], 220);
+
+            el.runChip.classList.remove('pop');
+            void el.runChip.offsetWidth;
+            el.runChip.classList.add('pop');
+            updateHUD();
+          }
+        }
+      }
+
+      runner.x = curPos.x - 10;
+      runner.y = curPos.y;
+
+      var depthRatio = (curPos.y - (BATTER_Y - 200)) / 200;
+      runner.scale = 0.65 + clamp(depthRatio, 0, 1) * 0.35;
+    }
+
+    // 공 투구 물리
+    if (pitch.active) {
+      pitch.z += dt * pitch.speed;
+      pitch.y = PITCHER_Y + (BATTER_Y - PITCHER_Y) * pitch.z;
+      pitch.rot += dt * 20;
+
+      pitch.x = PITCHER_X + (pitch.targetX - PITCHER_X) * pitch.z;
+
+      if (pitch.z >= 1.15 && !pitch.swung) {
+        handleOut('루킹 스트라이크! ⚡');
+      }
+    }
+
+    // 타격된 공 이동
+    if (hitBall.active) {
+      hitBall.x += hitBall.vx * dt;
+      hitBall.y += hitBall.vy * dt;
+      hitBall.z += hitBall.vz * dt;
+      hitBall.vy += 210 * dt;
+
+      hitBall.trail.push({ x: hitBall.x, y: hitBall.y, z: hitBall.z });
+      if (hitBall.trail.length > 12) hitBall.trail.shift();
+
+      if (hitBall.y > DH + 60 || hitBall.z > 9) {
+        hitBall.active = false;
+      }
+    }
+
+    // 파티클
+    for (var i = particles.length - 1; i >= 0; i--) {
+      var particle = particles[i];
+      particle.life -= dt;
+      particle.x += particle.vx * dt;
+      particle.y += particle.vy * dt;
+      if (particle.life <= 0) particles.splice(i, 1);
+    }
+
+    // 팝업 텍스트
+    for (var j = pops.length - 1; j >= 0; j--) {
+      var q = pops[j];
+      q.life -= dt * 1.25;
+      q.y += q.vy * dt;
+      if (q.life <= 0) pops.splice(j, 1);
+    }
+  }
+
+  // ===================== 한화 이글스 야구장 렌더링 =====================
+  function drawStadium3D() {
+    // 1. 밤하늘 그래디언트
+    var sky = ctx.createLinearGradient(0, 0, 0, 200);
+    sky.addColorStop(0, '#120803');
+    sky.addColorStop(0.6, '#261206');
+    sky.addColorStop(1, '#0f172a');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, DW, 200);
+
+    // 2. 야간 조명탑 & 라이트 빔
+    var lights = [60, DW - 60];
+    for (var l = 0; l < lights.length; l++) {
+      var lx = lights[l], ly = 35;
+      
+      var beam = ctx.createRadialGradient(lx, ly, 5, lx, ly + 100, 140);
+      beam.addColorStop(0, 'rgba(255, 153, 51, 0.45)');
+      beam.addColorStop(0.5, 'rgba(255, 204, 153, 0.12)');
+      beam.addColorStop(1, 'rgba(255, 204, 153, 0)');
+      ctx.fillStyle = beam;
+      ctx.beginPath();
+      ctx.moveTo(lx - 15, ly);
+      ctx.lineTo(lx - 80, 220);
+      ctx.lineTo(lx + 80, 220);
+      ctx.lineTo(lx + 15, ly);
+      ctx.fill();
+
+      // 조명탑
+      ctx.fillStyle = '#ff6600';
+      ctx.fillRect(lx - 12, ly - 15, 24, 15);
+      ctx.fillStyle = '#ffffff';
+      for (var bx = -9; bx <= 9; bx += 6) {
+        for (var by = -12; by <= -3; by += 5) {
+          ctx.beginPath();
+          ctx.arc(lx + bx, ly + by, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    // 한화 이글스 대형 전광판 (중앙)
+    var boardX = DW / 2 - 70, boardY = 35;
+    ctx.fillStyle = '#110a04';
+    ctx.fillRect(boardX, boardY, 140, 60);
+    ctx.strokeStyle = '#ff6600';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(boardX, boardY, 140, 60);
+
+    ctx.fillStyle = '#ff6600';
+    ctx.font = '900 12px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('HANWHA EAGLES', DW / 2, boardY + 16);
+    ctx.fillStyle = '#ffe27a';
+    ctx.fillText('RUNS: ' + S.runs + '  HR: ' + S.homeRuns, DW / 2, boardY + 34);
+    ctx.fillStyle = '#ffaa66';
+    ctx.fillText('BEST: ' + best + 'm', DW / 2, boardY + 50);
+
+    // 3. 관중석 (한화 주황색 응원석)
+    ctx.fillStyle = '#2d1406';
+    ctx.beginPath();
+    ctx.moveTo(0, 110);
+    ctx.lineTo(DW, 110);
+    ctx.lineTo(DW, 185);
+    ctx.lineTo(0, 185);
+    ctx.fill();
+
+    // 주황색 관중 물결
+    ctx.fillStyle = 'rgba(255, 102, 0, 0.35)';
+    for (var px = 10; px < DW; px += 8) {
+      for (var py = 115; py < 180; py += 7) {
+        if ((px + py) % 2 === 0) {
+          ctx.fillRect(px, py, 3, 3);
+        }
+      }
+    }
+
+    // 4. 한화 이글스 펜스 & 주황색 상단 펜스
+    ctx.fillStyle = '#1a0c03';
+    ctx.fillRect(0, 180, DW, 35);
+    ctx.strokeStyle = '#ff6600';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(0, 180, DW, 35);
+
+    // 펜스 상단 오렌지 라인
+    ctx.strokeStyle = '#ff6600';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(0, 180); ctx.lineTo(DW, 180);
+    ctx.stroke();
+
+    // 펜스 구단 텍스트
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 11px sans-serif';
+    ctx.fillText('HANWHA EAGLES 120M', DW / 2, 202);
+    ctx.fillText('100M', 40, 202);
+    ctx.fillText('100M', DW - 40, 202);
+
+    // 파울 폴대
+    ctx.strokeStyle = '#ffcc00';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(15, 180); ctx.lineTo(15, 90);
+    ctx.moveTo(DW - 15, 180); ctx.lineTo(DW - 15, 90);
+    ctx.stroke();
+
+    // 5. 잔디 그라운드
+    var grassGrad = ctx.createLinearGradient(0, 215, 0, DH);
+    grassGrad.addColorStop(0, '#15803d');
+    grassGrad.addColorStop(1, '#14532d');
+    ctx.fillStyle = grassGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, 215); ctx.lineTo(DW, 215);
+    ctx.lineTo(DW, DH); ctx.lineTo(0, DH);
+    ctx.fill();
+
+    // 잔디 줄무늬 패턴
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    for (var s = -100; s < DW + 200; s += 40) {
+      ctx.beginPath();
+      ctx.moveTo(s, 215);
+      ctx.lineTo(s + 20, 215);
+      ctx.lineTo(s + 60, DH);
+      ctx.lineTo(s + 10, DH);
+      ctx.fill();
+    }
+
+    // 6. 내야 흙 마운드 & 내야 베이스 다이아몬드
+    var dirtGrad = ctx.createLinearGradient(0, 215, 0, DH);
+    dirtGrad.addColorStop(0, '#9a3412');
+    dirtGrad.addColorStop(1, '#7c2d12');
+
+    ctx.fillStyle = dirtGrad;
+    ctx.beginPath();
+    ctx.moveTo(DW / 2, 215);
+    ctx.lineTo(DW + 120, DH);
+    ctx.lineTo(-120, DH);
+    ctx.closePath();
+    ctx.fill();
+
+    // 파울 라인
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(DW / 2, BATTER_Y);
+    ctx.lineTo(-60, 215);
+    ctx.moveTo(DW / 2, BATTER_Y);
+    ctx.lineTo(DW + 60, 215);
+    ctx.stroke();
+
+    // 베이스 다이아몬드 주로 라인
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(baseHome.x, baseHome.y);
+    ctx.lineTo(base1st.x, base1st.y);
+    ctx.lineTo(base2nd.x, base2nd.y);
+    ctx.lineTo(base3rd.x, base3rd.y);
+    ctx.closePath();
+    ctx.stroke();
+
+    // 베이스 사각형
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(base1st.x - 6, base1st.y - 6, 12, 12);
+    ctx.fillRect(base2nd.x - 5, base2nd.y - 5, 10, 10);
+    ctx.fillRect(base3rd.x - 6, base3rd.y - 6, 12, 12);
+
+    // 투수 마운드
+    ctx.fillStyle = '#b45309';
+    ctx.beginPath();
+    ctx.ellipse(PITCHER_X, PITCHER_Y + 12, 38, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(PITCHER_X - 10, PITCHER_Y + 8, 20, 3);
+
+    // 타자석 & 홈 플레이트
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(DW / 2 - 50, BATTER_Y - 25, 28, 50);
+    ctx.strokeRect(DW / 2 + 22, BATTER_Y - 25, 28, 50);
+
+    // 한화 오렌지 타격존 (스트라이크 존)
+    ctx.strokeStyle = 'rgba(255, 102, 0, 0.85)';
+    ctx.fillStyle = 'rgba(255, 102, 0, 0.18)';
+    ctx.lineWidth = 2.5;
+    ctx.fillRect(DW / 2 - 32, HIT_ZONE_Y - 20, 64, 40);
+    ctx.strokeRect(DW / 2 - 32, HIT_ZONE_Y - 20, 64, 40);
+
+    // 홈 플레이트
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(DW / 2, BATTER_Y + 18);
+    ctx.lineTo(DW / 2 - 14, BATTER_Y + 2);
+    ctx.lineTo(DW / 2 - 14, BATTER_Y - 10);
+    ctx.lineTo(DW / 2 + 14, BATTER_Y - 10);
+    ctx.lineTo(DW / 2 + 14, BATTER_Y + 2);
+    ctx.closePath();
+    ctx.fill();
+
+    if (S.lightFlash > 0) {
+      ctx.fillStyle = 'rgba(255, 153, 51, ' + (S.lightFlash * 0.35) + ')';
+      ctx.fillRect(0, 0, DW, DH);
+    }
+  }
+
+  function drawPitcher3D() {
+    var px = PITCHER_X;
+    var py = PITCHER_Y;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath();
+    ctx.ellipse(px, py + 12, 16, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    var armAngle = pitcherAnim.pitching ? Math.sin(pitcherAnim.windup * Math.PI) * 1.2 : 0;
+
+    ctx.save();
+    ctx.translate(px, py);
+
+    // 상대팀 원정 유니폼 (네이비)
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(-6, -14, 5, 14);
+    ctx.fillRect(1, -14, 5, 14);
+
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(-8, -28, 16, 15);
+
+    ctx.strokeStyle = '#ffcc99';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(6, -24);
+    ctx.lineTo(12 + Math.cos(armAngle) * 8, -28 - Math.sin(armAngle) * 10);
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffcc99';
+    ctx.beginPath();
+    ctx.arc(0, -33, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#020617';
+    ctx.beginPath();
+    ctx.arc(0, -35, 6.5, Math.PI, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(-2, -37, 8, 3);
+
+    ctx.restore();
+  }
+
+  function drawCatcherAndUmpire() {
+    var cx = DW / 2;
+    var cy = BATTER_Y + 35;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 8, 18, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(cx - 10, cy - 20, 20, 22);
+    ctx.fillStyle = '#ffcc99';
+    ctx.beginPath();
+    ctx.arc(cx, cy - 25, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(cx - 6, cy - 29, 12, 10);
+
+    var ux = DW / 2 + 30;
+    var uy = BATTER_Y + 45;
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(ux - 8, uy - 22, 16, 24);
+    ctx.fillStyle = '#ffcc99';
+    ctx.beginPath();
+    ctx.arc(ux, cy - 23, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.fillRect(ux - 5, cy - 27, 10, 8);
+  }
+
+  function drawBatter3D() {
+    var bx = runner.running ? runner.x : (BATTER_X - 42);
+    var by = runner.running ? runner.y : BATTER_Y;
+    var sc = runner.running ? runner.scale : 1.0;
+
+    ctx.save();
+    ctx.translate(bx, by);
+    ctx.scale(sc, sc);
+
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(8, 12, 20, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (runner.running) {
+      // 한화 주황색 유니폼 입은 타자 주루
+      var runCycle = Math.sin(runner.animFrame);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(-3 + runCycle * 6, -16, 7, 18);
+      ctx.fillRect(7 - runCycle * 6, -16, 7, 18);
+
+      // 상체 (한화 오렌지 유니폼)
+      ctx.fillStyle = '#ff6600';
+      ctx.fillRect(-5, -36, 22, 22);
+
+      ctx.strokeStyle = '#ffcc99';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(-2, -30);
+      ctx.lineTo(-8 - runCycle * 8, -20);
+      ctx.moveTo(18, -30);
+      ctx.lineTo(24 + runCycle * 8, -20);
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffcc99';
+      ctx.beginPath();
+      ctx.arc(6, -42, 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 한화 네이비 헬멧
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(6, -44, 8.5, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // 한화 타석 대기
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(-3, -16, 8, 18);
+      ctx.fillRect(7, -16, 8, 18);
+
+      // 한화 오렌지 유니폼
+      ctx.fillStyle = '#ff6600';
+      ctx.fillRect(-5, -36, 22, 22);
+
+      ctx.fillStyle = '#ffcc99';
+      ctx.beginPath();
+      ctx.arc(6, -42, 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 한화 헬멧
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(6, -44, 8.5, Math.PI * 0.7, Math.PI * 2.3);
+      ctx.fill();
+      ctx.fillRect(4, -46, 8, 3);
+
+      // 나무 방망이
+      ctx.save();
+      ctx.translate(12, -22);
+      ctx.rotate(-0.7 + batterHand.angle);
+
+      var batGrad = ctx.createLinearGradient(-3, -48, 3, 0);
+      batGrad.addColorStop(0, '#f59e0b');
+      batGrad.addColorStop(0.5, '#d97706');
+      batGrad.addColorStop(1, '#78350f');
+
+      ctx.fillStyle = batGrad;
+      ctx.fillRect(-3, -48, 6, 50);
+      ctx.fillStyle = '#92400e';
+      ctx.fillRect(-4, -52, 8, 8);
+
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  function drawBall3D() {
+    if (!pitch.active) return;
+
+    var r = 3 + pitch.z * 11;
+    ctx.save();
+
+    var shadowY = PITCHER_Y + (BATTER_Y - PITCHER_Y) * pitch.z + 12;
+    ctx.fillStyle = 'rgba(0,0,0, 0.3)';
+    ctx.beginPath();
+    ctx.ellipse(pitch.x, shadowY, r * 1.1, r * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    var ballGrad = ctx.createRadialGradient(
+      pitch.x - r * 0.3, pitch.y - r * 0.3, r * 0.1,
+      pitch.x, pitch.y, r
+    );
+    ballGrad.addColorStop(0, '#ffffff');
+    ballGrad.addColorStop(0.8, '#f1f5f9');
+    ballGrad.addColorStop(1, '#cbd5e1');
+
+    ctx.fillStyle = ballGrad;
+    ctx.beginPath();
+    ctx.arc(pitch.x, pitch.y, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = Math.max(1, r * 0.18);
+    ctx.beginPath();
+    ctx.arc(pitch.x - r * 0.2, pitch.y, r * 0.55, -0.7 + pitch.rot, 0.7 + pitch.rot);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawHitBall3D() {
+    if (!hitBall.active) return;
+
+    for (var t = 0; t < hitBall.trail.length; t++) {
+      var tr = hitBall.trail[t];
+      var trR = Math.max(1.5, 10 / tr.z);
+      ctx.fillStyle = 'rgba(255, 102, 0, ' + ((t + 1) / hitBall.trail.length * 0.5) + ')';
+      ctx.beginPath();
+      ctx.arc(tr.x, tr.y, trR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    var r = Math.max(2, 14 / hitBall.z);
+    ctx.save();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = '#ff6600';
+    ctx.shadowBlur = hitBall.isHomeRun ? 14 : 0;
+    ctx.beginPath();
+    ctx.arc(hitBall.x, hitBall.y, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawFX() {
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      ctx.fillStyle = p.c;
+      ctx.globalAlpha = clamp(p.life / p.max, 0, 1);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    for (var j = 0; j < pops.length; j++) {
+      var q = pops[j];
+      ctx.save();
+      ctx.font = '900 ' + q.size + 'px sans-serif';
+      ctx.fillStyle = q.color;
+      ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+      ctx.lineWidth = 4.5;
+      ctx.textAlign = 'center';
+      ctx.globalAlpha = clamp(q.life, 0, 1);
+      ctx.strokeText(q.txt, q.x, q.y);
+      ctx.fillText(q.txt, q.x, q.y);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function render() {
+    ctx.save();
+    ctx.clearRect(0, 0, cv.width, cv.height);
+
+    var rect = stage.getBoundingClientRect();
+    var ox = (rect.width - DW * cssScale) / 2;
+    var oy = (rect.height - DH * cssScale) / 2;
+
+    ctx.scale(dpr, dpr);
+    ctx.translate(ox, oy);
+
+    if (S.shake > 0) {
+      var rx = (Math.random() - 0.5) * S.shakeMag;
+      var ry = (Math.random() - 0.5) * S.shakeMag;
+      ctx.translate(rx, ry);
+    }
+
+    ctx.scale(cssScale, cssScale);
+
+    drawStadium3D();
+    drawPitcher3D();
+    drawCatcherAndUmpire();
+    drawBatter3D();
+    drawBall3D();
+    drawHitBall3D();
+    drawFX();
+
+    ctx.restore();
+  }
+
+  // ===================== 메인 루프 =====================
+  var lastTime = performance.now();
+  function loop(now) {
+    var dt = (now - lastTime) / 1000;
+    if (dt > 0.08) dt = 0.08;
+    lastTime = now;
+
+    update(dt);
+    render();
+
+    requestAnimationFrame(loop);
+  }
+
+  resize();
+  requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>

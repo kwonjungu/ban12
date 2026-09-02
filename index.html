@@ -393,7 +393,7 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
     <nav class="tabs" role="tablist" aria-label="저장소 메뉴">
       <button class="tabbtn" id="tab-games"   role="tab" aria-selected="true"  aria-controls="panel-games"   data-tab="games">🕹️ 게임 저장소<span class="n">18</span></button>
       <button class="tabbtn" id="tab-prompts" role="tab" aria-selected="false" aria-controls="panel-prompts" data-tab="prompts" tabindex="-1">💬 프롬프트 저장소<span class="n">+9</span></button>
-      <button class="tabbtn" id="tab-new"     role="tab" aria-selected="false" aria-controls="panel-new"     data-tab="new" tabindex="-1">✨ 새 게임<span class="n">24</span></button>
+      <button class="tabbtn" id="tab-new"     role="tab" aria-selected="false" aria-controls="panel-new"     data-tab="new" tabindex="-1">✨ 새 게임<span class="n">36</span></button>
       <button class="tabbtn" id="tab-next"    role="tab" aria-selected="false" aria-controls="panel-next"    data-tab="next" tabindex="-1">🌱 추가 개발 예정</button>
     </nav>
   </div>
@@ -417,7 +417,7 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
           반곡초등학교 친구들이 AI와 대화하면서 만든 HTML 게임 저장소예요.
           카드의 미리보기는 <b>진짜 게임 화면</b>이에요.</p>
         <div class="stats">
-          <div class="stat"><b>42</b><span>아이들이 만든 게임</span></div>
+          <div class="stat"><b>54</b><span>아이들이 만든 게임</span></div>
           <div class="stat"><b>17</b><span>완성 예시 게임</span></div>
           <div class="stat"><b>109</b><span>단계별 프롬프트</span></div>
           <div class="stat"><b>∞</b><span>만들 수 있는 것</span></div>
@@ -668,7 +668,19 @@ const NEWGAMES = [
   {f:'cat-healthy-snack.html',       t:'고양이 건강 간식 모으기',   d:'건강 간식만 받아 점수 모으기',      c:'← → 이동 · Enter 간식폭탄',  k:'2d', e:'🐱'},
   {f:'food-catch-basic.html',        t:'음식 받기 게임',            d:'건강 간식만 바구니에 쏙!',          c:'← → 이동 · 마우스/터치',     k:'2d', e:'🍎'},
   {f:'healthy-food-catcher.html',    t:'건강 음식 받아먹기',        d:'건강한 음식만 골라 담아요',         c:'← → · 마우스/터치 · Shift 클린', k:'2d', e:'🥗'},
-  {f:'healthy-snack-3d.html',        t:'건강 간식을 모아라! 3D',    d:'떨어지는 건강 간식을 바구니로!',    c:'← → 이동 · 스페이스 시작',   k:'3d', e:'🧺', by:'배0경'}
+  {f:'healthy-snack-3d.html',        t:'건강 간식을 모아라! 3D',    d:'떨어지는 건강 간식을 바구니로!',    c:'← → 이동 · 스페이스 시작',   k:'3d', e:'🧺', by:'배0경'},
+  {f:'soccer-shoot-3d.html',         t:'3D 축구 슛',                d:'30초 동안 AI와 슈팅 대결',          c:'공 드래그 · 스페이스 슛',    k:'canvas', e:'⚽', by:'사천초 01'},
+  {f:'eagles-home-run-derby.html',   t:'이글스 홈런 더비',          d:'타이밍 맞춰 홈런 치기',             c:'클릭/터치 · 스페이스 스윙',  k:'canvas', e:'🦅', by:'사천초 02'},
+  {f:'school-lunch-chef.html',       t:'급식 요리왕',               d:'재료 2개 조합해 급식 완성',         c:'카드 터치 · A D 선택 · W 담기', k:'2d', e:'🍱', by:'사천초 03'},
+  {f:'lunch-recipe-combo.html',      t:'급식실 요리 조합',          d:'재료를 섞어 새 요리 만들기',        c:'재료 드래그 · ← → · 스페이스', k:'2d', e:'🍳', by:'사천초 04'},
+  {f:'cafe-recipe-combo.html',       t:'카페 레시피 조합',          d:'재료 2개로 카페 메뉴 만들기',       c:'재료 터치 · ← → · 스페이스',  k:'2d', e:'☕', by:'사천초 05'},
+  {f:'savanna-lion-runner.html',     t:'사자를 피하라',             d:'사자 추격을 피해 초원을 달려요',    c:'스페이스 · 터치로 2단 점프',  k:'canvas', e:'🦁', by:'사천초 06'},
+  {f:'puppy-cloud-tower.html',       t:'멍구름타워',                d:'구름을 쌓아 하늘로 올라가요',       c:'화면 터치 · 스페이스 쌓기',   k:'canvas', e:'🐶', by:'사천초 07'},
+  {f:'forest-class-soup.html',       t:'숲속 스프 끓이기',          d:'물과 불 맞춰 스프 10개 완성',       c:'← 물 · → 불 · 스페이스 시작', k:'2d', e:'🍲', by:'사천초 08'},
+  {f:'lunch-recipe-combo-2.html',    t:'급식실 5단계 조합',         d:'조합 60요리 도감 완성하기',         c:'재료 드래그 · ← → · 스페이스', k:'2d', e:'🥘', by:'사천초 09'},
+  {f:'gold-miner-hd.html',           t:'골드 마이너',               d:'갈고리로 금덩이를 캐요',            c:'스페이스 발사 · D 폭탄',      k:'canvas', e:'⛏️', by:'사천초 10'},
+  {f:'space-rocket-adventure.html',  t:'스페이스 로켓',             d:'외계 함대와 보스를 격추!',          c:'방향키/WASD · 스페이스 발사', k:'canvas', e:'🚀', by:'사천초 11'},
+  {f:'whack-a-puppy.html',           t:'강아지 잡기',               d:'60초 안에 강아지를 잡아요',         c:'클릭·터치로 콕! · 스페이스',  k:'canvas', e:'🐶', by:'사천초 12'}
 ];
 
 /* ─────────── 유틸 ─────────── */

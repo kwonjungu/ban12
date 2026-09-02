@@ -1,0 +1,2169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>급식 요리왕 - 학교 급식실 대작전!</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #fff9e6;
+      --panel-bg: #ffffff;
+      --primary: #ff7043;
+      --primary-dark: #e64a19;
+      --p1-color: #e53935;
+      --p2-color: #1e88e5;
+      --accent: #6cc24a;
+      --accent-dark: #4c7a34;
+      --secret: #9c27b0;
+      --text-main: #3e2723;
+      --text-muted: #8d6e63;
+      --border-color: #ffe0b2;
+      --shadow: 0 8px 20px rgba(62, 39, 35, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      font-family: 'Gowun Dodum', 'Jua', sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      min-height: 100vh;
+      min-height: -webkit-fill-available;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: clamp(6px, 2vw, 12px);
+    }
+
+    #gameContainer {
+      width: 100%;
+      max-width: 1000px;
+      background: #fff;
+      border-radius: clamp(14px, 4vw, 20px);
+      box-shadow: 0 10px 28px rgba(108, 68, 30, 0.12);
+      border: 3px solid #ffe0b2;
+      padding: clamp(8px, 2.5vw, 14px);
+      position: relative;
+      overflow: hidden;
+      margin: auto 0;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #fff3e0;
+      padding: 6px 10px;
+      border-radius: 14px;
+      border: 2px solid #ffe0b2;
+      margin-bottom: 8px;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .title-box h1 {
+      font-family: 'Jua', sans-serif;
+      font-size: clamp(15px, 4vw, 22px);
+      color: var(--primary-dark);
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    .hud-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .hud-badge {
+      background: #fff;
+      padding: 3px 8px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: clamp(10px, 2.8vw, 13px);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      border: 1.5px solid #ffe0b2;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .hud-badge span.val {
+      font-family: 'Jua', sans-serif;
+      font-size: clamp(12px, 3.2vw, 16px);
+      color: var(--primary-dark);
+    }
+
+    .btn-top-action {
+      background: #fff;
+      border: 2px solid var(--primary);
+      color: var(--primary-dark);
+      font-family: 'Jua', sans-serif;
+      font-size: clamp(11px, 3vw, 14px);
+      padding: 4px 8px;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 2px 0 var(--primary-dark);
+      transition: transform 0.1s;
+      white-space: nowrap;
+      touch-action: manipulation;
+    }
+
+    .btn-top-action:active {
+      transform: translateY(2px);
+      box-shadow: 0 0 0 var(--primary-dark);
+    }
+
+    .btn-top-action.mart {
+      border-color: #2e7d32;
+      color: #2e7d32;
+      box-shadow: 0 2px 0 #2e7d32;
+    }
+
+    .time-bar-container {
+      width: 100%;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .time-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #ff9800, #ff3d00);
+      width: 100%;
+      transition: width 0.1s linear;
+    }
+
+    /* 배달 주문 요청 패널 */
+    .delivery-order-panel {
+      background: #fff8e1;
+      border: 2px solid #ffe0b2;
+      border-radius: 14px;
+      padding: 6px 10px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .delivery-order-info {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .delivery-order-badge {
+      background: #ff6f00;
+      color: #fff;
+      font-family: 'Jua', sans-serif;
+      font-size: clamp(10px, 2.8vw, 13px);
+      padding: 3px 6px;
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+
+    .delivery-target {
+      font-weight: 700;
+      font-size: clamp(11px, 3.2vw, 14px);
+      color: #3e2723;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .order-timer-wrap {
+      flex: 1;
+      max-width: 120px;
+      height: 7px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .order-timer-fill {
+      height: 100%;
+      background: #4caf50;
+      width: 100%;
+      transition: width 0.1s linear;
+    }
+
+    /* 메인 게임 레이아웃 (반응형: PC 2열, 모바일 1열) */
+    .game-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    @media (max-width: 768px) {
+      .game-body {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+    }
+
+    .player-zone {
+      border: 2px solid #f0f0f0;
+      border-radius: 14px;
+      padding: 8px;
+      background: #fafafa;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      position: relative;
+    }
+
+    .player-zone.p1 {
+      border-color: #ffcdd2;
+      background: #fffbfb;
+    }
+
+    .player-zone.p2 {
+      border-color: #bbdefb;
+      background: #fbfdff;
+    }
+
+    .player-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: 'Jua', sans-serif;
+      font-size: clamp(13px, 3.5vw, 16px);
+      padding-bottom: 4px;
+      border-bottom: 2px dashed #e0e0e0;
+    }
+
+    .player-header.p1 { color: var(--p1-color); }
+    .player-header.p2 { color: var(--p2-color); }
+
+    .p-score {
+      font-size: clamp(13px, 3.8vw, 17px);
+      background: #fff;
+      padding: 2px 6px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+
+    /* 재료 영역 - 스마트폰 터치 및 정렬 최적화 */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+    }
+
+    @media (max-width: 400px) {
+      .cards-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 3px;
+      }
+    }
+
+    .card {
+      background: #fff;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 4px 2px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      transition: transform 0.1s, border-color 0.1s, background-color 0.1s, opacity 0.2s;
+      box-shadow: 0 2px 0 #e0e0e0;
+      touch-action: manipulation;
+      position: relative;
+    }
+
+    .card:active, .card.selected {
+      transform: scale(0.93);
+      border-color: #ff9800;
+      background: #fff8e1;
+    }
+
+    .card.disabled {
+      opacity: 0.35;
+      filter: grayscale(0.8);
+      cursor: not-allowed;
+      pointer-events: none;
+      background: #f0f0f0;
+      border-color: #ddd;
+      box-shadow: none;
+    }
+
+    .card .emoji {
+      font-size: clamp(18px, 5.5vw, 26px);
+      line-height: 1.1;
+      margin-bottom: 1px;
+    }
+
+    .card .name {
+      font-size: clamp(9px, 2.4vw, 11px);
+      font-weight: 700;
+      color: #5d4037;
+      text-align: center;
+      word-break: keep-all;
+    }
+
+    .card .stock {
+      font-size: clamp(8px, 2vw, 10px);
+      font-weight: 700;
+      color: var(--primary-dark);
+      margin-top: 2px;
+      background: #fff3e0;
+      padding: 1px 4px;
+      border-radius: 6px;
+      border: 1px solid #ffe0b2;
+      line-height: 1;
+    }
+
+    .card.disabled .stock {
+      background: #ffebee;
+      color: #c62828;
+      border-color: #ffcdd2;
+    }
+
+    /* 주방 조리대 */
+    .pot-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      background: #fff8f0;
+      border: 1.5px solid #ffe0b2;
+      border-radius: 12px;
+      padding: 6px;
+      min-height: 190px;
+      position: relative;
+    }
+
+    .kitchen-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      width: 100%;
+      flex-grow: 1;
+    }
+
+    .chef-station {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s;
+    }
+
+    .chef-avatar {
+      font-size: clamp(40px, 11vw, 54px);
+      line-height: 1;
+      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+      transition: transform 0.2s, filter 0.2s;
+      z-index: 2;
+    }
+
+    .cooking-tool {
+      font-size: clamp(36px, 9vw, 46px);
+      line-height: 1;
+      margin-top: -10px;
+      filter: drop-shadow(0 6px 8px rgba(0,0,0,0.15));
+      z-index: 1;
+    }
+
+    .chef-station.cooking .chef-avatar {
+      animation: chefCook 0.3s infinite alternate ease-in-out;
+    }
+
+    .chef-station.cooking .cooking-tool {
+      animation: potBoil 0.3s infinite alternate ease-in-out;
+    }
+
+    .chef-station.shake {
+      animation: stoveShake 0.4s ease-in-out;
+    }
+
+    .slots-container {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .slot {
+      width: clamp(38px, 9vw, 46px);
+      height: clamp(38px, 9vw, 46px);
+      border: 2px dashed #ffb74d;
+      background: rgba(255,255,255,0.95);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(16px, 4.5vw, 22px);
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+      transition: all 0.2s;
+    }
+
+    .slot.filled {
+      border-style: solid;
+      border-color: var(--accent);
+      background: #fff;
+      animation: pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .cooked-result {
+      font-size: clamp(11px, 2.8vw, 13px);
+      font-weight: 700;
+      color: #2e7d32;
+      background: #e8f5e9;
+      padding: 2px 6px;
+      border-radius: 8px;
+      margin-top: 3px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .hint-box {
+      font-size: clamp(10px, 2.5vw, 12px);
+      font-weight: 700;
+      color: #8d6e63;
+      background: #fff;
+      padding: 3px 6px;
+      border-radius: 10px;
+      border: 1px solid #ffe0b2;
+      margin-top: 4px;
+      text-align: center;
+      min-height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 95%;
+    }
+
+    .pot-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+      width: 100%;
+    }
+
+    .btn {
+      background: #ffffff;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 6px 8px;
+      font-family: 'Jua', sans-serif;
+      font-size: clamp(12px, 3vw, 14px);
+      color: #5d4037;
+      cursor: pointer;
+      box-shadow: 0 3px 0 #e0e0e0;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      touch-action: manipulation;
+    }
+
+    .btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #e0e0e0;
+    }
+
+    .btn.primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary-dark);
+      box-shadow: 0 3px 0 var(--primary-dark);
+    }
+
+    .btn.delivery {
+      background: #00897b;
+      color: #fff;
+      border-color: #004d40;
+      box-shadow: 0 3px 0 #004d40;
+    }
+
+    .btn.big {
+      font-size: clamp(15px, 3.8vw, 19px);
+      padding: 10px 20px;
+      border-radius: 14px;
+      width: 100%;
+    }
+
+    /* 모드 및 난이도 선택 버튼 */
+    .mode-select-box, .ai-diff-box {
+      display: flex;
+      gap: 6px;
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    .btn-mode, .btn-diff {
+      flex: 1;
+      background: #fff;
+      border: 2px solid #ffe0b2;
+      border-radius: 10px;
+      padding: 8px 2px;
+      font-family: 'Jua', sans-serif;
+      font-size: clamp(11px, 3vw, 13px);
+      color: #5d4037;
+      cursor: pointer;
+      box-shadow: 0 3px 0 #ffe0b2;
+      transition: all 0.2s;
+      touch-action: manipulation;
+    }
+
+    .btn-mode.active, .btn-diff.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary-dark);
+      box-shadow: 0 3px 0 var(--primary-dark);
+    }
+
+    .ai-diff-container {
+      width: 100%;
+      margin-top: 6px;
+      padding: 6px;
+      background: #fff8f0;
+      border-radius: 12px;
+      border: 1.5px solid #ffe0b2;
+    }
+
+    .ai-diff-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #795548;
+      margin-bottom: 2px;
+    }
+
+    /* 방해꾼 */
+    .disrupter {
+      position: absolute;
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      touch-action: manipulation;
+      transition: transform .1s;
+      animation: disrupterPop .3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      padding: 6px;
+    }
+    .disrupter.hidden { display: none; }
+    .disrupter:active { transform: scale(0.9); }
+    .disrupter .d-badge {
+      background: #ff3b30;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 900;
+      padding: 2px 5px;
+      border-radius: 6px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      white-space: nowrap;
+      animation: warningPulse .6s infinite alternate;
+    }
+    .disrupter .d-emoji {
+      font-size: clamp(32px, 8vw, 42px);
+      line-height: 1;
+      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+      animation: disrupterShake .4s infinite alternate ease-in-out;
+    }
+    .disrupter .d-timer {
+      width: 32px;
+      height: 4px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 2px;
+    }
+    .disrupter .d-timer-fill {
+      height: 100%;
+      background: #ff2d55;
+      width: 100%;
+      transition: width 0.1s linear;
+    }
+
+    /* 왼쪽 레시피북 사이드 바 */
+    .recipe-drawer-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 150;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .recipe-drawer-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .recipe-drawer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 85%;
+      max-width: 320px;
+      background: #fff;
+      z-index: 160;
+      box-shadow: 4px 0 16px rgba(0, 0, 0, 0.15);
+      border-top-right-radius: 18px;
+      border-bottom-right-radius: 18px;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(-100%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      padding: 12px;
+    }
+
+    .recipe-drawer.active {
+      transform: translateX(0);
+    }
+
+    .drawer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid #ffe0b2;
+      padding-bottom: 8px;
+      margin-bottom: 8px;
+    }
+
+    .drawer-header h2 {
+      font-family: 'Jua', sans-serif;
+      font-size: clamp(15px, 4vw, 18px);
+      color: var(--primary-dark);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .drawer-close-btn {
+      background: none;
+      border: none;
+      font-size: 20px;
+      color: #8d6e63;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 8px;
+      touch-action: manipulation;
+    }
+
+    .drawer-close-btn:active {
+      background: #f0f0f0;
+    }
+
+    .drawer-filter {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+
+    .filter-btn {
+      flex: 1;
+      font-size: clamp(10px, 2.8vw, 12px);
+      padding: 5px 0;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      background: #f5f5f5;
+      color: #5d4037;
+      cursor: pointer;
+      font-weight: 700;
+      touch-action: manipulation;
+    }
+
+    .filter-btn.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary-dark);
+    }
+
+    .drawer-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding-right: 2px;
+    }
+
+    .drawer-item {
+      background: #fafafa;
+      border: 1.5px solid #eee;
+      border-radius: 10px;
+      padding: 6px 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .drawer-item.discovered {
+      background: #fff;
+      border-color: #a5d6a7;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    }
+
+    .drawer-item.secret.discovered {
+      border-color: #ce93d8;
+      background: #fef5ff;
+    }
+
+    .item-icon {
+      font-size: 24px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f0f0f0;
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+
+    .drawer-item.discovered .item-icon {
+      background: #e8f5e9;
+    }
+
+    .drawer-item.secret.discovered .item-icon {
+      background: #f3e5f5;
+    }
+
+    .item-info {
+      flex: 1;
+    }
+
+    .item-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #3e2723;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .item-combo {
+      font-size: 10px;
+      color: #795548;
+      margin-top: 1px;
+    }
+
+    .item-badge {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 5px;
+      border-radius: 6px;
+      background: #eee;
+      color: #666;
+      white-space: nowrap;
+    }
+
+    .drawer-item.discovered .item-badge {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .drawer-item.secret.discovered .item-badge {
+      background: #f3e5f5;
+      color: #7b1fa2;
+    }
+
+    /* 마트 모달 */
+    .mart-modal-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      max-height: 250px;
+      overflow-y: auto;
+      margin: 8px 0;
+      padding-right: 2px;
+      width: 100%;
+    }
+
+    .mart-item {
+      background: #fff;
+      border: 1.5px solid #c8e6c9;
+      border-radius: 10px;
+      padding: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    }
+
+    .mart-item-left {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .mart-item .emoji { font-size: 20px; }
+    .mart-item .info { text-align: left; }
+    .mart-item .name { font-size: 11px; font-weight: 700; color: #2e7d32; }
+    .mart-item .stock { font-size: 9px; color: #666; }
+
+    .btn-buy {
+      background: #4caf50;
+      border: 1px solid #2e7d32;
+      color: #fff;
+      font-size: 10px;
+      font-family: 'Jua', sans-serif;
+      padding: 3px 6px;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: 0 2px 0 #2e7d32;
+      touch-action: manipulation;
+    }
+
+    .btn-buy:active { transform: translateY(1px); box-shadow: none; }
+    .btn-buy:disabled {
+      background: #e0e0e0;
+      border-color: #ccc;
+      color: #888;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+
+    @keyframes disrupterPop {
+      0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+    @keyframes disrupterShake {
+      0% { transform: translateY(0) rotate(-5deg); }
+      100% { transform: translateY(-5px) rotate(5deg); }
+    }
+    @keyframes warningPulse {
+      0% { background: #ff3b30; transform: scale(0.95); }
+      100% { background: #ff9500; transform: scale(1.05); }
+    }
+    @keyframes chefCook {
+      0% { transform: translateY(0) rotate(-3deg); }
+      100% { transform: translateY(-6px) rotate(3deg); }
+    }
+    @keyframes potBoil {
+      0% { transform: translateY(0) scale(1); }
+      100% { transform: translateY(-4px) scale(1.04); }
+    }
+    @keyframes stoveShake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-6px); }
+      40%, 80% { transform: translateX(6px); }
+    }
+    @keyframes pop {
+      0% { transform: scale(0.7); }
+      70% { transform: scale(1.15); }
+      100% { transform: scale(1); }
+    }
+
+    .ghost {
+      position: fixed;
+      pointer-events: none;
+      z-index: 999;
+      font-size: 32px;
+      transform: translate(-50%, -50%);
+      opacity: 0.85;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+    }
+
+    .toast {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: rgba(62, 39, 35, 0.95);
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: 700;
+      font-size: clamp(11px, 3vw, 13px);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s ease;
+      z-index: 100;
+      white-space: nowrap;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* 하단 요리 그리드 도감 */
+    .recipe-book-panel {
+      margin-top: 8px;
+      background: #fdfbf7;
+    }
+
+    .book-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+      gap: 5px;
+      max-height: 100px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .bk {
+      background: #f5f5f5;
+      border: 1.5px dashed #cccccc;
+      border-radius: 8px;
+      padding: 4px 2px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .bk .e { font-size: clamp(15px, 4vw, 18px); filter: grayscale(1); opacity: 0.4; }
+    .bk .n { font-size: clamp(8px, 2vw, 10px); font-weight: 700; color: #888; margin-top: 1px; }
+    
+    .bk.on { background: #fff; border-color: #6cc24a; box-shadow: 0 2px 0 rgba(108,194,74,.3); border-style: solid; }
+    .bk.on .e { filter: none; opacity: 1; }
+    .bk.on .n { color: #4c7a34; }
+    .bk.on.secret { border-color: var(--secret); box-shadow: 0 2px 0 rgba(156,39,176,.3); }
+    .bk.on.secret .n { color: var(--secret); }
+    .bk.justfound { animation: pop .45s; }
+
+    /* 오버레이 */
+    .overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255, 253, 245, 0.97);
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+      text-align: center;
+      transition: opacity 0.25s ease;
+    }
+
+    .overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .overlay h2 {
+      font-family: 'Jua', sans-serif;
+      font-size: clamp(20px, 5.5vw, 26px);
+      color: var(--primary-dark);
+      margin-bottom: 6px;
+    }
+
+    .rules {
+      background: #fff;
+      border: 2px solid #ffe0b2;
+      border-radius: 12px;
+      padding: 8px 12px;
+      margin-bottom: 6px;
+      text-align: left;
+      font-size: clamp(10px, 2.8vw, 12px);
+      line-height: 1.5;
+      max-width: 420px;
+      width: 100%;
+    }
+
+    .rules b { color: var(--primary-dark); }
+
+    .score-summary {
+      font-size: clamp(15px, 4vw, 18px);
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: #5d4037;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="gameContainer">
+    <!-- 왼쪽 레시피북 (Drawer) -->
+    <div id="recipeDrawerOverlay" class="recipe-drawer-overlay"></div>
+    <div id="recipeDrawer" class="recipe-drawer">
+      <div class="drawer-header">
+        <h2>📖 레시피북 (<span id="drawerCount">0/17</span>)</h2>
+        <button class="drawer-close-btn" id="closeDrawerBtn">✖</button>
+      </div>
+
+      <div class="drawer-filter">
+        <button class="filter-btn active" data-filter="all">전체</button>
+        <button class="filter-btn" data-filter="normal">일반</button>
+        <button class="filter-btn" data-filter="secret">시크릿✨</button>
+      </div>
+
+      <div class="drawer-list" id="drawerList">
+        <!-- 레시피 목록 -->
+      </div>
+    </div>
+
+    <!-- 싱싱 마트 모달 (1인용) -->
+    <div id="martModal" class="overlay hidden">
+      <h2>🛒 싱싱 마트</h2>
+      <div style="font-size: 12px; font-weight:700; color:#5d4037; margin-bottom: 2px;">
+        보유 점수: <span id="martScore" style="color:var(--primary-dark); font-size:15px;">0</span>점
+      </div>
+      <div style="font-size: 10px; color:#8d6e63;">(20점당 재료 10개를 재충전할 수 있습니다!)</div>
+
+      <div class="mart-modal-grid" id="martGrid">
+        <!-- 마트 상품 -->
+      </div>
+
+      <button class="btn primary" id="closeMartBtn" type="button" style="margin-top: 6px;">주방으로 돌아가기 🍳</button>
+    </div>
+
+    <!-- 알림 토스트 -->
+    <div id="toast" class="toast">
+      <span id="toastEm">🍲</span>
+      <span id="toastTxt">요리 완성!</span>
+    </div>
+
+    <!-- 시작 화면 모달 -->
+    <div id="startScreen" class="overlay">
+      <h2>🍳 급식 요리왕 대작전!</h2>
+      <div class="rules">
+        <div>👩‍🍳 급식실 주방에서 제한시간 동안 최다 요리를 만들어보세요!</div>
+        <div>🚚 <b>실시간 배달 시스템</b>: 학생들이 요청한 요리를 맞춰 배달하면 보너스 점수!</div>
+        <div>⚔️ <b>게임 모드 선택</b>: 싱글 요리, 스마트 AI 대결, 2인 라이벌 대결!</div>
+        <div style="margin-top: 4px; font-size: 10px; color: #795548;">
+          • <b>Player 1 조작</b>: A / D (선택), W (넣기), S (비우기)<br>
+          • <b>Player 2 조작</b>: ← / → (선택), ↑ (넣기), ↓ (비우기)
+        </div>
+      </div>
+
+      <div class="mode-select-box">
+        <button class="btn-mode active" id="btnSingleMode" type="button">👤 1인 싱글</button>
+        <button class="btn-mode" id="btnAiMode" type="button">🤖 AI 대결</button>
+        <button class="btn-mode" id="btnVersusMode" type="button">⚔️ 2인 대결</button>
+      </div>
+
+      <!-- AI 난이도 설정 패널 -->
+      <div class="ai-diff-container" id="aiDiffPanel" style="display:none;">
+        <div class="ai-diff-title">🤖 AI 상대 난이도 선택</div>
+        <div class="ai-diff-box">
+          <button class="btn-diff active" id="btnDiffEasy" type="button">😊 쉬움</button>
+          <button class="btn-diff" id="btnDiffNormal" type="button">🙂 보통</button>
+          <button class="btn-diff" id="btnDiffHard" type="button">🔥 어려움</button>
+        </div>
+      </div>
+
+      <button class="btn primary big" id="startBtn" type="button" style="margin-top: 8px;">요리 대결 시작! 🔥</button>
+    </div>
+
+    <!-- 종료 화면 모달 -->
+    <div id="endScreen" class="overlay hidden">
+      <h2 id="endTitle">🎉 요리 대결 종료!</h2>
+      <div class="score-summary" id="endScore">최종 결과</div>
+      <div id="endSub" style="margin-bottom: 14px; font-weight:700; color:#795548; font-size: 12px;"></div>
+      <button class="btn primary big" id="againBtn" type="button">다시 도전하기! 🔄</button>
+    </div>
+
+    <!-- HUD 헤더 -->
+    <header>
+      <div class="header-left">
+        <button class="btn-top-action" id="openDrawerBtn">📖 레시피북</button>
+        <button class="btn-top-action mart" id="openMartBtn">🛒 마트 가기</button>
+        <div class="title-box">
+          <h1 id="gameTitle">🍳 급식 요리왕</h1>
+        </div>
+      </div>
+      <div class="hud-group">
+        <div class="hud-badge">⏰ 남은시간 <span class="val" id="hudTime">120</span>s</div>
+        <div class="hud-badge">📖 레시피 <span class="val" id="hudBook">0/17</span></div>
+      </div>
+    </header>
+
+    <div class="time-bar-container">
+      <div id="timeFill" class="time-fill"></div>
+    </div>
+
+    <!-- 실시간 배달 주문 카드 -->
+    <div class="delivery-order-panel" id="deliveryPanel">
+      <div class="delivery-order-info">
+        <div class="delivery-order-badge">🛵 실시간 배달 요청</div>
+        <div class="delivery-target" id="deliveryTarget">
+          <span>대기 중...</span>
+        </div>
+      </div>
+      <div class="order-timer-wrap">
+        <div class="order-timer-fill" id="orderTimerFill"></div>
+      </div>
+    </div>
+
+    <!-- 메인 게임 레이아웃 -->
+    <div class="game-body" id="gameBody">
+      <!-- Player 1 스테이지 -->
+      <div class="player-zone p1" id="p1Zone">
+        <div class="player-header p1">
+          <span id="p1NameLabel">🔴 Player 1</span>
+          <span class="p-score">🏆 <span id="p1Score">0</span>점</span>
+        </div>
+
+        <div class="cards-grid" id="p1Cards"></div>
+
+        <div class="pot-panel">
+          <!-- 급식 도둑 사람 캐릭터 (P1) -->
+          <div id="p1Disrupter" class="disrupter hidden" style="top: 15px; right: 10px;">
+            <div class="d-badge">⚡ 터치해서 잡기!</div>
+            <div class="d-emoji">🏃‍♂️</div>
+            <div class="d-timer"><div id="p1DisrupterTimerFill" class="d-timer-fill"></div></div>
+          </div>
+
+          <div class="kitchen-stage">
+            <div class="chef-station" id="p1ChefStation">
+              <div class="chef-avatar" id="p1ChefAvatar">👨‍🍳</div>
+              <div class="cooking-tool">🍳</div>
+            </div>
+            <div class="slots-container">
+              <div class="slot" id="p1Slot0"></div>
+              <div class="slot" id="p1Slot1"></div>
+            </div>
+
+            <!-- 요리 완성 결과 표시 -->
+            <div id="p1ResultBox" class="cooked-result" style="display:none;">
+              <span>완성:</span> <span id="p1CookedName">-</span>
+            </div>
+
+            <div class="hint-box" id="p1Hint">재료 2개를 조리대에 넣으세요!</div>
+          </div>
+
+          <div class="pot-actions">
+            <button class="btn delivery" id="p1DeliverBtn" type="button" style="width:50%;">🚚 배달하기</button>
+            <button class="btn" id="p1ClearBtn" type="button" style="width:50%;">🧹 비우기 (S)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Player 2 / AI 스테이지 -->
+      <div class="player-zone p2" id="p2Zone">
+        <div class="player-header p2">
+          <span id="p2NameLabel">🔵 Player 2</span>
+          <span class="p-score">🏆 <span id="p2Score">0</span>점</span>
+        </div>
+
+        <div class="cards-grid" id="p2Cards"></div>
+
+        <div class="pot-panel">
+          <!-- 급식 도둑 사람 캐릭터 (P2) -->
+          <div id="p2Disrupter" class="disrupter hidden" style="top: 15px; right: 10px;">
+            <div class="d-badge">⚡ 터치해서 잡기!</div>
+            <div class="d-emoji">🏃‍♂️</div>
+            <div class="d-timer"><div id="p2DisrupterTimerFill" class="d-timer-fill"></div></div>
+          </div>
+
+          <div class="kitchen-stage">
+            <div class="chef-station" id="p2ChefStation">
+              <div class="chef-avatar" id="p2ChefAvatar">🤖</div>
+              <div class="cooking-tool">🍳</div>
+            </div>
+            <div class="slots-container">
+              <div class="slot" id="p2Slot0"></div>
+              <div class="slot" id="p2Slot1"></div>
+            </div>
+
+            <!-- 요리 완성 결과 표시 -->
+            <div id="p2ResultBox" class="cooked-result" style="display:none;">
+              <span>완성:</span> <span id="p2CookedName">-</span>
+            </div>
+
+            <div class="hint-box" id="p2Hint">재료 2개를 조리대에 넣으세요!</div>
+          </div>
+
+          <div class="pot-actions">
+            <button class="btn delivery" id="p2DeliverBtn" type="button" style="width:50%;">🚚 배달하기</button>
+            <button class="btn" id="p2ClearBtn" type="button" style="width:50%;">🧹 비우기 (↓)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 하단 요리 모음 도감 -->
+    <div class="panel recipe-book-panel">
+      <h2>
+        <span>📖 요리 도감 모음 (<span id="bookCount">0/17</span>)</span>
+      </h2>
+      <div class="book-grid" id="bookGrid">
+        <!-- 스크립트로 생성 -->
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    /* ================= 설정 & 데이터 ================= */
+    var ROUND_TIME = 120;
+    var INITIAL_STOCK = 10;
+    var ITEM_PRICE = 20;
+    var ORDER_TIME = 20;
+
+    var INGREDIENTS = [
+      { id: "rice", name: "밥", emoji: "🍚" },
+      { id: "water", name: "물", emoji: "💧" },
+      { id: "kimchi", name: "김치", emoji: "🥬" },
+      { id: "egg", name: "계란", emoji: "🥚" },
+      { id: "meat", name: "고기", emoji: "🥩" },
+      { id: "noodle", name: "면", emoji: "🍜" },
+      { id: "choco", name: "초코", emoji: "🍫" },
+      { id: "milk", name: "우유", emoji: "🥛" },
+      { id: "bread", name: "빵", emoji: "🍞" },
+      { id: "cheese", name: "치즈", emoji: "🧀" },
+      { id: "sugar", name: "설탕", emoji: "🍬" },
+      { id: "ice", name: "얼음", emoji: "🧊" }
+    ];
+
+    var RECIPES = [
+      { id: "r1", name: "라면", emoji: "🍜", pair: ["water", "noodle"], secret: false, score: 20 },
+      { id: "r2", name: "김치볶음밥", emoji: "🍳", pair: ["rice", "kimchi"], secret: false, score: 20 },
+      { id: "r3", name: "고기전", emoji: "🥩", pair: ["egg", "meat"], secret: false, score: 20 },
+      { id: "r4", name: "치즈 토스트", emoji: "🥪", pair: ["bread", "cheese"], secret: false, score: 20 },
+      { id: "r5", name: "초코 우유", emoji: "🍫", pair: ["milk", "choco"], secret: false, score: 20 },
+      { id: "r6", name: "얼음물", emoji: "🧊", pair: ["water", "ice"], secret: false, score: 15 },
+      { id: "r7", name: "고기 국수", emoji: "🍝", pair: ["meat", "noodle"], secret: false, score: 25 },
+      { id: "r8", name: "계란 덮밥", emoji: "🍚", pair: ["rice", "egg"], secret: false, score: 20 },
+      { id: "r9", name: "제육볶음", emoji: "🥘", pair: ["kimchi", "meat"], secret: false, score: 25 },
+      { id: "r10", name: "수제 버거", emoji: "🍔", pair: ["bread", "meat"], secret: false, score: 25 },
+      { id: "r11", name: "아이스크림", emoji: "🍦", pair: ["milk", "ice"], secret: false, score: 20 },
+      { id: "r12", name: "밀크티", emoji: "🧋", pair: ["milk", "sugar"], secret: false, score: 20 },
+      { id: "s1", name: "괴식 초코고기", emoji: "💩", pair: ["choco", "meat"], secret: true, score: 50 },
+      { id: "s2", name: "탕후루 빙수", emoji: "🍧", pair: ["sugar", "ice"], secret: true, score: 50 },
+      { id: "s3", name: "초코 김치", emoji: "🥗", pair: ["kimchi", "choco"], secret: true, score: 50 },
+      { id: "s4", name: "얼음 빵", emoji: "🧊", pair: ["bread", "ice"], secret: true, score: 50 },
+      { id: "s5", name: "초코 라면", emoji: "🍝", pair: ["choco", "noodle"], secret: true, score: 50 }
+    ];
+
+    /* ================= 사운드 이펙트 ================= */
+    var actx = null;
+    function beep(freq, dur, type, vol) {
+      try {
+        if (!actx) {
+          var AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          actx = new AC();
+        }
+        if (actx.state === "suspended" && actx.resume) { actx.resume(); }
+        var o = actx.createOscillator(), g = actx.createGain();
+        o.type = type || "sine";
+        o.frequency.value = freq;
+        g.gain.setValueAtTime(vol || 0.06, actx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+        o.connect(g); g.connect(actx.destination);
+        o.start(); o.stop(actx.currentTime + dur);
+      } catch (e) {}
+    }
+    function sndDrop() { beep(520, 0.09, "triangle", 0.05); }
+    function sndGood() { beep(660, 0.1, "square", 0.05); setTimeout(function () { beep(880, 0.16, "square", 0.05); }, 90); }
+    function sndDelivery() { beep(523, 0.08, "square", 0.06); setTimeout(function () { beep(659, 0.08, "square", 0.06); }, 80); setTimeout(function () { beep(783, 0.15, "square", 0.06); }, 160); }
+    function sndNew()  { beep(660, 0.1, "square", 0.05); setTimeout(function () { beep(990, 0.1, "square", 0.05); }, 90); setTimeout(function () { beep(1320, 0.2, "square", 0.05); }, 180); }
+    function sndBad()  { beep(200, 0.22, "sawtooth", 0.04); }
+    function sndEnd()  { beep(523, 0.14, "sine", 0.06); setTimeout(function(){ beep(392,0.22,"sine",0.06); }, 150); }
+    function sndWarn() { beep(800, 0.08, "sawtooth", 0.06); setTimeout(function(){ beep(600, 0.1, "sawtooth", 0.06); }, 70); }
+
+    /* ================= DOM 요소 ================= */
+    var $ = function (id) { return document.getElementById(id); };
+    var elTime = $("hudTime"), elBook = $("hudBook"), elFill = $("timeFill");
+    var elToast = $("toast"), elToastEm = $("toastEm"), elToastTxt = $("toastTxt");
+    var startScreen = $("startScreen"), endScreen = $("endScreen"), martModal = $("martModal"), martGrid = $("martGrid"), martScore = $("martScore");
+    var recipeDrawer = $("recipeDrawer"), recipeDrawerOverlay = $("recipeDrawerOverlay"), drawerList = $("drawerList"), drawerCount = $("drawerCount");
+    var elBookGrid = $("bookGrid"), elBookCount = $("bookCount");
+    var p2Zone = $("p2Zone"), gameBody = $("gameBody"), aiDiffPanel = $("aiDiffPanel");
+
+    var elDeliveryTarget = $("deliveryTarget"), elOrderTimerFill = $("orderTimerFill");
+
+    var currentRecipeFilter = "all";
+    var gameMode = "single"; // "single", "ai", "versus"
+    var aiDifficulty = "easy"; // "easy", "normal", "hard"
+
+    // 배달 주문 상태
+    var currentOrder = null;
+
+    // AI 조작 타이머
+    var aiActionTimer = 0;
+
+    // 플레이어별 상태
+    function createPlayerState() {
+      return {
+        score: 0,
+        pot: [],
+        lastCookedRecipe: null,
+        found: {},
+        madeCount: 0,
+        cookTimer: 0,
+        cooling: 0,
+        sel: 0,
+        disrupterActive: false,
+        disrupterTimer: 5 + Math.random() * 3,
+        disrupterTimeLeft: 2.5,
+        stock: {}
+      };
+    }
+
+    var players = {
+      p1: createPlayerState(),
+      p2: createPlayerState()
+    };
+
+    var state = {
+      playing: false,
+      martOpen: false,
+      timeLeft: ROUND_TIME
+    };
+
+    var rafId = null, lastTs = 0, toastTimer = null;
+
+    /* ================= 배달 주문 시스템 ================= */
+    function generateNewOrder() {
+      var normalRecipes = RECIPES.filter(function (r) { return !r.secret; });
+      var randomRecipe = normalRecipes[Math.floor(Math.random() * normalRecipes.length)];
+      currentOrder = {
+        recipe: randomRecipe,
+        timeLeft: ORDER_TIME
+      };
+      updateOrderUI();
+      sndWarn();
+      showToast("🛵", "신규 배달 요청! [" + randomRecipe.name + "]");
+    }
+
+    function updateOrderUI() {
+      if (!currentOrder) {
+        elDeliveryTarget.innerHTML = "<span>주문 대기 중...</span>";
+        elOrderTimerFill.style.width = "0%";
+        return;
+      }
+      elDeliveryTarget.innerHTML = "<span>" + currentOrder.recipe.emoji + " <b>" + currentOrder.recipe.name + "</b></span>";
+      var pct = Math.max(0, (currentOrder.timeLeft / ORDER_TIME) * 100);
+      elOrderTimerFill.style.width = pct + "%";
+    }
+
+    function deliverOrder(pKey) {
+      var pState = players[pKey];
+      if (!state.playing || !currentOrder || !pState.lastCookedRecipe) {
+        if (pKey === "p1") showToast("❓", "배달할 완제품 요리가 없습니다!");
+        return;
+      }
+
+      if (pState.lastCookedRecipe.id === currentOrder.recipe.id) {
+        var bonus = currentOrder.recipe.score + 15;
+        pState.score += bonus;
+        sndDelivery();
+        var pName = (gameMode !== "single") ? (pKey === "p1" ? "P1" : (gameMode === "ai" ? "AI" : "P2")) : "조리사님";
+        showToast("🚀", pName + " 배달 성공! +" + bonus + "점");
+        setHint(pKey, "🎉 배달 성공! 보너스 점수 획득!");
+
+        pState.lastCookedRecipe = null;
+        renderResultBox(pKey);
+        renderPlayerCards(pKey);
+
+        generateNewOrder();
+      } else {
+        sndBad();
+        if (pKey === "p1") showToast("❌", "주문한 요리가 아닙니다!", true);
+        setHint(pKey, "❌ 주문 요리 [" + currentOrder.recipe.name + "]와 다릅니다!");
+      }
+    }
+
+    function renderResultBox(pKey) {
+      var pState = players[pKey];
+      var resultBox = $(pKey + "ResultBox");
+      var cookedName = $(pKey + "CookedName");
+
+      if (pState.lastCookedRecipe) {
+        cookedName.textContent = pState.lastCookedRecipe.emoji + " " + pState.lastCookedRecipe.name;
+        resultBox.style.display = "inline-flex";
+      } else {
+        resultBox.style.display = "none";
+      }
+    }
+
+    /* ================= AI 로직 ================= */
+    function updateAiLogic(dt) {
+      if (gameMode !== "ai" || !state.playing || state.martOpen) return;
+      var pState = players.p2;
+
+      var decisionInterval = 1.8;
+      var disrupterReactionTime = 1.5;
+
+      if (aiDifficulty === "normal") {
+        decisionInterval = 1.0;
+        disrupterReactionTime = 0.8;
+      } else if (aiDifficulty === "hard") {
+        decisionInterval = 0.5;
+        disrupterReactionTime = 0.4;
+      }
+
+      // 1. 도둑 퇴치
+      if (pState.disrupterActive) {
+        aiActionTimer += dt;
+        if (aiActionTimer > disrupterReactionTime) {
+          hitDisrupter("p2");
+          aiActionTimer = 0;
+        }
+        return;
+      }
+
+      // 2. 완성 요리 배달
+      if (pState.lastCookedRecipe) {
+        aiActionTimer += dt;
+        if (aiActionTimer > (decisionInterval * 0.8)) {
+          if (currentOrder && pState.lastCookedRecipe.id === currentOrder.recipe.id) {
+            deliverOrder("p2");
+          } else {
+            clearPot("p2");
+          }
+          aiActionTimer = 0;
+        }
+        return;
+      }
+
+      // 3. 요리 조리 과정
+      if (pState.cookTimer > 0 || pState.cooling > 0) return;
+
+      aiActionTimer += dt;
+      if (aiActionTimer > decisionInterval) {
+        aiActionTimer = 0;
+
+        var targetRecipe = currentOrder ? currentOrder.recipe : RECIPES[0];
+        var reqPair = targetRecipe.pair;
+
+        if (pState.pot.length < 2) {
+          var neededIng = reqPair[pState.pot.length];
+          if (pState.stock[neededIng] > 0) {
+            addIngredientToPot("p2", neededIng);
+          } else {
+            var availableIngs = INGREDIENTS.filter(function(i){ return pState.stock[i.id] > 0; });
+            if (availableIngs.length > 0) {
+              var randIng = availableIngs[Math.floor(Math.random() * availableIngs.length)];
+              addIngredientToPot("p2", randIng.id);
+            }
+          }
+        }
+      }
+    }
+
+    /* ================= 렌더링 함수들 ================= */
+    function renderPlayerCards(pKey) {
+      var elCards = $(pKey + "Cards");
+      var pState = players[pKey];
+      elCards.innerHTML = "";
+
+      INGREDIENTS.forEach(function (ing, idx) {
+        var count = pState.stock[ing.id] !== undefined ? pState.stock[ing.id] : INITIAL_STOCK;
+        var isDisabled = count <= 0;
+
+        var card = document.createElement("div");
+        card.className = "card" + (pState.sel === idx ? " selected" : "") + (isDisabled ? " disabled" : "");
+        card.innerHTML = 
+          '<div class="emoji">' + ing.emoji + '</div>' +
+          '<div class="name">' + ing.name + '</div>' +
+          '<div class="stock">' + (isDisabled ? "품절" : count + "개") + '</div>';
+        
+        card.addEventListener("click", function () {
+          if (isDisabled || (pKey === "p2" && gameMode === "ai")) return;
+          pState.sel = idx;
+          renderPlayerCards(pKey);
+          addIngredientToPot(pKey, ing.id);
+        });
+
+        card.addEventListener("pointerdown", function (e) {
+          if (isDisabled || (pKey === "p2" && gameMode === "ai")) return;
+          startDrag(e, pKey, ing);
+        });
+
+        elCards.appendChild(card);
+      });
+
+      $(pKey + "Score").textContent = pState.score;
+    }
+
+    function renderPot(pKey) {
+      var pState = players[pKey];
+      for (var i = 0; i < 2; i++) {
+        var slot = $(pKey + "Slot" + i);
+        if (pState.pot[i]) {
+          var ing = INGREDIENTS.find(function (item) { return item.id === pState.pot[i]; });
+          slot.textContent = ing ? ing.emoji : "";
+          slot.className = "slot filled";
+        } else {
+          slot.textContent = "";
+          slot.className = "slot";
+        }
+      }
+    }
+
+    function renderDrawerBook() {
+      drawerList.innerHTML = "";
+      var combinedFound = Object.assign({}, players.p1.found, players.p2.found);
+
+      RECIPES.forEach(function (r) {
+        if (currentRecipeFilter === "normal" && r.secret) return;
+        if (currentRecipeFilter === "secret" && !r.secret) return;
+
+        var isFound = !!combinedFound[r.id];
+        var item = document.createElement("div");
+        var cls = "drawer-item";
+        if (isFound) cls += " discovered";
+        if (r.secret) cls += " secret";
+        item.className = cls;
+
+        var ing1 = INGREDIENTS.find(function(i){ return i.id === r.pair[0]; });
+        var ing2 = INGREDIENTS.find(function(i){ return i.id === r.pair[1]; });
+
+        var comboStr = isFound ? ((ing1 ? ing1.emoji + " " + ing1.name : "") + " + " + (ing2 ? ing2.emoji + " " + ing2.name : "")) : ("힌트: " + (ing1 ? ing1.emoji : "❓") + " + ❓");
+
+        item.innerHTML = 
+          '<div class="item-icon">' + (isFound ? r.emoji : "🔒") + '</div>' +
+          '<div class="item-info">' +
+            '<div class="item-title">' + (isFound ? r.name : (r.secret ? "✨ 시크릿 요리" : "숨겨진 요리")) + '</div>' +
+            '<div class="item-combo">' + comboStr + '</div>' +
+          '</div>' +
+          '<div class="item-badge">' + (isFound ? "+" + r.score + "점" : "미발견") + '</div>';
+
+        drawerList.appendChild(item);
+      });
+
+      var totalFound = Object.keys(combinedFound).length;
+      drawerCount.textContent = totalFound + " / " + RECIPES.length;
+    }
+
+    function renderBook(justFoundId) {
+      elBookGrid.innerHTML = "";
+      var combinedFound = Object.assign({}, players.p1.found, players.p2.found);
+
+      RECIPES.forEach(function (r) {
+        var isFound = !!combinedFound[r.id];
+        var bk = document.createElement("div");
+        var cls = "bk";
+        if (isFound) cls += " on";
+        if (r.secret) cls += " secret";
+        if (justFoundId === r.id) cls += " justfound";
+        bk.className = cls;
+
+        var emojiStr = isFound ? r.emoji : "❓";
+        var nameStr = isFound ? r.name : (r.secret ? "✨ 시크릿" : "미발견");
+
+        bk.innerHTML = '<div class="e">' + emojiStr + '</div><div class="n">' + nameStr + '</div>';
+        elBookGrid.appendChild(bk);
+      });
+
+      var totalFound = Object.keys(combinedFound).length;
+      elBookCount.textContent = totalFound + " / " + RECIPES.length;
+      elBook.textContent = totalFound + " / " + RECIPES.length;
+
+      renderDrawerBook();
+    }
+
+    function renderMart() {
+      martScore.textContent = players.p1.score;
+      martGrid.innerHTML = "";
+
+      INGREDIENTS.forEach(function (ing) {
+        var count = players.p1.stock[ing.id] !== undefined ? players.p1.stock[ing.id] : 0;
+        var canAfford = players.p1.score >= ITEM_PRICE;
+
+        var item = document.createElement("div");
+        item.className = "mart-item";
+        item.innerHTML = 
+          '<div class="mart-item-left">' +
+            '<div class="emoji">' + ing.emoji + '</div>' +
+            '<div class="info">' +
+              '<div class="name">' + ing.name + '</div>' +
+              '<div class="stock">현재: ' + count + '개</div>' +
+            '</div>' +
+          '</div>' +
+          '<button class="btn-buy" ' + (!canAfford ? 'disabled' : '') + '>+10개 (' + ITEM_PRICE + '점)</button>';
+
+        var buyBtn = item.querySelector(".btn-buy");
+        buyBtn.addEventListener("click", function () {
+          if (players.p1.score >= ITEM_PRICE) {
+            players.p1.score -= ITEM_PRICE;
+            players.p1.stock[ing.id] += 10;
+            sndGood();
+            showToast(ing.emoji, ing.name + " 10개 구매 완료!");
+            renderMart();
+            renderHud();
+            renderPlayerCards("p1");
+          }
+        });
+
+        martGrid.appendChild(item);
+      });
+    }
+
+    function renderHud() {
+      elTime.textContent = Math.ceil(state.timeLeft);
+      var pct = Math.max(0, (state.timeLeft / ROUND_TIME) * 100);
+      elFill.style.width = pct + "%";
+    }
+
+    function setHint(pKey, text) {
+      $(pKey + "Hint").textContent = text;
+    }
+
+    function showToast(emoji, text, isBad) {
+      elToastEm.textContent = emoji;
+      elToastTxt.textContent = text;
+      elToast.style.background = isBad ? "rgba(211, 47, 47, 0.95)" : "rgba(62, 39, 35, 0.95)";
+      elToast.className = "toast show";
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () {
+        elToast.className = "toast";
+      }, 1800);
+    }
+
+    /* ================= 모달 & Drawer 컨트롤 ================= */
+    function toggleDrawer(open) {
+      if (open) {
+        renderDrawerBook();
+        recipeDrawer.classList.add("active");
+        recipeDrawerOverlay.classList.add("active");
+      } else {
+        recipeDrawer.classList.remove("active");
+        recipeDrawerOverlay.classList.remove("active");
+      }
+    }
+
+    function toggleMart(open) {
+      if (!state.playing || (gameMode !== "single" && open)) return;
+      state.martOpen = open;
+      if (open) {
+        renderMart();
+        martModal.classList.remove("hidden");
+      } else {
+        martModal.classList.add("hidden");
+      }
+    }
+
+    $("openDrawerBtn").addEventListener("click", function () { toggleDrawer(true); });
+    $("closeDrawerBtn").addEventListener("click", function () { toggleDrawer(false); });
+    recipeDrawerOverlay.addEventListener("click", function () { toggleDrawer(false); });
+
+    $("openMartBtn").addEventListener("click", function () { toggleMart(true); });
+    $("closeMartBtn").addEventListener("click", function () { toggleMart(false); });
+
+    /* ================= 게임 로직 ================= */
+    function addIngredientToPot(pKey, id) {
+      var pState = players[pKey];
+      if (!state.playing || pState.cooling > 0 || pState.cookTimer > 0 || state.martOpen) return;
+      if (pState.pot.length >= 2) return;
+      if (pState.stock[id] <= 0) return;
+
+      pState.stock[id]--;
+      pState.pot.push(id);
+      sndDrop();
+      renderPot(pKey);
+      renderPlayerCards(pKey);
+
+      if (pState.pot.length === 1) {
+        $(pKey + "ChefAvatar").textContent = (pKey === "p2" && gameMode === "ai") ? "🤖" : "👩‍🍳";
+        setHint(pKey, "재료 1개 추가! 두 번째 재료를 넣어주세요.");
+      } else if (pState.pot.length === 2) {
+        startCooking(pKey);
+      }
+    }
+
+    function clearPot(pKey) {
+      var pState = players[pKey];
+      if (!state.playing || pState.cookTimer > 0 || state.martOpen) return;
+
+      if (pState.pot.length > 0) {
+        pState.pot.forEach(function (id) {
+          if (pState.stock[id] !== undefined) {
+            pState.stock[id]++;
+          }
+        });
+        pState.pot = [];
+        renderPot(pKey);
+        renderPlayerCards(pKey);
+        sndDrop();
+        $(pKey + "ChefAvatar").textContent = (pKey === "p2" && gameMode === "ai") ? "🤖" : "👨‍🍳";
+        setHint(pKey, "조리대를 비우고 재료 수량을 돌려받았습니다.");
+      } else if (pState.lastCookedRecipe) {
+        pState.lastCookedRecipe = null;
+        renderResultBox(pKey);
+        sndDrop();
+        setHint(pKey, "완성된 요리를 버렸습니다.");
+      }
+    }
+
+    function startCooking(pKey) {
+      var pState = players[pKey];
+      pState.cookTimer = 0.45;
+      $(pKey + "ChefStation").className = "chef-station cooking";
+      $(pKey + "ChefAvatar").textContent = (pKey === "p2" && gameMode === "ai") ? "🤖" : "👨‍🍳";
+      setHint(pKey, "🔥 보글보글 요리 만드는 중...");
+    }
+
+    function cook(pKey) {
+      var pState = players[pKey];
+      $(pKey + "ChefStation").className = "chef-station";
+      if (pState.pot.length < 2) return;
+
+      var i1 = pState.pot[0], i2 = pState.pot[1];
+      var matched = RECIPES.find(function (r) {
+        return (r.pair[0] === i1 && r.pair[1] === i2) || (r.pair[0] === i2 && r.pair[1] === i1);
+      });
+
+      var pName = (gameMode !== "single") ? (pKey === "p1" ? "Player 1" : (gameMode === "ai" ? "AI" : "Player 2")) : "조리사님";
+      if (matched) {
+        var isNew = !pState.found[matched.id];
+        pState.found[matched.id] = true;
+        pState.score += matched.score;
+        pState.madeCount++;
+        pState.lastCookedRecipe = matched;
+
+        $(pKey + "ChefAvatar").textContent = "🥳";
+        renderResultBox(pKey);
+
+        if (isNew) {
+          sndNew();
+          showToast(matched.emoji, "✨ " + pName + " 신규 레시피! " + matched.name + " (+" + matched.score + "점)");
+          setHint(pKey, "✨ [" + matched.name + "] 완성! 배달 주문을 확인하세요.");
+          renderBook(matched.id);
+        } else {
+          sndGood();
+          showToast(matched.emoji, pName + " - " + matched.name + " 완성! (+" + matched.score + "점)");
+          setHint(pKey, "😋 [" + matched.name + "] 완성! [🚚 배달하기] 버튼으로 전달하세요.");
+        }
+      } else {
+        sndBad();
+        $(pKey + "ChefAvatar").textContent = "😱";
+        showToast("💨", pName + " 요리 실패! (-5점)", true);
+        setHint(pKey, "💨 조합 실패로 재료를 버렸습니다.");
+        pState.score = Math.max(0, pState.score - 5);
+        $(pKey + "ChefStation").className = "chef-station shake";
+        setTimeout(function () { $(pKey + "ChefStation").className = "chef-station"; }, 420);
+      }
+
+      pState.pot = [];
+      renderPot(pKey);
+      renderPlayerCards(pKey);
+      pState.cooling = 0.25;
+    }
+
+    /* ================= 급식 도둑 이벤트 ================= */
+    function spawnDisrupter(pKey) {
+      var pState = players[pKey];
+      var elDis = $(pKey + "Disrupter");
+      if (!state.playing || pState.disrupterActive || state.martOpen || !elDis) return;
+      
+      pState.disrupterActive = true;
+      pState.disrupterTimeLeft = 2.5;
+
+      var topPos = 10 + Math.floor(Math.random() * 40);
+      var rightPos = 10 + Math.floor(Math.random() * 50);
+      elDis.style.top = topPos + "%";
+      elDis.style.right = rightPos + "%";
+
+      var disrupterEmojis = ["🏃‍♂️", "🚶‍♂️", "😈", "🕵️‍♂️"];
+      var randomEmoji = disrupterEmojis[Math.floor(Math.random() * disrupterEmojis.length)];
+      var emojiEl = elDis.querySelector(".d-emoji");
+      if (emojiEl) emojiEl.textContent = randomEmoji;
+
+      elDis.className = "disrupter";
+      var timerFill = $(pKey + "DisrupterTimerFill");
+      if (timerFill) timerFill.style.width = "100%";
+      sndWarn();
+      $(pKey + "ChefAvatar").textContent = "😨";
+      setHint(pKey, "⚠️ 급식 도둑 침입! 터치해서 잡으세요!");
+    }
+
+    function hitDisrupter(pKey) {
+      var pState = players[pKey];
+      var elDis = $(pKey + "Disrupter");
+      if (!pState.disrupterActive) return;
+      pState.disrupterActive = false;
+      if (elDis) elDis.className = "disrupter hidden";
+      pState.disrupterTimer = 7 + Math.random() * 5;
+
+      pState.score += 5;
+      renderPlayerCards(pKey);
+      sndGood();
+      $(pKey + "ChefAvatar").textContent = "👏";
+      showToast("💥", (pKey === "p1" ? "P1" : (gameMode === "ai" ? "AI" : "P2")) + " 도둑 검거 성공! +5점");
+      setHint(pKey, "휴~ 도둑을 잡았습니다! 👏");
+    }
+
+    function failDisrupter(pKey) {
+      var pState = players[pKey];
+      var elDis = $(pKey + "Disrupter");
+      if (!pState.disrupterActive) return;
+      pState.disrupterActive = false;
+      if (elDis) elDis.className = "disrupter hidden";
+      pState.disrupterTimer = 6 + Math.random() * 4;
+
+      sndBad();
+      $(pKey + "ChefAvatar").textContent = "😭";
+      if (pState.pot.length > 0) {
+        pState.pot = [];
+        renderPot(pKey);
+        showToast("🏃‍♂️", "도둑이 재료를 털어갔어! 😱", true);
+      } else if (pState.lastCookedRecipe) {
+        pState.lastCookedRecipe = null;
+        renderResultBox(pKey);
+        showToast("🏃‍♂️", "도둑이 완성된 요리를 훔쳐갔어! 😱", true);
+      } else {
+        pState.score = Math.max(0, pState.score - 5);
+        renderPlayerCards(pKey);
+        showToast("🏃‍♂️", "도둑에게 점수를 빼앗겼어! -5점", true);
+      }
+      $(pKey + "ChefStation").className = "chef-station shake";
+      setTimeout(function () { $(pKey + "ChefStation").className = "chef-station"; }, 420);
+    }
+
+    /* ================= 게임 모드 & AI 난이도 컨트롤 ================= */
+    $("btnSingleMode").addEventListener("click", function () {
+      gameMode = "single";
+      $("btnSingleMode").className = "btn-mode active";
+      $("btnAiMode").className = "btn-mode";
+      $("btnVersusMode").className = "btn-mode";
+      aiDiffPanel.style.display = "none";
+    });
+
+    $("btnAiMode").addEventListener("click", function () {
+      gameMode = "ai";
+      $("btnAiMode").className = "btn-mode active";
+      $("btnSingleMode").className = "btn-mode";
+      $("btnVersusMode").className = "btn-mode";
+      aiDiffPanel.style.display = "block";
+    });
+
+    $("btnVersusMode").addEventListener("click", function () {
+      gameMode = "versus";
+      $("btnVersusMode").className = "btn-mode active";
+      $("btnSingleMode").className = "btn-mode";
+      $("btnAiMode").className = "btn-mode";
+      aiDiffPanel.style.display = "none";
+    });
+
+    // AI 난이도 버튼
+    $("btnDiffEasy").addEventListener("click", function () {
+      aiDifficulty = "easy";
+      $("btnDiffEasy").className = "btn-diff active";
+      $("btnDiffNormal").className = "btn-diff";
+      $("btnDiffHard").className = "btn-diff";
+    });
+
+    $("btnDiffNormal").addEventListener("click", function () {
+      aiDifficulty = "normal";
+      $("btnDiffEasy").className = "btn-diff";
+      $("btnDiffNormal").className = "btn-diff active";
+      $("btnDiffHard").className = "btn-diff";
+    });
+
+    $("btnDiffHard").addEventListener("click", function () {
+      aiDifficulty = "hard";
+      $("btnDiffEasy").className = "btn-diff";
+      $("btnDiffNormal").className = "btn-diff";
+      $("btnDiffHard").className = "btn-diff active";
+    });
+
+    function startGame() {
+      state.playing = true;
+      state.martOpen = false;
+      state.timeLeft = ROUND_TIME;
+      aiActionTimer = 0;
+
+      players.p1 = createPlayerState();
+      players.p2 = createPlayerState();
+
+      INGREDIENTS.forEach(function (ing) {
+        players.p1.stock[ing.id] = INITIAL_STOCK;
+        players.p2.stock[ing.id] = INITIAL_STOCK;
+      });
+
+      if (gameMode === "single") {
+        p2Zone.style.display = "none";
+        gameBody.style.gridTemplateColumns = "1fr";
+        $("openMartBtn").style.display = "inline-flex";
+        $("p1NameLabel").textContent = "👩‍🍳 내 주방";
+      } else {
+        p2Zone.style.display = "flex";
+        gameBody.style.gridTemplateColumns = "1fr 1fr";
+        $("openMartBtn").style.display = "none";
+        $("p1NameLabel").textContent = "🔴 Player 1";
+
+        if (gameMode === "ai") {
+          var diffLabel = (aiDifficulty === "easy" ? "😊 쉬움" : (aiDifficulty === "normal" ? "🙂 보통" : "🔥 어려움"));
+          $("p2NameLabel").textContent = "🤖 AI (" + diffLabel + ")";
+          $("p2ChefAvatar").textContent = "🤖";
+          $("p2DeliverBtn").style.display = "none";
+          $("p2ClearBtn").style.display = "none";
+        } else {
+          $("p2NameLabel").textContent = "🔵 Player 2";
+          $("p2ChefAvatar").textContent = "👩‍🍳";
+          $("p2DeliverBtn").style.display = "inline-flex";
+          $("p2ClearBtn").style.display = "inline-flex";
+        }
+      }
+
+      startScreen.className = "overlay hidden";
+      endScreen.className = "overlay hidden";
+      martModal.className = "overlay hidden";
+
+      toggleDrawer(false);
+      renderPlayerCards("p1");
+      renderPot("p1");
+      renderResultBox("p1");
+
+      if (gameMode !== "single") {
+        renderPlayerCards("p2");
+        renderPot("p2");
+        renderResultBox("p2");
+      }
+
+      renderBook("");
+      renderHud();
+      generateNewOrder();
+
+      lastTs = 0;
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+      rafId = requestAnimationFrame(loop);
+      beep(440, 0.1, "sine", 0.05);
+    }
+
+    function endGame() {
+      if (!state.playing) return;
+      state.playing = false;
+      state.martOpen = false;
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+
+      toggleDrawer(false);
+      martModal.className = "overlay hidden";
+      sndEnd();
+
+      if (gameMode !== "single") {
+        var s1 = players.p1.score, s2 = players.p2.score;
+        var p2Title = (gameMode === "ai") ? "AI" : "Player 2";
+        var winText = "";
+        if (s1 > s2) {
+          winText = "🏆 Player 1 승리! (" + s1 + "점 vs " + s2 + "점)";
+        } else if (s2 > s1) {
+          winText = "🏆 " + p2Title + " 승리! (" + s2 + "점 vs " + s1 + "점)";
+        } else {
+          winText = "🤝 무승부! (" + s1 + "점)";
+        }
+        $("endTitle").textContent = "⚔️ 요리 대결 종료!";
+        $("endScore").textContent = winText;
+        $("endSub").textContent = "P1 레시피: " + Object.keys(players.p1.found).length + "개 | " + p2Title + " 레시피: " + Object.keys(players.p2.found).length + "개";
+      } else {
+        $("endTitle").textContent = "🎉 요리 시간 종료!";
+        $("endScore").textContent = "최종 점수: " + players.p1.score + "점";
+        $("endSub").textContent = "총 " + players.p1.madeCount + "회 요리 성공 | 레시피 발견: " + Object.keys(players.p1.found).length + " / " + RECIPES.length + "개";
+      }
+
+      endScreen.className = "overlay";
+    }
+
+    function loop(ts) {
+      rafId = requestAnimationFrame(loop);
+      if (!lastTs) { lastTs = ts; }
+      var dt = (ts - lastTs) / 1000;
+      lastTs = ts;
+      if (document.hidden) { dt = 0; }
+      if (dt > 0.1) { dt = 0.1; }
+
+      if (!state.playing || state.martOpen) return;
+
+      // AI 조작 업데이트
+      if (gameMode === "ai") {
+        updateAiLogic(dt);
+      }
+
+      // 배달 주문 타이머
+      if (currentOrder) {
+        currentOrder.timeLeft -= dt;
+        if (currentOrder.timeLeft <= 0) {
+          showToast("⏰", "배달 주문 시간 초과!");
+          generateNewOrder();
+        } else {
+          updateOrderUI();
+        }
+      }
+
+      var pKeys = (gameMode !== "single") ? ["p1", "p2"] : ["p1"];
+
+      pKeys.forEach(function (pKey) {
+        var pState = players[pKey];
+
+        // 도둑 타이머
+        if (pState.disrupterActive) {
+          pState.disrupterTimeLeft -= dt;
+          var timerFill = $(pKey + "DisrupterTimerFill");
+          if (timerFill) {
+            var pct = Math.max(0, (pState.disrupterTimeLeft / 2.5) * 100);
+            timerFill.style.width = pct + "%";
+          }
+          if (pState.disrupterTimeLeft <= 0) {
+            failDisrupter(pKey);
+          }
+        } else if (pState.cookTimer <= 0) {
+          pState.disrupterTimer -= dt;
+          if (pState.disrupterTimer <= 0) {
+            spawnDisrupter(pKey);
+          }
+        }
+
+        // 조리 타이머
+        if (pState.cookTimer > 0) {
+          pState.cookTimer -= dt;
+          if (pState.cookTimer <= 0) {
+            pState.cookTimer = 0;
+            cook(pKey);
+          }
+        } else if (pState.cooling > 0) {
+          pState.cooling -= dt;
+          if (pState.cooling < 0) { pState.cooling = 0; }
+        }
+      });
+
+      // 라운드 제한시간
+      state.timeLeft -= dt;
+      if (state.timeLeft <= 0) {
+        state.timeLeft = 0;
+        renderHud();
+        endGame();
+        return;
+      }
+      renderHud();
+    }
+
+    /* ================= 터치 / 드래그 ================= */
+    function startDrag(e, pKey, ing) {
+      if (!state.playing || state.martOpen || (pKey === "p2" && gameMode === "ai")) return;
+      if (players[pKey].stock[ing.id] <= 0) return;
+
+      var ghost = document.createElement("div");
+      ghost.className = "ghost";
+      ghost.textContent = ing.emoji;
+      document.body.appendChild(ghost);
+
+      function moveGhost(ev) {
+        ghost.style.left = ev.clientX + "px";
+        ghost.style.top = ev.clientY + "px";
+      }
+      moveGhost(e);
+
+      function stopDrag(ev) {
+        document.removeEventListener("pointermove", moveGhost);
+        document.removeEventListener("pointerup", stopDrag);
+        document.removeEventListener("pointercancel", stopDrag);
+        if (ghost.parentNode) ghost.parentNode.removeChild(ghost);
+
+        var stationRect = $(pKey + "ChefStation").getBoundingClientRect();
+        if (
+          ev.clientX >= stationRect.left && ev.clientX <= stationRect.right &&
+          ev.clientY >= stationRect.top && ev.clientY <= stationRect.bottom
+        ) {
+          addIngredientToPot(pKey, ing.id);
+        }
+      }
+
+      document.addEventListener("pointermove", moveGhost);
+      document.addEventListener("pointerup", stopDrag);
+      document.addEventListener("pointercancel", stopDrag);
+    }
+
+    function blurThen(fn) {
+      return function (ev) {
+        if (ev && ev.currentTarget && ev.currentTarget.blur) { ev.currentTarget.blur(); }
+        fn();
+      };
+    }
+
+    /* ================= 이벤트 바인딩 ================= */
+    $("p1Disrupter").addEventListener("pointerdown", function (e) { e.stopPropagation(); hitDisrupter("p1"); });
+    $("p2Disrupter").addEventListener("pointerdown", function (e) { e.stopPropagation(); hitDisrupter("p2"); });
+
+    $("startBtn").addEventListener("click", blurThen(startGame));
+    $("againBtn").addEventListener("click", blurThen(startGame));
+    $("p1ClearBtn").addEventListener("click", blurThen(function () { clearPot("p1"); }));
+    $("p2ClearBtn").addEventListener("click", blurThen(function () { clearPot("p2"); }));
+
+    $("p1DeliverBtn").addEventListener("click", blurThen(function () { deliverOrder("p1"); }));
+    $("p2DeliverBtn").addEventListener("click", blurThen(function () { deliverOrder("p2"); }));
+
+    document.querySelectorAll(".drawer-filter .filter-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        document.querySelectorAll(".drawer-filter .filter-btn").forEach(function (b) { b.classList.remove("active"); });
+        btn.classList.add("active");
+        currentRecipeFilter = btn.getAttribute("data-filter");
+        renderDrawerBook();
+      });
+    });
+
+    // 키보드 조작 (P1: A/D/W/S, P2: 방향키)
+    document.addEventListener("keydown", function (e) {
+      if (!state.playing || state.martOpen) return;
+
+      // Player 1
+      if (e.key === "a" || e.key === "A") {
+        players.p1.sel = (players.p1.sel - 1 + INGREDIENTS.length) % INGREDIENTS.length;
+        renderPlayerCards("p1");
+      } else if (e.key === "d" || e.key === "D") {
+        players.p1.sel = (players.p1.sel + 1) % INGREDIENTS.length;
+        renderPlayerCards("p1");
+      } else if (e.key === "w" || e.key === "W") {
+        addIngredientToPot("p1", INGREDIENTS[players.p1.sel].id);
+      } else if (e.key === "s" || e.key === "S") {
+        clearPot("p1");
+      }
+
+      // Player 2 (2인 대결 모드 시만 활성화)
+      if (gameMode === "versus") {
+        if (e.key === "ArrowLeft") {
+          players.p2.sel = (players.p2.sel - 1 + INGREDIENTS.length) % INGREDIENTS.length;
+          renderPlayerCards("p2");
+        } else if (e.key === "ArrowRight") {
+          players.p2.sel = (players.p2.sel + 1) % INGREDIENTS.length;
+          renderPlayerCards("p2");
+        } else if (e.key === "ArrowUp") {
+          addIngredientToPot("p2", INGREDIENTS[players.p2.sel].id);
+        } else if (e.key === "ArrowDown") {
+          clearPot("p2");
+        }
+      }
+    });
+
+    document.addEventListener("visibilitychange", function () { lastTs = 0; });
+
+    // 초기화
+    renderPlayerCards("p1");
+    renderBook("");
+  </script>
+</body>
+</html>

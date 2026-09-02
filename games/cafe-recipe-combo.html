@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>카페 레시피 조합 ☕🍰 — 클래식 로스터리 카페</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    height: 100dvh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  body {
+    background:
+      radial-gradient(1000px 600px at 50% 0%, #fffbf2 0%, rgba(255, 251, 242, 0) 75%),
+      radial-gradient(800px 500px at 15% 100%, #fef3c7 0%, rgba(254, 243, 199, 0) 70%),
+      linear-gradient(180deg, #faf5ee 0%, #ebdccb 100%);
+    color: #3d1b04;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .cafe-pattern {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .25;
+    background-image:
+      radial-gradient(circle at 50% 20%, rgba(180, 83, 9, 0.08), transparent 70%),
+      linear-gradient(rgba(120, 53, 15, 0.08) 1.5px, transparent 1.5px),
+      linear-gradient(90deg, rgba(120, 53, 15, 0.08) 1.5px, transparent 1.5px);
+    background-size: 100% 100%, 32px 32px, 32px 32px;
+  }
+
+  #app {
+    position: relative; z-index: 1;
+    width: 100%; max-width: 960px;
+    min-height: 100dvh;
+    margin: 0 auto;
+    display: flex; flex-direction: column;
+    padding: clamp(8px, 2vw, 14px);
+    gap: clamp(6px, 1.5vw, 10px);
+    box-sizing: border-box;
+  }
+
+  /* ---------- HUD (상단 바) ---------- */
+  .hud {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    background: linear-gradient(180deg, rgba(58, 31, 15, 0.95), rgba(36, 18, 8, 0.98));
+    border: 2px solid #a1622e;
+    border-radius: 16px;
+    padding: clamp(6px, 1.5vw, 10px) clamp(8px, 2vw, 14px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255,255,255,0.2);
+    color: #fff9f0;
+  }
+  .hud-top-row {
+    display: flex; align-items: center; gap: 6px; width: 100%; flex-wrap: wrap;
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-weight: 900; font-size: clamp(11.5px, 3vw, 13.5px);
+    background: #4a2713; border-radius: 10px;
+    padding: 5px 8px; color: #fde68a; white-space: nowrap;
+    border: 1px solid #78431b;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+  }
+  .chip.level { background: #613410; color: #fef08a; border: 1.5px solid #d97706; }
+  .chip.time { background: #143823; color: #86efac; border: 1px solid #15803d; }
+  .chip.book { background: #1b334b; color: #bae6fd; border: 1px solid #0369a1; }
+  .chip.bgm-btn { cursor: pointer; background: #5c2f16; transition: background .15s, transform .1s; }
+  .chip.bgm-btn:active { transform: scale(0.95); }
+  .chip.bgm-btn.active { background: #b45309; color: #fff; border-color: #f59e0b; }
+  .chip b { font-size: clamp(13px, 3.2vw, 15px); color: #f59e0b; }
+
+  .timebar-container {
+    width: 100%; display: flex; flex-direction: column; gap: 3px; margin-top: 2px;
+  }
+  .expbar-wrap {
+    display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 800; color: #fde68a;
+  }
+  .expbar {
+    flex: 1; height: 7px; border-radius: 99px;
+    background: #210f05; border: 1px solid #8b4513; overflow: hidden;
+  }
+  .expbar > i {
+    display: block; height: 100%; width: 0%;
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+    border-radius: 99px; transition: width .25s ease-out;
+  }
+  .timebar {
+    width: 100%; height: 10px; border-radius: 99px;
+    background: #210f05; overflow: hidden; border: 1.5px solid #78350f;
+  }
+  .timebar > i {
+    display: block; height: 100%; width: 100%;
+    background: linear-gradient(90deg, #10b981, #f59e0b 60%, #ef4444);
+    border-radius: 99px; transition: width .12s linear;
+  }
+
+  /* ---------- 메인 영역 (주방/선반) ---------- */
+  .kitchen {
+    display: grid; gap: 10px; grid-template-columns: 1fr;
+  }
+  @media (min-width: 680px) {
+    .kitchen { grid-template-columns: 1fr 1.05fr; align-items: stretch; }
+  }
+
+  .panel {
+    background: rgba(38, 19, 9, 0.92);
+    border: 2px solid #7d451e;
+    border-radius: 18px;
+    padding: clamp(8px, 2vw, 12px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255,255,255,0.12);
+  }
+  .panel h2 {
+    margin: 0 0 6px; font-size: clamp(13px, 3.2vw, 14.5px); font-weight: 900; color: #fef08a;
+    display: flex; align-items: center; justify-content: space-between; gap: 4px; letter-spacing: -0.2px;
+  }
+
+  .cards {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: clamp(4px, 1.2vw, 8px);
+  }
+  .card {
+    position: relative;
+    background: linear-gradient(180deg, #fffdfa, #fde8cd);
+    border: 2px solid #d97706; border-radius: 12px;
+    padding: clamp(4px, 1vw, 8px) 2px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    cursor: pointer; touch-action: manipulation;
+    box-shadow: 0 3px 0 #853e08, 0 4px 6px rgba(0,0,0,0.18);
+    transition: transform .1s, box-shadow .1s;
+    min-height: clamp(54px, 12vw, 70px);
+  }
+  .card:active { transform: translateY(2px); box-shadow: 0 1px 0 #853e08; }
+  .card .em { font-size: clamp(22px, 6vw, 32px); line-height: 1; pointer-events: none; }
+  .card .nm { font-size: clamp(9.5px, 2.5vw, 11.5px); font-weight: 900; color: #3d1b04; pointer-events: none; white-space: nowrap; }
+  .card.sel { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.45), 0 3px 0 #b45309; }
+
+  /* 냄비 / 에스프레소 바 포맷 */
+  .pot-wrap {
+    display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%;
+  }
+  .vessel-picker {
+    display: flex; gap: 4px; justify-content: center; width: 100%; max-width: 340px;
+  }
+  .vessel-btn {
+    flex: 1; background: #2e170a; border: 1.5px solid #a1622e; border-radius: 10px;
+    padding: 5px 2px; color: #fde68a; font-weight: 800; font-size: clamp(10px, 2.6vw, 11px);
+    cursor: pointer; transition: all .15s; display: flex; flex-direction: column; align-items: center; gap: 1px;
+    box-shadow: 0 2px 0 #1a0b04; touch-action: manipulation;
+  }
+  .vessel-btn:hover, .vessel-btn:active { background: #4a2713; border-color: #f59e0b; }
+  .vessel-btn.active {
+    background: #d97706; border-color: #fef08a; color: #ffffff;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.6), 0 2px 0 #853e08; transform: translateY(-1px);
+  }
+  .vessel-btn .vem { font-size: clamp(15px, 4vw, 18px); line-height: 1; }
+
+  .stove {
+    position: relative;
+    width: 100%; max-width: 340px;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #2e170a, #1a0b04);
+    border: 2.5px dashed #a1622e;
+    padding: 8px 6px;
+    display: flex; flex-direction: column; align-items: center;
+    transition: transform .12s, background .15s, border-color .15s, box-shadow .15s;
+    box-shadow: inset 0 4px 8px rgba(0,0,0,0.6);
+  }
+  .stove.over {
+    background: linear-gradient(180deg, #482410, #2b1306);
+    border-color: #f59e0b; transform: scale(1.02);
+    box-shadow: 0 0 14px rgba(245, 158, 11, .5);
+  }
+  .stove.shake { animation: shake .4s; }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-6px) rotate(-2deg); }
+    75% { transform: translateX(6px) rotate(2deg); }
+  }
+  .steam-fx {
+    position: absolute; top: -14px; font-size: 22px; opacity: 0; pointer-events: none;
+  }
+  .stove.boiling .steam-fx { animation: steamUp 1.2s ease-out infinite; }
+  @keyframes steamUp {
+    0% { opacity: 0; transform: translateY(8px) scale(0.6); }
+    50% { opacity: 0.9; transform: translateY(-10px) scale(1.1); }
+    100% { opacity: 0; transform: translateY(-24px) scale(1.4); }
+  }
+
+  .potemoji { font-size: clamp(52px, 12vw, 68px); line-height: 1; filter: drop-shadow(0 4px 6px rgba(0,0,0,.5)); }
+  .potemoji.boil { animation: boil .55s ease-in-out infinite; }
+  @keyframes boil {
+    0%,100% { transform: translateY(0) rotate(0); }
+    50% { transform: translateY(-4px) rotate(-2deg); }
+  }
+
+  .slots { display: flex; gap: 8px; margin-top: 4px; }
+  .slot {
+    width: clamp(48px, 11vw, 58px); height: clamp(48px, 11vw, 58px);
+    border-radius: 14px;
+    background: rgba(255, 252, 245, 0.95); border: 2.5px dashed #d97706;
+    display: flex; align-items: center; justify-content: center;
+    font-size: clamp(24px, 6vw, 30px); cursor: pointer; transition: transform .1s, background .15s;
+    touch-action: manipulation;
+  }
+  .slot.vessel-slot { border-color: #3b82f6; background: #eff6ff; color: #1d4ed8; }
+  .slot.vessel-slot.filled { border-color: #2563eb; background: #dbeafe; animation: pop .3s; }
+  .slot.filled { border-style: solid; border-color: #f59e0b; background: #fffdfa; animation: pop .3s; }
+  @keyframes pop {
+    0% { transform: scale(.3) rotate(-20deg); opacity: 0; }
+    70% { transform: scale(1.15) rotate(5deg); }
+    100% { transform: scale(1) rotate(0); opacity: 1; }
+  }
+
+  .hint {
+    font-size: clamp(11.5px, 2.8vw, 13px); font-weight: 800; color: #fef08a; text-align: center;
+    min-height: 20px; text-shadow: 0 1px 2px rgba(0,0,0,0.7); padding: 0 4px;
+  }
+
+  .btn {
+    border: none; cursor: pointer; font-family: inherit; font-weight: 900;
+    border-radius: 12px; padding: 8px 14px; font-size: clamp(12px, 3vw, 14px);
+    background: #d97706; color: #fff; box-shadow: 0 3px 0 #78350f;
+    transition: transform .1s, box-shadow .1s; touch-action: manipulation;
+  }
+  .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #78350f; }
+  .btn.big { font-size: clamp(16px, 4.5vw, 19px); padding: 12px 28px; border-radius: 16px; background: #f59e0b; color: #3d1b04; box-shadow: 0 5px 0 #b45309; }
+  .btn.ghost { background: #4a2713; color: #fde68a; box-shadow: 0 3px 0 #210f05; border: 1px solid #78431b; }
+
+  /* 손님 카드 */
+  .customer-card {
+    display: flex; align-items: center; gap: 8px;
+    background: linear-gradient(135deg, #fffcf7, #fef2d6);
+    border: 2px solid #f59e0b; border-radius: 14px;
+    padding: 6px 10px; margin-bottom: 6px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+    animation: custIn .35s ease-out; color: #3d1b04;
+  }
+  @keyframes custIn {
+    0% { transform: scale(.85) translateY(-8px); opacity: 0; }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+  }
+  .customer-avatar { font-size: clamp(28px, 7vw, 36px); line-height: 1; flex-shrink: 0; }
+  .customer-bubble { flex: 1; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+  .cust-title { font-size: 10px; font-weight: 800; color: #b45309; }
+  .cust-quote { font-size: clamp(9.5px, 2.4vw, 10.5px); font-weight: 700; color: #78350f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cust-order { font-size: clamp(12.5px, 3.2vw, 14.5px); font-weight: 900; color: #2e1403; display: flex; align-items: center; gap: 4px; }
+  .cust-order .em { font-size: clamp(16px, 4vw, 19px); }
+  .cust-bonus-tag {
+    font-size: 9.5px; font-weight: 900; background: #dcfce7; color: #14532d;
+    border: 1px solid #86efac; border-radius: 6px; padding: 3px 6px; white-space: nowrap; align-self: center;
+  }
+
+  /* 도감 그리드 */
+  .book-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  @media (min-width: 420px) { .book-grid { grid-template-columns: repeat(4, 1fr); } }
+  @media (min-width: 680px) { .book-grid { grid-template-columns: repeat(5, 1fr); } }
+  .bk {
+    background: #fffcf7; border: 1.5px solid #d97706; border-radius: 10px;
+    padding: 5px 2px; text-align: center; cursor: pointer;
+    transition: transform .1s, border-color .1s;
+  }
+  .bk:active { transform: scale(0.97); }
+  .bk .e { font-size: clamp(20px, 5.5vw, 26px); line-height: 1.1; filter: grayscale(1); opacity: .45; }
+  .bk .n { font-size: clamp(9px, 2.3vw, 10.5px); font-weight: 800; color: #78350f; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bk .sub-ing { font-size: 8.5px; font-weight: 700; color: #b45309; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bk .hint-badge { font-size: 8px; font-weight: 800; color: #d97706; background: #fef3c7; border-radius: 4px; padding: 1px 3px; margin-top: 2px; display: inline-block; }
+  .bk.on { background: #fff; border-color: #10b981; box-shadow: 0 2px 0 rgba(16,185,129,.25); }
+  .bk.on .e { filter: none; opacity: 1; }
+  .bk.on .n { color: #065f46; }
+  .bk.on .sub-ing { color: #047857; }
+  .bk.on .hint-badge { display: none; }
+  .bk.justfound { animation: pop .45s; }
+
+  /* 효과 토스트 / 이펙트 */
+  .toast {
+    position: fixed; left: 50%; top: 38%; transform: translate(-50%,-50%);
+    z-index: 80; pointer-events: none;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    font-weight: 900; text-align: center; opacity: 0; width: 90%; max-width: 320px;
+  }
+  .toast.show { animation: toastUp 1.15s ease-out forwards; }
+  @keyframes toastUp {
+    0% { opacity: 0; transform: translate(-50%,-20%) scale(.6); }
+    25% { opacity: 1; transform: translate(-50%,-50%) scale(1.1); }
+    75% { opacity: 1; transform: translate(-50%,-52%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%,-80%) scale(1); }
+  }
+  .toast .big-em { font-size: clamp(56px, 15vw, 76px); filter: drop-shadow(0 6px 6px rgba(0,0,0,.3)); }
+  .toast .txt {
+    background: #fff; border: 2.5px solid #fcd34d; border-radius: 12px;
+    padding: 6px 14px; font-size: clamp(14px, 3.8vw, 17px); color: #b45309;
+    box-shadow: 0 4px 12px rgba(0,0,0,.2);
+  }
+  .toast.bad .txt { color: #6b7280; border-color: #d7d7d7; }
+
+  .drag-ghost {
+    position: fixed; z-index: 100; pointer-events: none;
+    font-size: 44px; transform: translate(-50%,-50%) rotate(-8deg);
+    filter: drop-shadow(0 6px 6px rgba(0,0,0,.35));
+  }
+
+  .sponge-fx {
+    position: fixed; z-index: 75; pointer-events: none;
+    font-size: 54px; filter: drop-shadow(0 4px 6px rgba(0,0,0,.3));
+    animation: spongeMove 1.1s ease-in-out forwards;
+  }
+  @keyframes spongeMove {
+    0% { opacity: 0; transform: translate(-60px, -20px) scale(0.6) rotate(-20deg); }
+    20% { opacity: 1; transform: translate(-40px, -10px) scale(1.1) rotate(-15deg); }
+    40% { transform: translate(40px, -5px) scale(1.1) rotate(15deg); }
+    60% { transform: translate(-40px, 5px) scale(1.1) rotate(-15deg); }
+    80% { transform: translate(40px, 10px) scale(1.1) rotate(15deg); }
+    100% { opacity: 0; transform: translate(0, 0) scale(0.8) rotate(0deg); }
+  }
+
+  .spark {
+    position: fixed; z-index: 76; pointer-events: none; font-size: 20px;
+    animation: sparkfly .95s ease-out forwards;
+  }
+  @keyframes sparkfly {
+    0% { opacity: 1; transform: translate(-50%,-50%) scale(.4); }
+    100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.2) rotate(var(--rot)); }
+  }
+
+  .parcel-box {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #ffffff; border: 2px solid #fef08a; border-radius: 12px;
+    padding: 4px 10px; font-weight: 900; font-size: clamp(11px, 2.8vw, 13px);
+    cursor: pointer; box-shadow: 0 3px 8px rgba(217, 119, 6, 0.4);
+    transition: transform .15s; touch-action: manipulation;
+  }
+  .parcel-box:active { transform: scale(0.95); }
+  .parcel-box.hidden { display: none !important; }
+  .parcel-box.bounce { animation: parcelBounce 1s ease-in-out infinite; }
+  @keyframes parcelBounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-4px) scale(1.03); }
+  }
+  .parcel-badge {
+    background: #ef4444; color: #ffffff; font-size: 9.5px;
+    padding: 1px 5px; border-radius: 99px; border: 1px solid #fca5a5;
+  }
+
+  /* 모달 오버레이 */
+  .overlay {
+    position: fixed; inset: 0; z-index: 90;
+    display: flex; align-items: center; justify-content: center;
+    padding: 12px;
+    background: linear-gradient(160deg, rgba(61, 31, 14, 0.95), rgba(28, 13, 5, 0.97));
+    backdrop-filter: blur(5px);
+  }
+  .overlay.hidden { display: none; }
+  .sheet {
+    width: 100%; max-width: 440px;
+    background: #fffdf8; border: 3px solid #a1622e; border-radius: 22px;
+    box-shadow: 0 12px 24px rgba(0,0,0,0.5);
+    padding: clamp(14px, 4vw, 20px); text-align: center;
+    max-height: 92dvh; overflow-y: auto; color: #3d1b04;
+  }
+  .sheet h1 { margin: 2px 0; font-size: clamp(22px, 6vw, 26px); letter-spacing: -.5px; color: #613312; }
+  .sheet .sub { margin: 0 0 10px; font-size: clamp(12px, 3.2vw, 13.5px); font-weight: 800; color: #b45309; }
+  .parade { font-size: clamp(28px, 8vw, 34px); letter-spacing: 2px; margin: 4px 0 8px; }
+  .parade span { display: inline-block; animation: bob 1.8s ease-in-out infinite; }
+  @keyframes bob { 0%,100% { transform: translateY(0);} 50% { transform: translateY(-8px);} }
+  .rules {
+    text-align: left; background: #fef3c7; border-radius: 14px;
+    padding: 10px 12px; margin: 0 0 12px; font-size: clamp(11.5px, 3vw, 13px); font-weight: 700; line-height: 1.65;
+    color: #78350f; border: 1px solid #fcd34d;
+  }
+  .rules div + div { margin-top: 2px; }
+  .score-big { font-size: clamp(38px, 10vw, 46px); font-weight: 900; color: #d97706; line-height: 1.1; }
+  .stat-row { display: flex; gap: 6px; justify-content: center; margin: 10px 0 4px; flex-wrap: wrap; }
+  .stat {
+    background: #fef3c7; border-radius: 12px; padding: 6px 12px; font-weight: 900; font-size: clamp(12px, 3.2vw, 14px); color: #78350f;
+  }
+  .stat small { display: block; font-size: 10px; color: #b45309; font-weight: 800; }
+  .found-list { font-size: clamp(20px, 5.5vw, 24px); line-height: 1.4; margin: 6px 0 2px; word-break: break-all; }
+  .best { font-size: 12px; font-weight: 800; color: #92400e; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="cafe-pattern"></div>
+
+<div id="app">
+  <div class="hud">
+    <div class="hud-top-row">
+      <div class="chip level">⭐ <span id="hudLevel">Lv.1</span> <small id="hudTitle" style="font-size:10px; opacity:0.85; margin-left:1px;">초보 바리스타</small></div>
+      <div class="chip">🏆 <b id="hudScore">0</b>점</div>
+      <div class="chip time">⏰ <b id="hudTime">60</b>초</div>
+      <div class="chip book">📖 <b id="hudBook">0/10</b></div>
+      <div class="chip bgm-btn" id="bgmToggleBtn" title="오디오 음악 켜기/끄기">🎵 <span id="bgmStateText">Off</span></div>
+      <div class="parcel-box hidden" id="parcelBox">
+        📦 <span>택배!</span> <span class="parcel-badge">터치 🎁</span>
+      </div>
+    </div>
+    <div class="timebar-container">
+      <div class="expbar-wrap">
+        <span>EXP</span>
+        <div class="expbar"><i id="expFill"></i></div>
+        <span id="expText">0/80</span>
+      </div>
+      <div class="timebar"><i id="timeFill"></i></div>
+    </div>
+  </div>
+
+  <div class="kitchen">
+    <div class="panel ing-panel">
+      <h2><span>🧺 카페 선반 재료</span> <span style="font-weight:700;color:#fde68a;font-size:11px;">— 탭/터치해 넣기</span></h2>
+      <div class="cards" id="cards"></div>
+    </div>
+
+    <div class="panel pot-panel">
+      <h2><span>☕ 에스프레소 바</span> <span style="font-weight:700;color:#fde68a;font-size:11px;">— 재료 2개 조합</span></h2>
+
+      <div class="customer-card" id="customerCard">
+        <div class="customer-avatar" id="custAvatar">🧑‍💼</div>
+        <div class="customer-bubble">
+          <div class="cust-title">카운터 손님 주문 💬</div>
+          <div class="cust-quote" id="custQuote">"안녕하세요! 추천 메뉴 부탁해요~"</div>
+          <div class="cust-order"><span class="em" id="custOrderEm">☕</span> <b id="custOrderNm">카페라떼</b></div>
+        </div>
+        <div class="cust-bonus-tag">🎯 +50점 · +3초</div>
+      </div>
+
+      <div class="pot-wrap">
+        <div style="font-size:11px; font-weight:800; color:#fde68a; margin-bottom:-2px;">🍽️ 제공할 그릇/잔 선택</div>
+        <div class="vessel-picker" id="vesselPicker"></div>
+
+        <div class="stove" id="stove">
+          <div class="steam-fx" id="steamFx">♨️</div>
+          <div class="potemoji" id="potEmoji">☕</div>
+          <div class="slots">
+            <div class="slot vessel-slot" id="slotVessel" title="선택된 그릇/잔">☕</div>
+            <div class="slot" id="slot0" title="터치하면 빼기"></div>
+            <div class="slot" id="slot1" title="터치하면 빼기"></div>
+          </div>
+        </div>
+        <div class="hint" id="hint">재료를 터치해서 카페 바에 넣어봐!</div>
+        <button class="btn ghost" id="clearPotBtn" type="button" style="font-size:11.5px; padding:4px 10px;">🧹 카운터 비우기</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+      <h2 style="margin:0; color:#fef08a;">📖 카페 도감 <span id="bookCount" style="font-weight:900;color:#f59e0b">0/10</span></h2>
+      <button class="btn ghost" id="toggleHintBtn" type="button" style="padding:4px 8px; font-size:11px;">💡 힌트 전체보기</button>
+    </div>
+    <div class="book-grid" id="bookGrid"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><div class="big-em" id="toastEm">🍰</div><div class="txt" id="toastTxt"></div></div>
+
+<!-- 시작 화면 -->
+<div class="overlay" id="startScreen">
+  <div class="sheet">
+    <div class="parade">
+      <span style="animation-delay:0s">☕</span><span style="animation-delay:.15s">🥛</span><span style="animation-delay:.3s">🍓</span><span style="animation-delay:.45s">🥐</span><span style="animation-delay:.6s">🍰</span>
+    </div>
+    <h1>카페 레시피 조합 ☕🍰</h1>
+    <p class="sub">스마트폰에서도 편하게 즐기는 카페 요리 조합!</p>
+    <div class="rules">
+      <div>📱 재료 카드를 <b>터치</b>하여 바로 넣을 수 있어요.</div>
+      <div>🙋‍♂️ <b>손님의 주문 메뉴</b>를 선점하면 <b>+50점 & 제한시간 +3초!</b></div>
+      <div>📦 정기적으로 나타나는 <b>택배 상자</b>를 터치해 선물을 획득하세요.</div>
+      <div>🍽️ <b>그릇/잔</b>을 맞추어 제공하면 <b>+20점 플레이팅 보너스!</b></div>
+      <div>🧽 신메뉴 발견 시 <b>바리스타 행주</b>가 카페 바를 깨끗하게 청소해줘요.</div>
+      <div>⏰ <b>60초</b> 동안 최고 레벨 바리스타에 도전하세요!</div>
+    </div>
+    <button class="btn big" id="startBtn" type="button">카페 오픈! ☕</button>
+    <div class="best" id="bestStart"></div>
+  </div>
+</div>
+
+<!-- 결과 화면 -->
+<div class="overlay hidden" id="endScreen">
+  <div class="sheet">
+    <div class="parade" id="endEmoji"><span>🎉</span></div>
+    <h1 id="endTitle">영업 종료!</h1>
+    <p class="sub" id="endSub">오늘의 카페 영업 완료~</p>
+    <div class="score-big" id="endScore">0점</div>
+    <div class="stat-row">
+      <div class="stat"><small>최종 레벨</small><span id="endLevel">Lv.1</span></div>
+      <div class="stat"><small>도감 달성</small><span id="endBook">0/10</span></div>
+      <div class="stat"><small>만든 메뉴</small><span id="endMade">0개</span></div>
+      <div class="stat"><small>주문 성공</small><span id="endOrders">0회</span></div>
+    </div>
+    <div class="found-list" id="endList">—</div>
+    <button class="btn big" id="againBtn" type="button">한 번 더! 🔁</button>
+    <div class="best" id="bestEnd"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var $ = function(id) { return document.getElementById(id); };
+
+  var VESSELS = [
+    { id: "mug",   em: "☕", nm: "머그컵" },
+    { id: "glass", em: "🍸", nm: "유리잔" },
+    { id: "cup",   em: "🥤", nm: "아이스컵" },
+    { id: "plate", em: "🍽️", nm: "디저트접시" }
+  ];
+
+  /* 모바일/컴팩트 버전 카페 대표 메뉴 재료 10개 */
+  var ING = [
+    { id: "shot",   em: "☕", nm: "샷" },
+    { id: "milk",   em: "🥛", nm: "우유" },
+    { id: "ice",    em: "🧊", nm: "얼음" },
+    { id: "choco",  em: "🍫", nm: "초콜릿" },
+    { id: "matcha", em: "🍵", nm: "말차" },
+    { id: "berry",  em: "🍓", nm: "딸기" },
+    { id: "soda",   em: "🫧", nm: "탄산수" },
+    { id: "bread",  em: "🥐", nm: "크루아상" },
+    { id: "syrup",  em: "🍯", nm: "시럽" },
+    { id: "cream",  em: "🍦", nm: "생크림" }
+  ];
+
+  /* 10가지 직관적인 카페 인기 대표 레시피 */
+  var RECIPES = [
+    { a: "shot",   b: "milk",   em: "☕", nm: "카페라떼",     hint: "☕샷 + ❓ (부드러운 우유 커피)" },
+    { a: "shot",   b: "ice",    em: "🧊", nm: "아이스아메리카노", hint: "☕샷 + ❓ (시원한 시그니처 커피)" },
+    { a: "shot",   b: "choco",  em: "☕", nm: "카페모카",     hint: "☕샷 + ❓ (달콤 쌉싸름한 커피)" },
+    { a: "shot",   b: "cream",  em: "🍨", nm: "아포가토",     hint: "☕샷 + ❓ (크림이 어우러진 디저트)" },
+    { a: "milk",   b: "choco",  em: "🍫", nm: "초코라떼",     hint: "🥛우유 + ❓ (진하고 달콤한 초코 음료)" },
+    { a: "matcha", b: "milk",   em: "🍵", nm: "말차라떼",     hint: "🍵말차 + ❓ (고소하고 쌉싸름한 라떼)" },
+    { a: "berry",  b: "milk",   em: "🍓", nm: "딸기라떼",     hint: "🍓딸기 + ❓ (상큼 부드러운 우유)" },
+    { a: "berry",  b: "soda",   em: "🍹", nm: "딸기에이드",   hint: "🍓딸기 + ❓ (톡 쏘는 상큼 에이드)" },
+    { a: "bread",  b: "choco",  em: "🥐", nm: "초코크루아상", hint: "🥐크루아상 + ❓ (바삭 달콤한 베이커리)" },
+    { a: "bread",  b: "berry",  em: "🍰", nm: "딸기케이크",   hint: "🥐크루아상 + ❓ (상큼한 디저트 케이크)" }
+  ];
+  var TOTAL = RECIPES.length;
+
+  var RECIPE_MAP = {};
+  function pairKey(x, y) { return x < y ? x + "|" + y : y + "|" + x; }
+  for (var i = 0; i < RECIPES.length; i++) {
+    RECIPE_MAP[pairKey(RECIPES[i].a, RECIPES[i].b)] = RECIPES[i];
+  }
+
+  function ingById(id) {
+    for (var k = 0; k < ING.length; k++) { if (ING[k].id === id) return ING[k]; }
+    return null;
+  }
+
+  var ROUND_TIME = 60;
+  var STORE_KEY = "cafe_recipe_combo_best";
+  var AVATARS = ["🧑‍💼", "👩‍🦰", "👨‍🎓", "🧔‍♂️", "👵", "👧", "👦", "🧑‍🍳", "👩‍🎨"];
+  var CUST_QUOTES = [
+    "오늘 날씨에 딱 어울리는 추천 메뉴로 주세요~",
+    "달콤하고 맛있는 메뉴로 하나 부탁해요!",
+    "따뜻하고 기분 좋은 커피 만들어주세요 ☕",
+    "여기 제일 대표적인 신메뉴 부탁드립니다 ✨",
+    "시원하고 상큼한 카페 음료 원해요!"
+  ];
+
+  var TITLES = ["초보 바리스타", "견습 바리스타", "숙련 바리스타", "전문 바리스타", "수석 바리스타", "카페 매니저", "전설의 바리스타"];
+
+  function getLevelTitle(lvl) {
+    var idx = Math.min(lvl - 1, TITLES.length - 1);
+    return TITLES[idx];
+  }
+
+  function getExpForNextLevel(lvl) {
+    return lvl * 70;
+  }
+
+  var elLevel = $("hudLevel"), elTitle = $("hudTitle"), elScore = $("hudScore"),
+      elTime = $("hudTime"), elBook = $("hudBook"), elBookCount = $("bookCount"),
+      elExpFill = $("expFill"), elExpText = $("expText"), elFill = $("timeFill"),
+      elCards = $("cards"), elStove = $("stove"), elPotEmoji = $("potEmoji"),
+      elSlots = [$("slot0"), $("slot1")], elHint = $("hint"),
+      elToast = $("toast"), elToastEm = $("toastEm"), elToastTxt = $("toastTxt"),
+      startScreen = $("startScreen"), endScreen = $("endScreen"), elBookGrid = $("bookGrid");
+
+  var state = {
+    playing: false,
+    score: 0,
+    level: 1,
+    exp: 0,
+    timeLeft: ROUND_TIME,
+    pot: [],
+    selectedVessel: "mug",
+    found: {},
+    foundCount: 0,
+    madeCount: 0,
+    ordersServed: 0,
+    cookTimer: 0,
+    cooling: 0,
+    sel: 0,
+    revealedHints: {},
+    showAllHints: false,
+    customerAvatar: "🧑‍💼",
+    customerOrder: null,
+    parcelTimer: 10,
+    hasParcel: false,
+    parcelCount: 0
+  };
+
+  var lastTs = 0;
+  var rafId = null;
+
+  function loadBest() {
+    try {
+      var d = localStorage.getItem(STORE_KEY);
+      return d ? JSON.parse(d) : null;
+    } catch (e) { return null; }
+  }
+
+  function saveBest(obj) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(obj)); } catch (e) {}
+  }
+
+  function bestText() {
+    var b = loadBest();
+    if (!b) return "최고 기록: 없음";
+    return "최고 기록: " + b.score + "점 (도감 " + b.book + "/" + TOTAL + ")";
+  }
+
+  function showToast(em, txt, isBad) {
+    elToastEm.textContent = em;
+    elToastTxt.textContent = txt;
+    elToast.className = "toast" + (isBad ? " bad" : "");
+    void elToast.offsetWidth;
+    elToast.className = "toast show" + (isBad ? " bad" : "");
+    setTimeout(function () {
+      elToast.className = "toast";
+    }, 1200);
+  }
+
+  function setHint(msg) {
+    if (elHint) elHint.textContent = msg;
+  }
+
+  function wipeSponge() {
+    var rect = elStove.getBoundingClientRect();
+    var sponge = document.createElement("div");
+    sponge.className = "sponge-fx";
+    sponge.textContent = "🧽";
+    sponge.style.left = (rect.left + rect.width / 2) + "px";
+    sponge.style.top = (rect.top + rect.height / 2) + "px";
+    document.body.appendChild(sponge);
+
+    setTimeout(function () {
+      if (sponge.parentNode) sponge.parentNode.removeChild(sponge);
+    }, 1150);
+  }
+
+  function sparkle(count) {
+    var rect = elStove.getBoundingClientRect();
+    var cx = rect.left + rect.width / 2;
+    var cy = rect.top + rect.height / 2;
+    var stars = ["✨", "⭐", "🌟", "💖", "☕"];
+
+    for (var i = 0; i < count; i++) {
+      var s = document.createElement("div");
+      s.className = "spark";
+      s.textContent = stars[Math.floor(Math.random() * stars.length)];
+      var angle = Math.random() * Math.PI * 2;
+      var dist = 40 + Math.random() * 80;
+      var dx = Math.cos(angle) * dist + "px";
+      var dy = Math.sin(angle) * dist + "px";
+      var rot = (Math.random() * 360) + "deg";
+
+      s.style.left = cx + "px";
+      s.style.top = cy + "px";
+      s.style.setProperty("--dx", dx);
+      s.style.setProperty("--dy", dy);
+      s.style.setProperty("--rot", rot);
+
+      document.body.appendChild(s);
+      (function(elem) {
+        setTimeout(function() {
+          if (elem.parentNode) elem.parentNode.removeChild(elem);
+        }, 950);
+      })(s);
+    }
+  }
+
+  var actx = null;
+  var bgmInterval = null;
+  var isBgmPlaying = false;
+
+  function initAudio() {
+    if (!actx) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) actx = new AC();
+    }
+    if (actx && actx.state === "suspended") {
+      actx.resume();
+    }
+  }
+
+  function beep(freq, dur, type, vol) {
+    try {
+      initAudio();
+      if (!actx) return;
+      var o = actx.createOscillator(), g = actx.createGain();
+      o.type = type || "sine";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(vol || 0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) {}
+  }
+
+  function sndDrop() { beep(523.25, 0.08, "sine", 0.05); }
+  function sndGood() {
+    beep(523.25, 0.1, "triangle", 0.08);
+    setTimeout(function() { beep(659.25, 0.12, "triangle", 0.08); }, 80);
+    setTimeout(function() { beep(783.99, 0.18, "triangle", 0.08); }, 160);
+  }
+  function sndNew() {
+    beep(523.25, 0.1, "sine", 0.1);
+    setTimeout(function() { beep(659.25, 0.1, "sine", 0.1); }, 90);
+    setTimeout(function() { beep(783.99, 0.1, "sine", 0.1); }, 180);
+    setTimeout(function() { beep(1046.50, 0.3, "sine", 0.12); }, 270);
+  }
+  function sndOrderMatch() {
+    beep(659.25, 0.1, "sine", 0.08);
+    setTimeout(function() { beep(880.00, 0.12, "sine", 0.08); }, 90);
+    setTimeout(function() { beep(1174.66, 0.25, "sine", 0.1); }, 180);
+  }
+  function sndParcel() {
+    beep(587.33, 0.1, "triangle", 0.08);
+    setTimeout(function() { beep(880.00, 0.15, "triangle", 0.1); }, 100);
+  }
+  function sndBad() {
+    beep(220, 0.15, "sawtooth", 0.05);
+  }
+  function sndBell() {
+    beep(987.77, 0.12, "sine", 0.04);
+    setTimeout(function() { beep(1318.51, 0.2, "sine", 0.04); }, 80);
+  }
+  function sndHint() { beep(783.99, 0.08, "sine", 0.04); }
+  function sndLevelUp() {
+    var notes = [440, 554.37, 659.25, 880];
+    for (var i = 0; i < notes.length; i++) {
+      (function(f, delay) {
+        setTimeout(function() { beep(f, 0.12, "sine", 0.08); }, delay);
+      })(notes[i], i * 70);
+    }
+  }
+  function sndEnd() {
+    beep(440, 0.15, "triangle", 0.08);
+    setTimeout(function() { beep(349.23, 0.15, "triangle", 0.08); }, 150);
+  }
+
+  function sndSteam() {
+    try {
+      initAudio();
+      if (!actx) return;
+      var bufferSize = actx.sampleRate * 0.2;
+      var buffer = actx.createBuffer(1, bufferSize, actx.sampleRate);
+      var data = buffer.getChannelData(0);
+      for (var i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
+      var noise = actx.createBufferSource();
+      noise.buffer = buffer;
+      var gain = actx.createGain();
+      gain.gain.setValueAtTime(0.02, actx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.2);
+      noise.connect(gain); gain.connect(actx.destination);
+      noise.start();
+    } catch (e) {}
+  }
+
+  function startBgm() {
+    if (bgmInterval) clearInterval(bgmInterval);
+    var notes = [261.63, 329.63, 392.00, 523.25, 440.00, 349.23, 392.00, 293.66];
+    var noteIdx = 0;
+    bgmInterval = setInterval(function() {
+      if (!isBgmPlaying) return;
+      try {
+        beep(notes[noteIdx], 0.35, "sine", 0.015);
+        noteIdx = (noteIdx + 1) % notes.length;
+      } catch (e) {}
+    }, 450);
+  }
+
+  function stopBgm() {
+    if (bgmInterval) { clearInterval(bgmInterval); bgmInterval = null; }
+  }
+
+  function toggleBgm() {
+    initAudio();
+    isBgmPlaying = !isBgmPlaying;
+    var elText = $("bgmStateText"), elBtn = $("bgmToggleBtn");
+    if (isBgmPlaying) {
+      if (elText) elText.textContent = "On";
+      if (elBtn) elBtn.classList.add("active");
+      startBgm();
+    } else {
+      if (elText) elText.textContent = "Off";
+      if (elBtn) elBtn.classList.remove("active");
+      stopBgm();
+    }
+  }
+
+  function spawnParcel() {
+    if (!state.playing || state.hasParcel) return;
+    state.hasParcel = true;
+    var el = $("parcelBox");
+    if (el) {
+      el.classList.remove("hidden");
+      el.classList.add("bounce");
+    }
+    sndParcel();
+    showToast("🚚", "택배가 도착했어요! 터치하여 선물 개봉!");
+  }
+
+  function openParcel() {
+    if (!state.playing || !state.hasParcel) return;
+    state.hasParcel = false;
+    state.parcelCount++;
+    var el = $("parcelBox");
+    if (el) {
+      el.classList.add("hidden");
+      el.classList.remove("bounce");
+    }
+
+    var rewards = [
+      { type: "time", val: 6, em: "⏰", txt: "시간 보너스 +6초!" },
+      { type: "score", val: 100, em: "🪙", txt: "카페 지원금 +100점!" },
+      { type: "exp", val: 50, em: "⭐", txt: "경험치 +50 EXP!" }
+    ];
+    var rew = rewards[Math.floor(Math.random() * rewards.length)];
+
+    if (rew.type === "time") {
+      state.timeLeft = Math.min(ROUND_TIME * 1.5, state.timeLeft + rew.val);
+    } else if (rew.type === "score") {
+      state.score += rew.val;
+    } else if (rew.type === "exp") {
+      addExp(rew.val);
+    }
+
+    sndNew();
+    sparkle(14);
+    showToast(rew.em, "📦 택배 개봉: " + rew.txt);
+    setHint("📦 택배 선물 수령: " + rew.txt);
+    renderHud();
+    state.parcelTimer = 15 + Math.random() * 8;
+  }
+
+  function spawnCustomer() {
+    var randAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+    var randRecipe = RECIPES[Math.floor(Math.random() * RECIPES.length)];
+    var randQuote = CUST_QUOTES[Math.floor(Math.random() * CUST_QUOTES.length)];
+    state.customerAvatar = randAvatar;
+    state.customerOrder = randRecipe;
+
+    var elCust = $("customerCard");
+    if (elCust) {
+      elCust.style.animation = "none";
+      void elCust.offsetWidth;
+      elCust.style.animation = "custIn .35s ease-out";
+    }
+    $("custAvatar").textContent = randAvatar;
+    $("custQuote").textContent = '"' + randQuote + '"';
+    $("custOrderEm").textContent = randRecipe.em;
+    $("custOrderNm").textContent = randRecipe.nm;
+    sndBell();
+  }
+
+  function addToPot(id) {
+    if (!state.playing || state.cookTimer > 0 || state.cooling > 0) return;
+    if (state.pot.length >= 2) return;
+
+    state.pot.push(id);
+    sndDrop();
+    renderPot();
+
+    if (state.pot.length === 1) {
+      var it = ingById(id);
+      setHint((it ? it.em + " " + it.nm : "") + " 담음! 재료 하나 더 터치!");
+    } else if (state.pot.length === 2) {
+      setHint("에스프레소 추출 중... ☕");
+      state.cookTimer = 0.25;
+      elPotEmoji.className = "potemoji boil";
+      elStove.classList.add("boiling");
+      sndSteam();
+    }
+  }
+
+  function clearPot() {
+    if (!state.playing || state.cookTimer > 0) return;
+    if (state.pot.length > 0) {
+      state.pot = [];
+      renderPot();
+      sndDrop();
+      setHint("카페 바를 비웠습니다.");
+    }
+  }
+
+  function buildCards() {
+    elCards.innerHTML = "";
+    for (var i = 0; i < ING.length; i++) {
+      var item = ING[i];
+      var card = document.createElement("div");
+      card.className = "card" + (i === state.sel ? " sel" : "");
+      card.setAttribute("data-id", item.id);
+      card.setAttribute("data-idx", String(i));
+      card.innerHTML = '<div class="em">' + item.em + '</div><div class="nm">' + item.nm + '</div>';
+
+      (function(c, currentIngId) {
+        var activeGhost = null;
+
+        function startDrag(e) {
+          if (!state.playing || state.cookTimer > 0 || state.cooling > 0) return;
+          var pageX = e.touches ? e.touches[0].clientX : e.clientX;
+          var pageY = e.touches ? e.touches[0].clientY : e.clientY;
+
+          activeGhost = document.createElement("div");
+          activeGhost.className = "drag-ghost";
+          activeGhost.textContent = c.querySelector(".em").textContent;
+          document.body.appendChild(activeGhost);
+          moveGhost(pageX, pageY);
+        }
+
+        function moveGhost(x, y) {
+          if (activeGhost) {
+            activeGhost.style.left = x + "px";
+            activeGhost.style.top = y + "px";
+          }
+        }
+
+        function onMove(e) {
+          if (!activeGhost) return;
+          var pageX = e.touches ? e.touches[0].clientX : e.clientX;
+          var pageY = e.touches ? e.touches[0].clientY : e.clientY;
+          moveGhost(pageX, pageY);
+
+          var stoveRect = elStove.getBoundingClientRect();
+          if (pageX >= stoveRect.left && pageX <= stoveRect.right &&
+              pageY >= stoveRect.top && pageY <= stoveRect.bottom) {
+            elStove.classList.add("over");
+          } else {
+            elStove.classList.remove("over");
+          }
+        }
+
+        function endDrag(e) {
+          if (!activeGhost) return;
+          var pageX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+          var pageY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+
+          var stoveRect = elStove.getBoundingClientRect();
+          elStove.classList.remove("over");
+
+          if (activeGhost.parentNode) { activeGhost.parentNode.removeChild(activeGhost); }
+          activeGhost = null;
+
+          if (pageX >= stoveRect.left && pageX <= stoveRect.right &&
+              pageY >= stoveRect.top && pageY <= stoveRect.bottom) {
+            addToPot(currentIngId);
+          }
+        }
+
+        var onWinMove = function(me) { onMove(me); };
+        var onWinUp = function(ue) {
+          endDrag(ue);
+          window.removeEventListener("mousemove", onWinMove);
+          window.removeEventListener("mouseup", onWinUp);
+        };
+
+        c.addEventListener("mousedown", function(e) {
+          startDrag(e);
+          window.addEventListener("mousemove", onWinMove);
+          window.addEventListener("mouseup", onWinUp);
+        });
+
+        var onWinTMove = function(me) { onMove(me); };
+        var onWinTEnd = function(ue) {
+          endDrag(ue);
+          window.removeEventListener("touchmove", onWinTMove);
+          window.removeEventListener("touchend", onWinTEnd);
+        };
+
+        c.addEventListener("touchstart", function(e) {
+          startDrag(e);
+          window.addEventListener("touchmove", onWinTMove, { passive: false });
+          window.addEventListener("touchend", onWinTEnd);
+        }, { passive: false });
+
+        c.addEventListener("click", function() {
+          if (!state.playing) return;
+          addToPot(c.getAttribute("data-id"));
+        });
+      })(card, item.id);
+
+      elCards.appendChild(card);
+    }
+  }
+
+  function renderSel() {
+    var cards = elCards.children;
+    for (var i = 0; i < cards.length; i++) {
+      if (i === state.sel) {
+        cards[i].classList.add("sel");
+      } else {
+        cards[i].classList.remove("sel");
+      }
+    }
+  }
+
+  function buildBook() {
+    elBookGrid.innerHTML = "";
+    for (var i = 0; i < RECIPES.length; i++) {
+      var r = RECIPES[i];
+      var d = document.createElement("div");
+      d.className = "bk";
+      d.id = "bk-" + i;
+      d.setAttribute("data-idx", String(i));
+      (function(idx) {
+        d.addEventListener("click", function() {
+          var recipe = RECIPES[idx];
+          if (state.found[recipe.nm]) return;
+          state.revealedHints[recipe.nm] = true;
+          sndHint();
+          renderBook("");
+        });
+      })(i);
+      elBookGrid.appendChild(d);
+    }
+  }
+
+  function renderBook(justFoundNm) {
+    for (var i = 0; i < RECIPES.length; i++) {
+      var r = RECIPES[i];
+      var d = $("bk-" + i);
+      if (!d) continue;
+
+      var isFound = !!state.found[r.nm];
+      var isJustFound = (r.nm === justFoundNm);
+      var isHintRevealed = state.showAllHints || !!state.revealedHints[r.nm];
+
+      if (isFound) {
+        d.className = "bk on" + (isJustFound ? " justfound" : "");
+        var ingA = ingById(r.a);
+        var ingB = ingById(r.b);
+        var subText = (ingA && ingB) ? (ingA.em + " + " + ingB.em) : "";
+        d.innerHTML = '<div class="e">' + r.em + '</div><div class="n">' + r.nm + '</div><div class="sub-ing">' + subText + '</div>';
+      } else {
+        d.className = "bk";
+        if (isHintRevealed) {
+          d.innerHTML = '<div class="e">❓</div><div class="n">???</div><div class="sub-ing">' + r.hint + '</div>';
+        } else {
+          d.innerHTML = '<div class="e">❓</div><div class="n">???</div><div class="sub-ing">❓ + ❓</div><div class="hint-badge">💡 힌트 터치</div>';
+        }
+      }
+    }
+  }
+
+  function getVesselById(id) {
+    for (var i = 0; i < VESSELS.length; i++) {
+      if (VESSELS[i].id === id) return VESSELS[i];
+    }
+    return VESSELS[0];
+  }
+
+  function buildVessels() {
+    var elPicker = $("vesselPicker");
+    if (!elPicker) return;
+    elPicker.innerHTML = "";
+    for (var i = 0; i < VESSELS.length; i++) {
+      var v = VESSELS[i];
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "vessel-btn" + (v.id === state.selectedVessel ? " active" : "");
+      btn.setAttribute("data-vid", v.id);
+      btn.innerHTML = '<span class="vem">' + v.em + '</span><span>' + v.nm + '</span>';
+      btn.addEventListener("click", (function(vid) {
+        return function() {
+          selectVessel(vid);
+        };
+      })(v.id));
+      elPicker.appendChild(btn);
+    }
+  }
+
+  function selectVessel(vid) {
+    state.selectedVessel = vid;
+    sndDrop();
+    var v = getVesselById(vid);
+    var elSlotV = $("slotVessel");
+    if (elSlotV) {
+      elSlotV.textContent = v.em;
+      elSlotV.className = "slot vessel-slot filled";
+    }
+    var btns = $("vesselPicker").querySelectorAll(".vessel-btn");
+    for (var i = 0; i < btns.length; i++) {
+      var bVid = btns[i].getAttribute("data-vid");
+      if (bVid === vid) {
+        btns[i].classList.add("active");
+      } else {
+        btns[i].classList.remove("active");
+      }
+    }
+    setHint("선택한 용기: " + v.em + " " + v.nm);
+  }
+
+  function checkPlatingMatch(recipe, vesselId) {
+    var isDessert = (recipe.a === "bread" || recipe.b === "bread" || recipe.nm.indexOf("케이크") >= 0 || recipe.nm.indexOf("크루아상") >= 0);
+    var isIceDrink = (recipe.a === "ice" || recipe.b === "ice" || recipe.a === "soda" || recipe.b === "soda" || recipe.nm.indexOf("아이스") >= 0 || recipe.nm.indexOf("에이드") >= 0);
+    
+    if (isDessert && vesselId === "plate") return true;
+    if (isIceDrink && (vesselId === "cup" || vesselId === "glass")) return true;
+    if (!isDessert && !isIceDrink && (vesselId === "mug" || vesselId === "glass")) return true;
+    return false;
+  }
+
+  function renderPot() {
+    var v = getVesselById(state.selectedVessel);
+    var elSlotV = $("slotVessel");
+    if (elSlotV) {
+      elSlotV.textContent = v.em;
+      elSlotV.className = "slot vessel-slot filled";
+    }
+    for (var i = 0; i < 2; i++) {
+      var id = state.pot[i];
+      if (id) {
+        var it = ingById(id);
+        if (elSlots[i].textContent !== it.em) {
+          elSlots[i].textContent = it.em;
+          elSlots[i].className = "slot filled";
+        }
+      } else {
+        elSlots[i].textContent = "";
+        elSlots[i].className = "slot";
+      }
+    }
+    renderSel();
+  }
+
+  function renderHud() {
+    elScore.textContent = String(state.score);
+    var t = Math.max(0, Math.ceil(state.timeLeft));
+    elTime.textContent = String(t);
+    elBook.textContent = state.foundCount + "/" + TOTAL;
+    elBookCount.textContent = state.foundCount + "/" + TOTAL;
+
+    elLevel.textContent = "Lv." + state.level;
+    elTitle.textContent = getLevelTitle(state.level);
+    var reqExp = getExpForNextLevel(state.level);
+    var expRatio = Math.max(0, Math.min(1, state.exp / reqExp));
+    elExpFill.style.width = (expRatio * 100) + "%";
+    elExpText.textContent = state.exp + "/" + reqExp;
+
+    var ratio = Math.max(0, Math.min(1, state.timeLeft / ROUND_TIME));
+    elFill.style.width = (ratio * 100) + "%";
+  }
+
+  function addExp(amount) {
+    state.exp += amount;
+    var reqExp = getExpForNextLevel(state.level);
+    if (state.exp >= reqExp) {
+      state.exp -= reqExp;
+      state.level++;
+      state.timeLeft = Math.min(ROUND_TIME * 1.5, state.timeLeft + 8);
+      state.score += state.level * 30;
+      sndLevelUp();
+      sparkle(16);
+      showToast("⭐", "레벨 업! Lv." + state.level + " " + getLevelTitle(state.level) + " (+8초!)");
+    }
+  }
+
+  function cook() {
+    var r = RECIPE_MAP[pairKey(state.pot[0], state.pot[1])];
+    elPotEmoji.className = "potemoji";
+    elStove.classList.remove("boiling");
+
+    if (r) {
+      state.madeCount++;
+      var isNew = !state.found[r.nm];
+      var isOrderMatched = state.customerOrder && (r.nm === state.customerOrder.nm);
+      var isPlatingMatched = checkPlatingMatch(r, state.selectedVessel);
+      var ingA = ingById(r.a), ingB = ingById(r.b);
+      var comboStr = (ingA && ingB) ? (" (" + ingA.em + "+" + ingB.em + ")") : "";
+      var vessel = getVesselById(state.selectedVessel);
+
+      var platingBonus = 0;
+      var platingMsg = "";
+      if (isPlatingMatched) {
+        platingBonus = 20;
+        state.score += platingBonus;
+        state.timeLeft = Math.min(ROUND_TIME * 1.5, state.timeLeft + 1);
+        platingMsg = " ✨ 완벽한 플레이팅 (+" + platingBonus + "점)!";
+      }
+
+      if (isOrderMatched) {
+        state.ordersServed++;
+        state.score += 50;
+        state.timeLeft = Math.min(ROUND_TIME * 1.5, state.timeLeft + 3);
+        sndOrderMatch();
+        showToast("🎯", "주문 완성! " + vessel.em + " " + r.nm + platingMsg + " +50점!");
+        sparkle(16);
+        if (isNew) {
+          state.found[r.nm] = true;
+          state.foundCount++;
+          wipeSponge();
+        }
+        addExp(70);
+        spawnCustomer();
+      } else if (isNew) {
+        state.found[r.nm] = true;
+        state.foundCount++;
+        state.score += 30;
+        showToast(r.em, "신메뉴! " + vessel.em + " " + r.nm + comboStr + platingMsg + " +30점");
+        sndNew();
+        sparkle(12);
+        wipeSponge();
+        addExp(50);
+      } else {
+        state.score += 10;
+        showToast(r.em, vessel.em + " " + r.nm + comboStr + platingMsg + " +10점");
+        sndGood();
+        sparkle(8);
+        addExp(20);
+      }
+      renderBook(r.nm);
+      if (isOrderMatched) {
+        setHint("손님 주문 성공! ✨ 새로운 손님이 다가왔습니다.");
+      } else if (isNew) {
+        setHint("신메뉴 완료! 바리스타 행주가 깔끔하게 청소했어요 🧽✨");
+      } else {
+        setHint("완성! 현재 손님 주문: " + (state.customerOrder ? state.customerOrder.nm : ""));
+      }
+    } else {
+      showToast("💨", "아쉬워요! 다른 카페 조합으로 시도해보세요...", true);
+      sndBad();
+      elStove.className = "stove shake";
+      setTimeout(function () { elStove.className = "stove"; }, 420);
+      setHint("실패했지만 괜찮아요! 다른 재료 조합을 찾아보세요 💪");
+    }
+    state.pot = [];
+    renderPot();
+    renderHud();
+    state.cooling = 0.35;
+
+    if (state.foundCount >= TOTAL) { endGame(true); }
+  }
+
+  function startGame() {
+    state.playing = true;
+    state.score = 0;
+    state.level = 1;
+    state.exp = 0;
+    state.timeLeft = ROUND_TIME;
+    state.pot = [];
+    state.selectedVessel = "mug";
+    state.found = {};
+    state.foundCount = 0;
+    state.madeCount = 0;
+    state.ordersServed = 0;
+    state.cookTimer = 0;
+    state.cooling = 0;
+    state.sel = 0;
+    state.revealedHints = {};
+    state.parcelTimer = 10;
+    state.hasParcel = false;
+    state.parcelCount = 0;
+
+    var pBox = $("parcelBox");
+    if (pBox) pBox.classList.add("hidden");
+
+    buildVessels();
+    spawnCustomer();
+    renderBook("");
+    renderPot();
+    renderHud();
+    setHint("손님 주문에 맞게 재료를 선택해보세요!");
+
+    startScreen.classList.add("hidden");
+    endScreen.classList.add("hidden");
+
+    lastTs = performance.now();
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(gameLoop);
+  }
+
+  function endGame(cleared) {
+    state.playing = false;
+    sndEnd();
+
+    var b = loadBest();
+    var curBest = b ? b.score : 0;
+    if (state.score > curBest) {
+      saveBest({ score: state.score, book: state.foundCount });
+    }
+
+    $("endTitle").textContent = cleared ? "전 메뉴 정복 완료! 🏆" : "영업 종료!";
+    $("endSub").textContent = cleared ? "모든 카페 대표 메뉴를 정복하셨습니다!" : "오늘 정성스럽게 제조한 메뉴를 확인해보세요~";
+    $("endScore").textContent = state.score + "점";
+    $("endLevel").textContent = "Lv." + state.level + " (" + getLevelTitle(state.level) + ")";
+    $("endBook").textContent = state.foundCount + "/" + TOTAL;
+    $("endMade").textContent = state.madeCount + "개";
+    $("endOrders").textContent = state.ordersServed + "회";
+
+    var foundArr = [];
+    for (var i = 0; i < RECIPES.length; i++) {
+      if (state.found[RECIPES[i].nm]) {
+        foundArr.push(RECIPES[i].em);
+      }
+    }
+    $("endList").textContent = foundArr.length > 0 ? foundArr.join(" ") : "—";
+    $("bestEnd").textContent = bestText();
+
+    endScreen.classList.remove("hidden");
+  }
+
+  function gameLoop(ts) {
+    if (!state.playing) return;
+    var dt = (ts - lastTs) / 1000;
+    lastTs = ts;
+    if (dt > 0.2) dt = 0.2;
+
+    state.timeLeft -= dt;
+    if (state.timeLeft <= 0) {
+      state.timeLeft = 0;
+      renderHud();
+      endGame(false);
+      return;
+    }
+
+    if (!state.hasParcel) {
+      state.parcelTimer -= dt;
+      if (state.parcelTimer <= 0) {
+        spawnParcel();
+      }
+    }
+
+    if (state.cookTimer > 0) {
+      state.cookTimer -= dt;
+      if (state.cookTimer <= 0) {
+        state.cookTimer = 0;
+        cook();
+      }
+    }
+
+    if (state.cooling > 0) {
+      state.cooling -= dt;
+    }
+
+    renderHud();
+    rafId = requestAnimationFrame(gameLoop);
+  }
+
+  function blurThen(fn) {
+    return function (ev) {
+      if (ev && ev.currentTarget && ev.currentTarget.blur) { ev.currentTarget.blur(); }
+      fn();
+    };
+  }
+
+  window.addEventListener("keydown", function (e) {
+    if (!state.playing) return;
+    if (e.key === "ArrowLeft") {
+      state.sel = (state.sel - 1 + ING.length) % ING.length;
+      renderSel();
+    } else if (e.key === "ArrowRight") {
+      state.sel = (state.sel + 1) % ING.length;
+      renderSel();
+    } else if (e.key === " " || e.key === "Enter") {
+      e.preventDefault();
+      addToPot(ING[state.sel].id);
+    } else if (e.key === "Escape" || e.key === "Backspace") {
+      e.preventDefault();
+      clearPot();
+    }
+  });
+
+  $("startBtn").addEventListener("click", blurThen(startGame));
+  $("againBtn").addEventListener("click", blurThen(startGame));
+  $("clearPotBtn").addEventListener("click", blurThen(clearPot));
+  $("bgmToggleBtn").addEventListener("click", blurThen(toggleBgm));
+  $("parcelBox").addEventListener("click", blurThen(openParcel));
+
+  for (var sIdx = 0; sIdx < elSlots.length; sIdx++) {
+    (function(idx) {
+      elSlots[idx].addEventListener("click", function() {
+        if (!state.playing || state.cookTimer > 0 || state.cooling > 0) return;
+        if (state.pot[idx]) {
+          state.pot.splice(idx, 1);
+          renderPot();
+          sndDrop();
+          setHint("재료를 카페 바에서 빼냈어요!");
+        }
+      });
+    })(sIdx);
+  }
+
+  $("toggleHintBtn").addEventListener("click", blurThen(function () {
+    state.showAllHints = !state.showAllHints;
+    var btn = $("toggleHintBtn");
+    btn.textContent = state.showAllHints ? "🙈 힌트 숨기기" : "💡 힌트 전체보기";
+    btn.style.background = state.showAllHints ? "#fde68a" : "#fef3c7";
+    sndHint();
+    renderBook("");
+  }));
+
+  buildCards();
+  buildVessels();
+  buildBook();
+  renderBook("");
+  renderHud();
+  $("bestStart").textContent = bestText();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1324 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>3D 축구 슛 ⚽</title>
+<style>
+  * {
+    box-sizing: border-box;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    height: 100dvh;
+    overflow: hidden;
+    background: #051208;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    background: radial-gradient(circle at 50% -10%, #1e4d2b 0%, #0d2914 50%, #051208 100%);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  #wrap {
+    width: 100%;
+    height: 100%;
+    max-width: 430px;
+    max-height: 900px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+  }
+
+  #stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 3 / 4;
+    max-height: calc(100dvh - 16px);
+    margin: 0 auto;
+    border-radius: 20px;
+    overflow: hidden;
+    background: #092010;
+    box-shadow: 0 20px 50px rgba(0,0,0,.6), 0 0 0 3px rgba(255,255,255,.10) inset;
+    touch-action: none;
+    cursor: crosshair;
+  }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+  /* ---------- HUD ---------- */
+  #hud {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 6px;
+    font-weight: 800;
+  }
+  #hudTop { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
+  .chip {
+    background: rgba(8, 28, 12, 0.75);
+    border: 2px solid rgba(255,255,255,.16);
+    border-radius: 12px;
+    padding: 5px 10px;
+    font-size: 13px;
+    line-height: 1.25;
+    letter-spacing: .2px;
+    backdrop-filter: blur(4px);
+    white-space: nowrap;
+  }
+  .chip small { display: block; font-size: 9px; opacity: .75; font-weight: 700; letter-spacing: 1px; }
+  #scoreChip { color: #ffe27a; font-size: 18px; padding: 4px 12px; }
+  #oppScoreChip { color: #ff8a8a; font-size: 18px; padding: 4px 12px; }
+  #timeChip { color: #ff6b6b; font-size: 16px; font-weight: 900; }
+  #hudRight { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  #scoreBoard { display: flex; gap: 6px; }
+  #turnChip { color: #7bf0c8; font-size: 12px; }
+
+  /* ---------- 배너 ---------- */
+  #banner {
+    position: absolute; left: 0; right: 0; top: 32%;
+    text-align: center; pointer-events: none;
+    font-size: 26px; font-weight: 900;
+    color: #fff;
+    text-shadow: 0 3px 0 rgba(0,0,0,.5), 0 0 22px rgba(120,255,160,.85);
+    opacity: 0;
+  }
+  #banner.show { animation: bann 1.05s ease-out; }
+  @keyframes bann {
+    0% { opacity: 0; transform: scale(.5) rotate(-6deg); }
+    18% { opacity: 1; transform: scale(1.18) rotate(2deg); }
+    35% { transform: scale(1) rotate(0deg); }
+    80% { opacity: 1; }
+    100% { opacity: 0; transform: scale(1.05) translateY(-16px); }
+  }
+
+  /* ---------- 오버레이 ---------- */
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 12px; text-align: center;
+    padding: 20px;
+    background: linear-gradient(180deg, rgba(4,20,8,.75) 0%, rgba(4,20,8,.95) 100%);
+    backdrop-filter: blur(4px);
+    z-index: 10;
+  }
+  .overlay.hidden { display: none; }
+
+  .bigTitle {
+    font-size: 38px; font-weight: 900; letter-spacing: -1px;
+    line-height: 1.1;
+    background: linear-gradient(180deg, #fff 0%, #a8ffb2 55%, #2eff63 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 4px 0 rgba(0,0,0,.35));
+    margin: 0;
+  }
+  .ballEmoji { font-size: 55px; line-height: 1; animation: bounceE 1.4s ease-in-out infinite; }
+  @keyframes bounceE { 0%,100%{ transform: translateY(0) rotate(-8deg);} 50%{ transform: translateY(-16px) rotate(10deg);} }
+  .sub { font-size: 14px; font-weight: 700; opacity: .92; line-height: 1.6; }
+  .howto {
+    font-size: 12.5px; font-weight: 700; line-height: 1.7;
+    background: rgba(255,255,255,.08);
+    border: 2px solid rgba(255,255,255,.14);
+    border-radius: 14px; padding: 12px 16px;
+    max-width: 320px;
+  }
+  .howto b { color: #a8ffb2; }
+  .best { font-size: 13px; font-weight: 800; color: #7bf0c8; }
+  .btn {
+    margin-top: 4px;
+    font-family: inherit;
+    font-size: 19px; font-weight: 900;
+    color: #06240d;
+    background: linear-gradient(180deg, #b2ffbd 0%, #32e056 100%);
+    border: none; border-radius: 999px;
+    padding: 14px 42px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #188c30, 0 12px 24px rgba(0,0,0,.45);
+    transition: transform .08s, box-shadow .08s;
+    touch-action: manipulation;
+  }
+  .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #188c30, 0 6px 14px rgba(0,0,0,.45); }
+  .hint { font-size: 11.5px; opacity: .65; font-weight: 700; }
+
+  #overTitle { font-size: 34px; font-weight: 900; margin: 0; color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.4); }
+  #overScore { font-size: 48px; font-weight: 900; line-height: 1; color: #a8ffb2; text-shadow: 0 4px 0 rgba(0,0,0,.35); }
+  #overMsg { font-size: 15px; font-weight: 800; color: #ffb0b0; }
+  #overStats { font-size: 12.5px; font-weight: 700; opacity: .85; line-height: 1.7; }
+
+  @media (max-width: 380px) {
+    .bigTitle { font-size: 32px; }
+    .ballEmoji { font-size: 44px; }
+    #overScore { font-size: 38px; }
+    .chip { font-size: 11px; padding: 4px 6px; }
+    #scoreChip, #oppScoreChip { font-size: 14px; }
+    .btn { font-size: 17px; padding: 12px 32px; }
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="stage">
+    <canvas id="cv"></canvas>
+
+    <div id="hud">
+      <div id="hudTop">
+        <div id="scoreBoard">
+          <div class="chip" id="scoreChip"><small>나 (골)</small><span id="scoreVal">0</span></div>
+          <div class="chip" id="oppScoreChip"><small>상대 AI (골)</small><span id="oppScoreVal">0</span></div>
+        </div>
+        <div id="hudRight">
+          <div class="chip" id="timeChip"><small>남은 시간</small><span id="timeVal">30초</span></div>
+          <div class="chip" id="turnChip"><small>상태</small><span id="turnVal">터치로 드래그! ⚽</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="banner"></div>
+
+    <!-- 시작 화면 -->
+    <div class="overlay" id="titleScreen">
+      <div class="ballEmoji">⚽</div>
+      <h1 class="bigTitle">30초 모바일<br>무한 슈팅 대결</h1>
+      <div class="sub">손가락으로 공을 당겼다 놓아 슛!<br>30초 동안 상대 AI와 슛 대결!</div>
+      <div class="howto">
+        <b>📱 모바일 조작</b> 공을 터치 후 뒤로 끌었다 놓기!<br>
+        <b>⏱️ 30초 무한 슛</b> 슛 즉시 새로운 공으로 계속 슈팅!<br>
+        <b>🧤 AI 골키퍼</b> 무작위 8방향 다이빙 수비!<br>
+        30초 동안 골키퍼를 뚫고 더 많은 골을 성공시키세요! ✨
+      </div>
+      <div class="best" id="bestTitle">최고 기록 0골 승리</div>
+      <button class="btn" id="startBtn">터치하여 시작!</button>
+      <div class="hint">손가락 터치로 쉽게 조작할 수 있어</div>
+    </div>
+
+    <!-- 게임오버 화면 -->
+    <div class="overlay hidden" id="overScreen">
+      <h2 id="overTitle">30초 종료!</h2>
+      <div id="overScore">5 : 3</div>
+      <div id="overMsg"></div>
+      <div id="overStats"></div>
+      <div class="best" id="bestOver">최고 기록 0골 승리</div>
+      <button class="btn" id="retryBtn">다시 대결!</button>
+      <div class="hint">버튼을 터치하면 바로 다시 시작</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ===================== 기본 설정 =====================
+  var DW = 420, DH = 560;
+  var BALL_START_X = DW / 2;
+  var BALL_START_Y = 460;
+  var GOAL_Y = 130;
+  var GOAL_BASE_W = 180;
+  var GOAL_H = 85;
+  var FLIGHT_TIME = 0.60;
+  var MAX_TIME = 30;
+
+  var cv = document.getElementById('cv');
+  var ctx = cv.getContext('2d');
+  var stage = document.getElementById('stage');
+
+  var el = {
+    score: document.getElementById('scoreVal'),
+    oppScore: document.getElementById('oppScoreVal'),
+    scoreChip: document.getElementById('scoreChip'),
+    timeVal: document.getElementById('timeVal'),
+    turnVal: document.getElementById('turnVal'),
+    banner: document.getElementById('banner'),
+    titleScreen: document.getElementById('titleScreen'),
+    overScreen: document.getElementById('overScreen'),
+    startBtn: document.getElementById('startBtn'),
+    retryBtn: document.getElementById('retryBtn'),
+    bestTitle: document.getElementById('bestTitle'),
+    bestOver: document.getElementById('bestOver'),
+    overTitle: document.getElementById('overTitle'),
+    overScore: document.getElementById('overScore'),
+    overMsg: document.getElementById('overMsg'),
+    overStats: document.getElementById('overStats')
+  };
+
+  // ===================== 저장 =====================
+  var BEST_KEY = 'soccer30sVsBest_v1';
+  function loadBest() {
+    try {
+      var v = window.localStorage.getItem(BEST_KEY);
+      var n = parseInt(v, 10);
+      return isFinite(n) && n > 0 ? n : 0;
+    } catch (e) { return 0; }
+  }
+  function saveBest(v) {
+    try { window.localStorage.setItem(BEST_KEY, String(v)); } catch (e) { /* 무시 */ }
+  }
+  var bestScore = loadBest();
+  el.bestTitle.textContent = '최고 기록 ' + bestScore + '골 승리';
+
+  // ===================== 소리 (WebAudio 합성) =====================
+  var AC = null, master = null;
+  function ensureAudio() {
+    if (!AC) {
+      try {
+        var Ctor = window.AudioContext || window.webkitAudioContext;
+        if (!Ctor) return;
+        AC = new Ctor();
+        master = AC.createGain();
+        master.gain.value = 0.3;
+        master.connect(AC.destination);
+      } catch (e) { AC = null; master = null; return; }
+    }
+    if (AC && AC.state === 'suspended') {
+      try {
+        var pr = AC.resume();
+        if (pr && pr.catch) pr.catch(function () { /* 무시 */ });
+      } catch (e) { /* 무시 */ }
+    }
+  }
+  function tone(freq, dur, type, vol, delay, freq2) {
+    if (!AC || !master) return;
+    try {
+      var t0 = AC.currentTime + (delay || 0);
+      var o = AC.createOscillator();
+      var g = AC.createGain();
+      o.type = type || 'sine';
+      o.frequency.setValueAtTime(freq, t0);
+      if (freq2) o.frequency.exponentialRampToValueAtTime(Math.max(20, freq2), t0 + dur);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol || 0.2), t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g); g.connect(master);
+      o.start(t0); o.stop(t0 + dur + 0.03);
+    } catch (e) { /* 무시 */ }
+  }
+  function noise(dur, f1, f2, vol, delay) {
+    if (!AC || !master) return;
+    try {
+      var t0 = AC.currentTime + (delay || 0);
+      var len = Math.max(1, Math.floor(AC.sampleRate * dur));
+      var buf = AC.createBuffer(1, len, AC.sampleRate);
+      var d = buf.getChannelData(0);
+      for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      var src = AC.createBufferSource(); src.buffer = buf;
+      var bp = AC.createBiquadFilter(); bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(f1, t0);
+      bp.frequency.exponentialRampToValueAtTime(Math.max(60, f2 || f1), t0 + dur);
+      bp.Q.value = 1.2;
+      var g = AC.createGain();
+      g.gain.setValueAtTime(vol || 0.2, t0);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      src.connect(bp); bp.connect(g); g.connect(master);
+      src.start(t0); src.stop(t0 + dur + 0.03);
+    } catch (e) { /* 무시 */ }
+  }
+
+  function sfxShoot(power) {
+    noise(0.24, 380 + power * 450, 110, 0.28);
+    tone(180 + power * 140, 0.18, 'triangle', 0.15, 0, 80);
+  }
+  function sfxBounce() {
+    tone(200, 0.09, 'triangle', 0.18, 0, 90);
+    noise(0.06, 1000, 300, 0.08);
+  }
+  function sfxScore() {
+    tone(523, 0.15, 'triangle', 0.25);
+    tone(659, 0.15, 'sine', 0.2, 0.06);
+    tone(784, 0.25, 'sine', 0.2, 0.12);
+  }
+  function sfxMiss() {
+    tone(260, 0.34, 'sawtooth', 0.13, 0, 90);
+    noise(0.18, 400, 120, 0.09, 0.02);
+  }
+  function sfxStart() {
+    tone(1800, 0.2, 'sine', 0.18, 0);
+    tone(1800, 0.3, 'sine', 0.18, 0.25);
+  }
+
+  // ===================== 캔버스 반응형 크기 조절 =====================
+  var dpr = 1, cssScale = 1;
+  function resize() {
+    var rect = stage.getBoundingClientRect();
+    var w = Math.max(60, rect.width), h = Math.max(60, rect.height);
+    dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    cv.width = Math.round(w * dpr);
+    cv.height = Math.round(h * dpr);
+    cssScale = w / DW;
+    if (h / DH < cssScale) cssScale = h / DH;
+  }
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', function () { setTimeout(resize, 120); });
+
+  // ===================== 게임 상태 =====================
+  var S = {
+    mode: 'title',          // title | play | over
+    time: 0,
+    playerGoals: 0,
+    oppGoals: 0,
+    playerShots: 0,
+    oppShots: 0,
+    shake: 0, shakeMag: 0,
+    aiShootTimer: 1.8
+  };
+
+  // 플레이어 3D 공
+  var ball = {
+    startX: BALL_START_X, startY: BALL_START_Y,
+    targetX: BALL_START_X, targetY: GOAL_Y + GOAL_H / 2,
+    x: BALL_START_X, y: BALL_START_Y, z: 0,
+    vx: 0, vy: 0, vz: 0,
+    r: 22, rot: 0, spin: 0,
+    flightTime: FLIGHT_TIME, timeInFlight: 0, arcHeight: 45,
+    state: 'ready', scored: false, savedByKeeper: false,
+    trail: []
+  };
+
+  // 상대 AI 3D 공
+  var oppBall = {
+    startX: BALL_START_X, startY: BALL_START_Y,
+    targetX: BALL_START_X, targetY: GOAL_Y + GOAL_H / 2,
+    x: BALL_START_X, y: BALL_START_Y, z: 0,
+    r: 22, rot: 0, spin: 0,
+    flightTime: FLIGHT_TIME, timeInFlight: 0, arcHeight: 45,
+    state: 'ready', scored: false, savedByKeeper: false,
+    trail: []
+  };
+
+  // 골대
+  var hoop = {
+    x: DW / 2, y: GOAL_Y, w: GOAL_BASE_W, h: GOAL_H,
+    flash: 0, pop: 0, netWave: 0
+  };
+
+  // 내 슈터
+  var kicker = {
+    x: BALL_START_X - 28, y: BALL_START_Y + 10,
+    kickAnim: 0, idleTimer: 0
+  };
+
+  // 골키퍼 AI
+  var keeper = {
+    x: DW / 2, y: GOAL_Y + GOAL_H - 12,
+    baseY: GOAL_Y + GOAL_H - 12,
+    currX: DW / 2, currY: GOAL_Y + GOAL_H - 12,
+    targetX: DW / 2, targetY: GOAL_Y + GOAL_H - 12,
+    diveTimer: 0, reactSpeed: 8.5, reachRadius: 36
+  };
+
+  var particles = [];
+  var pops = [];
+  var confetti = [];
+
+  // 터치 및 조준
+  var aim = { dragging: false, px: 0, py: 0, touchId: null };
+  var spawnPending = 0;
+
+  // ===================== 유틸 =====================
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  function shake(mag, dur) {
+    S.shakeMag = Math.max(S.shakeMag, mag);
+    S.shake = Math.max(S.shake, dur);
+  }
+  function banner(txt) {
+    el.banner.textContent = txt;
+    el.banner.classList.remove('show');
+    void el.banner.offsetWidth;
+    el.banner.classList.add('show');
+  }
+  function popText(x, y, txt, color, size) {
+    pops.push({ x: x, y: y, txt: txt, color: color || '#fff', size: size || 20, life: 1, vy: -46 });
+  }
+  function burst(x, y, n, colors, spd, life) {
+    for (var i = 0; i < n; i++) {
+      var a = Math.random() * Math.PI * 2;
+      var s = rand(spd * 0.3, spd);
+      particles.push({
+        x: x, y: y,
+        vx: Math.cos(a) * s, vy: Math.sin(a) * s - 30,
+        life: life || rand(0.35, 0.8), max: 1,
+        r: rand(2, 5.2),
+        c: colors[(Math.random() * colors.length) | 0],
+        g: 400
+      });
+    }
+  }
+  function doConfetti(x, y) {
+    var cols = ['#a8ffb2', '#2eff63', '#7bf0c8', '#ffd257', '#ffffff', '#7fb4ff'];
+    for (var i = 0; i < 34; i++) {
+      confetti.push({
+        x: x + rand(-40, 40), y: y + rand(-10, 10),
+        vx: rand(-180, 180), vy: rand(-280, -100),
+        w: rand(4, 9), h: rand(6, 12),
+        rot: rand(0, 6.28), vr: rand(-9, 9),
+        c: cols[(Math.random() * cols.length) | 0],
+        life: rand(0.9, 1.7)
+      });
+    }
+  }
+
+  // ===================== 게임 흐름 =====================
+  function resetGame() {
+    S.mode = 'play';
+    S.time = 0;
+    S.playerGoals = 0;
+    S.oppGoals = 0;
+    S.playerShots = 0;
+    S.oppShots = 0;
+    S.shake = 0; S.shakeMag = 0;
+    S.aiShootTimer = 1.2;
+
+    particles.length = 0; pops.length = 0; confetti.length = 0;
+    hoop.pop = 0; hoop.flash = 0;
+    aim.dragging = false;
+    spawnPending = 0;
+    oppBall.state = 'ready';
+    oppBall.timeInFlight = 0;
+
+    spawnBall();
+    updateHUD();
+    banner('30초 타임어택 대결 시작! ⚽');
+  }
+
+  function spawnBall() {
+    ball.startX = BALL_START_X;
+    ball.startY = BALL_START_Y;
+    ball.x = BALL_START_X;
+    ball.y = BALL_START_Y;
+    ball.z = 0;
+    ball.timeInFlight = 0;
+    ball.r = 22;
+    ball.rot = 0; ball.spin = 0;
+    ball.state = 'ready';
+    ball.scored = false; ball.savedByKeeper = false;
+    ball.trail.length = 0;
+    kicker.kickAnim = 0;
+  }
+
+  function playerShoot(tx, ty, power) {
+    ball.targetX = tx;
+    ball.targetY = ty;
+    ball.state = 'flying';
+    ball.timeInFlight = 0;
+    ball.flightTime = clamp(0.68 - power * 0.22, 0.45, 0.68);
+    ball.arcHeight = 35 + (BALL_START_Y - ty) * 0.25;
+    ball.spin = (tx - BALL_START_X) * 0.08;
+    S.playerShots++;
+    kicker.kickAnim = 1.0;
+
+    // 골키퍼 8방향 무작위 다이빙
+    keeper.diveTimer = 1.0;
+    var maxReachX = hoop.w * 0.48;
+    var dirXChoices = [-maxReachX * rand(0.6, 0.95), 0, maxReachX * rand(0.6, 0.95)];
+    var dirYChoices = [GOAL_Y + 12, GOAL_Y + GOAL_H * 0.5, GOAL_Y + GOAL_H - 8];
+
+    if (Math.random() < 0.22) {
+      keeper.targetX = clamp(tx + rand(-25, 25), hoop.x - maxReachX, hoop.x + maxReachX);
+      keeper.targetY = clamp(ty + rand(-15, 15), GOAL_Y + 10, GOAL_Y + GOAL_H - 5);
+    } else {
+      keeper.targetX = clamp(hoop.x + dirXChoices[(Math.random() * dirXChoices.length) | 0], hoop.x - maxReachX, hoop.x + maxReachX);
+      keeper.targetY = dirYChoices[(Math.random() * dirYChoices.length) | 0];
+    }
+
+    sfxShoot(power);
+    burst(ball.x, ball.y, 14, ['#ffffff', '#a8ffb2', '#2eff63'], 180, 0.4);
+    shake(4, 0.12);
+  }
+
+  function aiShoot() {
+    if (S.mode !== 'play') return;
+    S.oppShots++;
+
+    var maxReachX = hoop.w * 0.44;
+    var targetX = hoop.x + rand(-maxReachX, maxReachX);
+    var targetY = GOAL_Y + rand(10, GOAL_H - 8);
+    var power = rand(0.6, 0.95);
+
+    oppBall.startX = BALL_START_X;
+    oppBall.startY = BALL_START_Y;
+    oppBall.targetX = targetX;
+    oppBall.targetY = targetY;
+    oppBall.state = 'flying';
+    oppBall.timeInFlight = 0;
+    oppBall.flightTime = clamp(0.70 - power * 0.2, 0.48, 0.70);
+    oppBall.arcHeight = 35 + (BALL_START_Y - targetY) * 0.25;
+
+    if (Math.random() < 0.68) {
+      S.oppGoals++;
+      popText(targetX, targetY - 10, '상대 득점! ⚽', '#ff8a8a', 22);
+      sfxBounce();
+    } else {
+      popText(targetX, targetY - 10, '상대 노골!', '#ffd257', 18);
+    }
+    updateHUD();
+  }
+
+  function endShot(scored) {
+    if (ball.state === 'done') return;
+    ball.state = 'done';
+
+    if (scored) {
+      S.playerGoals++;
+      hoop.pop = 1; hoop.flash = 1;
+      sfxScore();
+      doConfetti(hoop.x, GOAL_Y + GOAL_H / 2);
+      popText(hoop.x, GOAL_Y - 15, 'GOAL! ⚽', '#a8ffb2', 28);
+    } else {
+      sfxMiss();
+      var msg = ball.savedByKeeper ? '골키퍼 선방!' : '노골!';
+      popText(clamp(ball.x, 60, DW - 60), clamp(ball.y, 100, BALL_START_Y - 20), msg, '#ff8a8a', 20);
+    }
+    updateHUD();
+
+    spawnPending = 0.15;
+  }
+
+  function gameOver() {
+    S.mode = 'over';
+    sfxStart();
+    shake(10, 0.4);
+
+    var isWin = S.playerGoals > S.oppGoals;
+    var isDraw = S.playerGoals === S.oppGoals;
+
+    if (isWin) {
+      if (S.playerGoals > bestScore) {
+        bestScore = S.playerGoals;
+        saveBest(bestScore);
+      }
+      el.overTitle.textContent = '대결 승리! 🏆';
+      el.overMsg.textContent = '축하합니다! 30초 슈팅 대결에서 승리했습니다!';
+      el.overMsg.style.color = '#7bf0c8';
+      doConfetti(DW / 2, DH / 2);
+    } else if (isDraw) {
+      el.overTitle.textContent = '무승부! 🤝';
+      el.overMsg.textContent = '치열한 대결 끝에 무승부로 끝났습니다!';
+      el.overMsg.style.color = '#ffe27a';
+    } else {
+      el.overTitle.textContent = '패배... 😢';
+      el.overMsg.textContent = '상대보다 골을 더 많이 넣지 못했습니다!';
+      el.overMsg.style.color = '#ff8a8a';
+    }
+
+    el.overScore.textContent = S.playerGoals + ' : ' + S.oppGoals;
+    el.overStats.innerHTML =
+      '내 득점 <b>' + S.playerGoals + '</b>골 (시도 ' + S.playerShots + '회)<br>' +
+      '상대 득점 <b>' + S.oppGoals + '</b>골 (시도 ' + S.oppShots + '회)';
+    el.bestOver.textContent = '최고 기록 ' + bestScore + '골 승리';
+    el.overScreen.classList.remove('hidden');
+  }
+
+  function updateHUD() {
+    el.score.textContent = S.playerGoals;
+    el.oppScore.textContent = S.oppGoals;
+
+    var timeLeft = Math.max(0, Math.ceil(MAX_TIME - S.time));
+    el.timeVal.textContent = timeLeft + '초';
+
+    if (ball.state === 'ready') {
+      el.turnVal.textContent = '터치로 드래그! ⚽';
+      el.turnVal.style.color = '#a8ffb2';
+    } else {
+      el.turnVal.textContent = '슛 날아가는 중! 🔥';
+      el.turnVal.style.color = '#ffe27a';
+    }
+  }
+
+  // ===================== 모바일 터치 및 마우스 입력 지원 =====================
+  function toGame(clientX, clientY) {
+    var rect = stage.getBoundingClientRect();
+    var ox = (rect.width - DW * cssScale) / 2;
+    var oy = (rect.height - DH * cssScale) / 2;
+    return {
+      x: (clientX - rect.left - ox) / cssScale,
+      y: (clientY - rect.top - oy) / cssScale
+    };
+  }
+
+  function handleStart(clientX, clientY, pointerId) {
+    ensureAudio();
+    if (S.mode === 'title') return;
+    if (S.mode === 'over') { startGame(); return; }
+    if (ball.state !== 'ready') return;
+
+    var p = toGame(clientX, clientY);
+    aim.dragging = true;
+    aim.px = p.x; aim.py = p.y;
+    aim.touchId = pointerId;
+  }
+
+  function handleMove(clientX, clientY) {
+    if (!aim.dragging) return;
+    var p = toGame(clientX, clientY);
+    aim.px = p.x; aim.py = p.y;
+  }
+
+  function handleEnd() {
+    if (!aim.dragging) return;
+    aim.dragging = false;
+
+    var dx = BALL_START_X - aim.px;
+    var dy = BALL_START_Y - aim.py;
+    var d = Math.sqrt(dx * dx + dy * dy);
+    if (d < 12) return;
+
+    var targetX = BALL_START_X + dx * 1.55;
+    var targetY = GOAL_Y + GOAL_H - clamp(dy, 10, 180) * 0.72;
+    var power = clamp(d / 120, 0.2, 1.0);
+
+    playerShoot(targetX, targetY, power);
+  }
+
+  // Pointer Events (모바일 터치 및 마우스 완벽 지원)
+  stage.addEventListener('pointerdown', function (e) {
+    handleStart(e.clientX, e.clientY, e.pointerId);
+    if (e.pointerId !== undefined && stage.setPointerCapture) {
+      try { stage.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  stage.addEventListener('pointermove', function (e) {
+    handleMove(e.clientX, e.clientY);
+    e.preventDefault();
+  }, { passive: false });
+
+  window.addEventListener('pointerup', function (e) {
+    handleEnd();
+  });
+  window.addEventListener('pointercancel', function (e) {
+    aim.dragging = false;
+  });
+
+  // 키보드 지원
+  window.addEventListener('keydown', function (e) {
+    var k = e.key;
+    if (k === ' ' || k === 'Spacebar' || k === 'Enter') {
+      e.preventDefault();
+      ensureAudio();
+      if (S.mode === 'title') { startGame(); return; }
+      if (S.mode === 'over') { startGame(); return; }
+      if (ball.state === 'ready') {
+        var targetX = BALL_START_X + (Math.random() - 0.5) * 120;
+        var targetY = GOAL_Y + GOAL_H - 40;
+        playerShoot(targetX, targetY, 0.8);
+      }
+    }
+  });
+
+  function startGame() {
+    ensureAudio();
+    sfxStart();
+    el.titleScreen.classList.add('hidden');
+    el.overScreen.classList.add('hidden');
+    resetGame();
+  }
+  el.startBtn.addEventListener('click', function (e) { e.preventDefault(); startGame(); });
+  el.retryBtn.addEventListener('click', function (e) { e.preventDefault(); startGame(); });
+
+  // ===================== 정밀 3D 보간 물리 업데이트 =====================
+  function stepBall3D(dt) {
+    ball.timeInFlight += dt;
+    var z = clamp(ball.timeInFlight / ball.flightTime, 0, 1);
+    ball.z = z;
+
+    ball.x = (1 - z) * ball.startX + z * ball.targetX;
+    var linearY = (1 - z) * ball.startY + z * ball.targetY;
+    var arc = Math.sin(z * Math.PI) * ball.arcHeight;
+    ball.y = linearY - arc;
+
+    ball.rot += ball.spin * dt * 40;
+    ball.r = Math.max(8, 22 * (1 - z * 0.62));
+
+    if (z >= 0.88 && !ball.scored && !ball.savedByKeeper) {
+      var distToKeeper = Math.sqrt(Math.pow(ball.x - keeper.currX, 2) + Math.pow(ball.y - keeper.currY, 2));
+
+      if (distToKeeper <= keeper.reachRadius) {
+        ball.savedByKeeper = true;
+        sfxBounce();
+        shake(6, 0.22);
+        burst(ball.x, ball.y, 16, ['#ffcc00', '#ffffff', '#007aff'], 220);
+        endShot(false);
+        return;
+      }
+    }
+
+    if (z >= 1.0 && !ball.savedByKeeper) {
+      var goalL = hoop.x - hoop.w / 2;
+      var goalR = hoop.x + hoop.w / 2;
+      var goalTop = GOAL_Y;
+      var goalBot = GOAL_Y + GOAL_H;
+
+      if (ball.x > goalL + 5 && ball.x < goalR - 5 && ball.y > goalTop + 4 && ball.y < goalBot - 2) {
+        endShot(true);
+      } else {
+        sfxBounce();
+        shake(5, 0.2);
+        endShot(false);
+      }
+    }
+  }
+
+  function stepOppBall3D(dt) {
+    oppBall.timeInFlight += dt;
+    var z = clamp(oppBall.timeInFlight / oppBall.flightTime, 0, 1);
+    oppBall.z = z;
+
+    oppBall.x = (1 - z) * oppBall.startX + z * oppBall.targetX;
+    var linearY = (1 - z) * oppBall.startY + z * oppBall.targetY;
+    var arc = Math.sin(z * Math.PI) * oppBall.arcHeight;
+    oppBall.y = linearY - arc;
+
+    oppBall.rot += dt * 30;
+    oppBall.r = Math.max(8, 22 * (1 - z * 0.62));
+
+    if (z >= 1.0) {
+      oppBall.state = 'ready';
+    }
+  }
+
+  // ===================== 업데이트 =====================
+  function update(dt) {
+    kicker.idleTimer += dt;
+    hoop.netWave += dt * 10;
+
+    if (kicker.kickAnim > 0) {
+      kicker.kickAnim = Math.max(0, kicker.kickAnim - dt * 3.5);
+    }
+
+    if (S.mode === 'play') {
+      S.time += dt;
+
+      if (S.time >= MAX_TIME) {
+        gameOver();
+        return;
+      }
+
+      S.aiShootTimer -= dt;
+      if (S.aiShootTimer <= 0) {
+        S.aiShootTimer = rand(2.5, 3.5);
+        aiShoot();
+      }
+    }
+
+    if (ball.state === 'ready') {
+      keeper.targetX = hoop.x + Math.sin(kicker.idleTimer * 3.5) * 8;
+      keeper.targetY = keeper.baseY;
+      keeper.diveTimer = 0;
+    } else if (ball.state === 'flying') {
+      if (keeper.diveTimer > 0) keeper.diveTimer = Math.max(0, keeper.diveTimer - dt * 1.8);
+    }
+
+    keeper.currX += (keeper.targetX - keeper.currX) * Math.min(1.0, dt * keeper.reactSpeed);
+    keeper.currY += (keeper.targetY - keeper.currY) * Math.min(1.0, dt * keeper.reactSpeed);
+
+    if (S.shake > 0) {
+      S.shake -= dt;
+      if (S.shake <= 0) { S.shake = 0; S.shakeMag = 0; }
+    }
+
+    var i;
+    for (i = particles.length - 1; i >= 0; i--) {
+      var p = particles[i];
+      p.life -= dt;
+      p.vy += p.g * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+    for (i = confetti.length - 1; i >= 0; i--) {
+      var c = confetti[i];
+      c.life -= dt;
+      c.vy += 450 * dt;
+      c.x += c.vx * dt; c.y += c.vy * dt;
+      c.rot += c.vr * dt;
+      if (c.life <= 0) confetti.splice(i, 1);
+    }
+    for (i = pops.length - 1; i >= 0; i--) {
+      var q = pops[i];
+      q.life -= dt * 1.25;
+      q.y += q.vy * dt;
+      if (q.life <= 0) pops.splice(i, 1);
+    }
+
+    hoop.pop = Math.max(0, hoop.pop - dt * 3.0);
+    hoop.flash = Math.max(0, hoop.flash - dt * 2.2);
+
+    if (spawnPending > 0) {
+      spawnPending -= dt;
+      if (spawnPending <= 0) {
+        spawnPending = 0;
+        spawnBall();
+      }
+    }
+
+    if (ball.state === 'flying') {
+      ball.trail.push({ x: ball.x, y: ball.y, r: ball.r });
+      if (ball.trail.length > 12) ball.trail.shift();
+
+      stepBall3D(dt);
+    }
+
+    if (oppBall.state === 'flying') {
+      stepOppBall3D(dt);
+    }
+
+    updateHUD();
+  }
+
+  // ===================== 입체 축구 골대 렌더링 =====================
+  function draw3DGoal(gx, gy, gw, gh) {
+    ctx.save();
+
+    var popScale = 1 + hoop.pop * 0.12;
+
+    ctx.translate(gx, gy + gh / 2);
+    ctx.scale(popScale, popScale);
+    ctx.translate(-gx, -(gy + gh / 2));
+
+    var frontL = gx - gw / 2;
+    var frontR = gx + gw / 2;
+    var frontT = gy;
+    var frontB = gy + gh;
+
+    var backL = gx - gw * 0.44;
+    var backR = gx + gw * 0.44;
+    var backT = gy - 12;
+    var backB = gy + gh - 8;
+
+    ctx.strokeStyle = '#666666';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.moveTo(backL, backT); ctx.lineTo(backR, backT);
+    ctx.moveTo(backL, backB); ctx.lineTo(backR, backB);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#dddddd';
+    ctx.lineWidth = 4;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(frontL, frontB); ctx.lineTo(backL, backB); ctx.lineTo(frontL, frontT);
+    ctx.moveTo(frontR, frontB); ctx.lineTo(backR, backB); ctx.lineTo(frontR, frontT);
+    ctx.stroke();
+
+    ctx.strokeStyle = hoop.flash > 0 ? '#a8ffb2' : 'rgba(240, 245, 255, 0.45)';
+    ctx.lineWidth = 1.2;
+
+    var wave = Math.sin(hoop.netWave) * (hoop.pop * 10);
+
+    ctx.beginPath();
+    for (var ny = backT; ny <= backB; ny += 9) {
+      ctx.moveTo(backL, ny); ctx.lineTo(backR + wave, ny);
+    }
+    for (var nx = backL; nx <= backR; nx += 11) {
+      ctx.moveTo(nx, backT); ctx.lineTo(nx + wave, backB);
+    }
+    ctx.stroke();
+
+    ctx.beginPath();
+    for (var tx = 0; tx <= 10; tx++) {
+      var ratio = tx / 10;
+      var fX = frontL + (frontR - frontL) * ratio;
+      var bX = backL + (backR - backL) * ratio;
+      ctx.moveTo(fX, frontT); ctx.lineTo(bX + wave, backT);
+    }
+    ctx.stroke();
+
+    ctx.beginPath();
+    for (var sy = 0; sy <= 6; sy++) {
+      var sRatio = sy / 6;
+      var fY = frontT + (frontB - frontT) * sRatio;
+      var bY = backT + (backB - backT) * sRatio;
+      ctx.moveTo(frontL, fY); ctx.lineTo(backL, bY);
+      ctx.moveTo(frontR, fY); ctx.lineTo(backR, bY);
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.lineWidth = 8.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(frontL, frontB + 2);
+    ctx.lineTo(frontL, frontT - 2);
+    ctx.lineTo(frontR, frontT - 2);
+    ctx.lineTo(frontR, frontB + 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 7;
+    ctx.stroke();
+
+    ctx.strokeStyle = '#f0f0f0';
+    ctx.lineWidth = 3.5;
+    ctx.stroke();
+
+    ctx.fillStyle = '#111111';
+    ctx.beginPath();
+    ctx.arc(frontL, frontB, 4.5, 0, Math.PI * 2);
+    ctx.arc(frontR, frontB, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // ===================== 캐릭터 & 경기장 렌더링 =====================
+
+  function drawKickerBack(kx, ky) {
+    ctx.save();
+    ctx.translate(kx, ky);
+
+    var isKicking = kicker.kickAnim > 0;
+    var isAiming = aim.dragging;
+    var bounce = Math.sin(kicker.idleTimer * 5) * 1.2;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 22, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.translate(0, bounce);
+
+    var legR = isKicking ? -kicker.kickAnim * 30 : (isAiming ? -12 : 0);
+    var legL = isKicking ? 12 : 0;
+
+    ctx.fillStyle = '#ff3b30';
+    ctx.fillRect(-14, -28 + legL, 10, 16);
+    ctx.fillStyle = '#ffcc99';
+    ctx.fillRect(-13, -12 + legL, 8, 12);
+    ctx.fillStyle = '#1c1c1e';
+    ctx.fillRect(-15, 0 + legL, 11, 6);
+
+    ctx.fillStyle = '#ff3b30';
+    ctx.fillRect(4, -28 + legR, 10, 16);
+    ctx.fillStyle = '#ffcc99';
+    ctx.fillRect(5, -12 + legR, 8, 12);
+    ctx.fillStyle = '#34c759';
+    ctx.fillRect(4, 0 + legR, 11, 6);
+
+    ctx.fillStyle = '#ff2d55';
+    ctx.beginPath();
+    ctx.roundRect(-16, -58, 32, 32, 5);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('7', 0, -36);
+
+    ctx.fillStyle = '#2c1d11';
+    ctx.beginPath();
+    ctx.arc(0, -68, 12, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#e5b382';
+    ctx.fillRect(-4, -60, 8, 5);
+
+    ctx.strokeStyle = '#ff2d55';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-14, -52); ctx.lineTo(-24, -38);
+    ctx.moveTo(14, -52); ctx.lineTo(24, -38);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawKeeperFront(gkX, gkY) {
+    ctx.save();
+    ctx.translate(gkX, gkY);
+
+    var isDiving = Math.abs(gkX - hoop.x) > 15 || Math.abs(gkY - keeper.baseY) > 10;
+    var diveDirX = gkX - hoop.x;
+    var diveDirY = gkY - keeper.baseY;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 18, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    var rot = isDiving ? clamp(diveDirX * 0.018, -0.75, 0.75) : 0;
+    ctx.rotate(rot);
+
+    ctx.fillStyle = '#1c1c1e';
+    ctx.fillRect(-7, -16, 5, 16);
+    ctx.fillRect(2, -16, 5, 16);
+
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath();
+    ctx.roundRect(-10, -34, 20, 20, 3);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffcc99';
+    ctx.beginPath();
+    ctx.arc(0, -40, 7, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#ffcc00';
+    ctx.lineWidth = 4.5;
+    ctx.beginPath();
+
+    if (isDiving) {
+      if (diveDirY < -15) {
+        ctx.moveTo(-8, -28); ctx.lineTo(-20, -52);
+        ctx.moveTo(8, -28); ctx.lineTo(20, -52);
+        ctx.stroke();
+        ctx.fillStyle = '#007aff';
+        ctx.beginPath(); ctx.arc(-22, -54, 4.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(22, -54, 4.5, 0, Math.PI * 2); ctx.fill();
+      } else if (diveDirY > 15) {
+        ctx.moveTo(-8, -28); ctx.lineTo(-24, -20);
+        ctx.moveTo(8, -28); ctx.lineTo(24, -20);
+        ctx.stroke();
+        ctx.fillStyle = '#007aff';
+        ctx.beginPath(); ctx.arc(-26, -18, 4.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(26, -18, 4.5, 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.moveTo(-8, -28); ctx.lineTo(-20, -44);
+        ctx.moveTo(8, -28); ctx.lineTo(20, -44);
+        ctx.stroke();
+        ctx.fillStyle = '#007aff';
+        ctx.beginPath(); ctx.arc(-22, -46, 4.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(22, -46, 4.5, 0, Math.PI * 2); ctx.fill();
+      }
+    } else {
+      ctx.moveTo(-8, -28); ctx.lineTo(-16, -20);
+      ctx.moveTo(8, -28); ctx.lineTo(16, -20);
+      ctx.stroke();
+      ctx.fillStyle = '#007aff';
+      ctx.beginPath(); ctx.arc(-17, -18, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(17, -18, 4, 0, Math.PI * 2); ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  // ===================== 렌더링 메인 =====================
+  function render() {
+    ctx.save();
+    ctx.clearRect(0, 0, cv.width, cv.height);
+
+    var w = cv.width / dpr;
+    var h = cv.height / dpr;
+    var ox = (w - DW * cssScale) / 2;
+    var oy = (h - DH * cssScale) / 2;
+
+    ctx.scale(dpr, dpr);
+    ctx.translate(ox, oy);
+    ctx.scale(cssScale, cssScale);
+
+    if (S.shake > 0) {
+      var sx = (Math.random() - 0.5) * S.shakeMag;
+      var sy = (Math.random() - 0.5) * S.shakeMag;
+      ctx.translate(sx, sy);
+    }
+
+    // --- 1. 3D 관중석 & 경기장 밤하늘 배경 ---
+    var bgGrad = ctx.createLinearGradient(0, 0, 0, GOAL_Y + GOAL_H);
+    bgGrad.addColorStop(0, '#07150c');
+    bgGrad.addColorStop(0.6, '#0f2f1a');
+    bgGrad.addColorStop(1, '#1b4d2a');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, DW, GOAL_Y + GOAL_H);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(120, 0); ctx.lineTo(hoop.x - 40, GOAL_Y); ctx.lineTo(0, GOAL_Y); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(DW, 0); ctx.lineTo(DW - 120, 0); ctx.lineTo(hoop.x + 40, GOAL_Y); ctx.lineTo(DW, GOAL_Y); ctx.fill();
+
+    // --- 2. 원근감 잔디 바닥 ---
+    var pitchGrad = ctx.createLinearGradient(0, GOAL_Y + GOAL_H, 0, DH);
+    pitchGrad.addColorStop(0, '#236e36');
+    pitchGrad.addColorStop(0.3, '#2e8b46');
+    pitchGrad.addColorStop(1, '#185427');
+    ctx.fillStyle = pitchGrad;
+
+    ctx.beginPath();
+    ctx.moveTo(0, GOAL_Y + GOAL_H);
+    ctx.lineTo(DW, GOAL_Y + GOAL_H);
+    ctx.lineTo(DW + 40, DH);
+    ctx.lineTo(-40, DH);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    ctx.moveTo(hoop.x - hoop.w * 0.9, GOAL_Y + GOAL_H);
+    ctx.lineTo(hoop.x + hoop.w * 0.9, GOAL_Y + GOAL_H);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(hoop.x - hoop.w * 0.8, GOAL_Y + GOAL_H);
+    ctx.lineTo(hoop.x - hoop.w * 1.15, BALL_START_Y + 30);
+    ctx.lineTo(hoop.x + hoop.w * 1.15, BALL_START_Y + 30);
+    ctx.lineTo(hoop.x + hoop.w * 0.8, GOAL_Y + GOAL_H);
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(BALL_START_X, BALL_START_Y + 10, 4, 0, Math.PI * 2); ctx.fill();
+
+    // --- 3. 입체 3D 축구 골대 렌더링 ---
+    draw3DGoal(hoop.x, GOAL_Y, hoop.w, GOAL_H);
+
+    // --- 4. 골키퍼 렌더링 ---
+    drawKeeperFront(keeper.currX, keeper.currY);
+
+    // --- 5. 내 슈팅 조준 가이드 ---
+    if (S.mode === 'play' && ball.state === 'ready') {
+      var showGuide = false;
+      var targetX = 0, targetY = 0;
+
+      if (aim.dragging) {
+        var dx = BALL_START_X - aim.px;
+        var dy = BALL_START_Y - aim.py;
+        targetX = BALL_START_X + dx * 1.55;
+        targetY = GOAL_Y + GOAL_H - clamp(dy, 10, 180) * 0.72;
+        showGuide = true;
+      }
+
+      if (showGuide) {
+        ctx.strokeStyle = '#a8ffb2';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([6, 6]);
+        ctx.beginPath();
+        ctx.moveTo(BALL_START_X, BALL_START_Y);
+        ctx.quadraticCurveTo((BALL_START_X + targetX) / 2, targetY - 45, targetX, targetY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.strokeStyle = '#2eff63';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(targetX, targetY, 13, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    // --- 6. 상대 공 궤적 잔상 ---
+    if (oppBall.state === 'flying') {
+      ctx.fillStyle = 'rgba(255, 138, 138, 0.4)';
+      ctx.beginPath();
+      ctx.arc(oppBall.x, oppBall.y, oppBall.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // --- 7. 내 공 궤적 잔상 ---
+    if (ball.state === 'flying' && ball.trail.length > 1) {
+      for (var ti = 0; ti < ball.trail.length - 1; ti++) {
+        var tRatio = ti / ball.trail.length;
+        var trP = ball.trail[ti];
+        ctx.fillStyle = 'rgba(168, 255, 178, ' + (tRatio * 0.35) + ')';
+        ctx.beginPath();
+        ctx.arc(trP.x, trP.y, trP.r * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // --- 8. 축구공 렌더링 ---
+    if (ball.state !== 'done' || spawnPending > 0) {
+      ctx.save();
+      ctx.translate(ball.x, ball.y);
+      ctx.rotate(ball.rot);
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.beginPath();
+      ctx.ellipse(0, ball.r * 0.8, ball.r * 0.9, ball.r * 0.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      var bGrad = ctx.createRadialGradient(-ball.r * 0.3, -ball.r * 0.3, ball.r * 0.1, 0, 0, ball.r);
+      bGrad.addColorStop(0, '#ffffff');
+      bGrad.addColorStop(0.7, '#e0e0e0');
+      bGrad.addColorStop(1, '#888888');
+      ctx.fillStyle = bGrad;
+      ctx.beginPath();
+      ctx.arc(0, 0, ball.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#222222';
+      ctx.beginPath();
+      for (var p = 0; p < 5; p++) {
+        var pa = (p * 72) * Math.PI / 180;
+        var px = Math.cos(pa) * (ball.r * 0.42);
+        var py = Math.sin(pa) * (ball.r * 0.42);
+        if (p === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // --- 9. 키커 (선수 뒷모습) 렌더링 ---
+    drawKickerBack(kicker.x, kicker.y);
+
+    // --- 10. 파티클 & 컨페티 & 팝업 ---
+    for (var pi = 0; pi < particles.length; pi++) {
+      var pt = particles[pi];
+      ctx.fillStyle = pt.c;
+      ctx.globalAlpha = clamp(pt.life / pt.max, 0, 1);
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    for (var ci = 0; ci < confetti.length; ci++) {
+      var cf = confetti[ci];
+      ctx.save();
+      ctx.translate(cf.x, cf.y);
+      ctx.rotate(cf.rot);
+      ctx.fillStyle = cf.c;
+      ctx.fillRect(-cf.w / 2, -cf.h / 2, cf.w, cf.h);
+      ctx.restore();
+    }
+
+    for (var qi = 0; qi < pops.length; qi++) {
+      var pq = pops[qi];
+      ctx.save();
+      ctx.font = '900 ' + pq.size + 'px sans-serif';
+      ctx.fillStyle = pq.color;
+      ctx.shadowColor = 'rgba(0,0,0,0.6)';
+      ctx.shadowBlur = 4;
+      ctx.globalAlpha = clamp(pq.life, 0, 1);
+      ctx.textAlign = 'center';
+      ctx.fillText(pq.txt, pq.x, pq.y);
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  // ===================== 메인 루프 =====================
+  var lastT = performance.now();
+  function loop(now) {
+    var dt = (now - lastT) / 1000;
+    if (dt > 0.1) dt = 0.1;
+    lastT = now;
+
+    update(dt);
+    render();
+
+    requestAnimationFrame(loop);
+  }
+
+  // 시작
+  resize();
+  requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
