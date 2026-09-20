@@ -1,0 +1,1613 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>낚시왕 🎣</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system, BlinkMacSystemFont, system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    background:radial-gradient(120% 90% at 50% 0%, #1a5c8a 0%, #07304d 55%, #021624 100%);
+    color:#fff; overflow:hidden;
+    -webkit-user-select:none; user-select:none;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
+    overscroll-behavior:none;
+  }
+  #app{
+    position:relative; width:100%; height:100vh; max-width:520px; margin:0 auto;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  @supports (height:100dvh){ #app{height:100dvh} }
+
+  #hud{ flex:0 0 auto; padding:8px 9px 5px; display:flex; flex-direction:column; gap:5px; z-index:6 }
+  .row{display:flex; align-items:center; gap:6px}
+  .chip{
+    background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.18);
+    border-radius:999px; padding:5px 10px; font-size:12.5px; font-weight:800;
+    letter-spacing:-.4px; display:flex; align-items:center; gap:5px; white-space:nowrap;
+  }
+  .chip b{font-size:15px; color:#ffe27a}
+  .spacer{flex:1}
+  #timeChip.warn{ background:rgba(255,90,90,.28); border-color:rgba(255,140,140,.6); animation:tick .5s infinite }
+  @keyframes tick{ 50%{ transform:scale(1.07) } }
+  #hearts{letter-spacing:1px; font-size:14px}
+  #hearts span{display:inline-block; transition:transform .25s, opacity .25s}
+  #hearts span.gone{opacity:.25; transform:scale(.7); filter:grayscale(1)}
+  #streakChip{ background:linear-gradient(90deg,#ff8a3d,#ffd54a); border-color:rgba(255,255,255,.5); color:#3a1d00 }
+  #streakChip b{ color:#7a2b00 }
+  #streakChip.hide{ display:none }
+  #soundBtn{
+    background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.18);
+    color:#fff; border-radius:999px; width:32px; height:32px; font-size:14px; cursor:pointer; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center;
+  }
+  #soundBtn:active{transform:scale(.9)}
+  #barWrap{
+    height:14px; border-radius:999px; background:rgba(0,0,0,.32);
+    border:1px solid rgba(255,255,255,.18); overflow:hidden; position:relative;
+  }
+  #bar{ height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg,#4ee08a,#ffe27a); transition:width .25s }
+  #barTxt{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:10px; font-weight:900; letter-spacing:-.3px; text-shadow:0 1px 2px rgba(0,0,0,.8);
+  }
+
+  #stage{ position:relative; flex:1 1 auto; min-height:0; overflow:hidden; touch-action:none }
+  canvas{ display:block; width:100%; height:100% }
+
+  #banner{
+    position:absolute; left:50%; top:16%; transform:translate(-50%,-6px) scale(.9);
+    background:linear-gradient(180deg,#fff3b0,#ffc93c); color:#5a3200;
+    padding:8px 16px; border-radius:14px; font-weight:900; font-size:15px; letter-spacing:-.5px;
+    box-shadow:0 8px 22px rgba(0,0,0,.4); opacity:0; pointer-events:none; text-align:center;
+    border:2px solid #fff; white-space:nowrap; z-index:10;
+  }
+  #banner.show{ animation:bannerPop 2.2s ease-out forwards }
+  @keyframes bannerPop{
+    0%{opacity:0; transform:translate(-50%,10px) scale(.7)}
+    12%{opacity:1; transform:translate(-50%,-4px) scale(1.12)}
+    22%{transform:translate(-50%,0) scale(1)}
+    80%{opacity:1; transform:translate(-50%,0) scale(1)}
+    100%{opacity:0; transform:translate(-50%,-18px) scale(.95)}
+  }
+  #flash{ position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; z-index:9 }
+
+  #ctrl{ flex:0 0 auto; padding:7px 9px 10px; display:flex; gap:8px; align-items:stretch; z-index:6 }
+  .cbtn{
+    background:rgba(255,255,255,.13); border:1px solid rgba(255,255,255,.24); color:#fff;
+    border-radius:16px; font-size:22px; font-weight:900; cursor:pointer; padding:12px 0; flex:1 1 0;
+    font-family:inherit; user-select:none; -webkit-user-select:none;
+  }
+  .cbtn:active{ transform:scale(.94); background:rgba(255,255,255,.24) }
+  #actBtn{
+    flex:2 1 0; font-size:16px; letter-spacing:-.5px;
+    background:linear-gradient(180deg,#ffd84a,#ff9f1c); color:#4a2500; border-color:#fff6c9;
+    box-shadow:0 4px 0 rgba(0,0,0,.28);
+  }
+  #actBtn:active{ box-shadow:0 1px 0 rgba(0,0,0,.28); transform:translateY(3px) scale(.99) }
+
+  .screen{
+    position:absolute; inset:0; z-index:20; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:10px; padding:22px 20px;
+    background:linear-gradient(180deg, rgba(3,26,44,.62) 0%, rgba(3,20,36,.88) 60%, rgba(2,14,26,.95) 100%);
+    backdrop-filter:blur(2px); text-align:center;
+  }
+  .screen.hidden{ display:none }
+  .big{ font-size:44px; line-height:1 }
+  h1{
+    font-size:40px; letter-spacing:-2px; font-weight:900; line-height:1;
+    background:linear-gradient(180deg,#fff,#ffd54a 60%,#ff9f1c);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 3px 0 rgba(0,0,0,.35));
+  }
+  .sub{ font-size:13.5px; color:#bfe3ff; font-weight:700; letter-spacing:-.4px; line-height:1.6 }
+  .card{
+    background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.18);
+    border-radius:16px; padding:11px 14px; font-size:12.5px; font-weight:700;
+    color:#dff1ff; line-height:1.75; letter-spacing:-.4px; max-width:330px;
+  }
+  .card .k{ color:#ffe27a; font-weight:900 }
+  .btn{
+    margin-top:4px; border:none; border-radius:999px; padding:14px 30px; font-size:17px; font-weight:900;
+    letter-spacing:-.5px; cursor:pointer; font-family:inherit;
+    background:linear-gradient(180deg,#ffd84a,#ff9f1c); color:#4a2500;
+    box-shadow:0 5px 0 rgba(0,0,0,.32); animation:bob 1.5s ease-in-out infinite;
+  }
+  .btn:active{ transform:translateY(4px); box-shadow:0 1px 0 rgba(0,0,0,.32); animation:none }
+  @keyframes bob{ 50%{ transform:translateY(-4px) } }
+  .best{ font-size:13px; font-weight:900; color:#ffe27a }
+  .hint{ font-size:11.5px; color:#8fb8d6; font-weight:700 }
+  .titleFish{ font-size:34px; letter-spacing:6px; animation:swim 3s ease-in-out infinite }
+  @keyframes swim{ 50%{ transform:translateX(10px) rotate(-6deg) } }
+  #overTitle{ font-size:30px; font-weight:900; letter-spacing:-1.5px }
+  .missTxt{ font-size:14px; font-weight:900; color:#ff9f9f }
+  .statRow{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center }
+  .stat{
+    background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.18);
+    border-radius:12px; padding:8px 12px; font-size:12px; font-weight:800; color:#cfe9ff;
+  }
+  .stat b{ display:block; font-size:19px; color:#ffe27a; margin-top:2px }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="hud">
+    <div class="row">
+      <div class="chip">🗓 <b id="dayTxt">1</b>일차</div>
+      <div class="chip" id="streakChip">🔥 <b id="streakTxt">0</b>연속</div>
+      <div class="spacer"></div>
+      <div class="chip" id="hearts"><span>❤️</span><span>❤️</span><span>❤️</span></div>
+      <div class="chip" id="timeChip">⏱ <b id="timeTxt">60</b></div>
+      <button id="soundBtn" aria-label="소리 켜고 끄기">🔊</button>
+    </div>
+    <div id="barWrap">
+      <div id="bar"></div>
+      <div id="barTxt">0원 / 180원</div>
+    </div>
+  </div>
+
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="flash"></div>
+    <div id="banner"></div>
+  </div>
+
+  <div id="ctrl">
+    <button class="cbtn" id="leftBtn" aria-label="왼쪽">◀</button>
+    <button class="cbtn" id="actBtn">🎣 줄 내리기</button>
+    <button class="cbtn" id="netBtn" style="background:linear-gradient(180deg,#a78bfa,#7c3aed);border-color:#ddd6fe;color:#fff;">🕸️ 그물</button>
+    <button class="cbtn" id="rightBtn" aria-label="오른쪽">▶</button>
+  </div>
+
+  <!-- 시작 화면 -->
+  <div class="screen" id="titleScreen">
+    <div class="titleFish">🐟🎣🐠</div>
+    <h1>낚시왕</h1>
+    <div class="sub">깊은 바다일수록 큰 물고기!<br>오늘의 목표 금액을 채워라</div>
+    <div class="card">
+      <span class="k">↔ 배 이동</span> 좌/우 화살표 (◀ ▶) · A/D · 드래그<br>
+      <span class="k">🎣 줄 내리기/당기기</span> 위/아래 화살표 (▲ ▼) · 스페이스 · 톡!<br>
+      <span class="k">🕸️ 무제한 그물</span> 엔터(Enter) 키 · 그물 버튼<br>
+      <span class="k">🦑 거대 크라켄</span> 매일 심해 출몰! 낚아 올리면 +1000원!<br>
+      <span class="k">🦈 대왕 메갈로돈</span> 매일 심해 출몰! 낚아 올리면 +3860원! (줄 안 끊김)<br>
+      <span class="k">🐉 전설의 이무기</span> 매일 심해 출몰! 낚아 올리면 +6666원! (줄 안 끊김)<br>
+      <span class="k">👹 심해 바다괴물</span> 매일 심해 출몰! 낚아 올리면 +45678원! (줄 안 끊김)<br>
+      <span class="k">🏝️ 거대 보물섬</span> 매일 심해 출몰! 낚아 올리면 +44444444원! (줄 안 끊김)<br>
+      <span class="k">🌍 거대 지구</span> 매일 심해 출몰! 낚아 올리면 +47474747474747447원! (줄 안 끊김)<br>
+      <span class="k">🏴‍☠️ 거대 해적선</span> 매일 심해 출몰! 낚아 올리면 +667766767원! (줄 안 끊김)<br>
+      <span class="k">🐋 거대 흰수염고래</span> 매일 심해 출몰! 낚아 올리면 +6666666666666원! (줄 안 끊김)<br>
+      <span class="k">🇰🇷 대한민국</span> 매일 심해 출몰! 낚아 올리면 +787777878787878787878778787878원! (줄 안 끊김)
+    </div>
+    <button class="btn" id="startBtn">🎣 낚시 시작!</button>
+    <div class="best" id="bestTitle">🏆 최고 기록 0원</div>
+    <div class="hint">한 판 60초 · 스페이스로 바로 시작</div>
+  </div>
+
+  <!-- 결과 화면 -->
+  <div class="screen hidden" id="overScreen">
+    <div class="big" id="overIcon">🏆</div>
+    <div id="overTitle">1일차 성공!</div>
+    <div class="missTxt" id="missTxt"></div>
+    <div class="statRow">
+      <div class="stat">오늘 번 돈<b id="stMoney">0원</b></div>
+      <div class="stat">전체 합계<b id="stTotal">0원</b></div>
+      <div class="stat">최고 기록<b id="stBest">0원</b></div>
+    </div>
+    <button class="btn" id="againBtn">다시 하기</button>
+    <div class="hint">스페이스 또는 화면을 톡 눌러도 돼</div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+
+function loadBest(){
+  try{
+    var v = window.localStorage.getItem('fishingMasterBest');
+    var n = parseInt(v, 10);
+    return isFinite(n) && n > 0 ? n : 0;
+  }catch(e){ return 0; }
+}
+function saveBest(v){
+  try{ window.localStorage.setItem('fishingMasterBest', String(v)); }catch(e){}
+}
+function loadSound(){
+  try{ return window.localStorage.getItem('fishingMasterSnd') !== '0'; }catch(e){ return true; }
+}
+function saveSound(on){
+  try{ window.localStorage.setItem('fishingMasterSnd', on ? '1' : '0'); }catch(e){}
+}
+
+var actx = null, master = null, soundOn = loadSound();
+
+function initAudio(){
+  if(actx) { if(actx.state === 'suspended'){ try{ actx.resume(); }catch(e){} } return; }
+  try{
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return;
+    actx = new AC();
+    master = actx.createGain();
+    master.gain.value = 0.26;
+    master.connect(actx.destination);
+    if(actx.state === 'suspended'){ try{ actx.resume(); }catch(e){} }
+  }catch(e){ actx = null; }
+}
+function tone(f, d, type, v, delay, f2){
+  if(!actx || !soundOn) return;
+  try{
+    var t0 = actx.currentTime + (delay || 0);
+    var o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(f, t0);
+    if(f2) o.frequency.exponentialRampToValueAtTime(Math.max(24, f2), t0 + d);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.002, v), t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+    o.connect(g); g.connect(master);
+    o.start(t0); o.stop(t0 + d + 0.04);
+  }catch(e){}
+}
+function noiseBurst(d, v, f1, f2, delay){
+  if(!actx || !soundOn) return;
+  try{
+    var t0 = actx.currentTime + (delay || 0);
+    var len = Math.max(1, Math.floor(actx.sampleRate * d));
+    var buf = actx.createBuffer(1, len, actx.sampleRate);
+    var data = buf.getChannelData(0);
+    for(var i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    var src = actx.createBufferSource(); src.buffer = buf;
+    var flt = actx.createBiquadFilter(); flt.type = 'bandpass';
+    flt.frequency.setValueAtTime(f1, t0);
+    flt.frequency.exponentialRampToValueAtTime(Math.max(40, f2), t0 + d);
+    flt.Q.value = 1.0;
+    var g = actx.createGain();
+    g.gain.setValueAtTime(v, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+    src.connect(flt); flt.connect(g); g.connect(master);
+    src.start(t0); src.stop(t0 + d + 0.03);
+  }catch(e){}
+}
+var PENTA = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26];
+function note(step, d, v, delay, type){
+  var st = PENTA[Math.min(step, PENTA.length - 1)];
+  tone(523.25 * Math.pow(2, st / 12), d || 0.16, type || 'triangle', v || 0.3, delay || 0);
+}
+function sndCast(){ tone(700, 0.12, 'sine', 0.18, 0, 220); noiseBurst(0.22, 0.22, 1400, 300, 0.10); }
+function sndHook(step){
+  note(step, 0.15, 0.32, 0, 'triangle');
+  note(step + 2, 0.12, 0.16, 0.055, 'sine');
+}
+function sndCoin(n){
+  for(var i = 0; i < Math.min(n, 6); i++){
+    note(4 + i, 0.13, 0.26, i * 0.065, 'square');
+  }
+}
+function sndTrash(){ tone(150, 0.3, 'sawtooth', 0.22, 0, 60); noiseBurst(0.2, 0.14, 500, 120, 0); }
+function sndShark(){
+  noiseBurst(0.5, 0.34, 1800, 90, 0);
+  tone(320, 0.5, 'sawtooth', 0.3, 0, 46);
+  tone(160, 0.6, 'square', 0.2, 0.05, 32);
+}
+function sndEvent(){ note(5, 0.12, 0.22, 0, 'square'); note(7, 0.12, 0.22, 0.08, 'square'); note(10, 0.22, 0.24, 0.16, 'square'); }
+function sndClear(){
+  var s = [0, 4, 7, 9, 11];
+  for(var i = 0; i < s.length; i++) note(s[i], 0.24, 0.3, i * 0.1, 'triangle');
+  tone(1046.5, 0.5, 'sine', 0.2, 0.5);
+}
+function sndOver(){
+  tone(392, 0.28, 'sawtooth', 0.24, 0, 300);
+  tone(294, 0.32, 'sawtooth', 0.24, 0.16, 220);
+  tone(196, 0.6, 'sawtooth', 0.26, 0.34, 90);
+}
+function sndStart(){ note(0, 0.12, 0.26, 0, 'square'); note(4, 0.12, 0.26, 0.09, 'square'); note(7, 0.26, 0.3, 0.18, 'square'); }
+function sndTick(){ tone(880, 0.07, 'square', 0.16, 0); }
+function sndNet(){ noiseBurst(0.3, 0.3, 800, 200, 0); tone(440, 0.2, 'sine', 0.25, 0.05, 880); }
+
+var cv = document.getElementById('cv');
+var ctx = cv.getContext('2d');
+var stage = document.getElementById('stage');
+var elDay = document.getElementById('dayTxt');
+var elTime = document.getElementById('timeTxt');
+var elTimeChip = document.getElementById('timeChip');
+var elHearts = document.getElementById('hearts');
+var elBar = document.getElementById('bar');
+var elBarTxt = document.getElementById('barTxt');
+var elStreak = document.getElementById('streakChip');
+var elStreakTxt = document.getElementById('streakTxt');
+var elBanner = document.getElementById('banner');
+var elFlash = document.getElementById('flash');
+var elAct = document.getElementById('actBtn');
+var elTitle = document.getElementById('titleScreen');
+var elOver = document.getElementById('overScreen');
+var elBestTitle = document.getElementById('bestTitle');
+var elOverIcon = document.getElementById('overIcon');
+var elOverTitle = document.getElementById('overTitle');
+var elMiss = document.getElementById('missTxt');
+var elStMoney = document.getElementById('stMoney');
+var elStTotal = document.getElementById('stTotal');
+var elStBest = document.getElementById('stBest');
+var elSound = document.getElementById('soundBtn');
+
+var FISH_TYPES = [
+  { e:'🐟', band:0, value:20,  w:0.5, sp:42, size:26 },
+  { e:'🐠', band:0, value:30,  w:0.7, sp:52, size:30 },
+  { e:'🐡', band:1, value:60,  w:1.2, sp:34, size:34 },
+  { e:'🦑', band:1, value:90,  w:1.6, sp:30, size:36 },
+  { e:'🐬', band:1, value:120, w:1.8, sp:66, size:40 },
+  { e:'🐙', band:2, value:180, w:2.6, sp:26, size:44 },
+  { e:'🐋', band:2, value:300, w:4.0, sp:22, size:56 }
+];
+var TRASH_E = ['👢', '🥫', '🧦', '🪣'];
+var GOAL_BASE = 180;
+
+var W = 0, H = 0;
+var waterTop = 0, bandY = [0, 0, 0], seabed = 0;
+var state = 'title';       // title / play / over
+var hookState = 'idle';    // idle / down / up
+var day = 1, lives = 3, money = 0, total = 0, goal = GOAL_BASE;
+var timeLeft = 60, elapsed = 0, eventTimer = 0, eventIdx = 0;
+var streak = 0, bestScore = loadBest();
+var lastClear = false;
+
+var fishes = [], particles = [], pops = [], bubbles = [], clouds = [];
+var hook = { x:0, y:0, immune:0, pop:0 };
+var net = { active:false, x:0, y:0, width:120, state:'down', caught:[] };
+var boat = { x:0, y:0, bobT:0 };
+var hooked = [];
+var targetX = 0, keyL = false, keyR = false, btnL = false, btnR = false;
+var pointerX = -1, pointerActive = false;
+var shake = 0, shakeMag = 0, hitstop = 0, animT = 0, tickAt = 99;
+var caughtCount = 0, bestCatch = 0, overLock = 0;
+
+function computeLayout(){
+  waterTop = Math.round(H * 0.19);
+  var wh = H - waterTop;
+  bandY[0] = waterTop + wh * 0.30;
+  bandY[1] = waterTop + wh * 0.62;
+  bandY[2] = H;
+  seabed = H - 14;
+  boat.y = waterTop;
+}
+function resize(){
+  var r = stage.getBoundingClientRect();
+  var w = Math.max(240, Math.floor(r.width));
+  var h = Math.max(220, Math.floor(r.height));
+  var dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  cv.width = Math.floor(w * dpr);
+  cv.height = Math.floor(h * dpr);
+  cv.style.width = w + 'px';
+  cv.style.height = h + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  var ow = W, oh = H;
+  W = w; H = h;
+  computeLayout();
+  if(ow > 0 && oh > 0){
+    var sx = W / ow, sy = H / oh;
+    for(var i = 0; i < fishes.length; i++){
+      fishes[i].x *= sx; fishes[i].y *= sy; fishes[i].baseY *= sy;
+    }
+    for(var j = 0; j < bubbles.length; j++){ bubbles[j].x *= sx; bubbles[j].y *= sy; }
+    hook.x *= sx; hook.y *= sy; boat.x *= sx; targetX *= sx;
+  }else{
+    hook.x = boat.x = targetX = W / 2;
+    hook.y = boat.y + 10;
+  }
+  makeClouds();
+}
+function makeClouds(){
+  clouds = [];
+  var n = 3;
+  for(var i = 0; i < n; i++){
+    clouds.push({ x: Math.random() * W, y: 8 + Math.random() * (waterTop * 0.45), s: 0.6 + Math.random() * 0.7, v: 4 + Math.random() * 7 });
+  }
+}
+
+function bandTop(b){ return b === 0 ? waterTop + 22 : bandY[b - 1]; }
+function bandBot(b){ return (b === 2 ? seabed - 14 : bandY[b]); }
+
+function spawnFish(band, atEdge){
+  var pool = [];
+  for(var i = 0; i < FISH_TYPES.length; i++) if(FISH_TYPES[i].band === band) pool.push(FISH_TYPES[i]);
+  var t = pool[Math.floor(Math.random() * pool.length)];
+  var top = bandTop(band), bot = bandBot(band);
+  var f = {
+    kind:'fish', e:t.e, value:t.value, w:t.w, size:t.size,
+    x: atEdge ? (Math.random() < 0.5 ? -30 : W + 30) : (20 + Math.random() * (W - 40)),
+    y: top + Math.random() * Math.max(20, bot - top),
+    vx: (Math.random() < 0.5 ? -1 : 1) * t.sp * (0.75 + Math.random() * 0.55) * speedMul(),
+    baseY: 0, wob: Math.random() * 6.28, wobA: 4 + Math.random() * 8,
+    hooked:false, pop:0, gold:false, band:band
+  };
+  f.baseY = f.y;
+  fishes.push(f);
+  return f;
+}
+function spawnTrash(){
+  var band = Math.floor(Math.random() * 3);
+  var top = bandTop(band), bot = bandBot(band);
+  var f = {
+    kind:'trash', e: TRASH_E[Math.floor(Math.random() * TRASH_E.length)],
+    value:-40, w:1.4, size:28,
+    x: 20 + Math.random() * (W - 40), y: top + Math.random() * Math.max(20, bot - top),
+    vx: (Math.random() < 0.5 ? -1 : 1) * 14, baseY:0, wob:Math.random() * 6.28, wobA:3,
+    hooked:false, pop:0, gold:false, band:band
+  };
+  f.baseY = f.y;
+  fishes.push(f);
+}
+function spawnShark(){
+  var f = {
+    kind:'shark', e:'🦈', value:0, w:0, size:54,
+    x: Math.random() < 0.5 ? -50 : W + 50,
+    y: bandY[0] + Math.random() * Math.max(30, seabed - 24 - bandY[0]),
+    vx: (Math.random() < 0.5 ? -1 : 1) * (58 + Math.random() * 26) * speedMul(),
+    baseY:0, wob:Math.random() * 6.28, wobA:6, hooked:false, pop:0, gold:false, band:2
+  };
+  f.baseY = f.y;
+  f.vx = (f.x < 0 ? 1 : -1) * Math.abs(f.vx);
+  fishes.push(f);
+}
+function spawnGold(){
+  var f = {
+    kind:'fish', e:'🐟', value:400, w:1.0, size:32,
+    x: Math.random() * W, y: bandY[0] + Math.random() * (bandY[1] - bandY[0]),
+    vx:(Math.random() < 0.5 ? -1 : 1) * 118, baseY:0, wob:Math.random() * 6.28, wobA:10,
+    hooked:false, pop:0, gold:true, life:22, band:1
+  };
+  f.baseY = f.y;
+  fishes.push(f);
+}
+function spawnTreasure(){
+  var f = {
+    kind:'fish', e:'💎', value:600, w:5.0, size:40,
+    x: 40 + Math.random() * (W - 80), y: seabed - 22,
+    vx:(Math.random() < 0.5 ? -1 : 1) * 8, baseY:0, wob:Math.random() * 6.28, wobA:2,
+    hooked:false, pop:0, gold:true, life:30, band:2
+  };
+  f.baseY = f.y;
+  fishes.push(f);
+}
+function spawnKraken(atEdge){
+  var f = {
+    kind:'kraken', e:'🦑', value:1000, w:6.0, size:95,
+    x: atEdge ? (Math.random() < 0.5 ? -80 : W + 80) : (40 + Math.random() * (W - 80)),
+    y: seabed - 35,
+    vx: (Math.random() < 0.5 ? -1 : 1) * 28 * speedMul(),
+    baseY: seabed - 35, wob: Math.random() * 6.28, wobA: 10,
+    hooked:false, pop:0, gold:true, band:2
+  };
+  f.baseY = f.y;
+  fishes.push(f);
+}
+function spawnMegalodon(atEdge){
+  var f = {
+    kind:'megalodon', e:'🦈', value:3860, w:7.0, size:115,
+    x: atEdge ? (Math.random() < 0.5 ? -140 : W + 140) : (50 + Math.random() * (W - 100)),
+    y: bandY[0] + Math.random() * (seabed - 50 - bandY[0]),
+    vx: (Math.random() < 0.5 ? -1 : 1) * 48 * speedMul(),
+    baseY: bandY[1], wob: Math.random() * 6.28, wobA: 14,
+    hooked:false, pop:0, gold:true, band:2
+  };
+  f.baseY = f.y;
+  fishes.push(f);
+}
+
+function spawnImugi(atEdge){
+  var f = {
+    kind:'imugi', e:'🐉', value:6666, w:8.0, size:125,
+    x: atEdge ? (Math.random() < 0.5 ? -150 : W + 150) : (50 + Math.random() * (W - 100)),
+    y: bandY[1] + Math.random() * (seabed - 50 - bandY[1]),
+    vx: (Math.random() < 0.5 ? -1 : 1) * 52 * speedMul(),
+    baseY: bandY[1], wob: Math.random() * 6.28, wobA: 18,
+    hooked:false, pop:0, gold:true, band:2
+  };
+  f.baseY = f.y;
+  fishes.push(f);
+}
+
+function spawnSeaMonster(atEdge){
+  var f = {
+    kind:'seamonster', e:'👹', value:45678, w:10.0, size:145,
+    x: atEdge ? (Math.random() < 0.5 ? -160 : W + 160) : (50 + Math.random() * (W - 100)),
+    y: bandY[1] + Math.random() * (seabed - 60 - bandY[1]),
+    vx: (Math.random() < 0.5 ? -1 : 1) * 38 * speedMul(),
+    baseY: bandY[1] + 25, wob: Math.random() * 6.28, wobA: 22,
+    hooked:false, pop:0, gold:true, band:2
+  };
+  f.baseY = f.y;
+  fishes.push(f);
+}
+
+function spawnIsland(atEdge){
+  var f = {
+    kind:'island', e:'🏝️', value:44444444, w:12.0, size:160,
+    x: atEdge ? (Math.random() < 0.5 ? -180 : W + 180) : (50 + Math.random() * (W - 100)),
+    y: bandY[1] + Math.random() * (seabed - 70 - bandY[1]),
+    vx: (Math.random() < 0.5 ? -1 : 1) * 28 * speedMul(),
+    baseY: bandY[1] + 30, wob: Math.random() * 6.28, wobA: 25,
+    hooked:false, pop:0, gold:true, band:2
+  };
+  f.baseY = f.y;
+  fishes.push(f);
+}
+
+function spawnEarth(atEdge){
+  var f = {
+    kind:'earth', e:'🌍', value:47474747474747447, w:15.0, size:180,
+    x: atEdge ? (Math.random() < 0.5 ? -200 : W + 200) : (50 + Math.random() * (W - 100)),
+    y: bandY[1] + Math.random() * (seabed - 80 - bandY[1]),
+    vx: (Math.random() < 0.5 ? -1 : 1) * 22 * speedMul(),
+    baseY: bandY[1] + 35, wob: Math.random() * 6.28, wobA: 28,
+    hooked:false, pop:0, gold:true, band:2
+  };
+  f.baseY = f.y;
+  fishes.push(f);
+}
+
+function spawnPirateShip(atEdge){
+  var f = {
+    kind:'pirateship', e:'🏴‍☠️', value:667766767, w:13.0, size:170,
+    x: atEdge ? (Math.random() < 0.5 ? -190 : W + 190) : (50 + Math.random() * (W - 100)),
+    y: bandY[1] + Math.random() * (seabed - 75 - bandY[1]),
+    vx: (Math.random() < 0.5 ? -1 : 1) * 25 * speedMul(),
+    baseY: bandY[1] + 32, wob: Math.random() * 6.28, wobA: 26,
+    hooked:false, pop:0, gold:true, band:2
+  };
+  f.baseY = f.y;
+  fishes.push(f);
+}
+
+function spawnBlueWhale(atEdge){
+  var f = {
+    kind:'bluewhale', e:'🐋', value:6666666666666, w:14.0, size:175,
+    x: atEdge ? (Math.random() < 0.5 ? -195 : W + 195) : (50 + Math.random() * (W - 100)),
+    y: bandY[1] + Math.random() * (seabed - 78 - bandY[1]),
+    vx: (Math.random() < 0.5 ? -1 : 1) * 24 * speedMul(),
+    baseY: bandY[1] + 33, wob: Math.random() * 6.28, wobA: 27,
+    hooked:false, pop:0, gold:true, band:2
+  };
+  f.baseY = f.y;
+  fishes.push(f);
+}
+
+function spawnKorea(atEdge){
+  var f = {
+    kind:'korea', e:'🇰🇷', value:787777878787878787878778787878, w:16.0, size:190,
+    x: atEdge ? (Math.random() < 0.5 ? -210 : W + 210) : (50 + Math.random() * (W - 100)),
+    y: bandY[1] + Math.random() * (seabed - 85 - bandY[1]),
+    vx: (Math.random() < 0.5 ? -1 : 1) * 20 * speedMul(),
+    baseY: bandY[1] + 38, wob: Math.random() * 6.28, wobA: 30,
+    hooked:false, pop:0, gold:true, band:2
+  };
+  f.baseY = f.y;
+  fishes.push(f);
+}
+
+function speedMul(){ return 1 + (day - 1) * 0.12 + Math.min(elapsed, 180) * 0.0012; }
+function wantCount(band){
+  if(band === 0) return 6;
+  if(band === 1) return 4 + Math.min(2, Math.floor(day / 2));
+  return 2 + Math.min(2, Math.floor(day / 2));
+}
+function wantTrash(){ return 2 + Math.min(3, day - 1); }
+function wantShark(){ return 0; }
+function wantMegalodon(){ return 1; }
+function wantImugi(){ return 1; }
+function wantSeaMonster(){ return 1; }
+function wantIsland(){ return 1; }
+function wantEarth(){ return 1; }
+function wantPirateShip(){ return 1; }
+function wantBlueWhale(){ return 1; }
+
+function refillWorld(atEdge){
+  var cnt = [0, 0, 0], tr = 0, sh = 0, kr = 0, mg = 0, im = 0, sm = 0, isl = 0, ea = 0, ps = 0, bw = 0, kor = 0, i;
+  for(i = 0; i < fishes.length; i++){
+    var f = fishes[i];
+    if(f.hooked) continue;
+    if(f.kind === 'trash') tr++;
+    else if(f.kind === 'shark') sh++;
+    else if(f.kind === 'kraken') kr++;
+    else if(f.kind === 'megalodon') mg++;
+    else if(f.kind === 'imugi') im++;
+    else if(f.kind === 'seamonster') sm++;
+    else if(f.kind === 'island') isl++;
+    else if(f.kind === 'earth') ea++;
+    else if(f.kind === 'pirateship') ps++;
+    else if(f.kind === 'bluewhale') bw++;
+    else if(f.kind === 'korea') kor++;
+    else if(!f.gold) cnt[f.band]++;
+  }
+  for(var b = 0; b < 3; b++){
+    var need = wantCount(b) - cnt[b];
+    for(i = 0; i < need; i++) spawnFish(b, atEdge);
+  }
+  for(i = 0; i < wantTrash() - tr; i++) spawnTrash();
+  for(i = 0; i < wantShark() - sh; i++) spawnShark();
+  for(i = 0; i < wantMegalodon() - mg; i++) spawnMegalodon(atEdge);
+  for(i = 0; i < wantImugi() - im; i++) spawnImugi(atEdge);
+  for(i = 0; i < wantSeaMonster() - sm; i++) spawnSeaMonster(atEdge);
+  for(i = 0; i < wantIsland() - isl; i++) spawnIsland(atEdge);
+  for(i = 0; i < wantEarth() - ea; i++) spawnEarth(atEdge);
+  for(i = 0; i < wantPirateShip() - ps; i++) spawnPirateShip(atEdge);
+  for(i = 0; i < wantBlueWhale() - bw; i++) spawnBlueWhale(atEdge);
+  if(kor < 1) spawnKorea(atEdge);
+  if(kr < 1) spawnKraken(atEdge);
+}
+
+function addParticles(x, y, n, color, spd, life){
+  for(var i = 0; i < n; i++){
+    var a = Math.random() * Math.PI * 2;
+    var s = (0.2 + Math.random() * 0.8) * (spd || 120);
+    particles.push({
+      x: x, y: y,
+      vx: Math.cos(a) * s, vy: Math.sin(a) * s - 40,
+      r: 2 + Math.random() * 3,
+      c: color || '#fff',
+      t: life || 0.6, life: life || 0.6
+    });
+  }
+}
+function addPop(x, y, txt, color, size){
+  pops.push({ x: x, y: y, txt: txt, c: color || '#ffe27a', s: size || 20, t: 1.0 });
+}
+function doShake(mag, dur){
+  shakeMag = mag;
+  shake = dur;
+}
+function doFlash(dur){
+  elFlash.style.transition = 'none';
+  elFlash.style.opacity = '0.6';
+  setTimeout(function(){
+    elFlash.style.transition = 'opacity ' + (dur || 0.3) + 's ease-out';
+    elFlash.style.opacity = '0';
+  }, 30);
+}
+function showBanner(txt){
+  elBanner.textContent = txt;
+  elBanner.classList.remove('show');
+  void elBanner.offsetWidth;
+  elBanner.classList.add('show');
+}
+
+function updateHUD(){
+  elDay.textContent = day;
+  elTime.textContent = Math.max(0, Math.ceil(timeLeft));
+  if(timeLeft <= 10) elTimeChip.classList.add('warn'); else elTimeChip.classList.remove('warn');
+  var kids = elHearts.getElementsByTagName('span');
+  for(var i = 0; i < kids.length; i++){
+    if(i < lives) kids[i].classList.remove('gone'); else kids[i].classList.add('gone');
+  }
+  var pct = Math.max(0, Math.min(100, money / goal * 100));
+  elBar.style.width = pct + '%';
+  elBarTxt.textContent = Math.max(0, money) + '원 / ' + goal + '원';
+  if(streak >= 2){ elStreak.classList.remove('hide'); elStreakTxt.textContent = streak; }
+  else elStreak.classList.add('hide');
+  elBestTitle.textContent = '🏆 최고 기록 ' + bestScore + '원';
+}
+function setActLabel(){
+  if(state !== 'play'){ elAct.textContent = '🎣 줄 내리기'; return; }
+  if(hookState === 'idle') elAct.textContent = '🎣 줄 내리기';
+  else if(hookState === 'down') elAct.textContent = '⬆️ 당기기!';
+  else elAct.textContent = '⏳ 올라오는 중';
+}
+
+function startGame(){
+  day = 1; lives = 3; total = 0; bestCatch = 0;
+  elTitle.classList.add('hidden');
+  elOver.classList.add('hidden');
+  eventIdx = 0; elapsed = 0; eventTimer = 0;
+  startDay();
+  sndStart();
+}
+function startDay(){
+  state = 'play';
+  goal = Math.round(GOAL_BASE * Math.pow(1.5, day - 1) / 10) * 10;
+  timeLeft = Math.max(42, 62 - day * 2);
+  money = 0; streak = 0; caughtCount = 0;
+  hookState = 'idle'; hooked.length = 0;
+  net.active = false; net.caught = [];
+  hook.immune = 0; hook.pop = 0;
+  fishes.length = 0; particles.length = 0; pops.length = 0;
+  targetX = W / 2; boat.x = W / 2; hook.x = W / 2; hook.y = boat.y + 12;
+  refillWorld(false);
+  for(var i = 0; i < 3; i++){
+    var f = spawnFish(0, false);
+    f.x = W / 2 + (i - 1) * 42 + (Math.random() * 16 - 8);
+    f.y = waterTop + 40 + i * 14;
+    f.baseY = f.y;
+  }
+  tickAt = 99;
+  updateHUD(); setActLabel();
+  showBanner('🚨 ' + day + '일차 시작! 전설의 이무기 & 메갈로돈 출몰!');
+}
+
+function nextDay(){
+  day++;
+  total += money;
+  if(total > bestScore){ bestScore = total; saveBest(bestScore); }
+  startDay();
+}
+
+function totalWeight(){
+  var w = 0;
+  for(var i = 0; i < hooked.length; i++) w += hooked[i].w || 1;
+  return w;
+}
+
+function pressAction(){
+  initAudio();
+  if(state === 'title'){ startGame(); return; }
+  if(state === 'over'){
+    if(window.performance.now() < overLock) return;
+    if(lastClear){ elOver.classList.add('hidden'); nextDay(); }
+    else startGame();
+    return;
+  }
+  if(state !== 'play') return;
+  if(hookState === 'idle'){
+    hookState = 'down';
+    sndCast();
+    setActLabel();
+  } else if(hookState === 'down'){
+    reelUp();
+  }
+}
+
+function reelUp(){
+  if(hookState === 'down'){
+    hookState = 'up';
+    setActLabel();
+    sndCast();
+  }
+}
+
+function throwNet(){
+  initAudio();
+  if(state === 'title'){ startGame(); return; }
+  if(state === 'over'){
+    if(window.performance.now() < overLock) return;
+    if(lastClear){ elOver.classList.add('hidden'); nextDay(); }
+    else startGame();
+    return;
+  }
+  if(state !== 'play') return;
+  if(!net.active && hookState === 'idle'){
+    net.active = true;
+    net.x = boat.x;
+    net.y = boat.y + 12;
+    net.width = 120;
+    net.state = 'down';
+    net.caught = [];
+    sndNet();
+    addPop(boat.x, boat.y - 30, '🕸️ 그물 투척!', '#c084fc', 22);
+    addParticles(boat.x, boat.y + 10, 16, '#c084fc', 120, 0.5);
+  }
+}
+
+function catchThing(f){
+  f.hooked = true;
+  f.pop = 1;
+  hooked.push(f);
+  hook.pop = 1;
+  addParticles(f.x, f.y, 8, f.gold ? '#ffe27a' : '#fff', 90, 0.5);
+  sndHook(hooked.length);
+  reelUp();
+}
+
+function snapLine(kind, f){
+  sndShark();
+  doFlash(0.35);
+  doShake(14, 0.4);
+  lives--;
+  addPop(hook.x, hook.y - 20, '💥 줄 끊김! -1❤️', '#ff4d4d', 28);
+  addParticles(hook.x, hook.y, 22, '#ff4d4d', 160, 0.7);
+
+  // 상어/메갈로돈 도망침
+  f.vx = (f.x < hook.x ? -1 : 1) * 260;
+  f.y += 20;
+
+  // 바늘 초기화
+  hooked.length = 0;
+  hookState = 'idle';
+  hook.x = boat.x;
+  hook.y = boat.y + 12;
+  hook.immune = 1.5;
+  setActLabel();
+  updateHUD();
+
+  if(lives <= 0){
+    gameOver('lives');
+  }
+}
+
+function cashIn(){
+  if(hooked.length === 0){
+    updateHUD();
+    setActLabel();
+    return;
+  }
+  var sum = 0, n = 0, i;
+  for(i = 0; i < hooked.length; i++){
+    var item = hooked[i];
+    sum += item.value;
+    if(item.kind !== 'trash') n++;
+  }
+  if(sum > 0){
+    if(n > bestCatch) bestCatch = n;
+    streak++;
+    money += sum;
+    caughtCount += n;
+    addPop(boat.x, boat.y - 34, '+' + sum + '원', '#ffe27a', 28);
+    if(n >= 2) addPop(boat.x, boat.y - 62, n + '마리 동시 포획!', '#a3e635', 20);
+    addParticles(boat.x, boat.y - 10, 15 + n * 4, '#ffe27a', 140, 0.7);
+    doShake(4 + n * 2, 0.25);
+    sndCoin(n);
+  } else {
+    money += sum;
+    if(money < 0) money = 0;
+    addPop(boat.x, boat.y - 34, sum + '원', '#ff9f9f', 24);
+    sndTrash();
+  }
+  for(i = fishes.length - 1; i >= 0; i--){
+    if(hooked.indexOf(fishes[i]) !== -1){
+      fishes.splice(i, 1);
+    }
+  }
+  hooked.length = 0;
+  refillWorld(true);
+  updateHUD();
+  setActLabel();
+  if(money >= goal) finishDay();
+}
+
+function cashInNet(){
+  if(!net.caught || net.caught.length === 0){
+    updateHUD();
+    return;
+  }
+  var sum = 0, n = 0, i;
+  for(i = 0; i < net.caught.length; i++){
+    var item = net.caught[i];
+    sum += item.value;
+    if(item.kind !== 'trash') n++;
+  }
+  if(sum > 0){
+    if(n > bestCatch) bestCatch = n;
+    streak++;
+    var comboMul = 1 + (n - 1) * 0.4;
+    var gain = Math.round(sum * comboMul);
+    money += gain;
+    caughtCount += n;
+    addPop(boat.x, boat.y - 34, '🕸️ 그물 수확: +' + gain + '원', '#e9d5ff', 26);
+    if(n >= 2) addPop(boat.x, boat.y - 62, n + '마리 대량 포획! x' + comboMul.toFixed(1), '#d8b4fe', 18);
+    addParticles(boat.x, boat.y - 10, 20 + n * 3, '#c084fc', 160, 0.8);
+    doShake(8 + n * 2, 0.3);
+    sndCoin(n + 2);
+  } else {
+    money += sum;
+    if(money < 0) money = 0;
+    addPop(boat.x, boat.y - 34, sum + '원', '#ff9f9f', 22);
+  }
+  for(i = fishes.length - 1; i >= 0; i--){
+    if(net.caught.indexOf(fishes[i]) !== -1 || fishes[i].hooked){
+      fishes.splice(i, 1);
+    }
+  }
+  net.caught = [];
+  refillWorld(true);
+  updateHUD();
+  if(money >= goal) finishDay();
+}
+
+function finishDay(){
+  lastClear = true;
+  state = 'over';
+  overLock = window.performance.now() + 600;
+  elOverIcon.textContent = '🎉';
+  elOverTitle.textContent = day + '일차 성공!';
+  elMiss.textContent = '목표 금액 달성! 다음 날로 도전하세요!';
+  elStMoney.textContent = money + '원';
+  elStTotal.textContent = (total + money) + '원';
+  var b = Math.max(bestScore, total + money);
+  elStBest.textContent = b + '원';
+  document.getElementById('againBtn').textContent = '다음 날 도전! 🚀';
+  elOver.classList.remove('hidden');
+  sndClear();
+}
+
+function gameOver(reason){
+  lastClear = false;
+  state = 'over';
+  overLock = window.performance.now() + 600;
+  elOverIcon.textContent = '💀';
+  elOverTitle.textContent = day + '일차 실패!';
+  elMiss.textContent = reason === 'time' ? '⏰ 시간이 다 되었습니다!' : '💔 목숨을 모두 잃었습니다!';
+  elStMoney.textContent = money + '원';
+  elStTotal.textContent = (total + money) + '원';
+  elStBest.textContent = Math.max(bestScore, total + money) + '원';
+  document.getElementById('againBtn').textContent = '처음부터 다시하기';
+  elOver.classList.remove('hidden');
+  sndOver();
+}
+
+var EVENTS = [
+  { t:'🌟 황금 물고기 등장!  400원!', run:function(){ spawnGold(); spawnGold(); } },
+  { t:'🐠 물고기 떼가 몰려왔다!', run:function(){ for(var i = 0; i < 7; i++) spawnFish(i % 2, true); } },
+  { t:'🚨 거대 메갈로돈 접근 중!', run:function(){ spawnMegalodon(true); } },
+  { t:'💎 보물상자 발견!  600원!', run:function(){ spawnTreasure(); } }
+];
+function fireEvent(){
+  var ev = EVENTS[eventIdx % EVENTS.length];
+  eventIdx++;
+  ev.run();
+  showBanner(ev.t);
+  sndEvent();
+  doFlash(0.22);
+}
+
+function updateBubbles(dt){
+  for(var i = bubbles.length - 1; i >= 0; i--){
+    var b = bubbles[i];
+    b.y -= b.v * dt;
+    b.t -= dt;
+    if(b.y < waterTop || b.t <= 0) bubbles.splice(i, 1);
+  }
+}
+function updateParticles(dt){
+  for(var i = particles.length - 1; i >= 0; i--){
+    var p = particles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += 120 * dt;
+    p.t -= dt;
+    if(p.t <= 0) particles.splice(i, 1);
+  }
+}
+function updatePops(dt){
+  for(var i = pops.length - 1; i >= 0; i--){
+    var p = pops[i];
+    p.y -= 24 * dt;
+    p.t -= dt;
+    if(p.t <= 0) pops.splice(i, 1);
+  }
+}
+
+function update(dt){
+  animT += dt;
+  if(shake > 0){ shake -= dt; if(shake <= 0){ shake = 0; shakeMag = 0; } }
+  for(var c = 0; c < clouds.length; c++){
+    var cl = clouds[c];
+    cl.x += cl.v * dt;
+    if(cl.x > W + 60) cl.x = -60;
+  }
+  if(hitstop > 0){ hitstop -= dt; return; }
+
+  var dir = 0;
+  if(keyL || btnL) dir -= 1;
+  if(keyR || btnR) dir += 1;
+  if(dir !== 0) targetX += dir * 320 * dt;
+  if(pointerActive && pointerX >= 0) targetX = pointerX;
+  if(targetX < 14) targetX = 14;
+  if(targetX > W - 14) targetX = W - 14;
+
+  updateBubbles(dt);
+  updateParticles(dt);
+  updatePops(dt);
+
+  if(state === 'title'){
+    boat.x += (W / 2 - boat.x) * Math.min(1, dt * 2);
+    hook.x = boat.x; hook.y = boat.y + 12;
+    updateFishes(dt, false);
+    boat.bobT += dt;
+    return;
+  }
+  if(state !== 'play'){
+    boat.bobT += dt;
+    updateFishes(dt, false);
+    return;
+  }
+
+  boat.bobT += dt;
+  timeLeft -= dt;
+  elapsed += dt;
+  eventTimer += dt;
+  if(eventTimer >= 30){ eventTimer -= 30; fireEvent(); }
+
+  if(timeLeft <= 5.4 && timeLeft > 0){
+    var sec = Math.ceil(timeLeft);
+    if(sec !== tickAt){ tickAt = sec; sndTick(); }
+  }
+  if(timeLeft <= 0){ timeLeft = 0; updateHUD(); gameOver('time'); return; }
+
+  var maxSpd;
+  if(hookState === 'idle'){
+    boat.x += (targetX - boat.x) * Math.min(1, dt * 9);
+    if(boat.x < 30) boat.x = 30;
+    if(boat.x > W - 30) boat.x = W - 30;
+    hook.x = boat.x;
+    hook.y = boat.y + 12 + Math.sin(boat.bobT * 2.4) * 2;
+  }else{
+    maxSpd = 300 / (1 + totalWeight() * 0.35);
+    var dx = targetX - hook.x;
+    var mv = Math.max(-maxSpd * dt, Math.min(maxSpd * dt, dx));
+    hook.x += mv;
+    if(hook.x < 12) hook.x = 12;
+    if(hook.x > W - 12) hook.x = W - 12;
+  }
+
+  if(hookState === 'down'){
+    hook.y += 300 * dt;
+    if(hook.y >= seabed){ hook.y = seabed; reelUp(); }
+  }else if(hookState === 'up'){
+    var rs = 330 / (1 + totalWeight() * 0.55);
+    if(rs < 55) rs = 55;
+    hook.y -= rs * dt;
+    if(hook.y <= boat.y + 12){
+      hook.y = boat.y + 12;
+      hookState = 'idle';
+      cashIn();
+    }
+  }
+
+  if(net.active){
+    if(net.state === 'down'){
+      net.y += 480 * dt;
+      if(net.y >= seabed){
+        net.y = seabed;
+        net.state = 'up';
+      }
+    } else if(net.state === 'up'){
+      net.y -= 420 * dt;
+      if(net.y <= boat.y + 12){
+        net.y = boat.y + 12;
+        net.active = false;
+        cashInNet();
+      }
+    }
+  }
+
+  if(hook.immune > 0) hook.immune -= dt;
+  if(hook.pop > 0){ hook.pop -= dt * 3.4; if(hook.pop < 0) hook.pop = 0; }
+
+  updateFishes(dt, true);
+
+  if(hookState !== 'idle' && Math.random() < dt * 12){
+    bubbles.push({ x: hook.x + (Math.random() * 10 - 5), y: hook.y, r: 1.5 + Math.random() * 2.5, v: 22 + Math.random() * 24, t: 1 });
+  }
+}
+
+function updateFishes(dt, canCatch){
+  var hx = hook.x, hy = hook.y;
+  for(var i = fishes.length - 1; i >= 0; i--){
+    var f = fishes[i];
+    if(f.pop > 0){ f.pop -= dt * 3; if(f.pop < 0) f.pop = 0; }
+
+    if(f.hooked){
+      var idx = hooked.indexOf(f);
+      if(idx !== -1){
+        var tx = hx;
+        var ty = hy + 18 + idx * 22;
+        f.x += (tx - f.x) * Math.min(1, dt * 20);
+        f.y += (ty - f.y) * Math.min(1, dt * 20);
+      } else if(net.active){
+        var nIdx = net.caught.indexOf(f);
+        if(nIdx !== -1){
+          var ntx = net.x + (nIdx % 5 - 2) * 18;
+          var nty = net.y + Math.floor(nIdx / 5) * 16;
+          f.x += (ntx - f.x) * Math.min(1, dt * 20);
+          f.y += (nty - f.y) * Math.min(1, dt * 20);
+        }
+      }
+      continue;
+    }
+
+    if(f.kind === 'kraken'){
+      if(f.x < 40){ f.vx = Math.abs(f.vx); }
+      else if(f.x > W - 40){ f.vx = -Math.abs(f.vx); }
+    }
+
+    f.wob += dt * 3;
+    f.x += f.vx * dt;
+    f.y = f.baseY + Math.sin(f.wob) * f.wobA;
+
+    if(f.life !== undefined){
+      f.life -= dt;
+      if(f.life <= 0){
+        fishes.splice(i, 1);
+        continue;
+      }
+    }
+
+    if(f.vx < 0 && f.x < -140){
+      if(f.kind === 'shark' || f.kind === 'megalodon' || f.kind === 'kraken' || f.kind === 'imugi' || f.kind === 'seamonster' || f.kind === 'island' || f.kind === 'earth' || f.kind === 'pirateship' || f.kind === 'bluewhale' || f.kind === 'korea' || f.gold){ fishes.splice(i, 1); continue; }
+      f.x = W + 100;
+    } else if(f.vx > 0 && f.x > W + 140){
+      if(f.kind === 'shark' || f.kind === 'megalodon' || f.kind === 'kraken' || f.kind === 'imugi' || f.kind === 'seamonster' || f.kind === 'island' || f.kind === 'earth' || f.kind === 'pirateship' || f.kind === 'bluewhale' || f.kind === 'korea' || f.gold){ fishes.splice(i, 1); continue; }
+      f.x = -100;
+    }
+
+    if(net.active && !f.hooked){
+      var ndx = Math.abs(f.x - net.x);
+      var ndy = Math.abs(f.y - net.y);
+      if(ndx <= net.width / 2 + 10 && ndy <= 28){
+        f.hooked = true;
+        f.pop = 1;
+        net.caught.push(f);
+        addParticles(f.x, f.y, 6, '#d8b4fe', 80, 0.4);
+        sndHook(1);
+      }
+    }
+
+    if(canCatch && hookState !== 'idle' && hook.immune <= 0){
+      var dx = f.x - hx;
+      var dy = f.y - hy;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      var hitDist = f.size * 0.45 + 10;
+
+      if(dist < hitDist){
+        if(f.kind === 'shark'){
+          snapLine(f.kind, f);
+          break;
+        } else {
+          catchThing(f);
+        }
+      }
+    }
+  }
+}
+
+function render(){
+  ctx.save();
+
+  if(shake > 0){
+    var sx = (Math.random() * 2 - 1) * shakeMag;
+    var sy = (Math.random() * 2 - 1) * shakeMag;
+    ctx.translate(sx, sy);
+  }
+
+  var skyG = ctx.createLinearGradient(0, 0, 0, waterTop);
+  skyG.addColorStop(0, '#7bc9ff');
+  skyG.addColorStop(1, '#cceeff');
+  ctx.fillStyle = skyG;
+  ctx.fillRect(0, 0, W, waterTop);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  for(var c = 0; c < clouds.length; c++){
+    var cl = clouds[c];
+    ctx.beginPath();
+    ctx.arc(cl.x, cl.y, 14 * cl.s, 0, Math.PI * 2);
+    ctx.arc(cl.x + 10 * cl.s, cl.y - 4 * cl.s, 11 * cl.s, 0, Math.PI * 2);
+    ctx.arc(cl.x - 10 * cl.s, cl.y - 2 * cl.s, 10 * cl.s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = '#4a7c85';
+  ctx.beginPath();
+  ctx.moveTo(W * 0.02, waterTop);
+  ctx.quadraticCurveTo(W * 0.15, waterTop - 20, W * 0.28, waterTop);
+  ctx.fill();
+
+  ctx.fillStyle = '#3a666e';
+  ctx.beginPath();
+  ctx.moveTo(W * 0.48, waterTop);
+  ctx.quadraticCurveTo(W * 0.65, waterTop - 34, W * 0.82, waterTop);
+  ctx.fill();
+
+  ctx.fillStyle = '#2d6a37';
+  ctx.beginPath();
+  ctx.moveTo(W * 0.52, waterTop);
+  ctx.quadraticCurveTo(W * 0.70, waterTop - 42, W * 0.88, waterTop);
+  ctx.fill();
+
+  ctx.fillStyle = '#d9b36c';
+  ctx.beginPath();
+  ctx.moveTo(W * 0.50, waterTop);
+  ctx.quadraticCurveTo(W * 0.70, waterTop - 12, W * 0.90, waterTop);
+  ctx.fill();
+
+  ctx.save();
+  ctx.font = '22px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('🌴', W * 0.64, waterTop - 22);
+  ctx.font = '16px sans-serif';
+  ctx.fillText('🌴', W * 0.70, waterTop - 20);
+  ctx.fillText('🛖', W * 0.76, waterTop - 12);
+  ctx.font = '15px sans-serif';
+  ctx.fillText('🌴', W * 0.14, waterTop - 10);
+  ctx.restore();
+
+  var seaG = ctx.createLinearGradient(0, waterTop, 0, H);
+  seaG.addColorStop(0, '#10649c');
+  seaG.addColorStop(0.35, '#0a4269');
+  seaG.addColorStop(0.70, '#042742');
+  seaG.addColorStop(1, '#011121');
+  ctx.fillStyle = seaG;
+  ctx.fillRect(0, waterTop, W, H - waterTop);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.beginPath();
+  ctx.moveTo(0, waterTop);
+  for(var x = 0; x <= W; x += 15){
+    ctx.lineTo(x, waterTop + Math.sin(animT * 3 + x * 0.04) * 3);
+  }
+  ctx.lineTo(W, waterTop + 6);
+  ctx.lineTo(0, waterTop + 6);
+  ctx.fill();
+
+  ctx.fillStyle = '#010c17';
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  ctx.lineTo(0, seabed);
+  ctx.quadraticCurveTo(W * 0.5, seabed - 8, W, seabed + 4);
+  ctx.lineTo(W, H);
+  ctx.fill();
+
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  for(var b = 0; b < bubbles.length; b++){
+    var bb = bubbles[b];
+    ctx.beginPath();
+    ctx.arc(bb.x, bb.y, bb.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  var bx = boat.x, by = boat.y;
+  var rodX = bx + 18, rodY = by - 8;
+  ctx.strokeStyle = hook.immune > 0 ? '#ff6b6b' : 'rgba(255,255,255,0.85)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(rodX, rodY);
+  ctx.lineTo(hook.x, hook.y);
+  ctx.stroke();
+
+  ctx.save();
+  ctx.translate(bx, by);
+  var bobY = Math.sin(boat.bobT * 2.4) * 2;
+  ctx.translate(0, bobY);
+
+  ctx.fillStyle = '#8b5a2b';
+  ctx.beginPath();
+  ctx.moveTo(-28, -2);
+  ctx.lineTo(28, -2);
+  ctx.lineTo(20, 10);
+  ctx.lineTo(-20, 10);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = '#a66d3b';
+  ctx.fillRect(-26, -5, 52, 4);
+
+  ctx.font = '20px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🧑‍🌾', -6, -14);
+
+  ctx.strokeStyle = '#d4a359';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(2, -12);
+  ctx.lineTo(18, -8);
+  ctx.stroke();
+
+  ctx.restore();
+
+  if(net.active){
+    ctx.save();
+    ctx.strokeStyle = 'rgba(192, 132, 252, 0.85)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(boat.x - 15, boat.y + 5);
+    ctx.lineTo(net.x - net.width / 2, net.y - 10);
+    ctx.moveTo(boat.x + 15, boat.y + 5);
+    ctx.lineTo(net.x + net.width / 2, net.y - 10);
+    ctx.stroke();
+
+    var nw = net.width;
+    var nh = 36;
+    var nx = net.x - nw / 2;
+    var ny = net.y - nh / 2;
+
+    ctx.fillStyle = 'rgba(168, 85, 247, 0.25)';
+    ctx.strokeStyle = '#c084fc';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(nx, ny, nw, nh, 12); else ctx.rect(nx, ny, nw, nh);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(233, 213, 255, 0.6)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for(var gx = nx + 12; gx < nx + nw; gx += 16){
+      ctx.moveTo(gx, ny);
+      ctx.lineTo(gx, ny + nh);
+    }
+    for(var gy = ny + 8; gy < ny + nh; gy += 10){
+      ctx.moveTo(nx, gy);
+      ctx.lineTo(nx + nw, gy);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for(var i = 0; i < fishes.length; i++){
+    var f = fishes[i];
+    ctx.save();
+    ctx.translate(f.x, f.y);
+
+    var scale = 1 + f.pop * 0.35;
+    ctx.scale(f.vx < 0 ? -scale : scale, scale);
+
+    ctx.font = f.size + 'px sans-serif';
+    ctx.fillText(f.e, 0, 0);
+
+    if(f.kind === 'kraken'){
+      ctx.save();
+      ctx.fillStyle = 'rgba(168, 85, 247, 0.22)';
+      ctx.beginPath();
+      ctx.arc(0, 0, f.size * 0.65, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#c084fc';
+      ctx.shadowColor = '#a855f7';
+      ctx.shadowBlur = 18;
+      ctx.stroke();
+      ctx.restore();
+    } else if(f.kind === 'megalodon'){
+      ctx.save();
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.28)';
+      ctx.beginPath();
+      ctx.arc(0, 0, f.size * 0.65, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#ef4444';
+      ctx.shadowColor = '#dc2626';
+      ctx.shadowBlur = 24;
+      ctx.stroke();
+      ctx.restore();
+    } else if(f.kind === 'imugi'){
+      ctx.save();
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.28)';
+      ctx.beginPath();
+      ctx.arc(0, 0, f.size * 0.65, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#10b981';
+      ctx.shadowColor = '#34d399';
+      ctx.shadowBlur = 26;
+      ctx.stroke();
+      ctx.restore();
+    } else if(f.kind === 'seamonster'){
+      ctx.save();
+      ctx.fillStyle = 'rgba(147, 51, 234, 0.35)';
+      ctx.beginPath();
+      ctx.arc(0, 0, f.size * 0.65, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = '#a855f7';
+      ctx.shadowColor = '#c084fc';
+      ctx.shadowBlur = 32;
+      ctx.stroke();
+      ctx.restore();
+    } else if(f.kind === 'island'){
+      ctx.save();
+      ctx.fillStyle = 'rgba(234, 179, 8, 0.35)';
+      ctx.beginPath();
+      ctx.arc(0, 0, f.size * 0.65, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = '#eab308';
+      ctx.shadowColor = '#facc15';
+      ctx.shadowBlur = 36;
+      ctx.stroke();
+      ctx.restore();
+    } else if(f.kind === 'earth'){
+      ctx.save();
+      ctx.fillStyle = 'rgba(59, 130, 246, 0.35)';
+      ctx.beginPath();
+      ctx.arc(0, 0, f.size * 0.65, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 7;
+      ctx.strokeStyle = '#3b82f6';
+      ctx.shadowColor = '#60a5fa';
+      ctx.shadowBlur = 40;
+      ctx.stroke();
+      ctx.restore();
+    } else if(f.kind === 'pirateship'){
+      ctx.save();
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.35)';
+      ctx.beginPath();
+      ctx.arc(0, 0, f.size * 0.65, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = '#dc2626';
+      ctx.shadowColor = '#f87171';
+      ctx.shadowBlur = 38;
+      ctx.stroke();
+      ctx.restore();
+    } else if(f.kind === 'bluewhale'){
+      ctx.save();
+      ctx.fillStyle = 'rgba(14, 165, 233, 0.35)';
+      ctx.beginPath();
+      ctx.arc(0, 0, f.size * 0.65, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = '#0284c7';
+      ctx.shadowColor = '#38bdf8';
+      ctx.shadowBlur = 40;
+      ctx.stroke();
+      ctx.restore();
+    } else if(f.kind === 'korea'){
+      ctx.save();
+      ctx.fillStyle = 'rgba(220, 38, 38, 0.35)';
+      ctx.beginPath();
+      ctx.arc(0, 0, f.size * 0.65, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 8;
+      ctx.strokeStyle = '#2563eb';
+      ctx.shadowColor = '#ef4444';
+      ctx.shadowBlur = 45;
+      ctx.stroke();
+      ctx.restore();
+    } else if(f.gold){
+      ctx.fillStyle = '#ffe27a';
+      ctx.beginPath();
+      ctx.arc(0, 0, f.size * 0.6, 0, Math.PI * 2);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(255,226,122,0.8)';
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  ctx.save();
+  ctx.translate(hook.x, hook.y);
+  var hScale = 1 + hook.pop * 0.4;
+  ctx.scale(hScale, hScale);
+  ctx.strokeStyle = '#e0e0e0';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(0, -4, 5, 0, Math.PI, false);
+  ctx.lineTo(5, -10);
+  ctx.stroke();
+  ctx.restore();
+
+  for(var p = 0; p < particles.length; p++){
+    var pt = particles[p];
+    ctx.fillStyle = pt.c;
+    ctx.globalAlpha = Math.max(0, pt.t / pt.life);
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  for(var k = 0; k < pops.length; k++){
+    var pp = pops[k];
+    ctx.save();
+    ctx.font = '900 ' + pp.s + 'px sans-serif';
+    ctx.fillStyle = pp.c;
+    ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = Math.min(1, pp.t * 1.5);
+    ctx.strokeText(pp.txt, pp.x, pp.y);
+    ctx.fillText(pp.txt, pp.x, pp.y);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+function setupEvents(){
+  window.addEventListener('keydown', function(e){
+    if(e.code === 'ArrowLeft' || e.code === 'KeyA') keyL = true;
+    if(e.code === 'ArrowRight' || e.code === 'KeyD') keyR = true;
+    if(e.code === 'Space' || e.code === 'ArrowDown' || e.code === 'ArrowUp'){
+      e.preventDefault();
+      pressAction();
+    }
+    if(e.code === 'Enter' || e.code === 'NumpadEnter'){
+      e.preventDefault();
+      throwNet();
+    }
+  });
+  window.addEventListener('keyup', function(e){
+    if(e.code === 'ArrowLeft' || e.code === 'KeyA') keyL = false;
+    if(e.code === 'ArrowRight' || e.code === 'KeyD') keyR = false;
+  });
+
+  var elL = document.getElementById('leftBtn');
+  var elR = document.getElementById('rightBtn');
+  var elNet = document.getElementById('netBtn');
+
+  function bindBtn(btn, setter){
+    btn.addEventListener('pointerdown', function(e){ e.preventDefault(); initAudio(); setter(true); });
+    btn.addEventListener('pointerup', function(e){ e.preventDefault(); setter(false); });
+    btn.addEventListener('pointercancel', function(e){ e.preventDefault(); setter(false); });
+  }
+  bindBtn(elL, function(v){ btnL = v; });
+  bindBtn(elR, function(v){ btnR = v; });
+
+  if(elNet){
+    elNet.addEventListener('click', function(e){
+      e.preventDefault();
+      throwNet();
+    });
+  }
+
+  elAct.addEventListener('click', function(e){
+    e.preventDefault();
+    pressAction();
+  });
+
+  document.getElementById('startBtn').addEventListener('click', function(e){
+    e.stopPropagation();
+    pressAction();
+  });
+  document.getElementById('againBtn').addEventListener('click', function(e){
+    e.stopPropagation();
+    pressAction();
+  });
+
+  stage.addEventListener('pointerdown', function(e){
+    if(e.target !== cv) return;
+    initAudio();
+    pointerActive = true;
+    var r = cv.getBoundingClientRect();
+    pointerX = e.clientX - r.left;
+    if(state === 'play' && hookState === 'idle'){
+      pressAction();
+    } else if(state !== 'play'){
+      pressAction();
+    }
+  });
+  stage.addEventListener('pointermove', function(e){
+    if(pointerActive){
+      var r = cv.getBoundingClientRect();
+      pointerX = e.clientX - r.left;
+    }
+  });
+  window.addEventListener('pointerup', function(){ pointerActive = false; pointerX = -1; });
+  window.addEventListener('pointercancel', function(){ pointerActive = false; pointerX = -1; });
+
+  elSound.addEventListener('click', function(e){
+    e.stopPropagation();
+    soundOn = !soundOn;
+    saveSound(soundOn);
+    elSound.textContent = soundOn ? '🔊' : '🔇';
+    initAudio();
+  });
+  elSound.textContent = soundOn ? '🔊' : '🔇';
+
+  window.addEventListener('resize', resize);
+}
+
+var lastT = 0;
+function gameLoop(t){
+  if(!lastT) lastT = t;
+  var dt = Math.min(0.05, (t - lastT) / 1000);
+  lastT = t;
+  update(dt);
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+window.onload = function(){
+  resize();
+  setupEvents();
+  updateHUD();
+  requestAnimationFrame(gameLoop);
+};
+
+})();
+</script>
+</body>
+</html>

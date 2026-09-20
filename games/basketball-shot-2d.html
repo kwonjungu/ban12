@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>농구 슛 2D 🏀 - Mobile Responsive Edition</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+  * { 
+    box-sizing: border-box; 
+    touch-action: none; 
+    -webkit-tap-highlight-color: transparent; 
+    user-select: none; 
+    -webkit-user-select: none;
+  }
+  
+  html, body { 
+    margin: 0; 
+    padding: 0; 
+    width: 100%; 
+    height: 100%; 
+    overflow: hidden; 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+    background: #0b0f19; 
+    color: #fff; 
+  }
+
+  #gameCanvas {
+    position: absolute; 
+    inset: 0; 
+    width: 100%; 
+    height: 100%; 
+    z-index: 1; 
+    display: block;
+  }
+
+  /* HUD Styling with Safe Area for Mobile Notches */
+  #hud {
+    position: absolute; 
+    inset: 0; 
+    pointer-events: none; 
+    z-index: 10;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) calc(12px + env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) calc(12px + env(safe-area-inset-left, 0px)); 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: space-between;
+  }
+
+  .chip {
+    background: rgba(15, 23, 42, 0.85);
+    border: 1.5px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    padding: 5px 12px;
+    font-size: 12px; 
+    font-weight: 800;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    display: flex; 
+    flex-direction: column; 
+    align-items: flex-start;
+  }
+  .chip small { font-size: 9px; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.6px; }
+
+  #scoreVal { font-size: 22px; color: #fde047; line-height: 1.1; }
+  #comboChip { color: #5eead4; border-color: rgba(94, 234, 212, 0.4); transition: all 0.25s; }
+  #diffTag { font-size: 10px; padding: 2px 6px; border-radius: 5px; margin-top: 2px; font-weight: 900; }
+
+  /* Dynamic Banners */
+  #banner {
+    position: absolute; 
+    left: 50%; 
+    top: 22%; 
+    transform: translate(-50%, -50%) scale(0.7);
+    pointer-events: none; 
+    text-align: center; 
+    font-size: clamp(24px, 6vw, 36px); 
+    font-weight: 900;
+    color: #fff; 
+    text-shadow: 0 4px 16px rgba(0,0,0,0.9), 0 0 25px rgba(250, 204, 21, 0.9);
+    opacity: 0; 
+    z-index: 12; 
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    width: 90%;
+  }
+  #banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+
+  #themeNotice {
+    position: absolute; 
+    left: 50%; 
+    top: 15%; 
+    transform: translate(-50%, -50%);
+    pointer-events: none; 
+    text-align: center; 
+    font-size: clamp(13px, 3.8vw, 17px); 
+    font-weight: 900;
+    color: #a7f3d0; 
+    background: rgba(6, 78, 59, 0.9); 
+    border: 1.5px solid #34d399;
+    padding: 6px 16px; 
+    border-radius: 999px; 
+    opacity: 0; 
+    transition: opacity 0.4s; 
+    z-index: 13;
+    box-shadow: 0 0 20px rgba(52, 211, 153, 0.5);
+    white-space: nowrap;
+  }
+  #themeNotice.show { opacity: 1; }
+
+  /* Mobile Friendly Overlay UI Screens */
+  .overlay-screen {
+    position: absolute; 
+    inset: 0; 
+    z-index: 20;
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: center;
+    padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(16px + env(safe-area-inset-bottom, 0px)) 16px; 
+    background: rgba(7, 11, 22, 0.92); 
+    backdrop-filter: blur(14px);
+    transition: opacity 0.3s;
+    overflow-y: auto;
+  }
+  .overlay-screen.hidden { opacity: 0; pointer-events: none; }
+
+  .diff-btn {
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 14px; 
+    padding: 10px 16px; 
+    font-weight: 900; 
+    font-size: 14px;
+    cursor: pointer; 
+    transition: all 0.2s; 
+    width: 100%; 
+    max-width: 300px;
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between;
+    pointer-events: auto;
+  }
+  .diff-btn:hover, .diff-btn.active { transform: scale(1.02); }
+  .diff-easy { background: linear-gradient(135deg, #15803d, #22c55e); color: #fff; }
+  .diff-hard { background: linear-gradient(135deg, #c2410c, #f97316); color: #fff; }
+  .diff-vhard { background: linear-gradient(135deg, #b91c1c, #ef4444); color: #fff; box-shadow: 0 0 18px rgba(239, 68, 68, 0.6); }
+
+  .btn-start {
+    background: linear-gradient(180deg, #fde047 0%, #f97316 100%);
+    color: #1c0a00; 
+    font-size: 18px; 
+    font-weight: 900;
+    border-radius: 999px; 
+    padding: 12px 42px; 
+    border: none;
+    box-shadow: 0 5px 0 #b45309, 0 8px 20px rgba(0,0,0,0.6);
+    cursor: pointer; 
+    transition: transform 0.1s;
+    pointer-events: auto;
+  }
+  .btn-start:active { transform: translateY(3px); box-shadow: 0 2px 0 #b45309; }
+
+  #soundBtn {
+    position: absolute; 
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px)); 
+    right: calc(14px + env(safe-area-inset-right, 0px)); 
+    z-index: 15;
+    width: 44px; 
+    height: 44px; 
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.88); 
+    border: 2px solid rgba(255,255,255,0.25);
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    font-size: 20px; 
+    cursor: pointer; 
+    backdrop-filter: blur(8px);
+    pointer-events: auto;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<!-- HUD Overlay -->
+<div id="hud">
+  <div class="flex justify-between items-start w-full">
+    <div class="chip">
+      <small>점수</small>
+      <span id="scoreVal">0</span>
+      <span id="diffTag" class="bg-green-600 text-white">쉬움</span>
+    </div>
+    <div class="flex flex-col items-end gap-1">
+      <div class="chip"><small>남은 공</small><span id="ballsVal">🏀🏀🏀🏀🏀</span></div>
+      <div class="chip"><small>시간 / 테마</small><span><span id="timeVal">0s</span> · <span id="themeVal" class="text-yellow-300">기본 농구</span></span></div>
+    </div>
+  </div>
+
+  <div class="flex justify-between items-end w-full">
+    <div class="chip opacity-0" id="comboChip">
+      <small>연속 성공</small><span id="comboVal">0 콤보</span>
+    </div>
+  </div>
+</div>
+
+<div id="banner">SWISH! ✨</div>
+<div id="themeNotice">30초 돌파! 테마 변신 🌟</div>
+
+<button id="soundBtn" aria-label="음소거 토글">🔊</button>
+
+<!-- Title Screen -->
+<div class="overlay-screen" id="titleScreen">
+  <div class="text-5xl mb-1 animate-bounce">🏀</div>
+  <h1 class="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-orange-400 to-red-500 mb-1">농구 슛 2D</h1>
+  <p class="text-xs text-blue-200 font-bold mb-3 text-center">📱 손가락으로 공을 뒤로 당겼다 놓아서 슛하세요!</p>
+
+  <div class="text-xs font-bold bg-white/10 p-3 rounded-xl max-w-xs text-left mb-3 border border-white/20 leading-relaxed">
+    • <b>모바일 최적화 고무줄 조종 & 리얼 물리!</b><br>
+    • <b>30초마다 골대 & 배경 테마 변신!</b><br>
+    &nbsp;&nbsp;- <b>로블록스 사람 입 ⬛🟩</b> & <b>대왕 고래 입 🐋</b><br>
+    &nbsp;&nbsp;- 백룸 🟨, 44교시 🏫, 천사 👼, 악마 😈 등<br>
+    • <b>실패 시</b> 남은 공이 1개씩 차감됩니다 🏀<br>
+    • <b>신기록 달성 시</b> 축하 폭죽 연출! 🎆
+  </div>
+
+  <div class="text-xs font-extrabold text-yellow-300 mb-1.5">난이도 선택</div>
+  <div class="flex flex-col gap-2 mb-4 w-full max-w-xs">
+    <button class="diff-btn diff-easy active" id="btnEasy"><span>🟢 쉬움 (Easy)</span> <span class="text-xs opacity-80">골대 천천히</span></button>
+    <button class="diff-btn diff-hard" id="btnHard"><span>🟠 어려움 (Hard)</span> <span class="text-xs opacity-80">골대 이동 + 바람</span></button>
+    <button class="diff-btn diff-vhard" id="btnVHard"><span>🔴 매우 어려움 (Very Hard)</span> <span class="text-xs opacity-80">광속 이동⚡ (1.5x)</span></button>
+  </div>
+
+  <div class="text-xs font-extrabold text-teal-300 mb-3" id="bestTitle">최고 기록 0점</div>
+  <button class="btn-start" id="startBtn">게임 시작!</button>
+</div>
+
+<!-- Game Over Screen -->
+<div class="overlay-screen hidden" id="overScreen">
+  <h2 class="text-2xl sm:text-3xl font-black text-white mb-1" id="overTitle">경기 종료!</h2>
+  <div class="text-4xl sm:text-5xl font-black text-yellow-400 my-1" id="overScore">0</div>
+  <p class="text-xs sm:text-sm font-bold text-red-300 mb-3" id="overMsg"></p>
+
+  <div class="text-xs font-bold bg-black/50 p-3 rounded-xl mb-4 leading-relaxed text-blue-100 max-w-xs w-full" id="overStats"></div>
+  <div class="text-xs sm:text-sm font-extrabold text-teal-300 mb-4" id="bestOver">최고 기록 0점</div>
+
+  <button class="btn-start" id="retryBtn">다시 도전!</button>
+</div>
+
+<script>
+(function() {
+  "use strict";
+
+  // Audio Synthesizer with Mobile Browser unlock support
+  var AC = null, masterGain = null, soundMuted = false;
+  
+  function initAudio() {
+    if (soundMuted) return;
+    try {
+      if (!AC) {
+        var Ctor = window.AudioContext || window.webkitAudioContext;
+        if (!Ctor) return;
+        AC = new Ctor();
+        masterGain = AC.createGain();
+        masterGain.gain.value = 0.25;
+        masterGain.connect(AC.destination);
+      }
+      if (AC && AC.state === 'suspended') {
+        AC.resume();
+      }
+    } catch(e) {}
+  }
+
+  document.getElementById('soundBtn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    soundMuted = !soundMuted;
+    this.textContent = soundMuted ? '🔇' : '🔊';
+    if (masterGain) masterGain.gain.value = soundMuted ? 0 : 0.25;
+  });
+
+  function playTone(freq, duration, type, vol, delay) {
+    if (soundMuted || !AC) return;
+    try {
+      if (AC.state === 'suspended') AC.resume();
+      var t = AC.currentTime + (delay || 0);
+      var osc = AC.createOscillator();
+      var gain = AC.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(vol || 0.2, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+      osc.connect(gain); gain.connect(masterGain);
+      osc.start(t); osc.stop(t + duration + 0.02);
+    } catch(e) {}
+  }
+
+  function playNoise(dur, vol) {
+    if (soundMuted || !AC) return;
+    try {
+      if (AC.state === 'suspended') AC.resume();
+      var len = AC.sampleRate * dur;
+      var buf = AC.createBuffer(1, len, AC.sampleRate);
+      var data = buf.getChannelData(0);
+      for (var i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      var src = AC.createBufferSource(); src.buffer = buf;
+      var gain = AC.createGain(); gain.gain.value = vol || 0.15;
+      src.connect(gain); gain.connect(masterGain);
+      src.start();
+    } catch(e) {}
+  }
+
+  function sfxShoot() { playNoise(0.12, 0.18); playTone(240, 0.1, 'triangle', 0.25); }
+  function sfxBounce() { playTone(160, 0.08, 'sine', 0.3); }
+  function sfxScore() { playTone(523, 0.12, 'sine', 0.3); playTone(659, 0.15, 'sine', 0.3, 0.08); playTone(784, 0.2, 'sine', 0.35, 0.16); }
+  function sfxSwish() { playNoise(0.22, 0.28); playTone(1046, 0.18, 'triangle', 0.3, 0.05); }
+  function sfxMiss() { playTone(220, 0.15, 'sawtooth', 0.2); playTone(180, 0.2, 'sawtooth', 0.2, 0.12); }
+  function sfxOver() { playTone(350, 0.2, 'sawtooth', 0.2); playTone(250, 0.35, 'sawtooth', 0.2, 0.2); }
+  function sfxFirework() { playNoise(0.1, 0.3); playTone(800 + Math.random()*400, 0.3, 'sine', 0.25, 0.05); }
+
+  var canvas = document.getElementById('gameCanvas');
+  var ctx = canvas.getContext('2d');
+  var W = window.innerWidth, H = window.innerHeight;
+  var dpr = window.devicePixelRatio || 1;
+
+  function resizeCanvas() {
+    W = window.innerWidth;
+    H = window.innerHeight;
+    dpr = window.devicePixelRatio || 1;
+
+    // Retina High DPI Canvas Scaling for crisp text and visual lines on smartphones
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // Recalculate ball and hoop base dimensions based on mobile portrait vs landscape orientation
+    if (S.mode === 'play' || S.mode === 'title') {
+      updateMobileDimensions();
+    }
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('orientationchange', function() {
+    setTimeout(resizeCanvas, 150);
+  });
+
+  var DIFFICULTY = {
+    easy: { name: '쉬움', speedMul: 0.4, rimScale: 1.15, wind: false, scoreMul: 1 },
+    hard: { name: '어려움', speedMul: 1.0, rimScale: 1.0, wind: true, scoreMul: 1 },
+    vhard: { name: '매우 어려움⚡', speedMul: 2.8, rimScale: 0.9, wind: true, scoreMul: 1.5 }
+  };
+  var currentDiff = 'easy';
+
+  var S = {
+    mode: 'title', // title | play | over
+    score: 0, combo: 0, bestCombo: 0, balls: 5, goals: 0, shots: 0, swishes: 0,
+    time: 0, best: 0, windX: 0, themeIndex: 0, newRecordAchieved: false,
+    godMode: false,
+    autoGoal: false
+  };
+
+  try { S.best = parseInt(localStorage.getItem('basket2d_best') || '0', 10); } catch(e){}
+
+  // Ball object with dynamic scale & trail
+  var ball = { 
+    x: 0, y: 0, vx: 0, vy: 0, r: 22, status: 'ready', rot: 0, rotSpeed: 0, 
+    touchedRim: false, touchedBoard: false,
+    anchorX: 0, anchorY: 0,
+    targetX: 0, targetY: 0,
+    scaleX: 1, scaleY: 1,
+    trail: []
+  };
+
+  // Hoop object
+  var hoop = { 
+    x: 0, y: 0, rimR: 32, mouthOpen: 0,
+    netWiggle: 0, netVel: 0
+  };
+
+  var drag = { 
+    active: false, startX: 0, startY: 0, curX: 0, curY: 0,
+    smoothCurX: 0, smoothCurY: 0, powerRatio: 0
+  };
+
+  var particles = [];
+  var floatingTexts = [];
+
+  var elTitle = document.getElementById('titleScreen');
+  var elOver = document.getElementById('overScreen');
+  var elBanner = document.getElementById('banner');
+  var elThemeNotice = document.getElementById('themeNotice');
+
+  var THEMES = [
+    { name: '기본 농구 🏀', bgType: 'default', ballType: 'basketball', hoopType: 'classic', color: '#f97316' },
+    { name: '로블록스 사람 입 ⬛🟩', bgType: 'roblox', ballType: 'roblox_noob', hoopType: 'roblox', color: '#00a2ff' },
+    { name: '대왕 고래 입 🐋', bgType: 'ocean', ballType: 'pearl', hoopType: 'whale', color: '#38bdf8' },
+    { name: '백룸 레벨 🟨', bgType: 'backrooms', ballType: 'backrooms_eyeball', hoopType: 'backrooms_vent', color: '#eab308' },
+    { name: '44교시 생존 수업 🏫', bgType: 'classroom', ballType: 'survival_dodgeball', hoopType: 'classroom_clock', color: '#ef4444' },
+    { name: '천사 영역 👼', bgType: 'angel', ballType: 'angel_halo', hoopType: 'angel_wings', color: '#fde047' },
+    { name: '악마 영역 😈', bgType: 'demon', ballType: 'demon_lava', hoopType: 'demon_horns', color: '#dc2626' },
+    { name: '거대 팩맨 🟡', bgType: 'pacman', ballType: 'powerpellet', hoopType: 'pacman', color: '#facc15' },
+    { name: '마인크래프트 🟩', bgType: 'mc', ballType: 'mc_creeper', hoopType: 'mc_block', color: '#4ade80' },
+    { name: '마인크래프트 TNT 🧨', bgType: 'mc', ballType: 'mc_tnt', hoopType: 'mc_block', color: '#ef4444' },
+    { name: '수박 & 호박 🍉', bgType: 'fruit', ballType: 'watermelon', hoopType: 'classic', color: '#22c55e' }
+  ];
+
+  function updateMobileDimensions() {
+    var isPortrait = H > W;
+    
+    // Adjust ball radius based on screen size
+    ball.r = Math.min(W, H) * (isPortrait ? 0.045 : 0.038);
+    if (ball.r < 18) ball.r = 18;
+    if (ball.r > 32) ball.r = 32;
+
+    // Ball launch anchor position adapted for phone thumb control
+    ball.anchorX = isPortrait ? W * 0.22 : W * 0.18;
+    ball.anchorY = isPortrait ? H * 0.74 : H * 0.70;
+
+    if (ball.status === 'ready') {
+      ball.x = ball.anchorX;
+      ball.y = ball.anchorY;
+    }
+
+    // Hoop rim radius adapted for mobile targets
+    hoop.rimR = Math.min(W, H) * (isPortrait ? 0.065 : 0.055);
+    if (hoop.rimR < 26) hoop.rimR = 26;
+    if (hoop.rimR > 42) hoop.rimR = 42;
+  }
+
+  function updateHUD() {
+    document.getElementById('scoreVal').textContent = S.score;
+    
+    var ballsStr = '';
+    for (var b = 0; b < S.balls; b++) ballsStr += '🏀';
+    if (S.balls === 0) ballsStr = '❌';
+    if (S.godMode) ballsStr += ' 🛡️(무적)';
+    document.getElementById('ballsVal').textContent = ballsStr;
+
+    document.getElementById('timeVal').textContent = Math.floor(S.time) + 's';
+    document.getElementById('themeVal').textContent = THEMES[S.themeIndex].name + (S.autoGoal ? ' [🎯자동]' : '');
+    document.getElementById('comboVal').textContent = S.combo + ' 콤보';
+
+    var comboChip = document.getElementById('comboChip');
+    if (S.combo >= 2) comboChip.classList.remove('opacity-0');
+    else comboChip.classList.add('opacity-0');
+  }
+
+  function showBanner(msg) {
+    elBanner.textContent = msg;
+    elBanner.classList.add('show');
+    setTimeout(function() { elBanner.classList.remove('show'); }, 1200);
+  }
+
+  function showThemeNotice(msg) {
+    elThemeNotice.textContent = msg;
+    elThemeNotice.classList.add('show');
+    setTimeout(function() { elThemeNotice.classList.remove('show'); }, 2200);
+  }
+
+  function spawnParticles(x, y, color, count) {
+    for (var i = 0; i < count; i++) {
+      var angle = Math.random() * Math.PI * 2;
+      var speed = Math.random() * 6 + 2;
+      particles.push({
+        x: x, y: y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 2,
+        r: Math.random() * 4 + 2.5,
+        color: color,
+        life: 1.0
+      });
+    }
+  }
+
+  function spawnFloatingText(x, y, text, color) {
+    floatingTexts.push({
+      x: x, y: y, text: text, color: color, vy: -1.5, alpha: 1.0
+    });
+  }
+
+  function triggerFireworks() {
+    for (var f = 0; f < 5; f++) {
+      setTimeout(function() {
+        sfxFirework();
+        var fx = Math.random() * (W * 0.8) + W * 0.1;
+        var fy = Math.random() * (H * 0.5) + H * 0.1;
+        var colors = ['#fde047', '#38bdf8', '#f43f5e', '#a855f7', '#22c55e', '#f97316'];
+        spawnParticles(fx, fy, colors[Math.floor(Math.random() * colors.length)], 35);
+      }, f * 220);
+    }
+  }
+
+  // Mobile Smooth Velocity Calculation
+  function calculateLaunchVelocity(dx, dy) {
+    var pullX = -dx; 
+    var pullY = -dy; 
+    var dist = Math.hypot(pullX, pullY);
+    if (dist === 0) return { vx: 0, vy: 0, powerRatio: 0 };
+    
+    var maxDist = Math.min(W, H) * 0.32;
+    var pullRatio = Math.min(dist, maxDist) / maxDist;
+    
+    var maxPower = Math.min(W, H) * (H > W ? 0.038 : 0.036);
+    var speed = pullRatio * maxPower;
+    
+    var angle = Math.atan2(pullY, pullX);
+    var vx = Math.cos(angle) * speed;
+    var vy = Math.sin(angle) * speed;
+
+    return { vx: vx, vy: vy, powerRatio: pullRatio };
+  }
+
+  function resetBall() {
+    updateMobileDimensions();
+    ball.x = ball.anchorX;
+    ball.y = ball.anchorY;
+    ball.targetX = ball.anchorX;
+    ball.targetY = ball.anchorY;
+    ball.vx = 0;
+    ball.vy = 0;
+    ball.scaleX = 1;
+    ball.scaleY = 1;
+    ball.status = 'ready';
+    ball.rot = 0;
+    ball.rotSpeed = 0;
+    ball.trail = [];
+
+    if (DIFFICULTY[currentDiff].wind) {
+      S.windX = (Math.random() - 0.5) * (currentDiff === 'vhard' ? 0.35 : 0.18);
+    } else {
+      S.windX = 0;
+    }
+  }
+
+  function startGame() {
+    initAudio();
+    S.mode = 'play';
+    S.score = 0; S.combo = 0; S.bestCombo = 0; S.balls = 5;
+    S.goals = 0; S.shots = 0; S.swishes = 0; S.time = 0;
+    S.themeIndex = 0; S.newRecordAchieved = false;
+    resetBall();
+
+    elTitle.classList.add('hidden');
+    elOver.classList.add('hidden');
+    updateHUD();
+
+    if (currentDiff === 'vhard') showBanner('⚡ 광속 골대 모드 시작! ⚡');
+    else showBanner('게임 시작! 🏀');
+  }
+
+  function gameOver() {
+    S.mode = 'over';
+    sfxOver();
+
+    var isNewBest = S.score > S.best;
+    if (isNewBest) {
+      S.best = S.score;
+      try { localStorage.setItem('basket2d_best', String(S.best)); } catch(e){}
+      triggerFireworks();
+    }
+
+    document.getElementById('overScore').textContent = S.score + '점';
+    document.getElementById('overTitle').textContent = isNewBest ? '🎉 신기록 달성! 🎉' : '경기 종료!';
+    document.getElementById('overMsg').textContent = isNewBest ? '축하합니다! 최고 점수를 돌파했습니다!' : '수고하셨습니다! 한 번 더 도전해보세요!';
+    document.getElementById('overStats').innerHTML =
+      '난이도: <b>' + DIFFICULTY[currentDiff].name + '</b><br>' +
+      '성공 골: <b>' + S.goals + '</b> / 던진 공: <b>' + S.shots + '</b><br>' +
+      '최고 연속 콤보: <b>' + S.bestCombo + '</b> · 클린 SWISH: <b>' + S.swishes + '</b>';
+    document.getElementById('bestOver').textContent = '최고 기록 ' + S.best + '점';
+
+    elOver.classList.remove('hidden');
+  }
+
+  var btnEasy = document.getElementById('btnEasy');
+  var btnHard = document.getElementById('btnHard');
+  var btnVHard = document.getElementById('btnVHard');
+
+  function selectDiff(diff) {
+    currentDiff = diff;
+    [btnEasy, btnHard, btnVHard].forEach(function(b) { b.classList.remove('active'); });
+    if (diff === 'easy') btnEasy.classList.add('active');
+    if (diff === 'hard') btnHard.classList.add('active');
+    if (diff === 'vhard') btnVHard.classList.add('active');
+
+    var tag = document.getElementById('diffTag');
+    tag.textContent = DIFFICULTY[diff].name;
+    tag.className = 'px-2 py-0.5 rounded text-xs font-black text-white ' + (diff === 'easy' ? 'bg-green-600' : diff === 'hard' ? 'bg-orange-600' : 'bg-red-600');
+  }
+
+  btnEasy.onclick = function() { selectDiff('easy'); };
+  btnHard.onclick = function() { selectDiff('hard'); };
+  btnVHard.onclick = function() { selectDiff('vhard'); };
+
+  document.getElementById('startBtn').onclick = startGame;
+  document.getElementById('retryBtn').onclick = startGame;
+  document.getElementById('bestTitle').textContent = '최고 기록 ' + S.best + '점';
+
+  function getPos(e) {
+    if (e.touches && e.touches.length > 0) {
+      return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+    return { x: e.clientX, y: e.clientY };
+  }
+
+  function onDown(e) {
+    initAudio(); // Unlock mobile audio context on first touch
+    if (S.mode !== 'play' || ball.status !== 'ready') return;
+    
+    // Ignore clicks/touches on UI overlay buttons
+    if (e.target.closest('#soundBtn') || e.target.closest('.overlay-screen')) return;
+
+    var pos = getPos(e);
+    drag.active = true;
+    drag.startX = pos.x;
+    drag.startY = pos.y;
+    drag.curX = pos.x;
+    drag.curY = pos.y;
+    drag.smoothCurX = pos.x;
+    drag.smoothCurY = pos.y;
+  }
+
+  function onMove(e) {
+    if (!drag.active) return;
+    var pos = getPos(e);
+    drag.curX = pos.x;
+    drag.curY = pos.y;
+    if (e.cancelable) e.preventDefault(); // Prevent mobile screen scrolling while dragging
+  }
+
+  function onUp(e) {
+    if (!drag.active) return;
+    drag.active = false;
+
+    var dx = drag.smoothCurX - drag.startX;
+    var dy = drag.smoothCurY - drag.startY;
+    if (Math.hypot(dx, dy) > 10) {
+      var vel = calculateLaunchVelocity(dx, dy);
+      ball.vx = vel.vx;
+      ball.vy = vel.vy;
+      ball.status = 'flying';
+      ball.rotSpeed = (Math.random() - 0.5) * 0.15 + (vel.vx * 0.015);
+      ball.touchedRim = false;
+      ball.touchedBoard = false;
+      
+      // Ball squish on shoot
+      ball.scaleX = 1.3;
+      ball.scaleY = 0.7;
+
+      S.shots++;
+      sfxShoot();
+    }
+  }
+
+  // Pointer & Touch Events
+  window.addEventListener('pointerdown', onDown, { passive: false });
+  window.addEventListener('pointermove', onMove, { passive: false });
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
+
+  window.addEventListener('touchstart', function(e) {
+    initAudio();
+  }, { passive: true });
+
+  // Cheats
+  var ctrlTCount = 0, ctrlTTimer = null;
+  var uCount = 0, uTimer = null;
+  var tCount = 0, tTimer = null;
+
+  window.addEventListener('keydown', function(e) {
+    if (!e.ctrlKey && !e.altKey && !e.metaKey && (e.key === 't' || e.key === 'T' || e.key === 'ㅅ' || e.code === 'KeyT')) {
+      tCount++;
+      clearTimeout(tTimer);
+      tTimer = setTimeout(function() { tCount = 0; }, 1800);
+
+      if (tCount >= 3) {
+        tCount = 0;
+        if (S.score > 0) S.score *= 2;
+        else S.score = 10;
+        sfxSwish();
+        showBanner('2x 점수 2배! 💥');
+        showThemeNotice('✨ [치트] 점수가 2배로 증가했습니다! (' + S.score + '점)');
+        spawnFloatingText(W * 0.5, H * 0.3, '점수 2배! x2', '#fde047');
+        updateHUD();
+
+        if (S.score > S.best && !S.newRecordAchieved && S.best > 0) {
+          S.newRecordAchieved = true;
+          triggerFireworks();
+          showBanner('🎉 신기록 경신! 🎉');
+        }
+      }
+    }
+
+    if ((e.ctrlKey || e.metaKey) && (e.key === 't' || e.key === 'T')) {
+      e.preventDefault();
+      ctrlTCount++;
+      clearTimeout(ctrlTTimer);
+      ctrlTTimer = setTimeout(function() { ctrlTCount = 0; }, 1800);
+
+      if (ctrlTCount >= 3) {
+        ctrlTCount = 0;
+        S.godMode = !S.godMode;
+        sfxSwish();
+        showBanner(S.godMode ? '🛡️ 무적 모드 ON!' : '🛡️ 무적 모드 OFF');
+        showThemeNotice(S.godMode ? '🛡️ [치트] 공이 감소하지 않습니다!' : '🛡️ [치트] 무적 해제');
+      }
+    }
+
+    if (!e.ctrlKey && !e.altKey && (e.key === 'u' || e.key === 'U')) {
+      uCount++;
+      clearTimeout(uTimer);
+      uTimer = setTimeout(function() { uCount = 0; }, 2000);
+
+      if (uCount >= 6) {
+        uCount = 0;
+        S.autoGoal = !S.autoGoal;
+        sfxSwish();
+        showBanner(S.autoGoal ? '🎯 무조건 골 ON!' : '🎯 무조건 골 OFF');
+        showThemeNotice(S.autoGoal ? '🎯 [치트] 슛을 쏘면 무조건 골대로 들어갑니다!' : '🎯 [치트] 자동 골 해제');
+      }
+    }
+  });
+
+  function drawBackground(ctx, themeObj) {
+    var bgType = themeObj ? (themeObj.bgType || 'default') : 'default';
+
+    if (bgType === 'roblox') {
+      var skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+      skyGrad.addColorStop(0, '#38bdf8'); skyGrad.addColorStop(0.7, '#a5f3fc'); skyGrad.addColorStop(1, '#15803d');
+      ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, W, H);
+
+      var floorY = H * 0.78;
+      ctx.fillStyle = '#16a34a'; ctx.fillRect(0, floorY, W, H - floorY);
+      
+      ctx.fillStyle = '#15803d';
+      for (var sx = 0; sx < W; sx += 32) {
+        for (var sy = floorY + 6; sy < H; sy += 24) {
+          ctx.beginPath(); ctx.ellipse(sx + 16, sy, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+
+    } else if (bgType === 'ocean') {
+      var oceanGrad = ctx.createLinearGradient(0, 0, 0, H);
+      oceanGrad.addColorStop(0, '#0284c7'); oceanGrad.addColorStop(0.6, '#0369a1'); oceanGrad.addColorStop(1, '#0c4a6e');
+      ctx.fillStyle = oceanGrad; ctx.fillRect(0, 0, W, H);
+
+      var timeSeed = performance.now() * 0.002;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      for (var b = 0; b < 15; b++) {
+        var bx = (Math.sin(timeSeed + b * 1.7) * 0.5 + 0.5) * W;
+        var by = (H - ((timeSeed * 60 + b * 80) % H));
+        ctx.beginPath(); ctx.arc(bx, by, (b % 4) * 3 + 3, 0, Math.PI * 2); ctx.fill();
+      }
+
+    } else if (bgType === 'backrooms') {
+      var brGrad = ctx.createLinearGradient(0, 0, 0, H);
+      brGrad.addColorStop(0, '#ca8a04'); brGrad.addColorStop(0.7, '#854d0e'); brGrad.addColorStop(1, '#451a03');
+      ctx.fillStyle = brGrad; ctx.fillRect(0, 0, W, H);
+
+    } else if (bgType === 'demon') {
+      var demonGrad = ctx.createLinearGradient(0, 0, 0, H);
+      demonGrad.addColorStop(0, '#0f0204'); demonGrad.addColorStop(0.6, '#450a0a'); demonGrad.addColorStop(1, '#991b1b');
+      ctx.fillStyle = demonGrad; ctx.fillRect(0, 0, W, H);
+
+      var lavaY = H - 35;
+      ctx.fillStyle = '#ef4444'; ctx.fillRect(0, lavaY, W, 35);
+
+    } else {
+      // Default Basketball Court
+      var grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#090d16'); grad.addColorStop(0.65, '#1e1b4b'); grad.addColorStop(1, '#311000');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      var spotGrad = ctx.createRadialGradient(W * 0.8, H * 0.3, 10, W * 0.8, H * 0.3, W * 0.5);
+      spotGrad.addColorStop(0, 'rgba(254, 240, 138, 0.18)');
+      spotGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = spotGrad; ctx.fillRect(0, 0, W, H);
+
+      var floorY = H * 0.78;
+      var floorGrad = ctx.createLinearGradient(0, floorY, 0, H);
+      floorGrad.addColorStop(0, '#78350f'); floorGrad.addColorStop(0.3, '#9a3412'); floorGrad.addColorStop(1, '#451a03');
+      ctx.fillStyle = floorGrad; ctx.fillRect(0, floorY, W, H - floorY);
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)'; ctx.lineWidth = 1.5;
+      var vpX = W * 0.5, vpY = floorY - 80;
+      for (var l = -6; l <= 12; l++) {
+        var startX = vpX + (l * 120);
+        ctx.beginPath(); ctx.moveTo(vpX, vpY); ctx.lineTo(startX, H); ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)'; ctx.fillRect(0, floorY, W, 4);
+      ctx.restore();
+    }
+  }
+
+  function drawBall(ctx, x, y, r, rot, type, scaleX, scaleY) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(scaleX || 1, scaleY || 1);
+
+    if (type === 'roblox_noob') {
+      ctx.rotate(rot);
+      ctx.fillStyle = '#fed000'; ctx.fillRect(-r, -r, r * 2, r * 2);
+      ctx.strokeStyle = '#ca8a04'; ctx.lineWidth = 2.5; ctx.strokeRect(-r, -r, r * 2, r * 2);
+
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(-r * 0.5, -r * 0.3, r * 0.35, r * 0.35);
+      ctx.fillRect(r * 0.15, -r * 0.3, r * 0.35, r * 0.35);
+      ctx.fillRect(-r * 0.4, r * 0.25, r * 0.8, r * 0.25);
+
+    } else if (type === 'angel_halo') {
+      ctx.rotate(rot);
+      var gradA = ctx.createRadialGradient(-r*0.3, -r*0.3, r*0.1, 0, 0, r);
+      gradA.addColorStop(0, '#ffffff'); gradA.addColorStop(1, '#fde047');
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fillStyle = gradA; ctx.fill();
+      ctx.strokeStyle = '#facc15'; ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.ellipse(0, -r*0.9, r*0.8, r*0.25, 0, 0, Math.PI*2); ctx.stroke();
+
+    } else if (type === 'demon_lava') {
+      ctx.rotate(rot);
+      var gradD = ctx.createRadialGradient(0, 0, r*0.2, 0, 0, r);
+      gradD.addColorStop(0, '#fef08a'); gradD.addColorStop(0.5, '#f97316'); gradD.addColorStop(1, '#7f1d1d');
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fillStyle = gradD; ctx.fill();
+      ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.stroke();
+
+    } else if (type === 'pearl') {
+      var gradP = ctx.createRadialGradient(-r*0.35, -r*0.35, r*0.08, 0, 0, r);
+      gradP.addColorStop(0, '#ffffff'); gradP.addColorStop(0.5, '#e0f2fe'); gradP.addColorStop(1, '#0284c7');
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fillStyle = gradP; ctx.fill();
+
+    } else if (type === 'mc_creeper') {
+      ctx.rotate(rot);
+      ctx.fillStyle = '#22c55e'; ctx.fillRect(-r, -r, r*2, r*2);
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(-r*0.6, -r*0.5, r*0.4, r*0.4);
+      ctx.fillRect(r*0.2, -r*0.5, r*0.4, r*0.4);
+      ctx.fillRect(-r*0.2, -r*0.1, r*0.4, r*0.6);
+
+    } else if (type === 'mc_tnt') {
+      ctx.rotate(rot);
+      ctx.fillStyle = '#ef4444'; ctx.fillRect(-r, -r, r*2, r*2);
+      ctx.fillStyle = '#f8fafc'; ctx.fillRect(-r, -r*0.3, r*2, r*0.6);
+      ctx.fillStyle = '#000'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('TNT', 0, 0);
+
+    } else {
+      // 3D Basketball
+      var ballGrad = ctx.createRadialGradient(-r * 0.35, -r * 0.35, r * 0.1, 0, 0, r);
+      ballGrad.addColorStop(0, '#ffedd5');
+      ballGrad.addColorStop(0.25, '#f97316');
+      ballGrad.addColorStop(0.85, '#c2410c');
+      ballGrad.addColorStop(1, '#7c2d12');
+
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fillStyle = ballGrad; ctx.fill();
+
+      ctx.rotate(rot);
+      ctx.lineWidth = 2.5; ctx.strokeStyle = '#1c0a00';
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.95, -Math.PI * 0.45, Math.PI * 0.45); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.95, Math.PI * 0.55, Math.PI * 1.45); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-r, 0); ctx.lineTo(r, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(0, r); ctx.stroke();
+
+      ctx.rotate(-rot);
+      var glossGrad = ctx.createRadialGradient(-r * 0.4, -r * 0.4, 0, -r * 0.4, -r * 0.4, r * 0.6);
+      glossGrad.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
+      glossGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = glossGrad;
+      ctx.beginPath(); ctx.arc(-r * 0.3, -r * 0.3, r * 0.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  function drawHoop(ctx, hoopObj, themeType) {
+    var x = hoopObj.x;
+    var y = hoopObj.y;
+    var rimR = hoopObj.rimR * DIFFICULTY[currentDiff].rimScale;
+    var wiggleOffset = hoopObj.netWiggle || 0;
+
+    ctx.save();
+
+    if (themeType === 'roblox') {
+      var headW = rimR * 3.8;
+      var headH = rimR * 3.6;
+
+      ctx.fillStyle = '#fecc00';
+      ctx.fillRect(x - headW * 0.4, y - headH * 0.65, headW, headH);
+      ctx.strokeStyle = '#b58d00'; ctx.lineWidth = 3.5;
+      ctx.strokeRect(x - headW * 0.4, y - headH * 0.65, headW, headH);
+
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(x - headW * 0.42, y - headH * 0.68, headW * 1.04, headH * 0.28);
+
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(x - headW * 0.2, y - headH * 0.42, headW * 0.18, headH * 0.18);
+      ctx.fillRect(x + headW * 0.2, y - headH * 0.42, headW * 0.18, headH * 0.18);
+
+      ctx.fillStyle = '#1e1010';
+      ctx.beginPath(); ctx.ellipse(x, y + 4, rimR * 1.05, rimR * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+
+      ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.ellipse(x, y, rimR, rimR * 0.3, 0, 0, Math.PI * 2); ctx.stroke();
+
+    } else if (themeType === 'whale') {
+      var whaleR = rimR * 2.8;
+
+      ctx.fillStyle = '#0284c7';
+      ctx.beginPath(); ctx.ellipse(x + rimR * 0.5, y - rimR * 0.2, whaleR * 1.1, whaleR * 0.75, -0.1, 0, Math.PI * 2); ctx.fill();
+
+      ctx.fillStyle = '#f0f9ff';
+      ctx.beginPath(); ctx.ellipse(x + rimR * 0.4, y + rimR * 0.7, whaleR * 0.8, whaleR * 0.4, -0.1, 0, Math.PI * 2); ctx.fill();
+
+      ctx.fillStyle = '#0c0a09';
+      ctx.beginPath(); ctx.ellipse(x, y + 4, rimR * 1.05, rimR * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+
+      ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.ellipse(x, y, rimR, rimR * 0.28, 0, 0, Math.PI * 2); ctx.stroke();
+
+    } else {
+      // Classic Basketball Hoop with Backboard & Net
+      var boardX = x + rimR;
+      var boardW = 14;
+      var boardH = rimR * 3.4;
+      var boardY = y - boardH * 0.5;
+
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(boardX + boardW, y - 8, W - (boardX + boardW), 16);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(boardX + 3, boardY + 3, boardW, boardH);
+
+      var glassGrad = ctx.createLinearGradient(boardX, boardY, boardX + boardW, boardY + boardH);
+      glassGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+      glassGrad.addColorStop(1, 'rgba(148, 163, 184, 0.95)');
+      ctx.fillStyle = glassGrad;
+      ctx.fillRect(boardX, boardY, boardW, boardH);
+
+      ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 3;
+      ctx.strokeRect(boardX, boardY, boardW, boardH);
+      ctx.strokeRect(boardX, y - boardH * 0.25, boardW, boardH * 0.5);
+
+      var rimGrad = ctx.createLinearGradient(x - rimR, y - 4, x - rimR, y + 4);
+      rimGrad.addColorStop(0, '#f97316'); rimGrad.addColorStop(1, '#7c2d12');
+
+      ctx.strokeStyle = rimGrad; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.ellipse(x, y, rimR, rimR * 0.28, 0, 0, Math.PI * 2); ctx.stroke();
+
+      // Net
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.88)'; ctx.lineWidth = 1.8;
+      var netH = rimR * 1.35;
+
+      ctx.beginPath();
+      ctx.moveTo(x - rimR, y);
+      ctx.quadraticCurveTo(x - rimR * 0.25 + wiggleOffset * 0.5, y + netH * 0.5, x - rimR * 0.5 + wiggleOffset, y + netH);
+      ctx.lineTo(x + rimR * 0.5 + wiggleOffset, y + netH);
+      ctx.quadraticCurveTo(x + rimR * 0.25 + wiggleOffset * 0.5, y + netH * 0.5, x + rimR, y);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  var lastTime = performance.now();
+  var physicsAccumulator = 0;
+  var FIXED_TIME_STEP = 1 / 60;
+
+  function updatePhysicsStep(dt) {
+    if (S.mode !== 'play') return;
+
+    S.time += dt;
+
+    var newThemeIdx = Math.floor(S.time / 30) % THEMES.length;
+    if (newThemeIdx !== S.themeIndex) {
+      S.themeIndex = newThemeIdx;
+      sfxSwish();
+      showThemeNotice('🌟 30초 돌파! ' + THEMES[S.themeIndex].name + ' 변신!');
+    }
+
+    var speedMul = DIFFICULTY[currentDiff].speedMul;
+    var timeFactor = S.time * speedMul;
+    var isPortrait = H > W;
+
+    var ampY = (currentDiff === 'vhard') ? H * 0.22 : (currentDiff === 'hard' ? H * 0.14 : H * 0.05);
+    var ampX = (currentDiff === 'vhard') ? W * 0.12 : (currentDiff === 'hard' ? W * 0.06 : 0);
+
+    hoop.x = (isPortrait ? W * 0.76 : W * 0.8) + Math.sin(timeFactor * 1.5) * ampX;
+    hoop.y = (isPortrait ? H * 0.38 : H * 0.42) + Math.cos(timeFactor * 2.2) * ampY;
+
+    hoop.netVel -= hoop.netWiggle * 0.22;
+    hoop.netVel *= 0.82;
+    hoop.netWiggle += hoop.netVel;
+
+    ball.scaleX += (1 - ball.scaleX) * 0.18;
+    ball.scaleY += (1 - ball.scaleY) * 0.18;
+
+    if (drag.active && ball.status === 'ready') {
+      drag.smoothCurX += (drag.curX - drag.smoothCurX) * 0.25;
+      drag.smoothCurY += (drag.curY - drag.smoothCurY) * 0.25;
+
+      var pullDx = drag.smoothCurX - drag.startX;
+      var pullDy = drag.smoothCurY - drag.startY;
+      var maxDist = Math.min(W, H) * 0.32;
+      var dist = Math.hypot(pullDx, pullDy);
+      
+      var clampedDist = Math.min(dist, maxDist);
+      var angle = Math.atan2(pullDy, pullDx);
+
+      ball.x = ball.anchorX + Math.cos(angle) * clampedDist * 0.28;
+      ball.y = ball.anchorY + Math.sin(angle) * clampedDist * 0.28;
+    } else if (ball.status === 'ready') {
+      ball.x += (ball.anchorX - ball.x) * 0.25;
+      ball.y += (ball.anchorY - ball.y) * 0.25;
+    }
+
+    if (ball.status === 'flying') {
+      ball.trail.push({ x: ball.x, y: ball.y, alpha: 1.0 });
+      if (ball.trail.length > 8) ball.trail.shift();
+
+      if (S.autoGoal) {
+        var targetX = hoop.x;
+        var targetY = hoop.y - 10;
+        var dx = targetX - ball.x;
+        var dy = targetY - ball.y;
+
+        ball.vx += dx * 0.22;
+        ball.vy += dy * 0.22;
+        ball.vx *= 0.78;
+        ball.vy *= 0.78;
+      } else {
+        ball.vy += 0.45;
+        ball.vx += S.windX;
+      }
+
+      ball.x += ball.vx;
+      ball.y += ball.vy;
+      ball.rot += ball.rotSpeed;
+
+      var rimR = hoop.rimR * DIFFICULTY[currentDiff].rimScale;
+
+      // Vertical Backboard Bounce
+      var boardX = hoop.x + rimR;
+      var boardTop = hoop.y - rimR * 1.6;
+      var boardBottom = hoop.y + rimR * 1.6;
+
+      if (ball.x + ball.r >= boardX && ball.x - ball.r <= boardX + 15 && ball.y >= boardTop && ball.y <= boardBottom) {
+        if (ball.vx > 0) {
+          ball.vx = -ball.vx * 0.65;
+          ball.touchedBoard = true;
+          ball.scaleX = 0.7; ball.scaleY = 1.3;
+          sfxBounce();
+        }
+      }
+
+      // Goal Detection
+      if (ball.vy > 0 && Math.abs(ball.y - hoop.y) < 18) {
+        if (Math.abs(ball.x - hoop.x) < rimR - 8) {
+          ball.status = 'scored';
+          S.goals++; S.combo++;
+          if (S.combo > S.bestCombo) S.bestCombo = S.combo;
+
+          hoop.netVel = 18;
+
+          var isSwish = (!ball.touchedRim && !ball.touchedBoard);
+          if (isSwish) S.swishes++;
+
+          var pts = Math.round((isSwish ? 3 : 2) * Math.min(S.combo, 4) * DIFFICULTY[currentDiff].scoreMul);
+          S.score += pts;
+
+          if (S.score > S.best && !S.newRecordAchieved && S.best > 0) {
+            S.newRecordAchieved = true;
+            triggerFireworks();
+            showBanner('🎉 신기록 경신! 🎉');
+          } else {
+            if (isSwish) { sfxSwish(); showBanner('SWISH! ✨ (+' + pts + ')'); }
+            else { sfxScore(); showBanner('GOAL! 🏀 (+' + pts + ')'); }
+          }
+
+          spawnParticles(hoop.x, hoop.y, THEMES[S.themeIndex].color, isSwish ? 35 : 20);
+          spawnFloatingText(hoop.x, hoop.y - 30, '+' + pts + '점', '#fde047');
+          updateHUD();
+          setTimeout(resetBall, 700);
+          return;
+        }
+      }
+
+      // Rim Bounce
+      if (Math.hypot(ball.x - (hoop.x - rimR), ball.y - hoop.y) < ball.r ||
+          Math.hypot(ball.x - (hoop.x + rimR), ball.y - hoop.y) < ball.r) {
+        ball.vx = -ball.vx * 0.6;
+        ball.vy = -ball.vy * 0.5;
+        ball.touchedRim = true;
+        ball.scaleX = 1.25; ball.scaleY = 0.75;
+        hoop.netVel = 8;
+        sfxBounce();
+      }
+
+      // Ground Bounce & Miss Penalty
+      if (ball.y > H - ball.r) {
+        ball.y = H - ball.r;
+        ball.vy = -ball.vy * 0.45;
+        ball.scaleX = 1.35; ball.scaleY = 0.65;
+        sfxBounce();
+
+        if (ball.status === 'flying') {
+          ball.status = 'missed';
+          S.combo = 0;
+          
+          if (!S.godMode) {
+            S.balls--;
+          }
+          sfxMiss();
+
+          spawnFloatingText(ball.x, ball.y - 40, S.godMode ? '🛡️ 무적 (공 보존!)' : '-1 🏀 (실패!)', S.godMode ? '#5eead4' : '#ef4444');
+          updateHUD();
+
+          if (S.balls <= 0) {
+            setTimeout(gameOver, 800);
+          } else {
+            setTimeout(resetBall, 900);
+          }
+        }
+      }
+    }
+
+    for (var tr = 0; tr < ball.trail.length; tr++) ball.trail[tr].alpha -= 0.1;
+
+    for (var i = particles.length - 1; i >= 0; i--) {
+      var p = particles[i];
+      p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life -= 0.02;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+
+    for (var t = floatingTexts.length - 1; t >= 0; t--) {
+      var ft = floatingTexts[t];
+      ft.y += ft.vy; ft.alpha -= 0.02;
+      if (ft.alpha <= 0) floatingTexts.splice(t, 1);
+    }
+
+    updateHUD();
+  }
+
+  function render() {
+    var now = performance.now();
+    var frameTime = (now - lastTime) / 1000;
+    if (frameTime > 0.1) frameTime = 0.1;
+    lastTime = now;
+
+    physicsAccumulator += frameTime;
+    while (physicsAccumulator >= FIXED_TIME_STEP) {
+      updatePhysicsStep(FIXED_TIME_STEP);
+      physicsAccumulator -= FIXED_TIME_STEP;
+    }
+
+    ctx.clearRect(0, 0, W, H);
+    drawBackground(ctx, THEMES[S.themeIndex]);
+
+    if (S.mode === 'play' || S.mode === 'over') {
+      // Ground Shadow
+      var floorY = H * 0.82;
+      var altitude = Math.max(0, floorY - ball.y);
+      var shadowScale = Math.max(0.2, 1 - (altitude / (H * 0.7)));
+      var shadowAlpha = Math.max(0.05, 0.45 * shadowScale);
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(0, 0, 0, ' + shadowAlpha + ')';
+      ctx.beginPath();
+      ctx.ellipse(ball.x, floorY, ball.r * 1.2 * shadowScale, ball.r * 0.4 * shadowScale, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // Motion Trail Visual Effect
+      if (ball.status === 'flying' && ball.trail.length > 0) {
+        for (var tr = 0; tr < ball.trail.length; tr++) {
+          var tPoint = ball.trail[tr];
+          if (tPoint.alpha > 0) {
+            ctx.save();
+            ctx.globalAlpha = tPoint.alpha * 0.35;
+            drawBall(ctx, tPoint.x, tPoint.y, ball.r * 0.85, ball.rot, THEMES[S.themeIndex].ballType, 1, 1);
+            ctx.restore();
+          }
+        }
+      }
+
+      // Mobile Touch Guide pulse ring when ready
+      if (!drag.active && ball.status === 'ready') {
+        var pulse = (Math.sin(performance.now() * 0.006) + 1) * 0.5;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(253, 224, 71, ' + (0.3 + pulse * 0.4) + ')';
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([6, 6]);
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.r + 10 + pulse * 6, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillStyle = 'rgba(255, 255, 255, ' + (0.7 + pulse * 0.3) + ')';
+        ctx.textAlign = 'center';
+        ctx.fillText('👇 당겨서 슛!', ball.x, ball.y + ball.r + 28);
+        ctx.restore();
+      }
+
+      // Slingshot Trajectory Line
+      if (drag.active && ball.status === 'ready') {
+        var dx = drag.smoothCurX - drag.startX;
+        var dy = drag.smoothCurY - drag.startY;
+        var vel = calculateLaunchVelocity(dx, dy);
+
+        var simX = ball.x, simY = ball.y;
+        var simVx = vel.vx, simVy = vel.vy;
+
+        var maxSimSteps = Math.floor(Math.max(45, W / 20));
+        var animTime = performance.now() * 0.005;
+
+        ctx.save();
+        var powerColor = vel.powerRatio > 0.75 ? '#ef4444' : (vel.powerRatio > 0.4 ? '#f97316' : '#fde047');
+
+        for (var d = 0; d < maxSimSteps; d++) {
+          simX += simVx;
+          simY += simVy;
+          simVy += 0.45;
+          simVx += S.windX;
+
+          var progress = d / maxSimSteps;
+          var alpha = Math.max(0.12, (1 - progress) * 0.9);
+          var pulseR = Math.sin(animTime - d * 0.3) * 0.8 + 3.2;
+
+          ctx.fillStyle = powerColor;
+          ctx.globalAlpha = alpha;
+          ctx.beginPath();
+          ctx.arc(simX, simY, Math.max(1.5, pulseR * (1 - progress * 0.4)), 0, Math.PI * 2);
+          ctx.fill();
+
+          if (simY > H * 0.85 || simX > W + 60 || simX < -60 || simY < -100) break;
+        }
+        ctx.restore();
+
+        // Slingshot Rubber Band
+        ctx.save();
+        ctx.shadowColor = powerColor;
+        ctx.shadowBlur = 10;
+        ctx.strokeStyle = powerColor;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(ball.anchorX, ball.anchorY);
+        ctx.lineTo(ball.x, ball.y);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      drawHoop(ctx, hoop, THEMES[S.themeIndex].hoopType);
+      drawBall(ctx, ball.x, ball.y, ball.r, ball.rot, THEMES[S.themeIndex].ballType, ball.scaleX, ball.scaleY);
+
+      // Render Particles
+      for (var i = 0; i < particles.length; i++) {
+        var p = particles[i];
+        ctx.fillStyle = p.color; ctx.globalAlpha = p.life;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+        ctx.globalAlpha = 1.0;
+      }
+
+      // Render Floating Texts
+      for (var k = 0; k < floatingTexts.length; k++) {
+        var ft = floatingTexts[k];
+        ctx.font = 'bold 20px sans-serif'; ctx.fillStyle = ft.color;
+        ctx.globalAlpha = Math.max(0, ft.alpha); ctx.textAlign = 'center';
+        ctx.fillText(ft.text, ft.x, ft.y);
+        ctx.globalAlpha = 1.0;
+      }
+    }
+
+    requestAnimationFrame(render);
+  }
+
+  // Initial scaling setup
+  resizeCanvas();
+  render();
+
+})();
+</script>
+</body>
+</html>

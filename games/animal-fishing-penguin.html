@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>동물 낚시</title>
+<style>
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent }
+  html,body{
+    margin:0; padding:0; height:100%; overflow:hidden;
+    background:#020c16; color:#ffffff;
+    font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+    user-select:none; -webkit-user-select:none;
+  }
+  #app{
+    position:relative; width:100%; height:100%; max-width:520px; margin:0 auto;
+    display:flex; flex-direction:column; background:#041525; overflow:hidden;
+  }
+
+  /* ================= HUD ================= */
+  #hud{ flex:0 0 auto; padding:8px 9px 5px; display:flex; flex-direction:column; gap:5px; z-index:6 }
+  .row{display:flex; align-items:center; gap:6px}
+  .chip{
+    background:#164263; border:1px solid #306994;
+    border-radius:999px; padding:5px 10px; font-size:12.5px; font-weight:800;
+    letter-spacing:-.4px; display:flex; align-items:center; gap:5px; white-space:nowrap;
+  }
+  .chip b{font-size:15px; color:#ffe27a}
+  .spacer{flex:1}
+  #timeChip.warn{ background:#8a1c1c; border-color:#e05252; animation:tick .5s infinite }
+  @keyframes tick{ 50%{ transform:scale(1.07) } }
+  #hearts{letter-spacing:1px; font-size:14px}
+  #hearts span{display:inline-block; transition:transform .25s, opacity .25s}
+  #hearts span.gone{opacity:.25; transform:scale(.7); filter:grayscale(1)}
+  #streakChip{ background:linear-gradient(90deg,#ff8a3d,#ffd54a); border-color:#ffffff; color:#3a1d00 }
+  #streakChip b{ color:#7a2b00 }
+  #streakChip.hide{ display:none }
+  .iconBtn{
+    background:#164263; border:1px solid #306994;
+    color:#fff; border-radius:999px; width:32px; height:32px; font-size:14px; cursor:pointer; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center; font-family:inherit;
+  }
+  .iconBtn:active{transform:scale(.9)}
+  #barWrap{
+    height:14px; border-radius:999px; background:#071a29;
+    border:1px solid #306994; overflow:hidden; position:relative;
+  }
+  #bar{ height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg,#4ee08a,#ffe27a); transition:width .12s linear }
+  #barTxt{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:9.5px; font-weight:900; letter-spacing:-.3px; color:#ffffff;
+    text-shadow:0 1px 2px rgba(0,0,0,.9);
+  }
+
+  /* ================= 스테이지 ================= */
+  #stage{ position:relative; flex:1 1 auto; min-height:0; overflow:hidden; touch-action:none }
+  #cv{ display:block; position:absolute; inset:0 }
+
+  /* ================= 조작 버튼 ================= */
+  #ctrl{ flex:0 0 auto; padding:7px 9px 10px; display:flex; gap:8px; align-items:stretch; z-index:6 }
+  .cbtn{
+    background:#184568; border:1px solid #336e9c; color:#fff;
+    border-radius:16px; font-size:22px; font-weight:900; cursor:pointer; padding:12px 0; flex:1 1 0;
+    font-family:inherit; display:flex; align-items:center; justify-content:center;
+  }
+  .cbtn:active{ transform:scale(.94); background:#275b85 }
+  #actBtn{
+    flex:2 1 0; font-size:16px; letter-spacing:-.5px;
+    background:linear-gradient(180deg,#ffd84a,#ff9f1c); color:#4a2500; border-color:#fff6c9;
+    box-shadow:0 4px 0 rgba(0,0,0,.28);
+  }
+  #actBtn:active{ box-shadow:0 1px 0 rgba(0,0,0,.28); transform:translateY(3px) scale(.99) }
+
+  /* ================= 화면 오버레이 ================= */
+  .screen{
+    position:absolute; inset:0; z-index:20; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:10px; padding:22px 20px;
+    background:#041525; text-align:center; overflow-y:auto;
+  }
+  .screen.hidden{ display:none }
+  .big{ font-size:44px; line-height:1 }
+  h1{
+    font-size:40px; letter-spacing:-2px; font-weight:900; line-height:1; margin:0;
+    background:linear-gradient(180deg,#fff,#ffd54a 60%,#ff9f1c);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 3px 0 rgba(0,0,0,.35));
+  }
+  .sub{ font-size:13.5px; color:#bfe3ff; font-weight:700; letter-spacing:-.4px; line-height:1.6 }
+  .card{
+    background:#0d2c47; border:1px solid #245882;
+    border-radius:16px; padding:11px 14px; font-size:12.5px; font-weight:700;
+    color:#dff1ff; line-height:1.75; letter-spacing:-.4px; max-width:330px; width:100%;
+  }
+  .card .k{ color:#ffe27a; font-weight:900 }
+  .titleFish{ font-size:34px; letter-spacing:6px; animation:swim 3s ease-in-out infinite }
+  @keyframes swim{ 50%{ transform:translateX(10px) rotate(-6deg) } }
+  #overTitle{ font-size:30px; font-weight:900; letter-spacing:-1.5px }
+  .missTxt{ font-size:14px; font-weight:900; color:#ff9f9f }
+  .statRow{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center }
+  .stat{
+    background:#0d2c47; border:1px solid #245882;
+    border-radius:12px; padding:8px 12px; font-size:12px; font-weight:800; color:#cfe9ff;
+  }
+  .stat b{ display:block; font-size:19px; color:#ffe27a; margin-top:2px }
+  .btn{
+    background:linear-gradient(180deg,#ffd84a,#ff9f1c); color:#4a2500;
+    border:2px solid #fff6c9; border-radius:14px; padding:13px 30px;
+    font-size:17px; font-weight:900; font-family:inherit; cursor:pointer;
+    box-shadow:0 4px 0 rgba(0,0,0,.3); letter-spacing:-.5px;
+  }
+  .btn:active{ transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.3) }
+  .btn.ghost{
+    background:#164263; color:#dff1ff; border-color:#3a7fb0; box-shadow:0 4px 0 rgba(0,0,0,.28);
+  }
+
+  /* ================= 상점 ================= */
+  #shopScreen{ justify-content:flex-start; gap:8px; padding:16px 14px 18px }
+  #coinLine{
+    font-size:15px; font-weight:900; color:#ffe27a; letter-spacing:-.4px;
+    background:#0d2c47; border:1px solid #ffd54a; border-radius:999px; padding:7px 18px;
+  }
+  #shopList{ width:100%; max-width:360px; display:flex; flex-direction:column; gap:7px }
+  .item{
+    display:flex; align-items:center; gap:9px; text-align:left;
+    background:#0d2c47; border:1px solid #245882; border-radius:14px; padding:9px 10px;
+  }
+  .item .ic{ font-size:25px; flex:0 0 auto; width:32px; text-align:center }
+  .item .info{ flex:1 1 auto; min-width:0 }
+  .item .nm{ font-size:13.5px; font-weight:900; color:#ffffff; letter-spacing:-.4px }
+  .item .ds{ font-size:11px; font-weight:700; color:#9fc9e8; letter-spacing:-.3px; margin-top:1px }
+  .item .lv{ font-size:11px; font-weight:900; color:#4ee08a; margin-top:2px }
+  .item .lv.max{ color:#ffb3b3 }
+  .buy{
+    flex:0 0 auto; background:linear-gradient(180deg,#ffd84a,#ff9f1c); color:#4a2500;
+    border:1px solid #fff6c9; border-radius:11px; padding:9px 11px;
+    font-size:12px; font-weight:900; font-family:inherit; cursor:pointer; white-space:nowrap;
+  }
+  .buy:active{ transform:scale(.93) }
+  .logRow{
+    display:flex; flex-wrap:wrap; gap:6px; justify-content:center; max-width:340px;
+  }
+  .logChip{
+    background:#0d2c47; border:1px solid #245882; border-radius:10px;
+    padding:5px 9px; font-size:12px; font-weight:800; color:#dff1ff;
+  }
+  .logChip b{ color:#ffe27a }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ================= HUD ================= -->
+  <div id="hud">
+    <div class="row">
+      <div class="chip">🏆 <b id="scoreTxt">0</b></div>
+      <div class="chip" id="timeChip">⏱️ <b id="timeTxt">60</b></div>
+      <div class="chip" id="streakChip"><span>🔥</span><b id="streakTxt">2</b>연속</div>
+      <div class="spacer"></div>
+      <div class="chip" id="hearts"></div>
+      <button class="iconBtn" id="shopBtn" title="상점">🛒</button>
+      <button class="iconBtn" id="soundBtn" title="소리">🔊</button>
+    </div>
+    <div id="barWrap">
+      <div id="bar"></div>
+      <div id="barTxt">수면</div>
+    </div>
+  </div>
+
+  <!-- ================= 스테이지 ================= -->
+  <div id="stage">
+    <canvas id="cv"></canvas>
+
+    <!-- 시작 화면 -->
+    <div class="screen" id="startScreen">
+      <div class="titleFish">🐧🐼🐻‍❄️</div>
+      <h1>동물 낚시</h1>
+      <div class="sub">바다 친구들을 낚아 올려 점수를 모으세요!</div>
+      <div class="card">
+        <span class="k">🎣 내리기</span> 스페이스 또는 화면 톡!<br>
+        <span class="k">↔ 조종</span> 화살표 · 드래그 · ◀▶ 버튼<br>
+        <span class="k">🐧 펭귄</span> 600점! 큰 동물일수록 고득점
+      </div>
+      <div class="card" style="background:linear-gradient(135deg,#3d300a,#3d2000); border:1px solid #ffd700">
+        <div style="font-weight:900; color:#ffe27a; font-size:14px; margin-bottom:3px">💰 자금 무제한</div>
+        <div style="font-size:12px; color:#e0f0ff">상점의 뜰채·민첩도 등 모든 도구를 <b style="color:#ffe27a">횟수 제한 없이</b> 구매할 수 있습니다.</div>
+      </div>
+      <button class="btn" id="startBtn">🎣 낚시 시작!</button>
+      <button class="btn ghost" id="openShopBtn">🛒 상점 열기</button>
+    </div>
+
+    <!-- 상점 화면 -->
+    <div class="screen hidden" id="shopScreen">
+      <h1 style="font-size:30px">🛒 상점</h1>
+      <div id="coinLine">보유 코인 ∞ (무제한)</div>
+      <div id="shopList"></div>
+      <button class="btn" id="shopCloseBtn">닫기</button>
+    </div>
+
+    <!-- 게임 종료 화면 -->
+    <div class="screen hidden" id="overScreen">
+      <div class="big" id="overEmoji">🎣</div>
+      <div id="overTitle">낚시 종료!</div>
+      <div class="missTxt" id="overMiss"></div>
+      <div class="statRow">
+        <div class="stat">점수<b id="fScore">0</b></div>
+        <div class="stat">최고<b id="fBest">0</b></div>
+        <div class="stat">잡은 수<b id="fCatch">0</b></div>
+        <div class="stat">최대 연속<b id="fStreak">0</b></div>
+      </div>
+      <div class="logRow" id="fLog"></div>
+      <button class="btn" id="againBtn">🔁 다시 하기</button>
+      <button class="btn ghost" id="overShopBtn">🛒 상점</button>
+    </div>
+  </div>
+
+  <!-- ================= 조작 버튼 ================= -->
+  <div id="ctrl">
+    <button class="cbtn" id="leftBtn">◀</button>
+    <button class="cbtn" id="actBtn">🎣 내리기</button>
+    <button class="cbtn" id="rightBtn">▶</button>
+  </div>
+
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ==================================================================
+   가시성(투명도) 설정
+   모든 요소의 알파값을 명시적으로 지정한다. 기본은 1(완전 불투명).
+   반투명하게 그려서 흐려 보이는 요소가 없도록 매 그리기 직전에
+   ctx.globalAlpha 를 아래 값으로 직접 세팅한다.
+   ================================================================== */
+var ALPHA = {
+  sky:      1.00,
+  cloud:    1.00,
+  sea:      1.00,
+  seabed:   1.00,
+  weed:     1.00,
+  wave:     1.00,
+  line:     1.00,
+  boat:     1.00,
+  hook:     1.00,
+  animal:   1.00,   // 동물은 항상 완전 불투명
+  bubble:   0.92,
+  particle: 1.00,
+  pop:      1.00
+};
+
+/* ==================================================================
+   동물 도감
+   r      : 반지름(px) — 화면에 그려지는 크기
+   pts    : 점수
+   heavy  : 끌어올리는 속도 배율(작을수록 무거워서 느림)
+   band   : 출현 깊이 구간(0=수면, 1=해저)
+   weight : 출현 빈도 가중치
+
+   크기 순서:  금붕어16 < 열대어18 < 복어20 < 문어24 < 거북26
+              < 판다30 < [펭귄36] < 북극곰40 < 고래46
+   → 펭귄은 판다보다 크고 북극곰보다 작다.
+   ※ 쓰레기·상어는 등장하지 않는다. 전부 낚을 수 있는 동물뿐.
+   ================================================================== */
+var SPECIES = [
+  { name:'금붕어', emoji:'🐟',   r:16, pts:100,  heavy:1.00, speed:54, band:[0.08,0.34], weight:26, big:0 },
+  { name:'열대어', emoji:'🐠',   r:18, pts:150,  heavy:1.00, speed:60, band:[0.12,0.44], weight:22, big:0 },
+  { name:'복어',   emoji:'🐡',   r:20, pts:200,  heavy:0.96, speed:42, band:[0.22,0.54], weight:18, big:0 },
+  { name:'문어',   emoji:'🐙',   r:24, pts:250,  heavy:0.88, speed:34, band:[0.34,0.70], weight:14, big:1 },
+  { name:'거북',   emoji:'🐢',   r:26, pts:300,  heavy:0.84, speed:30, band:[0.30,0.66], weight:11, big:1 },
+  { name:'판다',   emoji:'🐼',   r:30, pts:400,  heavy:0.76, speed:26, band:[0.44,0.76], weight:8,  big:1 },
+  { name:'펭귄',   emoji:'🐧',   r:36, pts:600,  heavy:0.70, speed:46, band:[0.18,0.62], weight:7,  big:2 },
+  { name:'북극곰', emoji:'🐻‍❄️', r:40, pts:800,  heavy:0.60, speed:22, band:[0.54,0.88], weight:4,  big:2 },
+  { name:'고래',   emoji:'🐋',   r:46, pts:1000, heavy:0.50, speed:18, band:[0.70,0.95], weight:2,  big:2 }
+];
+
+/* ==================================================================
+   상점 — 자금 무제한
+   코인은 항상 ∞ 이고 구매해도 차감되지 않는다.
+   레벨 상한도 없어서 원하는 만큼 계속 살 수 있다.
+   다만 실제 효과는 게임이 깨지지 않도록 cap 값에서 멈춘다.
+   ================================================================== */
+var SHOP = [
+  { key:'net',     ic:'🥅', nm:'뜰채',     ds:'갈고리 판정 범위가 넓어져요',   price:120, unit:'+4px',  per:4,    cap:60  },
+  { key:'agility', ic:'⚡', nm:'민첩도',   ds:'줄을 더 빠르게 내리고 올려요',   price:150, unit:'+8%',   per:0.08, cap:2.00 },
+  { key:'magnet',  ic:'🧲', nm:'자석',     ds:'가까운 동물을 끌어당겨요',      price:200, unit:'+10px', per:10,   cap:140 },
+  { key:'time',    ic:'⏱️', nm:'시간 연장', ds:'시작 제한시간이 늘어나요',      price:180, unit:'+5초',  per:5,    cap:120 },
+  { key:'life',    ic:'❤️', nm:'생명',     ds:'하트를 하나 더 갖고 시작해요',   price:250, unit:'+1개',  per:1,    cap:7   },
+  { key:'luck',    ic:'✨', nm:'행운',     ds:'큰 동물이 더 자주 나타나요',     price:300, unit:'+12%',  per:0.12, cap:3.00 }
+];
+
+var COINS_UNLIMITED = true;   // 자금 무제한 스위치
+
+/* ================= 저장 ================= */
+var SAVE_KEY = 'animalFishingV2';
+var save = { best:0, lv:{} };
+try{
+  var raw = localStorage.getItem(SAVE_KEY);
+  if(raw){
+    var o = JSON.parse(raw);
+    if(o && typeof o === 'object'){
+      save.best = o.best || 0;
+      save.lv = o.lv || {};
+    }
+  }
+}catch(e){}
+function persist(){
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }catch(e){}
+}
+function lvOf(key){ return save.lv[key] || 0; }
+
+/* 상점 효과 계산 — cap 에서 멈춘다 */
+function upgradeValue(key){
+  var def = null;
+  for(var i=0;i<SHOP.length;i++){ if(SHOP[i].key===key){ def = SHOP[i]; break; } }
+  if(!def) return 0;
+  return Math.min(def.cap, lvOf(key) * def.per);
+}
+function catchRadius(){ return 20 + upgradeValue('net'); }
+function speedMul(){   return 1 + upgradeValue('agility'); }
+function magnetRadius(){ return upgradeValue('magnet'); }
+function startTime(){  return 60 + upgradeValue('time'); }
+function startHearts(){ return 5 + Math.round(upgradeValue('life')); }
+function luckBias(){   return upgradeValue('luck'); }
+
+/* 선분(이전 위치→현재 위치)과 점 사이의 거리.
+   갈고리가 빠르게 움직여도 동물을 통과해 버리지 않도록 스윕 판정에 쓴다. */
+function segDist(ax, ay, bx, by, cx, cy){
+  var vx = bx - ax, vy = by - ay;
+  var wx = cx - ax, wy = cy - ay;
+  var len2 = vx*vx + vy*vy;
+  var t = len2 > 0 ? (wx*vx + wy*vy) / len2 : 0;
+  if(t < 0) t = 0; else if(t > 1) t = 1;
+  var dx = ax + vx*t - cx, dy = ay + vy*t - cy;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+/* 갈고리 경로에 닿은 동물을 찾는다. 내릴 때·올릴 때 모두 사용. */
+function findCatch(px, py){
+  var cr = catchRadius();
+  for(var k = 0; k < animals.length; k++){
+    var t = animals[k];
+    if(t.caught) continue;
+    if(segDist(px, py, hook.x, hook.y, t.x, t.y) < cr + t.sp.r * 0.95) return t;
+  }
+  return null;
+}
+
+/* ================= DOM ================= */
+function $(id){ return document.getElementById(id); }
+var cv = $('cv'), ctx = cv.getContext('2d');
+var stage = $('stage');
+var scoreTxt=$('scoreTxt'), timeTxt=$('timeTxt'), timeChip=$('timeChip');
+var streakChip=$('streakChip'), streakTxt=$('streakTxt'), heartsEl=$('hearts');
+var bar=$('bar'), barTxt=$('barTxt');
+var startScreen=$('startScreen'), shopScreen=$('shopScreen'), overScreen=$('overScreen');
+
+/* ================= 상태 ================= */
+var W=0,H=0,DPR=1, waterTop=0, seabed=0;
+var state = 'start';                 // start | play | shop | over
+var boat = { x:160, y:60, vx:0 };
+var hook = { x:160, y:60, state:'idle', carry:null, depthMax:0 };
+var animals=[], bubbles=[], particles=[], pops=[], clouds=[];
+var score=0, timeLeft=60, hearts=3, maxHearts=3;
+var streak=0, bestStreak=0, catchCount=0, missCount=0;
+var catchLog={};
+var animT=0, lastT=0;
+var input = { left:false, right:false };
+var soundOn = true;
+var prevScreen = 'start';
+
+/* ================= 소리 ================= */
+var actx = null;
+function beep(freq, dur, type, vol){
+  if(!soundOn) return;
+  try{
+    if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state === 'suspended') actx.resume();
+    var o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine';
+    o.frequency.value = freq;
+    g.gain.value = vol == null ? 0.06 : vol;
+    g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(); o.stop(actx.currentTime + dur);
+  }catch(e){}
+}
+
+/* ================= 리사이즈 ================= */
+function resize(){
+  var r = stage.getBoundingClientRect();
+  W = Math.max(260, Math.floor(r.width));
+  H = Math.max(300, Math.floor(r.height));
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  cv.width  = Math.floor(W * DPR);
+  cv.height = Math.floor(H * DPR);
+  cv.style.width  = W + 'px';
+  cv.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  waterTop = Math.round(H * 0.17);
+  seabed   = H - 16;
+  boat.y = waterTop - 4;
+  boat.x = Math.min(Math.max(boat.x, 34), W - 34);
+  if(clouds.length === 0) makeClouds();
+}
+function makeClouds(){
+  clouds = [];
+  for(var i=0;i<3;i++){
+    clouds.push({ x: Math.random()*W, y: 16 + Math.random()*Math.max(10, waterTop-40), s: 0.75 + Math.random()*0.6, v: 5 + Math.random()*8 });
+  }
+}
+window.addEventListener('resize', resize);
+
+/* ================= 동물 생성 ================= */
+function pickSpecies(){
+  var bias = luckBias();
+  var total = 0, i, w = [];
+  for(i=0;i<SPECIES.length;i++){
+    var sp = SPECIES[i];
+    var ww = sp.weight * (1 + bias * sp.big);   // 행운이 높을수록 큰 동물 가중치 상승
+    w.push(ww); total += ww;
+  }
+  var pick = Math.random() * total;
+  for(i=0;i<SPECIES.length;i++){
+    pick -= w[i];
+    if(pick <= 0) return SPECIES[i];
+  }
+  return SPECIES[0];
+}
+function spawnAnimal(initial){
+  var sp = pickSpecies();
+  var lo = waterTop + (seabed - waterTop) * sp.band[0];
+  var hi = waterTop + (seabed - waterTop) * sp.band[1];
+  var dir = Math.random() < 0.5 ? -1 : 1;
+  animals.push({
+    sp: sp,
+    /* 게임을 막 시작할 때는 화면 안에 흩어 놓는다.
+       전부 화면 밖에서 헤엄쳐 들어오게 하면 처음 몇 초 동안 바다가 텅 비어 보인다. */
+    x: initial ? (sp.r + Math.random() * Math.max(1, W - sp.r * 2))
+               : (dir > 0 ? -sp.r - 10 : W + sp.r + 10),
+    y: lo + Math.random() * Math.max(1, hi - lo),
+    dir: dir,
+    v: sp.speed * (0.8 + Math.random() * 0.45),
+    bob: Math.random() * Math.PI * 2,
+    caught: false
+  });
+}
+function targetAnimalCount(){
+  return 9;
+}
+
+/* ================= 게임 흐름 ================= */
+function resetGame(){
+  score = 0;
+  maxHearts = startHearts();
+  hearts = maxHearts;
+  timeLeft = startTime();
+  streak = 0; bestStreak = 0; catchCount = 0; missCount = 0;
+  catchLog = {};
+  animals = []; bubbles = []; particles = []; pops = [];
+  hook.state = 'idle'; hook.carry = null; hook.x = boat.x; hook.y = boat.y; hook.depthMax = 0;
+  for(var i=0;i<targetAnimalCount();i++) spawnAnimal(true);
+  renderHearts();
+  syncHUD();
+}
+function startGame(){
+  resize();
+  resetGame();
+  state = 'play';
+  startScreen.classList.add('hidden');
+  shopScreen.classList.add('hidden');
+  overScreen.classList.add('hidden');
+  beep(660, 0.12, 'triangle');
+  lastT = performance.now();
+}
+function endGame(){
+  state = 'over';
+  if(score > save.best){ save.best = score; persist(); }
+  $('overEmoji').textContent = score >= 5000 ? '🏆' : (score >= 2000 ? '🎉' : '🎣');
+  $('overTitle').textContent = score > 0 && score >= save.best ? '신기록 달성!' : '낚시 종료!';
+  $('overMiss').textContent = missCount > 0 ? '놓친 횟수 ' + missCount + '회' : '한 번도 놓치지 않았어요!';
+  $('fScore').textContent  = score.toLocaleString();
+  $('fBest').textContent   = save.best.toLocaleString();
+  $('fCatch').textContent  = catchCount;
+  $('fStreak').textContent = bestStreak;
+
+  var log = $('fLog');
+  log.innerHTML = '';
+  for(var i=0;i<SPECIES.length;i++){
+    var nm = SPECIES[i].name;
+    if(catchLog[nm]){
+      var d = document.createElement('div');
+      d.className = 'logChip';
+      d.innerHTML = SPECIES[i].emoji + ' ' + nm + ' <b>' + catchLog[nm] + '</b>';
+      log.appendChild(d);
+    }
+  }
+  overScreen.classList.remove('hidden');
+  beep(300, 0.3, 'sawtooth');
+}
+
+/* ================= HUD ================= */
+function renderHearts(){
+  /* 하트가 많아지면 칸이 넘치므로 숫자로 접어서 표시 */
+  if(maxHearts > 6){
+    heartsEl.innerHTML = '<span>❤️</span><b style="color:#ffe27a; font-size:14px">' +
+                         hearts + '</b><span style="color:#9fc9e8; font-size:11px">/' + maxHearts + '</span>';
+    return;
+  }
+  var s = '';
+  for(var i=0;i<maxHearts;i++){
+    s += '<span class="' + (i < hearts ? '' : 'gone') + '">❤️</span>';
+  }
+  heartsEl.innerHTML = s;
+}
+function syncHUD(){
+  scoreTxt.textContent = score.toLocaleString();
+  timeTxt.textContent = Math.max(0, Math.ceil(timeLeft));
+  if(timeLeft <= 10) timeChip.classList.add('warn'); else timeChip.classList.remove('warn');
+  if(streak >= 2){
+    streakChip.classList.remove('hide');
+    streakTxt.textContent = streak;
+  }else{
+    streakChip.classList.add('hide');
+  }
+  var depth = Math.max(0, hook.y - waterTop);
+  var span = Math.max(1, seabed - waterTop);
+  bar.style.width = Math.min(100, (depth / span) * 100) + '%';
+  barTxt.textContent = hook.state === 'idle' ? '수면' : (Math.round(depth / span * 40) + 'm');
+}
+
+/* ================= 입력 ================= */
+function dropHook(){
+  if(state !== 'play') return;
+  if(hook.state !== 'idle') return;
+  hook.state = 'down';
+  hook.depthMax = 0;
+  beep(520, 0.09, 'square', 0.05);
+}
+$('actBtn').addEventListener('click', dropHook);
+$('startBtn').addEventListener('click', startGame);
+$('againBtn').addEventListener('click', startGame);
+$('openShopBtn').addEventListener('click', function(){ openShop('start'); });
+$('overShopBtn').addEventListener('click', function(){ openShop('over'); });
+$('shopBtn').addEventListener('click', function(){ openShop(state); });
+$('shopCloseBtn').addEventListener('click', closeShop);
+$('soundBtn').addEventListener('click', function(){
+  soundOn = !soundOn;
+  this.textContent = soundOn ? '🔊' : '🔇';
+  if(soundOn) beep(700, 0.08, 'sine');
+});
+
+function holdBind(el, dir){
+  function on(e){ e.preventDefault(); if(dir < 0) input.left = true; else input.right = true; }
+  function off(){ if(dir < 0) input.left = false; else input.right = false; }
+  el.addEventListener('pointerdown', on);
+  el.addEventListener('pointerup', off);
+  el.addEventListener('pointercancel', off);
+  el.addEventListener('pointerleave', off);
+}
+holdBind($('leftBtn'), -1);
+holdBind($('rightBtn'), 1);
+
+window.addEventListener('keydown', function(e){
+  if(e.code === 'ArrowLeft')  input.left = true;
+  if(e.code === 'ArrowRight') input.right = true;
+  if(e.code === 'Space'){
+    e.preventDefault();
+    if(state === 'start') startGame();
+    else if(state === 'over') startGame();
+    else dropHook();
+  }
+});
+window.addEventListener('keyup', function(e){
+  if(e.code === 'ArrowLeft')  input.left = false;
+  if(e.code === 'ArrowRight') input.right = false;
+});
+
+/* 드래그로 배 이동, 톡 치면 줄 내리기 */
+var drag = { on:false, moved:false, id:null };
+stage.addEventListener('pointerdown', function(e){
+  if(state !== 'play') return;
+  drag.on = true; drag.moved = false; drag.id = e.pointerId;
+  drag.startX = e.clientX;
+});
+stage.addEventListener('pointermove', function(e){
+  if(!drag.on || e.pointerId !== drag.id) return;
+  if(Math.abs(e.clientX - drag.startX) > 8) drag.moved = true;
+  if(drag.moved){
+    var r = stage.getBoundingClientRect();
+    boat.x = Math.min(Math.max(e.clientX - r.left, 34), W - 34);
+  }
+});
+function endDrag(e){
+  if(!drag.on) return;
+  if(!drag.moved) dropHook();
+  drag.on = false; drag.id = null;
+}
+stage.addEventListener('pointerup', endDrag);
+stage.addEventListener('pointercancel', function(){ drag.on = false; });
+
+/* ================= 상점 ================= */
+function openShop(from){
+  if(state === 'shop') return;
+  prevScreen = (from === 'play') ? 'play' : (from === 'over' ? 'over' : 'start');
+  state = 'shop';
+  renderShop();
+  startScreen.classList.add('hidden');
+  overScreen.classList.add('hidden');
+  shopScreen.classList.remove('hidden');
+}
+function closeShop(){
+  shopScreen.classList.add('hidden');
+  if(prevScreen === 'play'){
+    state = 'play';
+    lastT = performance.now();
+  }else if(prevScreen === 'over'){
+    state = 'over';
+    overScreen.classList.remove('hidden');
+  }else{
+    state = 'start';
+    startScreen.classList.remove('hidden');
+  }
+}
+function renderShop(){
+  var list = $('shopList');
+  list.innerHTML = '';
+  for(var i=0;i<SHOP.length;i++){
+    (function(def){
+      var lv = lvOf(def.key);
+      var cur = Math.min(def.cap, lv * def.per);
+      var capped = cur >= def.cap - 1e-9 && lv > 0;
+      var shown = (def.per < 1) ? Math.round(cur * 100) + '%' : Math.round(cur);
+
+      var row = document.createElement('div');
+      row.className = 'item';
+
+      var ic = document.createElement('div');
+      ic.className = 'ic'; ic.textContent = def.ic;
+
+      var info = document.createElement('div');
+      info.className = 'info';
+      info.innerHTML =
+        '<div class="nm">' + def.nm + ' <span style="color:#9fc9e8; font-weight:800; font-size:11px">' + def.unit + '/레벨</span></div>' +
+        '<div class="ds">' + def.ds + '</div>' +
+        '<div class="lv' + (capped ? ' max' : '') + '">Lv.' + lv + ' · 현재 효과 ' + shown +
+          (capped ? ' (효과 최대치 도달)' : '') + '</div>';
+
+      var btn = document.createElement('button');
+      btn.className = 'buy';
+      btn.innerHTML = '구매<br><span style="font-size:10px">' + def.price + ' ∞</span>';
+      btn.addEventListener('click', function(){
+        save.lv[def.key] = lvOf(def.key) + 1;   // 자금 무제한 — 차감 없음, 횟수 제한 없음
+        persist();
+        renderShop();
+        beep(880, 0.08, 'triangle', 0.05);
+      });
+
+      row.appendChild(ic); row.appendChild(info); row.appendChild(btn);
+      list.appendChild(row);
+    })(SHOP[i]);
+  }
+}
+
+/* ================= 이펙트 ================= */
+function addPop(x, y, txt, color, size){
+  pops.push({ x:x, y:y, txt:txt, c:color || '#ffe27a', s:size || 18, life:1 });
+}
+function burst(x, y, color, n){
+  for(var i=0;i<(n||14);i++){
+    var a = Math.random() * Math.PI * 2, sp = 40 + Math.random() * 110;
+    particles.push({ x:x, y:y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, r:2 + Math.random()*3, c:color, life:1 });
+  }
+}
+
+/* ================= 업데이트 ================= */
+function update(dt){
+  animT += dt;
+
+  /* 구름 */
+  for(var c=0;c<clouds.length;c++){
+    var cl = clouds[c];
+    cl.x += cl.v * dt;
+    if(cl.x > W + 40) cl.x = -40;
+  }
+
+  if(state !== 'play') return;
+
+  /* 시간 */
+  timeLeft -= dt;
+  if(timeLeft <= 0){ timeLeft = 0; syncHUD(); endGame(); return; }
+
+  /* 배 이동 */
+  var bs = 200 * speedMul();
+  if(input.left)  boat.x -= bs * dt;
+  if(input.right) boat.x += bs * dt;
+  boat.x = Math.min(Math.max(boat.x, 34), W - 34);
+
+  /* 동물 이동 */
+  for(var i=animals.length-1;i>=0;i--){
+    var a = animals[i];
+    if(a.caught) continue;
+    a.x += a.dir * a.v * dt;
+    a.bob += dt * 2;
+    if(a.dir > 0 && a.x > W + a.sp.r + 30){ animals.splice(i,1); continue; }
+    if(a.dir < 0 && a.x < -a.sp.r - 30){ animals.splice(i,1); continue; }
+  }
+  while(animals.length < targetAnimalCount()) spawnAnimal();
+
+  /* 갈고리 */
+  var hs = 190 * speedMul();
+  if(hook.state === 'idle'){
+    hook.x = boat.x; hook.y = boat.y;
+  }else if(hook.state === 'down'){
+    var px = hook.x, py = hook.y;            // 스윕 판정용 이전 위치
+    hook.y += hs * dt;
+    if(input.left)  hook.x -= 120 * dt;
+    if(input.right) hook.x += 120 * dt;
+    hook.x = Math.min(Math.max(hook.x, 12), W - 12);
+    hook.depthMax = Math.max(hook.depthMax, hook.y);
+
+    /* 자석 — 가까운 동물을 끌어당김 */
+    var mr = magnetRadius();
+    if(mr > 0){
+      for(var m=0;m<animals.length;m++){
+        var an = animals[m];
+        if(an.caught) continue;
+        var ddx = hook.x - an.x, ddy = hook.y - an.y;
+        var dd = Math.sqrt(ddx*ddx + ddy*ddy);
+        if(dd < mr && dd > 1){
+          an.x += (ddx/dd) * 70 * dt;
+          an.y += (ddy/dd) * 70 * dt;
+        }
+      }
+    }
+
+    /* 잡기 판정 (경로 전체를 훑는다) */
+    var got = findCatch(px, py);
+    if(got){
+      got.caught = true;
+      hook.carry = got;
+      hook.state = 'up';
+      burst(got.x, got.y, '#9fe8ff', 12);
+      beep(760, 0.08, 'square', 0.05);
+    }else if(hook.y >= seabed - 4){
+      hook.y = seabed - 4;
+      hook.state = 'up';   // 빈손으로 복귀
+    }
+  }else if(hook.state === 'up'){
+    var upx = hook.x, upy = hook.y;
+    var mul = hook.carry ? hook.carry.sp.heavy : 1.25;
+    hook.y -= hs * mul * dt;
+    if(!hook.carry){
+      /* 올라오는 길에도 잡을 수 있다 — 좌우로 조종해서 만회 가능 */
+      if(input.left)  hook.x -= 120 * dt;
+      if(input.right) hook.x += 120 * dt;
+      hook.x = Math.min(Math.max(hook.x, 12), W - 12);
+      var got2 = findCatch(upx, upy);
+      if(got2){
+        got2.caught = true;
+        hook.carry = got2;
+        burst(got2.x, got2.y, '#9fe8ff', 12);
+        beep(760, 0.08, 'square', 0.05);
+      }
+    }
+    if(hook.carry){
+      hook.carry.x = hook.x;
+      hook.carry.y = hook.y + hook.carry.sp.r * 0.55;
+    }
+    if(hook.y <= boat.y){
+      hook.y = boat.y;
+      if(hook.carry){
+        /* 성공 */
+        var sp = hook.carry.sp;
+        streak++;
+        if(streak > bestStreak) bestStreak = streak;
+        var bonusMul = streak >= 5 ? 2 : (streak >= 3 ? 1.5 : 1);
+        var gain = Math.round(sp.pts * bonusMul);
+        score += gain;
+        catchCount++;
+        catchLog[sp.name] = (catchLog[sp.name] || 0) + 1;
+        addPop(hook.x, hook.y + 8, '+' + gain, bonusMul > 1 ? '#ffd54a' : '#4ee08a', bonusMul > 1 ? 22 : 18);
+        if(bonusMul > 1) addPop(hook.x, hook.y - 14, '×' + bonusMul + ' 연속!', '#ff8a3d', 14);
+        burst(hook.x, hook.y, '#ffe27a', 18);
+        beep(880 + Math.min(400, streak*60), 0.14, 'triangle');
+
+        var idx = animals.indexOf(hook.carry);
+        if(idx >= 0) animals.splice(idx, 1);
+        hook.carry = null;
+      }else{
+        /* 실패 */
+        streak = 0;
+        missCount++;
+        hearts--;
+        renderHearts();
+        addPop(hook.x, hook.y + 12, '놓쳤다!', '#ff9f9f', 16);
+        beep(200, 0.18, 'sawtooth', 0.05);
+        if(hearts <= 0){ syncHUD(); endGame(); return; }
+      }
+      hook.state = 'idle';
+    }
+  }
+
+  /* 물방울 */
+  if(Math.random() < dt * 9){
+    bubbles.push({ x: Math.random()*W, y: seabed - Math.random()*40, r: 1.5 + Math.random()*3, v: 18 + Math.random()*28 });
+  }
+  for(var b=bubbles.length-1;b>=0;b--){
+    bubbles[b].y -= bubbles[b].v * dt;
+    bubbles[b].x += Math.sin(animT * 2 + b) * 0.35;
+    if(bubbles[b].y < waterTop) bubbles.splice(b,1);
+  }
+
+  /* 파티클 */
+  for(var p=particles.length-1;p>=0;p--){
+    var pt = particles[p];
+    pt.x += pt.vx * dt; pt.y += pt.vy * dt;
+    pt.vy += 130 * dt;
+    pt.life -= dt * 1.6;
+    if(pt.life <= 0) particles.splice(p,1);
+  }
+
+  /* 팝업 */
+  for(var q=pops.length-1;q>=0;q--){
+    pops[q].y -= 34 * dt;
+    pops[q].life -= dt * 1.15;
+    if(pops[q].life <= 0) pops.splice(q,1);
+  }
+
+  syncHUD();
+}
+
+/* ================= 그리기 ================= */
+function draw(){
+  ctx.save();
+  ctx.globalAlpha = 1;                       // 프레임 시작 시 불투명으로 초기화
+  ctx.clearRect(0, 0, W, H);
+
+  /* 하늘 */
+  ctx.globalAlpha = ALPHA.sky;
+  var skyGrad = ctx.createLinearGradient(0, 0, 0, waterTop);
+  skyGrad.addColorStop(0, '#103050');
+  skyGrad.addColorStop(1, '#2d74a0');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, waterTop);
+
+  /* 구름 */
+  ctx.globalAlpha = ALPHA.cloud;
+  ctx.fillStyle = '#89b7d6';
+  for(var c = 0; c < clouds.length; c++){
+    var cl = clouds[c];
+    ctx.beginPath();
+    ctx.arc(cl.x, cl.y, 14 * cl.s, 0, Math.PI * 2);
+    ctx.arc(cl.x + 10 * cl.s, cl.y - 6 * cl.s, 11 * cl.s, 0, Math.PI * 2);
+    ctx.arc(cl.x + 20 * cl.s, cl.y, 13 * cl.s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /* 바다 배경 — 동물이 또렷하게 보이도록 대비를 확보한 어두운 그라데이션 */
+  ctx.globalAlpha = ALPHA.sea;
+  var seaGrad = ctx.createLinearGradient(0, waterTop, 0, H);
+  seaGrad.addColorStop(0, '#13517c');
+  seaGrad.addColorStop(0.35, '#0a3250');
+  seaGrad.addColorStop(0.7, '#041f35');
+  seaGrad.addColorStop(1, '#010c17');
+  ctx.fillStyle = seaGrad;
+  ctx.fillRect(0, waterTop, W, H - waterTop);
+
+  /* 해저 지면 */
+  ctx.globalAlpha = ALPHA.seabed;
+  var sandGrad = ctx.createLinearGradient(0, seabed - 5, 0, H);
+  sandGrad.addColorStop(0, '#1b3446');
+  sandGrad.addColorStop(1, '#0a141c');
+  ctx.fillStyle = sandGrad;
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  ctx.lineTo(0, seabed);
+  ctx.quadraticCurveTo(W * 0.5, seabed - 8, W, seabed);
+  ctx.lineTo(W, H);
+  ctx.closePath();
+  ctx.fill();
+
+  /* 해저 해초 */
+  ctx.globalAlpha = ALPHA.weed;
+  ctx.fillStyle = '#14624f';
+  for(var sw = 20; sw < W; sw += 45){
+    ctx.beginPath();
+    ctx.moveTo(sw, seabed);
+    ctx.quadraticCurveTo(sw + Math.sin(animT * 2 + sw) * 10, seabed - 22, sw + Math.sin(animT * 2 + sw) * 5, seabed - 35);
+    ctx.quadraticCurveTo(sw - 6, seabed - 20, sw, seabed);
+    ctx.fill();
+  }
+
+  /* 수면 파도 */
+  ctx.globalAlpha = ALPHA.wave;
+  ctx.fillStyle = '#5b9dcb';
+  ctx.beginPath();
+  ctx.moveTo(0, waterTop);
+  for(var x = 0; x <= W; x += 15){
+    ctx.lineTo(x, waterTop + Math.sin(animT * 3 + x * 0.05) * 2.5);
+  }
+  ctx.lineTo(W, waterTop + 4);
+  ctx.lineTo(0, waterTop + 4);
+  ctx.closePath();
+  ctx.fill();
+
+  /* 동물 — 항상 완전 불투명 + 어두운 외곽 후광으로 배경과 분리 */
+  ctx.globalAlpha = ALPHA.animal;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for(var i = 0; i < animals.length; i++){
+    var a = animals[i];
+    var ay = a.y + (a.caught ? 0 : Math.sin(a.bob) * 3);
+
+    ctx.save();
+    ctx.translate(a.x, ay);
+
+    /* 후광: 어떤 깊이에서도 동물이 또렷하게 보이도록 */
+    ctx.globalAlpha = 0.55;
+    var halo = ctx.createRadialGradient(0, 0, a.sp.r * 0.3, 0, 0, a.sp.r * 1.15);
+    halo.addColorStop(0, '#0a2438');
+    halo.addColorStop(1, 'rgba(10,36,56,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(0, 0, a.sp.r * 1.15, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.globalAlpha = ALPHA.animal;          // 다시 완전 불투명
+    if(a.dir > 0) ctx.scale(-1, 1);          // 진행 방향으로 뒤집기
+    ctx.font = Math.round(a.sp.r * 2) + 'px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+    ctx.shadowColor = '#000000';
+    ctx.shadowBlur = 7;
+    ctx.fillText(a.sp.emoji, 0, 0);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+
+  /* 낚싯줄 */
+  ctx.globalAlpha = ALPHA.line;
+  if(hook.state !== 'idle' || Math.abs(boat.x - hook.x) > 1){
+    ctx.beginPath();
+    ctx.moveTo(boat.x, boat.y);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.lineTo(hook.x, hook.y);
+    ctx.stroke();
+  }
+
+  /* 갈고리 */
+  ctx.globalAlpha = ALPHA.hook;
+  ctx.save();
+  ctx.translate(hook.x, hook.y);
+  var cr = catchRadius();
+  /* 뜰채 범위 표시 */
+  ctx.strokeStyle = '#7fe6c0';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(0, 0, cr, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(0, 0, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  /* 배 */
+  ctx.globalAlpha = ALPHA.boat;
+  ctx.save();
+  ctx.translate(boat.x, boat.y);
+  ctx.fillStyle = '#8b4a24';
+  ctx.beginPath();
+  ctx.moveTo(-26, -4);
+  ctx.lineTo(26, -4);
+  ctx.lineTo(18, 9);
+  ctx.lineTo(-18, 9);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#c9762f';
+  ctx.fillRect(-26, -8, 52, 5);
+  /* 낚싯대 */
+  ctx.strokeStyle = '#e8d6a8';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-4, -8);
+  ctx.lineTo(10, -30);
+  ctx.stroke();
+  /* 어부 */
+  ctx.font = '20px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText('🧑‍🦱', -8, -8);
+  ctx.restore();
+
+  /* 물방울 */
+  ctx.globalAlpha = ALPHA.bubble;
+  ctx.fillStyle = '#a9daf8';
+  for(var b = 0; b < bubbles.length; b++){
+    var bb = bubbles[b];
+    ctx.beginPath();
+    ctx.arc(bb.x, bb.y, bb.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /* 파티클 */
+  ctx.globalAlpha = ALPHA.particle;
+  for(var p = 0; p < particles.length; p++){
+    var pt = particles[p];
+    ctx.fillStyle = pt.c;
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /* 텍스트 팝업 */
+  ctx.globalAlpha = ALPHA.pop;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for(var pop = 0; pop < pops.length; pop++){
+    var pp = pops[pop];
+    ctx.save();
+    ctx.font = '900 ' + pp.s + 'px "Pretendard","Malgun Gothic",sans-serif';
+    ctx.fillStyle = pp.c;
+    ctx.shadowColor = '#000000';
+    ctx.shadowBlur = 5;
+    ctx.fillText(pp.txt, pp.x, pp.y);
+    ctx.restore();
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+/* ================= 루프 ================= */
+function loop(now){
+  var dt = Math.min(0.05, (now - lastT) / 1000);
+  if(!isFinite(dt) || dt < 0) dt = 0;
+  lastT = now;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+/* ================= 시작 ================= */
+resize();
+boat.x = W / 2; hook.x = boat.x; hook.y = boat.y;
+maxHearts = startHearts(); hearts = maxHearts;
+renderHearts();
+syncHUD();
+lastT = performance.now();
+requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>

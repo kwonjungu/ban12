@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>광산캐기왕 ⛏️ - 업그레이드 & 도감 & 가공 시설</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    background:radial-gradient(120% 90% at 50% 0%, #2e170a 0%, #170a04 55%, #080301 100%);
+    color:#fff; overflow:hidden;
+    -webkit-user-select:none; user-select:none;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
+    overscroll-behavior:none;
+  }
+  #app{
+    position:relative; width:100%; height:100vh; max-width:560px; margin:0 auto;
+    display:flex; flex-direction:column; overflow:hidden; background:#120703;
+    border-left:1px solid rgba(255,255,255,0.08); border-right:1px solid rgba(255,255,255,0.08);
+    padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);
+  }
+  @supports (height:100dvh){ #app{height:100dvh} }
+
+  /* HUD Header */
+  #hud{ flex:0 0 auto; padding:6px 8px 4px; display:flex; flex-direction:column; gap:4px; z-index:10; background:rgba(0,0,0,0.3) }
+  .chip{
+    background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15);
+    border-radius:999px; padding:3px 8px; font-size:11px; font-weight:800;
+    display:flex; align-items:center; gap:4px; white-space:nowrap;
+  }
+  @media (max-width:380px){
+    .chip{ padding:2px 6px; font-size:10px; }
+    .chip b{ font-size:12px; }
+  }
+  .chip b{font-size:13px; color:#ffe27a}
+  #timeChip.warn{ background:rgba(255,90,90,.28); border-color:rgba(255,140,140,.6); animation:tick .5s infinite }
+  @keyframes tick{ 50%{ transform:scale(1.05) } }
+
+  /* Navigation Tabs */
+  .nav-btn{
+    flex:1; padding:7px 2px; font-size:11px; font-weight:800; border-radius:8px;
+    background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12);
+    color:#d1c2b5; text-align:center; transition:all .15s; cursor:pointer;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .nav-btn.active{
+    background:linear-gradient(180deg, #ffd84a, #ff9f1c); color:#3a1800;
+    border-color:#fff; font-weight:900; box-shadow:0 2px 8px rgba(255,159,28,0.4);
+  }
+
+  /* Stage & Views */
+  #stage{ position:relative; flex:1 1 auto; min-height:0; overflow:hidden; touch-action:none }
+  canvas{ display:block; width:100%; height:100% }
+
+  /* Banner & Flash */
+  #banner{
+    position:absolute; left:50%; top:10%; transform:translate(-50%,-6px) scale(.9);
+    background:linear-gradient(180deg,#ffe27a,#ff9f1c); color:#4a1e00;
+    padding:6px 14px; border-radius:12px; font-weight:900; font-size:13px;
+    box-shadow:0 8px 22px rgba(0,0,0,.6); opacity:0; pointer-events:none; text-align:center;
+    border:2px solid #fff; white-space:nowrap; z-index:20; max-width:90%;
+  }
+  #banner.show{ animation:bannerPop 2.2s ease-out forwards }
+  @keyframes bannerPop{
+    0%{opacity:0; transform:translate(-50%,10px) scale(.7)}
+    15%{opacity:1; transform:translate(-50%,-4px) scale(1.05)}
+    25%{transform:translate(-50%,0) scale(1)}
+    80%{opacity:1; transform:translate(-50%,0) scale(1)}
+    100%{opacity:0; transform:translate(-50%,-18px) scale(.95)}
+  }
+  #flash{ position:absolute; inset:0; background:#ff4a4a; opacity:0; pointer-events:none; z-index:18 }
+
+  /* Action Bar */
+  #ctrl{ flex:0 0 auto; padding:6px 8px 8px; display:flex; gap:5px; align-items:stretch; z-index:10; background:rgba(0,0,0,0.4) }
+  .cbtn{
+    background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); color:#fff;
+    border-radius:12px; font-size:18px; font-weight:900; cursor:pointer; padding:12px 0; flex:1;
+    display:flex; align-items:center; justify-content:center; touch-action:manipulation;
+    user-select:none; -webkit-user-select:none;
+  }
+  .cbtn:active{ transform:scale(.94); background:rgba(255,255,255,.22) }
+  #actBtn{
+    flex:2.2; font-size:14px; letter-spacing:-.4px;
+    background:linear-gradient(180deg,#ffd84a,#ff9f1c); color:#4a2500; border-color:#fff6c9;
+    box-shadow:0 3px 0 rgba(0,0,0,.3);
+  }
+  #actBtn:active{ box-shadow:0 1px 0 rgba(0,0,0,.3); transform:translateY(2px) }
+  #dynBtn{
+    flex:1.2; font-size:13px; letter-spacing:-.4px;
+    background:linear-gradient(180deg,#ff6b6b,#d92020); color:#fff; border-color:#ffb8b8;
+    box-shadow:0 3px 0 rgba(0,0,0,.35); text-shadow:0 1px 2px rgba(0,0,0,.5);
+  }
+  #dynBtn:active{ box-shadow:0 1px 0 rgba(0,0,0,.35); transform:translateY(2px) }
+
+  /* Sub Panels (Upgrades, Employees, Codex) */
+  .panel{
+    position:absolute; inset:0; z-index:15; background:rgba(20,10,5,0.96);
+    backdrop-filter:blur(6px); display:flex; flex-direction:column; padding:12px; overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .panel.hidden{ display:none }
+
+  /* Custom Scrollbar */
+  .panel::-webkit-scrollbar{ width:4px }
+  .panel::-webkit-scrollbar-track{ background:rgba(0,0,0,0.2) }
+  .panel::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.2); border-radius:4px }
+
+  /* Modals / Screens */
+  .screen{
+    position:absolute; inset:0; z-index:30; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:10px; padding:16px;
+    background:linear-gradient(180deg, rgba(30,16,8,.92) 0%, rgba(15,6,2,.98) 100%);
+    backdrop-filter:blur(6px); text-align:center; overflow-y:auto;
+  }
+  .screen.hidden{ display:none }
+
+  .btn-primary{
+    border:none; border-radius:999px; padding:12px 24px; font-size:15px; font-weight:900;
+    cursor:pointer; background:linear-gradient(180deg,#ffd84a,#ff9f1c); color:#4a2500;
+    box-shadow:0 4px 0 rgba(0,0,0,.35); transition:transform .1s; touch-action:manipulation;
+  }
+  .btn-primary:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,.35) }
+
+  /* Upgrade Card */
+  .item-card{
+    background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12);
+    border-radius:12px; padding:8px 10px; display:flex; align-items:center; gap:8px; margin-bottom:8px;
+  }
+  .item-buy-btn{
+    background:linear-gradient(180deg,#4ae3ff,#009fdf); color:#00293a; border:none;
+    padding:6px 10px; border-radius:8px; font-weight:900; font-size:11px; cursor:pointer;
+    white-space:nowrap; touch-action:manipulation;
+  }
+  .item-buy-btn:disabled{ background:#444; color:#888; cursor:not-allowed }
+
+  /* Codex Grid Responsive */
+  .codex-grid{ display:grid; grid-template-columns:repeat(2, 1fr); gap:6px; }
+  @media (min-width:380px){
+    .codex-grid{ grid-template-columns:repeat(3, 1fr); gap:8px; }
+  }
+  .codex-card{
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+    border-radius:12px; padding:8px; text-align:center; display:flex; flex-direction:column; align-items:center;
+    cursor:pointer; transition:transform .15s, background .15s; touch-action:manipulation;
+  }
+  .codex-card:active{ transform:scale(0.95) }
+  .codex-card.locked{ filter:grayscale(1); opacity:0.45 }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HUD Top Bar -->
+  <div id="hud">
+    <div class="flex items-center gap-2">
+      <div class="chip">🗓 <b id="dayTxt">1</b>일차 (근무)</div>
+      <div class="chip" id="dynChip">🧨 <b id="dynTxt">3</b></div>
+      <div class="chip hidden !bg-yellow-500/30 !border-yellow-400 !text-yellow-200 animate-pulse" id="invChip">🛡️ 무적 ON</div>
+      <div class="flex-1"></div>
+      <div class="chip" id="moneyChip">💰 <b id="moneyTxt">0</b>원</div>
+      <div class="chip" id="timeChip">⏱ <b id="timeTxt">60</b>초</div>
+      <button id="soundBtn" class="chip !px-2 cursor-pointer" aria-label="사운드 토글">🔊</button>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="flex gap-1 mt-1">
+      <button class="nav-btn active" id="tabStageBtn">⛏️ 채굴 현장</button>
+      <button class="nav-btn" id="tabUpgradesBtn">🛠️ 도구 업그레이드</button>
+      <button class="nav-btn" id="tabFactoryBtn">👷 직원 & 시설</button>
+      <button class="nav-btn" id="tabCodexBtn">📖 돌 도감</button>
+    </div>
+  </div>
+
+  <!-- Mining Stage Canvas View -->
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="flash"></div>
+    <div id="banner"></div>
+
+    <!-- Panel 1: Upgrades -->
+    <div class="panel hidden" id="panelUpgrades">
+      <h2 class="text-lg font-black text-amber-300 mb-1">🛠️ 캐기 도구 업그레이드</h2>
+      <p class="text-xs text-amber-100/70 mb-3">와이어 속도와 인양력, 다이너마이트 성능을 강화하세요!</p>
+      <div id="upgradeList"></div>
+    </div>
+
+    <!-- Panel 2: Employees & Processing Facilities -->
+    <div class="panel hidden" id="panelFactory">
+      <h2 class="text-lg font-black text-amber-300 mb-1">👷 직원 고용 & 🏭 광물 가공소</h2>
+      <p class="text-xs text-amber-100/70 mb-3">자동으로 채굴해주는 인부를 채용하고, 원석을 가공해 2배 보너스를 받으세요!</p>
+
+      <div class="mb-4">
+        <h3 class="text-xs font-bold text-amber-200 mb-2 border-b border-amber-500/20 pb-1">👷 직원 및 자동 채굴</h3>
+        <div id="workerList"></div>
+      </div>
+
+      <div>
+        <h3 class="text-xs font-bold text-amber-200 mb-2 border-b border-amber-500/20 pb-1">🏭 가공 시설 (자동 정제 및 가공)</h3>
+        <div id="facilityList"></div>
+      </div>
+    </div>
+
+    <!-- Panel 3: Stone & Ore Codex -->
+    <div class="panel hidden" id="panelCodex">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-lg font-black text-amber-300">📖 광산 돌 & 보석 도감</h2>
+        <span class="text-xs font-bold text-amber-200" id="codexProgress">발견: 0 / 0</span>
+      </div>
+      <p class="text-xs text-amber-100/70 mb-3">광산에서 채굴한 모든 광석과 보석의 정보와 가치를 확인하세요.</p>
+      <div class="codex-grid" id="codexGrid"></div>
+
+      <!-- Codex Item Modal Detail -->
+      <div id="codexDetail" class="mt-4 p-3 bg-black/40 border border-amber-500/30 rounded-xl text-left hidden">
+        <div class="flex items-center gap-3 mb-1">
+          <span id="detailIcon" class="text-3xl">🪨</span>
+          <div>
+            <h4 id="detailName" class="font-bold text-amber-300 text-sm">일반 돌</h4>
+            <span id="detailTag" class="text-[10px] text-amber-200/70 bg-amber-500/20 px-2 py-0.5 rounded-full">일반 광물</span>
+          </div>
+        </div>
+        <p id="detailDesc" class="text-xs text-amber-100/80 my-2 leading-relaxed">설명...</p>
+        <div class="flex gap-4 text-xs font-bold text-amber-200 pt-2 border-t border-white/10">
+          <div>기본 가치: <span id="detailVal" class="text-amber-400">25원</span></div>
+          <div>누적 채굴: <span id="detailCount" class="text-amber-400">0개</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Control Bar -->
+  <div id="ctrl">
+    <button class="cbtn" id="leftBtn" aria-label="왼쪽 이동">◀</button>
+    <button class="cbtn" id="actBtn">⛏️ 와이어 내리기</button>
+    <button class="cbtn" id="dynBtn">🧨 폭파!</button>
+    <button class="cbtn" id="rightBtn" aria-label="오른쪽 이동">▶</button>
+  </div>
+
+  <!-- Title Screen Overlay -->
+  <div class="screen" id="titleScreen">
+    <div class="text-5xl animate-bounce">⛏️💎🛒</div>
+    <h1 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-200 via-amber-400 to-orange-500">광산캐기왕</h1>
+    <p class="text-xs text-amber-100/80 leading-relaxed max-w-xs">
+      매일 <b>1분(60초)</b> 동안 광산에서 전설의 보물을 채굴하세요!<br>
+      돈을 모아 <b>캐는 도구를 업그레이드</b>하고, <b>직원 고용 & 가공 시설</b>을 건설하며 <b>돌 도감</b>을 완성하세요!
+    </p>
+    <div class="bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-left text-amber-100 leading-relaxed max-w-xs w-full">
+      <span class="text-amber-300 font-bold">⛏️ 1분 근무제:</span> 별도의 실패 제한시간 없이, 60초간 자유롭게 채굴합니다.<br>
+      <span class="text-amber-300 font-bold">🛠️ 도구 강화:</span> 더 빠른 속도와 강한 와이어 파워!<br>
+      <span class="text-amber-300 font-bold">👷 직원 & 시설:</span> 자동으로 광물을 정제하고 수익 생성!
+    </div>
+    <button class="btn-primary" id="startBtn">⛏️ 1일차 채굴 시작!</button>
+    <div class="text-xs text-amber-300/80 font-bold" id="titleBest">🏆 누적 자산: 0원</div>
+  </div>
+
+  <!-- Shift Summary / Day Complete Screen -->
+  <div class="screen hidden" id="overScreen">
+    <div class="text-4xl" id="overIcon">☀️</div>
+    <h2 class="text-2xl font-black text-amber-300" id="overTitle">1일차 근무 종료!</h2>
+    <p class="text-xs text-amber-100/90" id="overSub">오늘 하루도 수고하셨습니다!</p>
+
+    <div class="bg-white/10 border border-white/15 rounded-xl p-3 w-full max-w-xs text-xs space-y-2 text-left">
+      <div class="flex justify-between">
+        <span class="text-amber-200/80">오늘 직접 채굴 수익:</span>
+        <b class="text-amber-300" id="stMineEarn">0원</b>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-amber-200/80">직원 & 가공소 보너스:</span>
+        <b class="text-amber-300" id="stFactoryEarn">+0원</b>
+      </div>
+      <div class="flex justify-between border-t border-white/10 pt-1">
+        <span class="text-amber-100 font-bold">총 보유 자산:</span>
+        <b class="text-yellow-300 font-extrabold text-sm" id="stTotalMoney">0원</b>
+      </div>
+    </div>
+
+    <div class="flex gap-2 w-full max-w-xs">
+      <button class="btn-primary flex-1 !py-3 text-sm" id="nextDayBtn">☀️ 다음 일차 시작 (60초)</button>
+    </div>
+    <button class="text-xs text-amber-200/80 underline cursor-pointer" id="openShopBtn">🛠️ 장비 강화 & 가공소 열기</button>
+  </div>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+
+function loadData(key, fallback){
+  try{
+    var v = localStorage.getItem('miningKing2_' + key);
+    return v !== null ? JSON.parse(v) : fallback;
+  }catch(e){ return fallback; }
+}
+function saveData(key, val){
+  try{ localStorage.setItem('miningKing2_' + key, JSON.stringify(val)); }catch(e){}
+}
+
+var actx = null, master = null, soundOn = loadData('snd', true);
+function initAudio(){
+  if(actx){ if(actx.state==='suspended') try{ actx.resume(); }catch(e){} return; }
+  try{
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return;
+    actx = new AC(); master = actx.createGain(); master.gain.value = 0.25; master.connect(actx.destination);
+    if(actx.state==='suspended') try{ actx.resume(); }catch(e){}
+  }catch(e){}
+}
+function tone(f, d, type, v, delay, f2){
+  if(!actx || !soundOn) return;
+  try{
+    var t0 = actx.currentTime + (delay||0);
+    var o = actx.createOscillator(), g = actx.createGain();
+    o.type = type||'sine'; o.frequency.setValueAtTime(f, t0);
+    if(f2) o.frequency.exponentialRampToValueAtTime(Math.max(20, f2), t0+d);
+    g.gain.setValueAtTime(0.001, t0);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.002, v), t0+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+d);
+    o.connect(g); g.connect(master);
+    o.start(t0); o.stop(t0+d+0.04);
+  }catch(e){}
+}
+function noiseBurst(d, v, f1, f2){
+  if(!actx || !soundOn) return;
+  try{
+    var t0 = actx.currentTime, len = Math.floor(actx.sampleRate*d);
+    var buf = actx.createBuffer(1, len, actx.sampleRate), data = buf.getChannelData(0);
+    for(var i=0; i<len; i++) data[i] = (Math.random()*2 - 1) * (1 - i/len);
+    var src = actx.createBufferSource(); src.buffer = buf;
+    var flt = actx.createBiquadFilter(); flt.type = 'bandpass';
+    flt.frequency.setValueAtTime(f1, t0); flt.frequency.exponentialRampToValueAtTime(Math.max(40, f2), t0+d);
+    var g = actx.createGain(); g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.001, t0+d);
+    src.connect(flt); flt.connect(g); g.connect(master);
+    src.start(t0); src.stop(t0+d+0.03);
+  }catch(e){}
+}
+
+function sndDrop(){ tone(420, 0.12, 'sine', 0.2, 0, 160); }
+function sndClaw(){ tone(520, 0.14, 'triangle', 0.25); tone(780, 0.1, 'square', 0.15, 0.04); }
+function sndCoin(){ tone(880, 0.12, 'square', 0.2); tone(1320, 0.18, 'square', 0.25, 0.06); }
+function sndExplode(){ noiseBurst(0.5, 0.4, 1000, 50); tone(140, 0.4, 'sawtooth', 0.3, 0, 30); }
+function sndBuy(){ tone(600, 0.1, 'sine', 0.25); tone(900, 0.2, 'triangle', 0.3, 0.08); }
+
+var ORE_CODEX = [
+  { id:'rock', name:'일반 돌', e:'🪨', band:0, value:25, w:1.8, size:28, desc:'광산 어디서나 흔히 볼 수 있는 단단한 바위입니다.' },
+  { id:'copper', name:'구리 원석', e:'🥉', band:0, value:50, w:0.8, size:28, desc:'전기 배선에 많이 쓰이는 붉은빛 가성비 광석입니다.' },
+  { id:'silver', name:'은 원석', e:'🪙', band:0, value:90, w:0.8, size:30, desc:'반짝이는 광택을 가진 귀금속 원석입니다.' },
+  { id:'gold', name:'금 원석', e:'🥇', band:1, value:180, w:1.1, size:34, desc:'깊은 지층에서 발견되는 매우 가치 높은 황금 원석입니다.' },
+  { id:'emerald', name:'에메랄드', e:'🟢', band:1, value:280, w:0.8, size:32, desc:'영롱한 초록빛을 띠는 고가의 희귀 보석입니다.' },
+  { id:'ruby', name:'루비', e:'🔴', band:1, value:420, w:0.9, size:34, desc:'정열적인 붉은빛을 발산하는 희귀 보석입니다.' },
+  { id:'diamond', name:'다이아몬드', e:'💎', band:2, value:700, w:0.7, size:38, desc:'지구상에서 가장 단단하고 빛나는 최고의 보석입니다.' },
+  { id:'fossil', name:'공룡 화석', e:'🦖', band:2, value:1100, w:2.2, size:44, desc:'고대 지층에 묻혀있던 거대한 공룡 뼈 화석입니다.' },
+  { id:'meteor', name:'운석 조각', e:'🌌', band:2, value:1600, w:1.5, size:40, desc:'우주에서 떨어진 신비로운 외계 물질 조각입니다.' },
+  { id:'crown', name:'고대 왕관', e:'👑', band:2, value:2500, w:2.8, size:48, desc:'고대 왕국의 왕이 쓰던 보석 장식의 황금 왕관입니다.' }
+];
+
+var UPGRADES = [
+  { id:'wireSpeed', name:'⚡ 와이어 속도', desc:'와이어가 내려가는 속도가 20% 증가합니다.', baseCost:120, costMul:1.6, lvl:1, maxLvl:10 },
+  { id:'reelPower', name:'💪 인양력 (끌어올리기)', desc:'무거운 돌과 화석을 끌어올리는 속도가 향상됩니다.', baseCost:150, costMul:1.6, lvl:1, maxLvl:10 },
+  { id:'dynMax', name:'🧨 다이너마이트 확장', desc:'매 일차 시작 시 지급되는 다이너마이트 수량이 늘어납니다.', baseCost:200, costMul:2.0, lvl:1, maxLvl:5 },
+  { id:'magnet', name:'🧲 자석 파워', desc:'와이어 주변의 광물을 끌어당기는 범위가 넓어집니다.', baseCost:300, costMul:2.2, lvl:0, maxLvl:5 }
+];
+
+var WORKERS = [
+  { id:'miner1', name:'⛏️ 수동 초보 광부', desc:'60초 근무 동안 자동으로 주변 원석 3개를 채굴합니다.', cost:250, count:0 },
+  { id:'miner2', name:'🤖 자동 드론 채굴기', desc:'60초 동안 깊은 보석 2개를 자동으로 획득합니다.', cost:650, count:0 }
+];
+
+var FACILITIES = [
+  { id:'smelter', name:'🔥 용광로 정제소', desc:'채굴한 모든 구리/은/금 원석의 가치가 +60% 상승합니다.', cost:400, bought:false },
+  { id:'gemCutter', name:'💎 보석 세공소', desc:'채굴한 모든 보석(에메랄드, 루비, 다이아)의 가치가 +80% 상승합니다.', cost:900, bought:false }
+];
+
+// Restore saved progress for upgrades, workers, facilities, day
+(function restoreSavedProgress(){
+  var savedUpgrades = loadData('upgrades', null);
+  if(savedUpgrades && typeof savedUpgrades === 'object'){
+    UPGRADES.forEach(function(u){ if(savedUpgrades[u.id] !== undefined) u.lvl = savedUpgrades[u.id]; });
+  }
+  var savedWorkers = loadData('workers', null);
+  if(savedWorkers && typeof savedWorkers === 'object'){
+    WORKERS.forEach(function(w){ if(savedWorkers[w.id] !== undefined) w.count = savedWorkers[w.id]; });
+  }
+  var savedFac = loadData('facilities', null);
+  if(savedFac && typeof savedFac === 'object'){
+    FACILITIES.forEach(function(f){ if(savedFac[f.id] !== undefined) f.bought = savedFac[f.id]; });
+  }
+})();
+
+function saveGameProgress(){
+  saveData('money', money);
+  saveData('day', day);
+  saveData('codex', codexData);
+
+  var uMap = {}; UPGRADES.forEach(function(u){ uMap[u.id] = u.lvl; });
+  saveData('upgrades', uMap);
+
+  var wMap = {}; WORKERS.forEach(function(w){ wMap[w.id] = w.count; });
+  saveData('workers', wMap);
+
+  var fMap = {}; FACILITIES.forEach(function(f){ fMap[f.id] = f.bought; });
+  saveData('facilities', fMap);
+}
+
+/* GAME VARIABLES */
+var W = 0, H = 0, mineTop = 0, shaftBottom = 0, bandY = [0,0,0];
+var activeTab = 'stage';
+var day = loadData('day', 1), money = loadData('money', 0), todayEarn = 0, todayFactoryEarn = 0;
+var timeLeft = 60, isPlaying = false;
+var dynamites = 3;
+var isInvincible = false; // God Mode
+var ores = [], particles = [], pops = [];
+var bedrockSeals = [];
+var codexData = loadData('codex', {});
+
+var claw = { x:0, y:0, state:'idle', pop:0 };
+var cart = { x:0, y:0 };
+var hooked = [];
+var targetX = 0, keyL = false, keyR = false, btnL = false, btnR = false;
+var pointerX = -1, pointerActive = false;
+var shake = 0, shakeMag = 0, animT = 0;
+
+/* DOM ELEMENTS */
+var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+var stage = document.getElementById('stage');
+var elDay = document.getElementById('dayTxt');
+var elMoney = document.getElementById('moneyTxt');
+var elTime = document.getElementById('timeTxt');
+var elTimeChip = document.getElementById('timeChip');
+var elDyn = document.getElementById('dynTxt');
+var elSound = document.getElementById('soundBtn');
+var elAct = document.getElementById('actBtn');
+var elDynBtn = document.getElementById('dynBtn');
+
+var elTitle = document.getElementById('titleScreen');
+var elOver = document.getElementById('overScreen');
+var elBanner = document.getElementById('banner');
+
+var pUpgrades = document.getElementById('panelUpgrades');
+var pFactory = document.getElementById('panelFactory');
+var pCodex = document.getElementById('panelCodex');
+
+var btnTabStage = document.getElementById('tabStageBtn');
+var btnTabUpgrades = document.getElementById('tabUpgradesBtn');
+var btnTabFactory = document.getElementById('tabFactoryBtn');
+var btnTabCodex = document.getElementById('tabCodexBtn');
+
+function computeLayout(){
+  mineTop = Math.round(H * 0.18);
+  var shaftH = H - mineTop - 12;
+  bandY[0] = mineTop + shaftH * 0.33;
+  bandY[1] = mineTop + shaftH * 0.66;
+  bandY[2] = H - 12;
+  shaftBottom = H - 14;
+  cart.y = mineTop - 10;
+}
+function resize(){
+  var r = stage.getBoundingClientRect();
+  var w = Math.max(240, Math.floor(r.width));
+  var h = Math.max(220, Math.floor(r.height));
+  var dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  cv.width = Math.floor(w * dpr); cv.height = Math.floor(h * dpr);
+  cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  
+  var ow = W, oh = H; W = w; H = h;
+  computeLayout();
+  if(ow > 0 && oh > 0){
+    var sx = W / ow, sy = H / oh;
+    for(var i=0; i<ores.length; i++){ ores[i].x *= sx; ores[i].y *= sy; ores[i].baseY *= sy; }
+    for(var k=0; k<bedrockSeals.length; k++){ bedrockSeals[k].y *= sy; }
+    claw.x *= sx; claw.y *= sy; cart.x *= sx; targetX *= sx;
+  }else{
+    claw.x = cart.x = targetX = W / 2; claw.y = cart.y + 16;
+  }
+}
+
+function bandTop(b){ return b === 0 ? mineTop + 20 : bandY[b - 1]; }
+function bandBot(b){ return b === 2 ? shaftBottom - 16 : bandY[b]; }
+
+function spawnOre(band){
+  var pool = [];
+  for(var i=0; i<ORE_CODEX.length; i++) if(ORE_CODEX[i].band === band) pool.push(ORE_CODEX[i]);
+  var t = pool[Math.floor(Math.random() * pool.length)];
+  var top = bandTop(band), bot = bandBot(band);
+  
+  var o = {
+    id: t.id, name: t.name, e: t.e, value: t.value, w: t.w, size: t.size,
+    x: 24 + Math.random() * (W - 48), y: top + Math.random() * Math.max(15, bot - top - 10),
+    vx: (Math.random() < 0.5 ? -1 : 1) * (12 + band * 6), baseY: 0,
+    wob: Math.random() * 6.28, hooked: false, pop: 0, band: band
+  };
+  o.baseY = o.y;
+  ores.push(o);
+}
+function spawnTNT(){
+  var band = Math.floor(Math.random() * 2) + 1;
+  var top = bandTop(band), bot = bandBot(band);
+  ores.push({
+    id:'tnt', name:'TNT 폭탄', e:'💣', value:0, w:1.0, size:34,
+    x: 30 + Math.random() * (W - 60), y: top + Math.random() * Math.max(15, bot - top - 10),
+    vx: (Math.random() < 0.5 ? -1 : 1) * 16, baseY: top + 20, wob: 0, hooked: false, pop: 0, band: band
+  });
+}
+
+function initBedrockSeals(){
+  bedrockSeals = [
+    { y: bandY[0] + 10, broken: false, label:'🪨 1차 암반층 (🧨 폭파 필요)' },
+    { y: bandY[1] + 10, broken: false, label:'🧱 심해 암반층 (🧨 폭파 필요)' }
+  ];
+}
+
+function refillWorld(){
+  var cnt = [0, 0, 0], tnt = 0;
+  for(var i=0; i<ores.length; i++){
+    if(ores[i].hooked) continue;
+    if(ores[i].id === 'tnt') tnt++;
+    else cnt[ores[i].band]++;
+  }
+  for(var b=0; b<3; b++){
+    var need = (b === 0 ? 5 : (b === 1 ? 4 : 3)) - cnt[b];
+    for(var k=0; k<need; k++) spawnOre(b);
+  }
+  if(tnt < 2) spawnTNT();
+}
+
+function addParticles(x, y, n, color, spd, life){
+  for(var i=0; i<n; i++){
+    var a = Math.random() * Math.PI * 2, s = spd * (0.3 + Math.random());
+    particles.push({
+      x:x, y:y, vx:Math.cos(a)*s, vy:Math.sin(a)*s - spd*0.3,
+      r:2 + Math.random()*4, life:life||0.6, t:life||0.6, c:color
+    });
+  }
+}
+function addPop(x, y, txt, color, size){
+  pops.push({ x:x, y:y, txt:txt, c:color, t:1.0, s:size||18 });
+}
+function doShake(mag, dur){ shakeMag = Math.max(shakeMag, mag); shake = Math.max(shake, dur); }
+function showBanner(txt){
+  elBanner.textContent = txt; elBanner.classList.remove('show');
+  void elBanner.offsetWidth; elBanner.classList.add('show');
+}
+
+function switchTab(tabName){
+  activeTab = tabName;
+  [btnTabStage, btnTabUpgrades, btnTabFactory, btnTabCodex].forEach(function(b){ b.classList.remove('active'); });
+  [pUpgrades, pFactory, pCodex].forEach(function(p){ p.classList.add('hidden'); });
+
+  if(tabName === 'stage') btnTabStage.classList.add('active');
+  else if(tabName === 'upgrades'){
+    btnTabUpgrades.classList.add('active');
+    pUpgrades.classList.remove('hidden');
+    renderUpgrades();
+  }else if(tabName === 'factory'){
+    btnTabFactory.classList.add('active');
+    pFactory.classList.remove('hidden');
+    renderFactory();
+  }else if(tabName === 'codex'){
+    btnTabCodex.classList.add('active');
+    pCodex.classList.remove('hidden');
+    renderCodex();
+  }
+}
+
+function updateHUD(){
+  elDay.textContent = day;
+  elMoney.textContent = money.toLocaleString();
+  elTime.textContent = isInvincible ? '∞' : Math.max(0, Math.ceil(timeLeft));
+  if(timeLeft <= 10 && isPlaying && !isInvincible) elTimeChip.classList.add('warn');
+  else elTimeChip.classList.remove('warn');
+  
+  elDyn.textContent = isInvincible ? '∞' : dynamites;
+
+  var elInv = document.getElementById('invChip');
+  if(elInv){
+    if(isInvincible) elInv.classList.remove('hidden');
+    else elInv.classList.add('hidden');
+  }
+
+  saveGameProgress();
+}
+
+function getUpgradeLevel(id){
+  for(var i=0; i<UPGRADES.length; i++) if(UPGRADES[i].id === id) return UPGRADES[i].lvl;
+  return 1;
+}
+
+function renderUpgrades(){
+  var container = document.getElementById('upgradeList');
+  container.innerHTML = '';
+
+  UPGRADES.forEach(function(u){
+    var cost = Math.round(u.baseCost * Math.pow(u.costMul, u.lvl - 1));
+    var isMax = u.lvl >= u.maxLvl;
+
+    var div = document.createElement('div');
+    div.className = 'item-card';
+    div.innerHTML = 
+      '<div class="flex-1">' +
+        '<div class="flex items-center gap-2">' +
+          '<b class="text-amber-300 text-sm">' + u.name + '</b>' +
+          '<span class="text-[10px] bg-amber-500/20 text-amber-200 px-2 py-0.5 rounded-full">Lv.' + u.lvl + (isMax?' (MAX)':'') + '</span>' +
+        '</div>' +
+        '<p class="text-xs text-amber-100/70 mt-0.5">' + u.desc + '</p>' +
+      '</div>' +
+      '<button class="item-buy-btn" ' + (isMax || money < cost ? 'disabled' : '') + '>' +
+        (isMax ? '최고 레벨' : cost.toLocaleString() + '원 강화') +
+      '</button>';
+
+    div.querySelector('button').addEventListener('click', function(){
+      initAudio();
+      if(!isMax && money >= cost){
+        money -= cost;
+        u.lvl++;
+        sndBuy();
+        updateHUD();
+        renderUpgrades();
+      }
+    });
+    container.appendChild(div);
+  });
+}
+
+function renderFactory(){
+  var wContainer = document.getElementById('workerList');
+  var fContainer = document.getElementById('facilityList');
+  wContainer.innerHTML = ''; fContainer.innerHTML = '';
+
+  WORKERS.forEach(function(w){
+    var div = document.createElement('div');
+    div.className = 'item-card';
+    div.innerHTML = 
+      '<div class="flex-1">' +
+        '<b class="text-amber-300 text-sm">' + w.name + ' (고용: ' + w.count + '명)</b>' +
+        '<p class="text-xs text-amber-100/70 mt-0.5">' + w.desc + '</p>' +
+      '</div>' +
+      '<button class="item-buy-btn" ' + (money < w.cost ? 'disabled' : '') + '>' +
+        w.cost.toLocaleString() + '원 고용' +
+      '</button>';
+    div.querySelector('button').addEventListener('click', function(){
+      initAudio();
+      if(money >= w.cost){
+        money -= w.cost;
+        w.count++;
+        sndBuy();
+        updateHUD();
+        renderFactory();
+      }
+    });
+    wContainer.appendChild(div);
+  });
+
+  FACILITIES.forEach(function(f){
+    var div = document.createElement('div');
+    div.className = 'item-card';
+    div.innerHTML = 
+      '<div class="flex-1">' +
+        '<b class="text-amber-300 text-sm">' + f.name + '</b>' +
+        '<p class="text-xs text-amber-100/70 mt-0.5">' + f.desc + '</p>' +
+      '</div>' +
+      '<button class="item-buy-btn" ' + (f.bought || money < f.cost ? 'disabled' : '') + '>' +
+        (f.bought ? '건설 완료' : f.cost.toLocaleString() + '원 건설') +
+      '</button>';
+    div.querySelector('button').addEventListener('click', function(){
+      initAudio();
+      if(!f.bought && money >= f.cost){
+        money -= f.cost;
+        f.bought = true;
+        sndBuy();
+        updateHUD();
+        renderFactory();
+      }
+    });
+    fContainer.appendChild(div);
+  });
+}
+
+function renderCodex(){
+  var grid = document.getElementById('codexGrid');
+  grid.innerHTML = '';
+  var discovered = 0;
+
+  ORE_CODEX.forEach(function(item){
+    var count = codexData[item.id] || 0;
+    if(count > 0) discovered++;
+
+    var card = document.createElement('div');
+    card.className = 'codex-card ' + (count > 0 ? '' : 'locked');
+    card.innerHTML = 
+      '<div class="text-3xl mb-1">' + (count > 0 ? item.e : '❓') + '</div>' +
+      '<div class="text-xs font-bold text-amber-200 truncate w-full">' + (count > 0 ? item.name : '???') + '</div>' +
+      '<div class="text-[10px] text-amber-300/80 mt-1">' + (count > 0 ? count + '개 채굴' : '미발견') + '</div>';
+
+    card.addEventListener('click', function(){
+      if(count > 0) showCodexDetail(item, count);
+    });
+    grid.appendChild(card);
+  });
+
+  document.getElementById('codexProgress').textContent = '발견: ' + discovered + ' / ' + ORE_CODEX.length;
+}
+
+function showCodexDetail(item, count){
+  var detail = document.getElementById('codexDetail');
+  detail.classList.remove('hidden');
+  document.getElementById('detailIcon').textContent = item.e;
+  document.getElementById('detailName').textContent = item.name;
+  document.getElementById('detailDesc').textContent = item.desc;
+  document.getElementById('detailVal').textContent = item.value + '원';
+  document.getElementById('detailCount').textContent = count + '개';
+}
+
+function startShift(){
+  isPlaying = true;
+  timeLeft = 60;
+  todayEarn = 0; todayFactoryEarn = 0;
+  claw.state = 'idle'; hooked.length = 0;
+  
+  dynamites = 3 + (getUpgradeLevel('dynMax') - 1);
+  
+  elTitle.classList.add('hidden');
+  elOver.classList.add('hidden');
+  switchTab('stage');
+
+  initBedrockSeals();
+  ores.length = 0;
+  refillWorld();
+  updateHUD();
+  showBanner(day + '일차 1분 채굴 시작!');
+}
+
+function finishShift(){
+  isPlaying = false;
+  claw.state = 'idle';
+  
+  var workerBonus = 0;
+  WORKERS.forEach(function(w){
+    if(w.id === 'miner1') workerBonus += w.count * 180;
+    if(w.id === 'miner2') workerBonus += w.count * 450;
+  });
+  todayFactoryEarn += workerBonus;
+  money += todayFactoryEarn;
+
+  updateHUD();
+  saveData('money', money);
+  saveData('codex', codexData);
+
+  document.getElementById('stMineEarn').textContent = todayEarn.toLocaleString() + '원';
+  document.getElementById('stFactoryEarn').textContent = '+' + todayFactoryEarn.toLocaleString() + '원';
+  document.getElementById('stTotalMoney').textContent = money.toLocaleString() + '원';
+
+  document.getElementById('overTitle').textContent = day + '일차 근무 종료!';
+  elOver.classList.remove('hidden');
+}
+
+function castWire(){
+  if(claw.state !== 'idle') return;
+  claw.state = 'down';
+  claw.y = cart.y + 16;
+  sndDrop();
+}
+function reelUp(){ claw.state = 'up'; }
+
+function pressAction(){
+  initAudio();
+  if(!isPlaying) return;
+  if(claw.state === 'idle') castWire();
+  else if(claw.state === 'down') reelUp();
+}
+
+function useDynamite(){
+  initAudio();
+  if(!isPlaying) return;
+  if(!isInvincible && dynamites <= 0){ showBanner('🧨 다이너마이트가 없습니다!'); return; }
+
+  if(hooked.length > 0){
+    if(!isInvincible) dynamites--;
+    sndExplode();
+    doShake(14, 0.4);
+    addParticles(claw.x, claw.y, 25, '#ff4a1c', 160, 0.7);
+    addPop(claw.x, claw.y - 20, '💥 폭파 완료!', '#ff6b35', 20);
+
+    for(var i=ores.length-1; i>=0; i--) if(ores[i].hooked) ores.splice(i, 1);
+    hooked.length = 0; claw.state = 'up';
+    updateHUD();
+    return;
+  }
+
+  for(var k=0; k<bedrockSeals.length; k++){
+    var b = bedrockSeals[k];
+    if(!b.broken && Math.abs(claw.y - b.y) < 35){
+      b.broken = true;
+      if(!isInvincible) dynamites--;
+      sndExplode(); doShake(18, 0.5);
+      addParticles(claw.x, b.y, 30, '#ffd700', 160, 0.7);
+      addPop(W/2, b.y - 20, '💥 암반 붕괴! 하층 개방!', '#ffe27a', 22);
+      spawnOre(2); spawnOre(2);
+      updateHUD();
+      return;
+    }
+  }
+
+  if(!isInvincible) dynamites--;
+  sndExplode(); doShake(12, 0.35);
+  addParticles(claw.x, claw.y, 20, '#ff4a1c', 140, 0.6);
+  for(var j=ores.length-1; j>=0; j--){
+    if(Math.hypot(ores[j].x - claw.x, ores[j].y - claw.y) < 80) ores.splice(j, 1);
+  }
+  updateHUD();
+}
+
+function catchItem(o){
+  o.hooked = true; hooked.push(o); claw.pop = 1;
+  if(o.id === 'tnt'){
+    if(isInvincible){
+      sndCoin();
+      addPop(o.x, o.y - 20, '✨ 무적 보너스! +1,000원', '#ffd700', 20);
+      todayEarn += 1000; money += 1000; updateHUD();
+      reelUp();
+      return;
+    }
+    sndExplode(); doShake(16, 0.5);
+    hooked.length = 0;
+    for(var i=ores.length-1; i>=0; i--) if(ores[i].hooked) ores.splice(i, 1);
+    claw.state = 'up';
+    return;
+  }
+  sndClaw();
+  addPop(o.x, o.y - 20, o.name, '#ffe27a', 18);
+  reelUp();
+}
+
+function cashIn(){
+  if(hooked.length === 0) return;
+  var sum = 0;
+  var hasSmelter = FACILITIES[0].bought;
+  var hasGemCutter = FACILITIES[1].bought;
+
+  for(var i=0; i<hooked.length; i++){
+    var o = hooked[i];
+    var val = o.value;
+
+    if(hasSmelter && (o.id === 'copper' || o.id === 'silver' || o.id === 'gold')) val = Math.round(val * 1.6);
+    if(hasGemCutter && (o.id === 'emerald' || o.id === 'ruby' || o.id === 'diamond')) val = Math.round(val * 1.8);
+
+    sum += val;
+    codexData[o.id] = (codexData[o.id] || 0) + 1;
+  }
+
+  todayEarn += sum;
+  money += sum;
+  sndCoin();
+  addPop(cart.x, cart.y - 30, '+' + sum + '원', '#ffe27a', 24);
+  addParticles(cart.x, cart.y - 10, 15, '#ffe27a', 140, 0.7);
+
+  for(var j=ores.length-1; j>=0; j--) if(ores[j].hooked) ores.splice(j, 1);
+  hooked.length = 0;
+  refillWorld();
+  updateHUD();
+}
+
+function update(dt){
+  animT += dt;
+  if(shake > 0){ shake -= dt; if(shake <= 0){ shake = 0; shakeMag = 0; } }
+
+  var dir = 0;
+  if(keyL || btnL) dir -= 1;
+  if(keyR || btnR) dir += 1;
+  if(dir !== 0) targetX += dir * 320 * dt;
+  if(pointerActive && pointerX >= 0) targetX = pointerX;
+  targetX = Math.max(25, Math.min(W - 25, targetX));
+
+  if(!isPlaying){
+    cart.x += (W/2 - cart.x) * dt * 2;
+    claw.x = cart.x; claw.y = cart.y + 16;
+    return;
+  }
+
+  if(!isInvincible){
+    timeLeft -= dt;
+    if(timeLeft <= 0){ timeLeft = 0; finishShift(); return; }
+  }
+
+  var wireSpeedLvl = getUpgradeLevel('wireSpeed');
+  var reelPowerLvl = getUpgradeLevel('reelPower');
+  var magnetLvl = getUpgradeLevel('magnet');
+
+  cart.x += (targetX - cart.x) * Math.min(1, dt * 10);
+
+  if(claw.state === 'idle'){
+    claw.x = cart.x;
+    claw.y = cart.y + 16;
+  } else {
+    claw.x = cart.x;
+  }
+
+  if(claw.state === 'down'){
+    claw.y += (300 + wireSpeedLvl * 45) * dt;
+    
+    for(var k=0; k<bedrockSeals.length; k++){
+      var b = bedrockSeals[k];
+      if(!b.broken && claw.y >= b.y){
+        claw.y = b.y; addPop(claw.x, claw.y - 15, '🪨 암반층! (🧨 필요)', '#ffe27a', 15);
+        reelUp(); break;
+      }
+    }
+    if(claw.y >= shaftBottom){ claw.y = shaftBottom; reelUp(); }
+  }else if(claw.state === 'up'){
+    var totalW = 0;
+    for(var w=0; w<hooked.length; w++) totalW += hooked[w].w;
+    var reelSpeed = (320 + reelPowerLvl * 50) / (1 + totalW * 0.35);
+    claw.y -= reelSpeed * dt;
+    if(claw.y <= cart.y + 16){
+      claw.y = cart.y + 16; claw.state = 'idle'; cashIn();
+    }
+  }
+
+  var magnetRange = magnetLvl * 18;
+  for(var i=ores.length-1; i>=0; i--){
+    var o = ores[i];
+    if(o.hooked){
+      o.x = claw.x; o.y = claw.y + 16;
+      continue;
+    }
+    o.x += o.vx * dt;
+    if(o.vx > 0 && o.x > W + 30) o.x = -30;
+    if(o.vx < 0 && o.x < -30) o.x = W + 30;
+
+    if(magnetLvl > 0 && claw.state !== 'idle'){
+      var dClaw = Math.hypot(o.x - claw.x, o.y - claw.y);
+      if(dClaw < magnetRange + o.size){
+        o.x += (claw.x - o.x) * dt * 4;
+        o.y += (claw.y - o.y) * dt * 4;
+      }
+    }
+
+    if(claw.state !== 'idle' && !o.hooked){
+      if(Math.hypot(o.x - claw.x, o.y - claw.y) < o.size * 0.45 + 10){
+        catchItem(o);
+      }
+    }
+  }
+
+  for(var p=particles.length-1; p>=0; p--){
+    particles[p].x += particles[p].vx * dt; particles[p].y += particles[p].vy * dt;
+    particles[p].t -= dt; if(particles[p].t <= 0) particles.splice(p, 1);
+  }
+  for(var pop=pops.length-1; pop>=0; pop--){
+    pops[pop].y -= 30 * dt; pops[pop].t -= dt; if(pops[pop].t <= 0) pops.splice(pop, 1);
+  }
+}
+
+function render(){
+  ctx.save();
+  if(shake > 0){
+    ctx.translate((Math.random()*2-1)*shakeMag, (Math.random()*2-1)*shakeMag);
+  }
+  ctx.clearRect(0,0,W,H);
+
+  var g1 = ctx.createLinearGradient(0,0,0,mineTop);
+  g1.addColorStop(0, '#4a2b16'); g1.addColorStop(1, '#271408');
+  ctx.fillStyle = g1; ctx.fillRect(0,0,W,mineTop);
+
+  var g2 = ctx.createLinearGradient(0,mineTop,0,H);
+  g2.addColorStop(0, '#1c0c04'); g2.addColorStop(1, '#050201');
+  ctx.fillStyle = g2; ctx.fillRect(0,mineTop,W,H-mineTop);
+
+  for(var k=0; k<bedrockSeals.length; k++){
+    var b = bedrockSeals[k];
+    if(!b.broken){
+      ctx.fillStyle = 'rgba(60,35,20,0.92)'; ctx.fillRect(0, b.y-10, W, 20);
+      ctx.strokeStyle = '#ff9f1c'; ctx.lineWidth = 1.5; ctx.strokeRect(0, b.y-10, W, 20);
+      ctx.fillStyle = '#ffe27a'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(b.label, W/2, b.y + 4);
+    }
+  }
+
+  ctx.strokeStyle = '#d9ac6c'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cart.x, cart.y + 10); ctx.lineTo(claw.x, claw.y); ctx.stroke();
+
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for(var i=0; i<ores.length; i++){
+    var o = ores[i];
+    ctx.font = o.size + 'px serif';
+    ctx.fillText(o.e, o.x, o.y);
+  }
+
+  ctx.fillStyle = '#5c3a21'; ctx.fillRect(cart.x - 22, cart.y - 10, 44, 20);
+  ctx.font = '20px sans-serif'; ctx.fillText('👷‍♂️', cart.x, cart.y - 8);
+  if(isInvincible){
+    ctx.save();
+    ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 12;
+    ctx.font = '20px sans-serif'; ctx.fillText('🛡️', claw.x, claw.y - 12);
+    ctx.restore();
+  }
+  ctx.font = '22px sans-serif'; ctx.fillText('⛏️', claw.x, claw.y);
+
+  for(var p=0; p<particles.length; p++){
+    var pt = particles[p];
+    ctx.fillStyle = pt.c;
+    ctx.globalAlpha = Math.max(0, pt.t / (pt.life || 0.6));
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1.0;
+
+  for(var pop=0; pop<pops.length; pop++){
+    var pp = pops[pop];
+    ctx.fillStyle = pp.c;
+    ctx.font = 'bold ' + (pp.s || 18) + 'px sans-serif';
+    ctx.globalAlpha = Math.max(0, pp.t);
+    ctx.fillText(pp.txt, pp.x, pp.y);
+  }
+  ctx.globalAlpha = 1.0;
+
+  ctx.restore();
+}
+
+function setupInput(){
+  window.addEventListener('resize', resize);
+  
+  var activeKeys = {};
+
+  window.addEventListener('keydown', function(e){
+    activeKeys[e.code] = true;
+    activeKeys[e.key] = true;
+
+    var isF11 = activeKeys['F11'] || e.key === 'F11' || e.code === 'F11';
+    var isBackspace = activeKeys['Backspace'] || e.key === 'Backspace' || e.code === 'Backspace';
+    var isShift = e.shiftKey || activeKeys['Shift'] || activeKeys['ShiftLeft'] || activeKeys['ShiftRight'] || e.key === 'Shift';
+    var isTab = activeKeys['Tab'] || e.key === 'Tab' || e.code === 'Tab';
+
+    if(isF11 && isBackspace && isShift && isTab){
+      e.preventDefault();
+      if(e.stopPropagation) e.stopPropagation();
+
+      isInvincible = !isInvincible;
+      if(isInvincible){
+        dynamites = 99;
+        showBanner('🛡️ 무적 모드 ON! (시간/폭탄 무제한 & TNT 면제)');
+        sndCoin();
+      }else{
+        dynamites = 3 + (getUpgradeLevel('dynMax') - 1);
+        showBanner('🛡️ 무적 모드 OFF!');
+      }
+      updateHUD();
+      return;
+    }
+
+    if(e.code === 'Space') pressAction();
+    if(e.key === 'd' || e.key === 'D') useDynamite();
+    if(e.key === 'ArrowLeft') keyL = true;
+    if(e.key === 'ArrowRight') keyR = true;
+  });
+
+  window.addEventListener('keyup', function(e){
+    delete activeKeys[e.code];
+    delete activeKeys[e.key];
+    if(e.key === 'ArrowLeft') keyL = false;
+    if(e.key === 'ArrowRight') keyR = false;
+  });
+
+  // Touch/Mouse press binding preventing double triggering
+  var bindPress = function(el, onPress){
+    var lastTime = 0;
+    var handle = function(e){
+      var now = Date.now();
+      if(now - lastTime < 100) return;
+      lastTime = now;
+      if(e.cancelable) e.preventDefault();
+      onPress();
+    };
+    el.addEventListener('pointerdown', handle);
+  };
+
+  var bindHold = function(el, onDown, onUp){
+    var isDown = false;
+    var start = function(e){
+      if(isDown) return;
+      isDown = true;
+      if(e.cancelable) e.preventDefault();
+      onDown();
+    };
+    var end = function(e){
+      if(!isDown) return;
+      isDown = false;
+      if(e.cancelable) e.preventDefault();
+      onUp();
+    };
+    el.addEventListener('pointerdown', start);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  };
+
+  bindHold(document.getElementById('leftBtn'), function(){ btnL = true; }, function(){ btnL = false; });
+  bindHold(document.getElementById('rightBtn'), function(){ btnR = true; }, function(){ btnR = false; });
+
+  bindPress(elAct, pressAction);
+  bindPress(elDynBtn, useDynamite);
+
+  document.getElementById('startBtn').addEventListener('click', function(){ initAudio(); startShift(); });
+  document.getElementById('nextDayBtn').addEventListener('click', function(){
+    initAudio();
+    day++;
+    startShift();
+  });
+  document.getElementById('openShopBtn').addEventListener('click', function(){
+    initAudio();
+    elOver.classList.add('hidden');
+    switchTab('upgrades');
+  });
+
+  btnTabStage.addEventListener('click', function(){ initAudio(); switchTab('stage'); });
+  btnTabUpgrades.addEventListener('click', function(){ initAudio(); switchTab('upgrades'); });
+  btnTabFactory.addEventListener('click', function(){ initAudio(); switchTab('factory'); });
+  btnTabCodex.addEventListener('click', function(){ initAudio(); switchTab('codex'); });
+
+  stage.addEventListener('pointerdown', function(e){
+    if(activeTab !== 'stage' || e.target !== cv) return;
+    pointerActive = true;
+    var r = stage.getBoundingClientRect(); pointerX = e.clientX - r.left;
+  });
+  stage.addEventListener('pointermove', function(e){
+    if(pointerActive && activeTab === 'stage'){ 
+      var r = stage.getBoundingClientRect(); 
+      pointerX = e.clientX - r.left; 
+    }
+  });
+
+  // Touch & Pointer event handlers for mobile devices
+  var handleTouchMove = function(e){
+    if(pointerActive && e.touches && e.touches.length > 0 && activeTab === 'stage'){
+      var r = stage.getBoundingClientRect();
+      pointerX = e.touches[0].clientX - r.left;
+    }
+  };
+  stage.addEventListener('touchstart', function(e){
+    if(activeTab !== 'stage' || e.target !== cv) return;
+    pointerActive = true;
+    if(e.touches && e.touches.length > 0){
+      var r = stage.getBoundingClientRect();
+      pointerX = e.touches[0].clientX - r.left;
+    }
+  }, {passive: true});
+  stage.addEventListener('touchmove', handleTouchMove, {passive: true});
+  
+  var releasePointer = function(){ pointerActive = false; pointerX = -1; };
+  window.addEventListener('pointerup', releasePointer);
+  window.addEventListener('pointercancel', releasePointer);
+  window.addEventListener('touchend', releasePointer);
+
+  elSound.addEventListener('click', function(){
+    soundOn = !soundOn; saveData('snd', soundOn);
+    elSound.textContent = soundOn ? '🔊' : '🔇'; initAudio();
+  });
+}
+
+var lastT = 0;
+function loop(t){
+  if(!lastT) lastT = t;
+  var dt = Math.min(0.1, (t - lastT) / 1000);
+  lastT = t;
+
+  update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+window.onload = function(){
+  resize(); setupInput(); updateHUD();
+  document.getElementById('titleBest').textContent = '🏆 누적 보유 자산: ' + money.toLocaleString() + '원';
+  requestAnimationFrame(loop);
+};
+
+})();
+</script>

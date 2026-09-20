@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>3D Obby Master - 장애물 탈출 점프 게임</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Jua&family=Pretendard:wght@600;800;900&display=swap');
+
+  * {
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+  }
+
+  body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    overflow: hidden;
+    font-family: 'Pretendard', sans-serif;
+    background-color: #030712;
+    color: #ffffff;
+  }
+
+  #canvas-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    touch-action: none;
+  }
+
+  .font-jua {
+    font-family: 'Jua', sans-serif;
+  }
+
+  /* GLASSMORPHISM UI */
+  .glass-panel {
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1.5px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  }
+
+  .btn-action {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .btn-action:active {
+    transform: translateY(2px) scale(0.97);
+  }
+
+  /* TOUCH CONTROLS STYLING */
+  .touch-control-btn {
+    background: rgba(255, 255, 255, 0.22);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  .touch-control-btn:active, .touch-control-btn.active {
+    background: rgba(16, 185, 129, 0.55);
+    border-color: rgba(52, 211, 153, 0.9);
+    transform: scale(0.93);
+  }
+
+  @keyframes toastIn {
+    0% { transform: translate(-50%, -100%); opacity: 0; }
+    15% { transform: translate(-50%, 0); opacity: 1; }
+    85% { transform: translate(-50%, 0); opacity: 1; }
+    100% { transform: translate(-50%, -100%); opacity: 0; }
+  }
+
+  .toast-anim {
+    animation: toastIn 2.2s forwards ease-in-out;
+  }
+</style>
+</head>
+<body class="touch-none overflow-hidden select-none">
+
+<div id="game-container" class="relative w-full h-full">
+  <!-- 3D Canvas -->
+  <div id="canvas-container"></div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-30 hidden pointer-events-none w-11/12 max-w-sm">
+    <div class="glass-panel px-5 py-2.5 rounded-full border border-emerald-400/50 flex items-center justify-center gap-2.5 shadow-2xl">
+      <span class="text-xl sm:text-2xl animate-bounce">🚩</span>
+      <span id="toastMsg" class="font-jua text-sm sm:text-base text-emerald-300 truncate">체크포인트 저장!</span>
+    </div>
+  </div>
+
+  <!-- Responsive HUD Top Header -->
+  <div id="hud" class="absolute top-0 left-0 right-0 p-3 sm:p-4 flex justify-between items-start z-10 pointer-events-none gap-2">
+    <!-- Left HUD Info -->
+    <div class="flex flex-col gap-1.5 max-w-[55%] sm:max-w-xs">
+      <div class="glass-panel px-3 py-1.5 sm:px-4 sm:py-2 rounded-2xl flex items-center gap-2 sm:gap-3">
+        <span class="text-lg sm:text-2xl shrink-0">🚩</span>
+        <div class="min-w-0">
+          <div class="text-[9px] sm:text-[10px] text-emerald-400 font-extrabold uppercase tracking-wider">CHECKPOINT</div>
+          <div id="stageText" class="font-jua text-xs sm:text-base text-white truncate">1단계: 기초 스텝</div>
+        </div>
+      </div>
+
+      <div class="glass-panel px-3 py-1 sm:px-4 sm:py-1.5 rounded-xl flex items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5">
+          <span class="text-sm sm:text-lg">⏱️</span>
+          <span id="timerText" class="font-black text-amber-300 text-xs sm:text-base">00:00</span>
+        </div>
+        <span id="hudDifficultyBadge" class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-black bg-blue-500/30 text-blue-300 border border-blue-400/30">보통</span>
+      </div>
+    </div>
+
+    <!-- Right HUD Buttons -->
+    <div class="flex flex-col items-end gap-1.5 pointer-events-auto">
+      <div class="glass-panel px-3 py-1.5 sm:px-4 sm:py-2 rounded-2xl flex items-center gap-2">
+        <div class="text-right min-w-0">
+          <div class="text-[9px] sm:text-[10px] text-rose-400 font-extrabold uppercase tracking-wider">FALLS</div>
+          <div id="deathText" class="font-jua text-xs sm:text-base text-rose-200">0회</div>
+        </div>
+        <span class="text-lg sm:text-2xl shrink-0">💥</span>
+      </div>
+
+      <div class="flex gap-1.5">
+        <button id="skipBtn" class="glass-panel px-2.5 h-9 sm:h-10 rounded-xl flex items-center justify-center text-[11px] sm:text-xs font-black text-amber-300 border border-amber-400/30 active:scale-95 transition-all" title="다음 단계로 스킵 (S키)">
+          ⏩ 스킵
+        </button>
+        <button id="resetBtn" class="glass-panel w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-base sm:text-lg active:scale-95 transition-all" title="체크포인트로 재소환">
+          🔄
+        </button>
+        <button id="soundBtn" class="glass-panel w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-base sm:text-lg active:scale-95 transition-all">
+          🔊
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Onscreen Touch Controls -->
+  <div id="touchControls" class="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-6 flex justify-between items-end z-10 pointer-events-none select-none">
+    <!-- Joystick Zone -->
+    <div id="joystickZone" class="w-28 h-28 sm:w-36 sm:h-36 touch-control-btn rounded-full relative pointer-events-auto flex items-center justify-center">
+      <div id="joystickKnob" class="w-12 h-12 sm:w-16 sm:h-16 bg-white/80 rounded-full absolute shadow-2xl transition-transform duration-75 border-2 border-emerald-400/60"></div>
+    </div>
+
+    <!-- Right Controls (Jump & Skip Touch) -->
+    <div class="flex flex-col items-center gap-3 pointer-events-auto">
+      <button id="touchJumpBtn" class="w-16 h-16 sm:w-22 sm:h-22 touch-control-btn rounded-full flex items-center justify-center text-2xl sm:text-3xl font-black text-white shadow-2xl active:bg-emerald-500/60">
+        ⬆️
+      </button>
+    </div>
+  </div>
+
+  <!-- Start Screen Screen Overlay -->
+  <div id="startScreen" class="absolute inset-0 z-20 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md transition-opacity duration-300 overflow-y-auto">
+    <div class="glass-panel rounded-3xl p-6 sm:p-8 max-w-sm sm:max-w-md w-full text-center flex flex-col items-center border border-emerald-500/40 my-auto">
+      <div class="w-16 h-16 sm:w-20 sm:h-20 mb-2 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-3xl sm:text-4xl shadow-lg shadow-emerald-500/30 animate-bounce">
+        🏃
+      </div>
+      <h1 class="font-jua text-3xl sm:text-4xl text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-cyan-300 mb-1">
+        3D OBBY MASTER
+      </h1>
+      <p class="text-slate-300 text-[11px] sm:text-xs font-medium mb-3 leading-relaxed">
+        터치 조이스틱과 드래그 시점으로 하늘 위 장애물을 돌파하세요!
+      </p>
+
+      <!-- Difficulty Buttons -->
+      <div class="w-full mb-4">
+        <div class="text-[11px] sm:text-xs text-slate-400 font-bold mb-1.5 text-left">난이도 선택</div>
+        <div class="grid grid-cols-4 gap-1 p-1 bg-slate-900/80 rounded-2xl border border-white/10">
+          <button data-diff="easy" class="diff-btn py-2 rounded-xl text-[11px] sm:text-xs font-extrabold transition-all border border-transparent text-slate-400 hover:text-white">
+            🟢 쉬움
+          </button>
+          <button data-diff="normal" class="diff-btn active py-2 rounded-xl text-[11px] sm:text-xs font-extrabold transition-all border border-blue-500/50 bg-blue-500/20 text-blue-300 shadow-md">
+            🔵 보통
+          </button>
+          <button data-diff="hard" class="diff-btn py-2 rounded-xl text-[11px] sm:text-xs font-extrabold transition-all border border-transparent text-slate-400 hover:text-white">
+            🟠 하드
+          </button>
+          <button data-diff="impossible" class="diff-btn py-2 rounded-xl text-[11px] sm:text-xs font-extrabold transition-all border border-transparent text-slate-400 hover:text-white">
+            🔴 불가능
+          </button>
+        </div>
+      </div>
+
+      <!-- Controls Guide -->
+      <div class="w-full bg-slate-900/60 rounded-2xl p-3 mb-4 text-left text-[11px] sm:text-xs text-slate-300 space-y-1.5 border border-white/5">
+        <div class="flex items-center gap-2">
+          <span class="bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-extrabold shrink-0">📱 모바일</span>
+          <span>좌측 조이스틱(이동) / 우측 ⬆️(점프) / 화면 드래그(시점)</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-extrabold shrink-0">💻 PC</span>
+          <span>WASD(이동) / Spacebar(점프) / S(다음 단계 스킵)</span>
+        </div>
+      </div>
+
+      <button id="startBtn" class="btn-action w-full py-3.5 rounded-2xl font-black text-lg sm:text-xl text-white tracking-wide cursor-pointer">
+        도전 시작하기! 🚀
+      </button>
+    </div>
+  </div>
+
+  <!-- Victory Clear Screen -->
+  <div id="victoryScreen" class="absolute inset-0 z-20 hidden flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-xl overflow-y-auto">
+    <div class="glass-panel rounded-3xl p-6 sm:p-8 max-w-sm sm:max-w-md w-full text-center flex flex-col items-center border border-amber-400/40 shadow-2xl my-auto">
+      <div class="text-5xl sm:text-6xl mb-2 animate-bounce">🏆</div>
+      <h2 class="font-jua text-3xl sm:text-4xl text-amber-300 mb-1">축하합니다! 완주 성공!</h2>
+      <p class="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-widest mb-4">VICTORY CLEAR</p>
+
+      <div class="w-full bg-slate-900/70 rounded-2xl p-4 mb-5 border border-white/10 space-y-2.5">
+        <div class="flex justify-between items-center text-xs sm:text-sm">
+          <span class="font-bold text-slate-400">총 클리어 시간</span>
+          <span id="finalTime" class="text-lg sm:text-xl font-black text-amber-300">00:00</span>
+        </div>
+        <div class="flex justify-between items-center text-xs sm:text-sm">
+          <span class="font-bold text-slate-400">총 추락 횟수</span>
+          <span id="finalDeaths" class="text-lg sm:text-xl font-black text-rose-400">0회</span>
+        </div>
+      </div>
+
+      <button id="replayBtn" class="btn-action w-full py-3.5 rounded-2xl font-black text-base sm:text-lg text-white tracking-wide cursor-pointer">
+        다시 도전하기 🔄
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+class SoundEngine {
+  constructor() {
+    this.ctx = null;
+    this.muted = false;
+  }
+
+  init() {
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) this.ctx = new AudioCtx();
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  }
+
+  playJump() {
+    if (this.muted || !this.ctx) return;
+    try {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(580, this.ctx.currentTime + 0.12);
+
+      gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.12);
+    } catch (e) {}
+  }
+
+  playCheckpoint() {
+    if (this.muted || !this.ctx) return;
+    try {
+      const notes = [523.25, 659.25, 783.99, 1046.50];
+      notes.forEach((freq, i) => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime + i * 0.08);
+
+        gain.gain.setValueAtTime(0.2, this.ctx.currentTime + i * 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + i * 0.08 + 0.2);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(this.ctx.currentTime + i * 0.08);
+        osc.stop(this.ctx.currentTime + i * 0.08 + 0.2);
+      });
+    } catch (e) {}
+  }
+
+  playDeath() {
+    if (this.muted || !this.ctx) return;
+    try {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(60, this.ctx.currentTime + 0.28);
+
+      gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.28);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.28);
+    } catch (e) {}
+  }
+
+  playVictory() {
+    if (this.muted || !this.ctx) return;
+    try {
+      const fanfare = [440, 554.37, 659.25, 880, 740, 880];
+      fanfare.forEach((freq, i) => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime + i * 0.12);
+
+        gain.gain.setValueAtTime(0.2, this.ctx.currentTime + i * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + i * 0.12 + 0.28);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(this.ctx.currentTime + i * 0.12);
+        osc.stop(this.ctx.currentTime + i * 0.12 + 0.28);
+      });
+    } catch (e) {}
+  }
+}
+
+const audio = new SoundEngine();
+
+let scene, camera, renderer;
+let player, playerMesh;
+let legL, legR;
+let checkpoints = [];
+let currentCheckpointIdx = 0;
+let deathCount = 0;
+let gameTime = 0;
+let timerInterval = null;
+let gameActive = false;
+let clock = new THREE.Clock();
+
+// Control state
+const keys = { w: false, a: false, s: false, d: false, jumpRequest: false, spacePressed: false };
+let joystickInput = { x: 0, y: 0 };
+let joystickTouchId = null;
+let cameraTouchId = null;
+let isMouseDown = false;
+let previousMousePosition = { x: 0, y: 0 };
+let cameraAngle = { yaw: Math.PI, pitch: 0.35 };
+let cameraDistance = 11;
+
+// Jump Feel Buffer
+let coyoteTimer = 0;
+const COYOTE_TIME = 0.15;
+let jumpBufferTimer = 0;
+const JUMP_BUFFER_TIME = 0.15;
+
+// Map arrays
+let platforms = [];
+let hazards = [];
+let movingPlatforms = [];
+let vanishingPlatforms = [];
+let rotatingHazards = [];
+
+// Difficulty Setup
+let currentDifficulty = 'normal';
+const DIFFICULTY_CONFIG = {
+  easy: { name: '쉬움', platformScale: 1.35, hazardSpeed: 0.6, vanishDelay: 0.8, jumpForce: 14.5, speedMult: 0.95, badgeBg: 'bg-emerald-500/30 text-emerald-300 border-emerald-400/30' },
+  normal: { name: '보통', platformScale: 1.0, hazardSpeed: 1.0, vanishDelay: 0.45, jumpForce: 13.8, speedMult: 1.0, badgeBg: 'bg-blue-500/30 text-blue-300 border-blue-400/30' },
+  hard: { name: '하드', platformScale: 0.75, hazardSpeed: 1.5, vanishDelay: 0.25, jumpForce: 13.2, speedMult: 1.1, badgeBg: 'bg-orange-500/30 text-orange-300 border-orange-400/30' },
+  impossible: { name: '불가능', platformScale: 0.55, hazardSpeed: 2.2, vanishDelay: 0.1, jumpForce: 12.8, speedMult: 1.2, badgeBg: 'bg-rose-500/30 text-rose-300 border-rose-400/30' }
+};
+
+// Physics Constants
+const START_ALTITUDE = 80;
+const GRAVITY = -34;
+let JUMP_FORCE = 13.8;
+let MOVE_SPEED = 9.5;
+
+function initThree() {
+  const container = document.getElementById('canvas-container');
+  
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x030712);
+  scene.fog = new THREE.FogExp2(0x030712, 0.007);
+
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  container.appendChild(renderer.domElement);
+
+  const ambientLight = new THREE.AmbientLight(0xffffff, 1.3);
+  scene.add(ambientLight);
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
+  dirLight.position.set(40, START_ALTITUDE + 60, 40);
+  dirLight.castShadow = true;
+  dirLight.shadow.mapSize.width = 2048;
+  dirLight.shadow.mapSize.height = 2048;
+  dirLight.shadow.camera.near = 1;
+  dirLight.shadow.camera.far = 300;
+  const d = 60;
+  dirLight.shadow.camera.left = -d;
+  dirLight.shadow.camera.right = d;
+  dirLight.shadow.camera.top = d;
+  dirLight.shadow.camera.bottom = -d;
+  scene.add(dirLight);
+
+  createClouds();
+  window.addEventListener('resize', onWindowResize);
+}
+
+function createClouds() {
+  const cloudGeo = new THREE.DodecahedronGeometry(3, 1);
+  const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+  
+  for (let i = 0; i < 35; i++) {
+    const cloud = new THREE.Group();
+    const count = 3 + Math.floor(Math.random() * 4);
+    for (let j = 0; j < count; j++) {
+      const part = new THREE.Mesh(cloudGeo, cloudMat);
+      part.position.set(j * 2.2, Math.random() * 1.5, Math.random() * 2);
+      part.scale.setScalar(0.7 + Math.random() * 0.6);
+      cloud.add(part);
+    }
+    cloud.position.set(
+      (Math.random() - 0.5) * 240,
+      START_ALTITUDE + (Math.random() - 0.5) * 45,
+      (Math.random() - 0.5) * 360
+    );
+    scene.add(cloud);
+  }
+}
+
+function createPlayer() {
+  const group = new THREE.Group();
+
+  const bodyGeo = new THREE.BoxGeometry(0.8, 1.0, 0.5);
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.2, metalness: 0.1 });
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  body.position.y = 0.5;
+  body.castShadow = true;
+  group.add(body);
+
+  const headGeo = new THREE.BoxGeometry(0.65, 0.65, 0.65);
+  const headMat = new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.2 });
+  const head = new THREE.Mesh(headGeo, headMat);
+  head.position.y = 1.35;
+  head.castShadow = true;
+  group.add(head);
+
+  const eyeGeo = new THREE.BoxGeometry(0.12, 0.12, 0.05);
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+  const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+  eyeL.position.set(-0.18, 1.4, 0.33);
+  const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+  eyeR.position.set(0.18, 1.4, 0.33);
+  group.add(eyeL);
+  group.add(eyeR);
+
+  const legGeo = new THREE.BoxGeometry(0.35, 0.6, 0.45);
+  const legMat = new THREE.MeshStandardMaterial({ color: 0x0f172a });
+  legL = new THREE.Mesh(legGeo, legMat);
+  legL.position.set(-0.22, -0.3, 0);
+  legL.castShadow = true;
+  legR = new THREE.Mesh(legGeo, legMat);
+  legR.position.set(0.22, -0.3, 0);
+  legR.castShadow = true;
+  group.add(legL);
+  group.add(legR);
+
+  scene.add(group);
+  playerMesh = group;
+
+  player = {
+    pos: new THREE.Vector3(0, START_ALTITUDE + 1.5, 0),
+    vel: new THREE.Vector3(0, 0, 0),
+    isGrounded: false
+  };
+}
+
+function buildMap() {
+  platforms.forEach(p => scene.remove(p.mesh));
+  hazards.forEach(h => scene.remove(h.mesh));
+  checkpoints.forEach(c => scene.remove(c.mesh));
+  
+  platforms = [];
+  hazards = [];
+  checkpoints = [];
+  movingPlatforms = [];
+  vanishingPlatforms = [];
+  rotatingHazards = [];
+
+  const diff = DIFFICULTY_CONFIG[currentDifficulty];
+  JUMP_FORCE = diff.jumpForce;
+  MOVE_SPEED = 9.5 * diff.speedMult;
+
+  let curZ = 0;
+  let startY = START_ALTITUDE;
+
+  // STAGE 1: Basic Steps
+  addCheckpoint(0, startY, curZ, "1단계: 기초 스텝");
+  for (let i = 0; i < 5; i++) {
+    curZ -= 5.5;
+    const xOff = (i % 2 === 0 ? 1 : -1) * 1.8;
+    addPlatform(xOff, startY + i * 0.5, curZ, 3.2 * diff.platformScale, 0.8, 3.2 * diff.platformScale, 0x10b981);
+  }
+
+  // STAGE 2: Lava Bridge
+  curZ -= 7.5;
+  addCheckpoint(0, startY + 2.5, curZ, "2단계: 용암 다리");
+  addHazard(0, startY - 2, curZ - 13, 22, 0.5, 32, 0xef4444);
+  for (let i = 0; i < 6; i++) {
+    curZ -= 4.8;
+    addPlatform(0, startY + 2.5, curZ, 2.6 * diff.platformScale, 0.8, 2.6 * diff.platformScale, 0x3b82f6);
+  }
+
+  // STAGE 3: Moving Platforms
+  curZ -= 8.5;
+  addCheckpoint(0, startY + 2.5, curZ, "3단계: 무빙 플랫폼");
+  for (let i = 0; i < 4; i++) {
+    curZ -= 6.5;
+    const p = addPlatform(0, startY + 2.5, curZ, 3.2 * diff.platformScale, 0.8, 3.2 * diff.platformScale, 0x8b5cf6);
+    movingPlatforms.push({
+      mesh: p.mesh,
+      box: p.box,
+      axis: 'x',
+      origin: 0,
+      range: 4 + i * 0.5,
+      speed: (1.8 + i * 0.3) * diff.hazardSpeed,
+      time: i * 1.5
+    });
+  }
+
+  // STAGE 4: Vanishing Platforms
+  curZ -= 8.5;
+  addCheckpoint(0, startY + 2.5, curZ, "4단계: 사라지는 발판");
+  for (let i = 0; i < 5; i++) {
+    curZ -= 5.8;
+    const p = addPlatform(0, startY + 2.5, curZ, 2.8 * diff.platformScale, 0.8, 2.8 * diff.platformScale, 0xf59e0b);
+    vanishingPlatforms.push({
+      mesh: p.mesh,
+      box: p.box,
+      initialY: startY + 2.5,
+      active: true,
+      stepped: false,
+      timer: 0,
+      vanishDelay: diff.vanishDelay
+    });
+  }
+
+  // STAGE 5: Rotating Lasers
+  curZ -= 8.5;
+  addCheckpoint(0, startY + 2.5, curZ, "5단계: 회전 레이저");
+  for (let i = 0; i < 3; i++) {
+    curZ -= 8.5;
+    addPlatform(0, startY + 2.5, curZ, 4.2 * diff.platformScale, 0.8, 4.2 * diff.platformScale, 0x06b6d4);
+    
+    const hazardGeo = new THREE.BoxGeometry(7.5, 0.45, 0.45);
+    const hazardMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xcc0000, roughness: 0.2 });
+    const hMesh = new THREE.Mesh(hazardGeo, hazardMat);
+    hMesh.position.set(0, startY + 3.3, curZ);
+    hMesh.castShadow = true;
+    scene.add(hMesh);
+
+    const hBox = new THREE.Box3();
+    hazards.push({ mesh: hMesh, box: hBox });
+
+    rotatingHazards.push({
+      mesh: hMesh,
+      box: hBox,
+      speed: (i % 2 === 0 ? 1 : -1) * (1.6 + i * 0.4) * diff.hazardSpeed
+    });
+  }
+
+  // STAGE 6: Super Launch Jump
+  curZ -= 9.5;
+  addCheckpoint(0, startY + 2.5, curZ, "6단계: 대점프 코스");
+  curZ -= 7.5;
+  const launchPad = addPlatform(0, startY + 2.5, curZ, 4.0 * diff.platformScale, 0.8, 4.0 * diff.platformScale, 0xec4899);
+  launchPad.isBoost = true;
+
+  curZ -= 13.5;
+  addPlatform(0, startY + 7.0, curZ, 5.5 * diff.platformScale, 0.8, 5.5 * diff.platformScale, 0x10b981);
+
+  // STAGE 7: Victory Summit
+  curZ -= 12;
+  addCheckpoint(0, startY + 7.0, curZ, "7단계: 최종 정상!");
+  curZ -= 9;
+  const victoryPlatform = addPlatform(0, startY + 7.0, curZ, 12, 1.2, 12, 0xfacc15);
+  victoryPlatform.isVictory = true;
+
+  const trophyGeo = new THREE.CylinderGeometry(1.3, 0.6, 2.8, 8);
+  const trophyMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.8, roughness: 0.2, emissive: 0xd97706, emissiveIntensity: 0.3 });
+  const trophy = new THREE.Mesh(trophyGeo, trophyMat);
+  trophy.position.set(0, startY + 9.5, curZ);
+  scene.add(trophy);
+}
+
+function addPlatform(x, y, z, w, h, d, color) {
+  const geo = new THREE.BoxGeometry(w, h, d);
+  const mat = new THREE.MeshStandardMaterial({ 
+    color: color, 
+    emissive: color,
+    emissiveIntensity: 0.45,
+    roughness: 0.2,
+    metalness: 0.1
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, y, z);
+  mesh.receiveShadow = true;
+  mesh.castShadow = true;
+  scene.add(mesh);
+
+  mesh.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(mesh);
+  const obj = { mesh, box, size: { w, h, d } };
+  platforms.push(obj);
+  return obj;
+}
+
+function addHazard(x, y, z, w, h, d, color) {
+  const geo = new THREE.BoxGeometry(w, h, d);
+  const mat = new THREE.MeshStandardMaterial({ color: color, emissive: 0x990000, roughness: 0.4 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, y, z);
+  scene.add(mesh);
+
+  mesh.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(mesh);
+  hazards.push({ mesh, box });
+}
+
+function addCheckpoint(x, y, z, title) {
+  const p = addPlatform(x, y, z, 7, 1.0, 7, 0x64748b);
+  const pad = p.mesh;
+
+  const poleGeo = new THREE.CylinderGeometry(0.1, 0.1, 4.0, 8);
+  const poleMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  const pole = new THREE.Mesh(poleGeo, poleMat);
+  pole.position.set(2.8, 2.0, 0);
+  pad.add(pole);
+
+  const flagGeo = new THREE.BoxGeometry(1.4, 0.9, 0.06);
+  const flagMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+  const flag = new THREE.Mesh(flagGeo, flagMat);
+  flag.position.set(0.7, 1.4, 0);
+  pole.add(flag);
+
+  checkpoints.push({
+    mesh: pad,
+    platformObj: p,
+    flagMesh: flag,
+    pos: new THREE.Vector3(x, y + 1.8, z),
+    title: title,
+    activated: false
+  });
+}
+
+function activateCheckpoint(idx) {
+  if (currentCheckpointIdx < idx && checkpoints[idx]) {
+    currentCheckpointIdx = idx;
+    checkpoints[idx].activated = true;
+    checkpoints[idx].platformObj.mesh.material.color.setHex(0x10b981);
+    checkpoints[idx].platformObj.mesh.material.emissive.setHex(0x10b981);
+    checkpoints[idx].platformObj.mesh.material.emissiveIntensity = 0.7;
+    checkpoints[idx].flagMesh.material.color.setHex(0x10b981);
+
+    document.getElementById('stageText').textContent = checkpoints[idx].title;
+    showToast(`체크포인트 저장! (${checkpoints[idx].title})`);
+    audio.playCheckpoint();
+  }
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  const toastMsg = document.getElementById('toastMsg');
+  toastMsg.textContent = msg;
+  toast.classList.remove('hidden', 'toast-anim');
+  void toast.offsetWidth;
+  toast.classList.add('toast-anim');
+  setTimeout(() => {
+    toast.classList.add('hidden');
+  }, 2200);
+}
+
+function respawnPlayer() {
+  deathCount++;
+  document.getElementById('deathText').textContent = `${deathCount}회`;
+  audio.playDeath();
+
+  const cp = checkpoints[currentCheckpointIdx];
+  if (cp) {
+    player.pos.copy(cp.pos);
+    player.vel.set(0, 0, 0);
+  }
+}
+
+function skipToNextCheckpoint() {
+  if (!gameActive) return;
+  if (currentCheckpointIdx < checkpoints.length - 1) {
+    currentCheckpointIdx++;
+    activateCheckpoint(currentCheckpointIdx);
+    player.pos.copy(checkpoints[currentCheckpointIdx].pos);
+    player.vel.set(0, 0, 0);
+    showToast(`⏩ 다음 단계(${checkpoints[currentCheckpointIdx].title})로 이동!`);
+  } else {
+    showToast("🏁 이미 마지막 단계입니다!");
+  }
+}
+
+function setupInput() {
+  window.addEventListener('keydown', (e) => {
+    if (!gameActive) return;
+    const k = e.key.toLowerCase();
+    if (k === 'w' || k === 'arrowup') keys.w = true;
+    if (k === 'a' || k === 'arrowleft') keys.a = true;
+    if (k === 's') {
+      skipToNextCheckpoint();
+    }
+    if (k === 'arrowdown') keys.s = true;
+    if (k === 'd' || k === 'arrowright') keys.d = true;
+    if (k === ' ' || k === 'space') {
+      if (!keys.spacePressed) {
+        keys.jumpRequest = true;
+        keys.spacePressed = true;
+      }
+      e.preventDefault();
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    const k = e.key.toLowerCase();
+    if (k === 'w' || k === 'arrowup') keys.w = false;
+    if (k === 'a' || k === 'arrowleft') keys.a = false;
+    if (k === 'arrowdown') keys.s = false;
+    if (k === 'd' || k === 'arrowright') keys.d = false;
+    if (k === ' ' || k === 'space') {
+      keys.spacePressed = false;
+    }
+  });
+
+  const container = document.getElementById('canvas-container');
+  container.addEventListener('mousedown', (e) => {
+    isMouseDown = true;
+    previousMousePosition = { x: e.clientX, y: e.clientY };
+  });
+
+  window.addEventListener('mouseup', () => {
+    isMouseDown = false;
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isMouseDown) return;
+    const deltaX = e.clientX - previousMousePosition.x;
+    const deltaY = e.clientY - previousMousePosition.y;
+
+    cameraAngle.yaw -= deltaX * 0.005;
+    cameraAngle.pitch += deltaY * 0.005;
+    cameraAngle.pitch = Math.max(0.05, Math.min(1.35, cameraAngle.pitch));
+
+    previousMousePosition = { x: e.clientX, y: e.clientY };
+  });
+
+  // Mobile Screen Camera Drag Touch Listener
+  window.addEventListener('touchstart', (e) => {
+    audio.init();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (t.target.tagName === 'CANVAS' && cameraTouchId === null && t.identifier !== joystickTouchId) {
+        cameraTouchId = t.identifier;
+        previousMousePosition = { x: t.clientX, y: t.clientY };
+      }
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchmove', (e) => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (t.identifier === cameraTouchId) {
+        const deltaX = t.clientX - previousMousePosition.x;
+        const deltaY = t.clientY - previousMousePosition.y;
+
+        cameraAngle.yaw -= deltaX * 0.005;
+        cameraAngle.pitch += deltaY * 0.005;
+        cameraAngle.pitch = Math.max(0.05, Math.min(1.35, cameraAngle.pitch));
+
+        previousMousePosition = { x: t.clientX, y: t.clientY };
+      }
+    }
+  }, { passive: true });
+
+  const endCameraTouch = (e) => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === cameraTouchId) {
+        cameraTouchId = null;
+      }
+    }
+  };
+  window.addEventListener('touchend', endCameraTouch);
+  window.addEventListener('touchcancel', endCameraTouch);
+
+  // Mobile Onscreen Joystick Control
+  const joystickZone = document.getElementById('joystickZone');
+  const joystickKnob = document.getElementById('joystickKnob');
+
+  const handleJoystickMove = (touch) => {
+    const rect = joystickZone.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    let dx = touch.clientX - centerX;
+    let dy = touch.clientY - centerY;
+    const distance = Math.hypot(dx, dy);
+    const maxRadius = rect.width / 2;
+
+    if (distance > maxRadius) {
+      dx = (dx / distance) * maxRadius;
+      dy = (dy / distance) * maxRadius;
+    }
+
+    joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+    joystickInput.x = dx / maxRadius;
+    joystickInput.y = dy / maxRadius;
+  };
+
+  joystickZone.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    audio.init();
+    if (e.changedTouches.length > 0) {
+      const t = e.changedTouches[0];
+      joystickTouchId = t.identifier;
+      handleJoystickMove(t);
+    }
+  });
+
+  joystickZone.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === joystickTouchId) {
+        handleJoystickMove(e.changedTouches[i]);
+      }
+    }
+  });
+
+  const resetJoystick = (e) => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === joystickTouchId) {
+        joystickKnob.style.transform = `translate(0px, 0px)`;
+        joystickInput = { x: 0, y: 0 };
+        joystickTouchId = null;
+      }
+    }
+  };
+
+  joystickZone.addEventListener('touchend', resetJoystick);
+  joystickZone.addEventListener('touchcancel', resetJoystick);
+
+  const touchJumpBtn = document.getElementById('touchJumpBtn');
+  touchJumpBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    audio.init();
+    keys.jumpRequest = true;
+    touchJumpBtn.classList.add('active');
+  });
+  touchJumpBtn.addEventListener('touchend', (e) => {
+    touchJumpBtn.classList.remove('active');
+  });
+}
+
+function updatePhysics(delta) {
+  if (!gameActive) return;
+
+  delta = Math.min(delta, 0.05);
+
+  // Jump Buffer Handling
+  if (keys.jumpRequest) {
+    jumpBufferTimer = JUMP_BUFFER_TIME;
+    keys.jumpRequest = false;
+  } else {
+    jumpBufferTimer -= delta;
+  }
+
+  if (player.isGrounded) {
+    coyoteTimer = COYOTE_TIME;
+  } else {
+    coyoteTimer -= delta;
+  }
+
+  // Calculate Movement Directions
+  let moveX = 0;
+  let moveZ = 0;
+
+  if (keys.w) moveZ -= 1;
+  if (keys.s) moveZ += 1;
+  if (keys.a) moveX -= 1;
+  if (keys.d) moveX += 1;
+
+  if (joystickInput.x !== 0 || joystickInput.y !== 0) {
+    moveX = joystickInput.x;
+    moveZ = joystickInput.y;
+  }
+
+  const inputLen = Math.hypot(moveX, moveZ);
+  let targetVx = 0;
+  let targetVz = 0;
+
+  if (inputLen > 0.01) {
+    const normX = moveX / Math.max(1, inputLen);
+    const normZ = moveZ / Math.max(1, inputLen);
+
+    const sinY = Math.sin(cameraAngle.yaw);
+    const cosY = Math.cos(cameraAngle.yaw);
+
+    targetVx = (normX * cosY - normZ * sinY) * MOVE_SPEED;
+    targetVz = (normX * sinY + normZ * cosY) * MOVE_SPEED;
+
+    const angle = Math.atan2(targetVx, targetVz);
+    playerMesh.rotation.y = angle;
+
+    const legAngle = Math.sin(clock.getElapsedTime() * 14) * 0.5;
+    legL.rotation.x = legAngle;
+    legR.rotation.x = -legAngle;
+  } else {
+    legL.rotation.x = 0;
+    legR.rotation.x = 0;
+  }
+
+  // Friction and Instant Response
+  if (inputLen > 0.01) {
+    player.vel.x += (targetVx - player.vel.x) * 45 * delta;
+    player.vel.z += (targetVz - player.vel.z) * 45 * delta;
+  } else {
+    if (player.isGrounded) {
+      player.vel.x = 0;
+      player.vel.z = 0;
+    } else {
+      player.vel.x += (0 - player.vel.x) * 20 * delta;
+      player.vel.z += (0 - player.vel.z) * 20 * delta;
+    }
+  }
+
+  // Jump Execution
+  if (jumpBufferTimer > 0 && coyoteTimer > 0) {
+    player.vel.y = JUMP_FORCE;
+    coyoteTimer = 0;
+    jumpBufferTimer = 0;
+    player.isGrounded = false;
+    audio.playJump();
+  }
+
+  // Sub-stepping for collision stability
+  const SUB_STEPS = 8;
+  const subDelta = delta / SUB_STEPS;
+  const FEET_OFFSET = 0.6;
+  const HALF_W = 0.35;
+
+  player.isGrounded = false;
+
+  for (let step = 0; step < SUB_STEPS; step++) {
+    player.vel.y += GRAVITY * subDelta;
+    player.pos.y += player.vel.y * subDelta;
+
+    for (let p of platforms) {
+      if (p.mesh.visible === false) continue;
+
+      const b = p.box;
+      if (
+        player.pos.x + HALF_W >= b.min.x &&
+        player.pos.x - HALF_W <= b.max.x &&
+        player.pos.z + HALF_W >= b.min.z &&
+        player.pos.z - HALF_W <= b.max.z
+      ) {
+        const feetY = player.pos.y - FEET_OFFSET;
+        const platformTop = b.max.y;
+
+        if (player.vel.y <= 0 && feetY <= platformTop && feetY >= platformTop - 0.6) {
+          player.pos.y = platformTop + FEET_OFFSET;
+          player.vel.y = 0;
+          player.isGrounded = true;
+
+          if (p.isBoost) {
+            player.vel.y = 23;
+            player.vel.z = -14;
+            audio.playJump();
+          }
+
+          if (p.isVictory) {
+            triggerVictory();
+          }
+
+          const vp = vanishingPlatforms.find(v => v.mesh === p.mesh);
+          if (vp && !vp.stepped) {
+            vp.stepped = true;
+            vp.timer = 0;
+          }
+        }
+      }
+    }
+
+    player.pos.x += player.vel.x * subDelta;
+    player.pos.z += player.vel.z * subDelta;
+  }
+
+  // Hazard Collisions
+  const pBox = new THREE.Box3(
+    new THREE.Vector3(player.pos.x - 0.35, player.pos.y - 0.6, player.pos.z - 0.35),
+    new THREE.Vector3(player.pos.x + 0.35, player.pos.y + 1.2, player.pos.z + 0.35)
+  );
+
+  for (let h of hazards) {
+    if (pBox.intersectsBox(h.box)) {
+      respawnPlayer();
+      return;
+    }
+  }
+
+  // Checkpoints
+  checkpoints.forEach((cp, idx) => {
+    if (player.pos.distanceTo(cp.pos) < 3.2) {
+      activateCheckpoint(idx);
+    }
+  });
+
+  // Fall Death Check
+  if (player.pos.y < START_ALTITUDE - 30) {
+    respawnPlayer();
+  }
+
+  playerMesh.position.copy(player.pos);
+}
+
+function updateMovingPlatforms(delta, time) {
+  movingPlatforms.forEach(p => {
+    p.time += delta;
+    const oldX = p.mesh.position.x;
+    const offset = Math.sin(p.time * p.speed) * p.range;
+    p.mesh.position.x = p.origin + offset;
+    const deltaX = p.mesh.position.x - oldX;
+    p.box.setFromObject(p.mesh);
+
+    if (gameActive && player.isGrounded) {
+      const feetY = player.pos.y - 0.6;
+      if (
+        Math.abs(feetY - p.box.max.y) < 0.35 &&
+        player.pos.x + 0.4 >= p.box.min.x &&
+        player.pos.x - 0.4 <= p.box.max.x &&
+        player.pos.z + 0.4 >= p.box.min.z &&
+        player.pos.z - 0.4 <= p.box.max.z
+      ) {
+        player.pos.x += deltaX;
+      }
+    }
+  });
+
+  rotatingHazards.forEach(h => {
+    h.mesh.rotation.y += h.speed * delta;
+    h.box.setFromObject(h.mesh);
+  });
+
+  vanishingPlatforms.forEach(vp => {
+    if (vp.stepped) {
+      vp.timer += delta;
+      if (vp.timer > vp.vanishDelay && vp.active) {
+        vp.mesh.visible = false;
+        vp.active = false;
+        vp.box.min.set(-999, -999, -999);
+        vp.box.max.set(-999, -999, -999);
+      }
+      if (vp.timer > 2.8) {
+        vp.mesh.visible = true;
+        vp.active = true;
+        vp.stepped = false;
+        vp.timer = 0;
+        vp.box.setFromObject(vp.mesh);
+      }
+    }
+  });
+}
+
+function updateCamera() {
+  const x = player.pos.x + cameraDistance * Math.sin(cameraAngle.yaw) * Math.cos(cameraAngle.pitch);
+  const y = player.pos.y + 1.5 + cameraDistance * Math.sin(cameraAngle.pitch);
+  const z = player.pos.z + cameraDistance * Math.cos(cameraAngle.yaw) * Math.cos(cameraAngle.pitch);
+
+  camera.position.set(x, y, z);
+  camera.lookAt(player.pos.x, player.pos.y + 1.2, player.pos.z);
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function startNewGame() {
+  audio.init();
+  gameActive = true;
+  deathCount = 0;
+  gameTime = 0;
+  currentCheckpointIdx = 0;
+
+  document.getElementById('deathText').textContent = '0회';
+  document.getElementById('timerText').textContent = '00:00';
+  document.getElementById('stageText').textContent = checkpoints[0] ? checkpoints[0].title : "1단계: 기초 스텝";
+  document.getElementById('startScreen').classList.add('opacity-0', 'pointer-events-none');
+  document.getElementById('victoryScreen').classList.add('hidden');
+
+  buildMap();
+  
+  if (checkpoints[0]) {
+    player.pos.copy(checkpoints[0].pos);
+  } else {
+    player.pos.set(0, START_ALTITUDE + 1.8, 0);
+  }
+  player.vel.set(0, 0, 0);
+
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    if (gameActive) {
+      gameTime++;
+      const mins = Math.floor(gameTime / 60).toString().padStart(2, '0');
+      const secs = (gameTime % 60).toString().padStart(2, '0');
+      document.getElementById('timerText').textContent = `${mins}:${secs}`;
+    }
+  }, 1000);
+}
+
+function triggerVictory() {
+  if (!gameActive) return;
+  gameActive = false;
+  clearInterval(timerInterval);
+
+  audio.playVictory();
+
+  const mins = Math.floor(gameTime / 60).toString().padStart(2, '0');
+  const secs = (gameTime % 60).toString().padStart(2, '0');
+  document.getElementById('finalTime').textContent = `${mins}:${secs}`;
+  document.getElementById('finalDeaths').textContent = `${deathCount}회`;
+
+  document.getElementById('victoryScreen').classList.remove('hidden');
+}
+
+function setupEvents() {
+  document.getElementById('startBtn').addEventListener('click', startNewGame);
+  document.getElementById('replayBtn').addEventListener('click', startNewGame);
+  document.getElementById('skipBtn').addEventListener('click', skipToNextCheckpoint);
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    if (gameActive) respawnPlayer();
+  });
+
+  const diffBtns = document.querySelectorAll('.diff-btn');
+  diffBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      diffBtns.forEach(b => {
+        b.classList.remove('active', 'border-blue-500/50', 'bg-blue-500/20', 'text-blue-300', 'shadow-md', 'border-emerald-500/50', 'bg-emerald-500/20', 'text-emerald-300', 'border-orange-500/50', 'bg-orange-500/20', 'text-orange-300', 'border-rose-500/50', 'bg-rose-500/20', 'text-rose-300');
+        b.classList.add('border-transparent', 'text-slate-400');
+      });
+
+      currentDifficulty = btn.dataset.diff;
+      btn.classList.remove('border-transparent', 'text-slate-400');
+      btn.classList.add('active', 'shadow-md');
+
+      if (currentDifficulty === 'easy') btn.classList.add('border-emerald-500/50', 'bg-emerald-500/20', 'text-emerald-300');
+      else if (currentDifficulty === 'normal') btn.classList.add('border-blue-500/50', 'bg-blue-500/20', 'text-blue-300');
+      else if (currentDifficulty === 'hard') btn.classList.add('border-orange-500/50', 'bg-orange-500/20', 'text-orange-300');
+      else if (currentDifficulty === 'impossible') btn.classList.add('border-rose-500/50', 'bg-rose-500/20', 'text-rose-300');
+
+      const badge = document.getElementById('hudDifficultyBadge');
+      const cfg = DIFFICULTY_CONFIG[currentDifficulty];
+      badge.textContent = cfg.name;
+      badge.className = `text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-black border ${cfg.badgeBg}`;
+    });
+  });
+
+  const soundBtn = document.getElementById('soundBtn');
+  soundBtn.addEventListener('click', () => {
+    audio.muted = !audio.muted;
+    soundBtn.textContent = audio.muted ? '🔇' : '🔊';
+  });
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  const delta = clock.getDelta();
+  const elapsedTime = clock.getElapsedTime();
+
+  updateMovingPlatforms(delta, elapsedTime);
+
+  if (gameActive) {
+    updatePhysics(delta);
+  }
+
+  updateCamera();
+  renderer.render(scene, camera);
+}
+
+window.onload = () => {
+  initThree();
+  createPlayer();
+  buildMap();
+  setupInput();
+  setupEvents();
+
+  if (checkpoints[0]) {
+    player.pos.copy(checkpoints[0].pos);
+    playerMesh.position.copy(player.pos);
+  }
+  updateCamera();
+
+  animate();
+};
+</script>
+</body>
+</html>
