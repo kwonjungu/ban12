@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>건강 장보기 타임어택 🛒</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+
+  :root {
+    --bg-gradient: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 50%, #bae6fd 100%);
+    --good: #10b981;
+    --bad: #ef4444;
+    --gold: #f59e0b;
+    --ink: #1e293b;
+    --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg-gradient);
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+
+  #app {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    padding: 12px 14px 16px;
+    gap: 12px;
+    overflow: hidden;
+  }
+
+  .mart-header-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+    color: #ffffff;
+    padding: 8px 14px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: -0.2px;
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .mart-header-banner .badge-fresh {
+    background: #10b981;
+    color: #fff;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+  }
+
+  #hud {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+    flex: 0 0 auto;
+  }
+
+  .panel {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 20px;
+    box-shadow: var(--card-shadow);
+    padding: 10px 14px;
+  }
+
+  .panel .label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    margin-bottom: 2px;
+  }
+
+  .panel .value {
+    font-size: clamp(22px, 6vw, 28px);
+    font-weight: 900;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #timePanel { flex: 1 1 46%; }
+  #scorePanel { flex: 1 1 54%; }
+
+  #timeValue { color: #0284c7; }
+  #timeValue.warn { color: var(--bad); animation: tick .5s ease-in-out infinite; }
+  @keyframes tick { 50% { transform: scale(1.1); } }
+
+  #timeBarWrap {
+    height: 8px;
+    border-radius: 99px;
+    background: #e2e8f0;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+
+  #timeBar {
+    height: 100%;
+    width: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #38bdf8, #0284c7);
+    transition: background .3s ease, width .1s linear;
+  }
+  #timeBar.warn { background: linear-gradient(90deg, #f97316, #ef4444); }
+
+  #scoreValue { color: #f97316; display: flex; align-items: baseline; gap: 4px; }
+  #scoreValue.bump { animation: bump .3s ease; }
+  @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
+  #scoreValue small { font-size: 14px; font-weight: 700; color: #94a3b8; }
+
+  #stage {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #cartFrame {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    max-height: min(100%, 540px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .cart-handle {
+    width: 90%;
+    height: 30px;
+    background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+    border-radius: 12px 12px 0 0;
+    position: relative;
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.2), 0 4px 8px rgba(0,0,0,0.12);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 14px;
+    margin-bottom: -2px;
+    z-index: 3;
+  }
+
+  .cart-handle-bar {
+    color: #facc15;
+    font-size: 11px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .cart-handle-sale {
+    background: #ef4444;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+  }
+
+  #shelf {
+    width: 100%;
+    flex: 1;
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(12px);
+    border: 3px solid #ffffff;
+    border-radius: 24px;
+    box-shadow: 
+      0 20px 30px -10px rgba(0, 0, 0, 0.1),
+      inset 0 0 15px rgba(255, 255, 255, 0.8);
+    padding: 12px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 10px;
+    position: relative;
+  }
+
+  .tile {
+    position: relative;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font-family: inherit;
+    border-radius: 20px;
+    background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    overflow: visible;
+    transition: transform .12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow .12s ease;
+  }
+
+  .tile:active { transform: scale(.92); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04); }
+
+  .tile::after {
+    content: attr(data-name);
+    position: absolute;
+    bottom: 6px;
+    font-size: clamp(9px, 2.4vw, 11px);
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 10px;
+    pointer-events: none;
+    line-height: 1.1;
+    white-space: nowrap;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.06);
+  }
+
+  .tile[data-kind="good"]::after {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+  }
+
+  .tile[data-kind="bad"]::after {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+  }
+
+  .tile[data-kind="gold"]::after {
+    content: '★ ' attr(data-name) ' ★';
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #ffffff;
+    border: 1px solid #f87171;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+  }
+
+  .cart-chassis {
+    width: 92%;
+    height: 16px;
+    position: relative;
+    margin-top: -2px;
+    z-index: 2;
+  }
+  .cart-chassis::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 8%;
+    right: 8%;
+    height: 6px;
+    background: linear-gradient(180deg, #64748b, #334155);
+    border-radius: 4px;
+  }
+  .cart-main-wheel {
+    position: absolute;
+    top: -2px;
+    width: 24px;
+    height: 24px;
+    background: radial-gradient(circle, #f8fafc 30%, #334155 35%, #0f172a 100%);
+    border: 3px solid #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  }
+  .cart-main-wheel.left { left: 12%; }
+  .cart-main-wheel.right { right: 12%; }
+
+  #shelf.shake { animation: shake .38s ease; }
+  @keyframes shake {
+    0%, 100% { transform: translate(0, 0) rotate(0); }
+    15% { transform: translate(-8px, 3px) rotate(-1.5deg); }
+    30% { transform: translate(7px, -4px) rotate(1.2deg); }
+    45% { transform: translate(-6px, 2px) rotate(-1deg); }
+    60% { transform: translate(5px, -2px) rotate(0.8deg); }
+  }
+
+  .tile .face {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 68%;
+    height: 68%;
+    pointer-events: none;
+    filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.12));
+    animation: float 2.8s ease-in-out infinite;
+  }
+  .tile .face svg {
+    width: 100%;
+    height: 100%;
+  }
+  @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+  .tile.fresh { animation: pop .32s cubic-bezier(.2, 1.6, .4, 1); }
+  @keyframes pop { 0% { transform: scale(.3) rotate(-15deg); opacity: 0; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+
+  .tile.gold {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #fde68a 100%);
+    box-shadow: 0 0 0 3px #fbbf24, 0 8px 20px rgba(245, 158, 11, 0.35);
+    animation: cuteGlow 1.2s ease-in-out infinite alternate;
+  }
+  @keyframes cuteGlow {
+    0% { transform: scale(1); box-shadow: 0 0 0 3px #fbbf24, 0 6px 16px rgba(245, 158, 11, 0.3); }
+    100% { transform: scale(1.04); box-shadow: 0 0 0 4px #f59e0b, 0 10px 25px rgba(245, 158, 11, 0.5); }
+  }
+
+  .tile.gold::before {
+    content: '👑';
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 18px;
+    pointer-events: none;
+    animation: crownFloat 1.2s ease-in-out infinite alternate;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  }
+  @keyframes crownFloat {
+    0% { transform: translateX(-50%) translateY(0) rotate(-6deg); }
+    100% { transform: translateX(-50%) translateY(-5px) rotate(6deg); }
+  }
+
+  .tile.gold.fresh {
+    animation: pop .32s cubic-bezier(.2, 1.6, .4, 1), cuteGlow 1.2s ease-in-out .32s infinite alternate;
+  }
+
+  .tile.cursor { outline: 3px solid #0284c7; outline-offset: 3px; }
+
+  .float {
+    position: absolute;
+    left: 50%;
+    top: 5%;
+    transform: translateX(-50%);
+    font-size: clamp(16px, 4.8vw, 22px);
+    font-weight: 900;
+    pointer-events: none;
+    text-shadow: 0 2px 4px rgba(255, 255, 255, 0.9);
+    animation: rise .75s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+    white-space: nowrap;
+    z-index: 5;
+  }
+  @keyframes rise {
+    0% { opacity: 0; transform: translate(-50%, 10px) scale(.6); }
+    25% { opacity: 1; transform: translate(-50%, -4px) scale(1.15); }
+    100% { opacity: 0; transform: translate(-50%, -45px) scale(1); }
+  }
+  .float.plus { color: #10b981; }
+  .float.minus { color: #ef4444; }
+  .float.golden { color: #d97706; }
+
+  #flash {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    border-radius: 24px;
+    z-index: 20;
+  }
+  #flash.bad { animation: flashBad .34s ease-out; background: radial-gradient(circle, transparent 55%, rgba(239, 68, 68, 0.35) 100%); }
+  #flash.good { animation: flashGood .34s ease-out; background: radial-gradient(circle, transparent 55%, rgba(245, 158, 11, 0.35) 100%); }
+  @keyframes flashBad { 0% { opacity: 1; } 100% { opacity: 0; } }
+  @keyframes flashGood { 0% { opacity: 1; } 100% { opacity: 0; } }
+
+  #cartWrapper {
+    flex: 0 0 auto;
+    position: relative;
+    padding-bottom: 4px;
+  }
+
+  #cartStrip {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 62px;
+    padding: 8px 14px;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.25);
+    overflow: visible;
+  }
+
+  .cartHeader {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #f97316, #ea580c);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 6px 12px;
+    border-radius: 14px;
+    flex: 0 0 auto;
+    box-shadow: 0 3px 8px rgba(249, 115, 22, 0.3);
+  }
+
+  .cartIcon { font-size: 18px; line-height: 1; }
+
+  #cartBasket {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1.5px dashed rgba(255, 255, 255, 0.25);
+    border-radius: 14px;
+    padding: 4px 10px;
+    min-height: 44px;
+    overflow: hidden;
+  }
+
+  #cartItems { display: flex; gap: 6px; font-size: 24px; line-height: 1; min-width: 0; align-items: center; }
+  #cartItems span { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; animation: intoCart .28s cubic-bezier(.2, 1.6, .4, 1); }
+  #cartItems span svg { width: 100%; height: 100%; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
+  @keyframes intoCart { 0% { transform: scale(0.2) rotate(-20deg); opacity: 0; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+  #cartEmpty { font-size: 12px; font-weight: 700; color: rgba(255, 255, 255, 0.6); }
+
+  #cartStrip.wobble { animation: wobble .4s ease; }
+  @keyframes wobble {
+    0%, 100% { transform: rotate(0); }
+    30% { transform: rotate(-3deg) translateY(-2px); }
+    65% { transform: rotate(2deg) translateY(1px); }
+  }
+
+  .flying-food {
+    position: fixed;
+    z-index: 999;
+    width: 48px;
+    height: 48px;
+    pointer-events: none;
+    transition: transform 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.15), opacity 0.4s linear;
+    filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.25));
+  }
+  .flying-food svg { width: 100%; height: 100%; }
+
+  #tipBar {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #0369a1;
+    background: #e0f2fe;
+    border: 1px solid #bae6fd;
+    border-radius: 12px;
+    padding: 6px 12px;
+  }
+
+  .screen {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 20px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(16px);
+    animation: fade .3s ease;
+  }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  .screen.hidden { display: none; }
+
+  .cart {
+    font-size: clamp(56px, 20vw, 88px);
+    line-height: 1;
+    animation: rock 2.4s ease-in-out infinite;
+    filter: drop-shadow(0 12px 16px rgba(0, 0, 0, 0.12));
+  }
+  @keyframes rock {
+    0%, 100% { transform: rotate(-5deg) translateY(0); }
+    50% { transform: rotate(5deg) translateY(-8px); }
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(26px, 7.8vw, 36px);
+    font-weight: 900;
+    letter-spacing: -0.8px;
+    color: #0f172a;
+  }
+
+  .sub {
+    margin: 0;
+    font-size: clamp(14px, 4vw, 16px);
+    font-weight: 700;
+    color: #64748b;
+  }
+
+  .rules {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    box-shadow: var(--card-shadow);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    max-width: 340px;
+  }
+
+  .rule {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: clamp(13px, 3.8vw, 15px);
+    font-weight: 700;
+    color: #334155;
+    text-align: left;
+  }
+  .rule .ico { font-size: 22px; flex: 0 0 auto; }
+  .rule b { font-size: 1.05em; }
+  .rule .g { color: #10b981; }
+  .rule .r { color: #ef4444; }
+  .rule .y { color: #d97706; }
+
+  .btn {
+    font-family: inherit;
+    font-size: clamp(17px, 5vw, 20px);
+    font-weight: 800;
+    color: #fff;
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+    border: none;
+    border-radius: 999px;
+    padding: 14px 38px;
+    cursor: pointer;
+    box-shadow: 0 10px 20px -5px rgba(249, 115, 22, 0.4);
+    transition: transform .12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow .12s ease;
+  }
+  .btn:active { transform: scale(.95); box-shadow: 0 4px 10px rgba(249, 115, 22, 0.3); }
+
+  .hint { font-size: 12px; font-weight: 700; color: #94a3b8; margin: 0; }
+
+  .gradeBadge {
+    font-size: clamp(64px, 22vw, 96px);
+    font-weight: 900;
+    line-height: 1;
+    color: var(--gold);
+    text-shadow: 0 6px 16px rgba(245, 158, 11, 0.3);
+    animation: stampIn .5s cubic-bezier(.2, 1.7, .4, 1);
+  }
+  @keyframes stampIn { 0% { transform: scale(2.2) rotate(-12deg); opacity: 0; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+
+  .statRow {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    max-width: 340px;
+  }
+  .stat {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    box-shadow: var(--card-shadow);
+    padding: 12px 8px;
+  }
+  .stat .k { font-size: 11px; font-weight: 700; color: #64748b; }
+  .stat .v { font-size: clamp(20px, 6vw, 26px); font-weight: 900; color: #f97316; font-variant-numeric: tabular-nums; }
+
+  #resultMsg { font-size: clamp(15px, 4.4vw, 18px); font-weight: 800; color: #334155; margin: 0; }
+  #bestLine { font-size: 13px; font-weight: 700; color: #64748b; margin: 0; }
+
+  @media (max-height: 620px) {
+    .cart { font-size: clamp(42px, 14vw, 60px); }
+    .rules { padding: 10px 12px; gap: 6px; }
+    .screen { gap: 10px; }
+    .btn { padding: 10px 28px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="mart-header-banner">
+    <span>🏪 HAPPY MART — 01번 신선 식품 코너</span>
+    <span class="badge-fresh">100% FRESH</span>
+  </div>
+
+  <div id="hud">
+    <div class="panel" id="timePanel">
+      <div class="label">⏰ 남은 시간</div>
+      <div class="value" id="timeValue">30</div>
+      <div id="timeBarWrap"><div id="timeBar"></div></div>
+    </div>
+    <div class="panel" id="scorePanel">
+      <div class="label">🛒 장바구니</div>
+      <div class="value" id="scoreValue">0<small>점</small></div>
+      <div style="height:8px;margin-top:6px;"></div>
+    </div>
+  </div>
+
+  <div id="stage">
+    <div id="cartFrame">
+      <div class="cart-handle">
+        <div class="cart-handle-bar">🥬 초록태그=건강식 | 빨간태그=정크푸드</div>
+        <div class="cart-handle-sale">오늘만 할인!</div>
+      </div>
+      <div id="shelf"></div>
+      <div class="cart-chassis">
+        <div class="cart-main-wheel left"></div>
+        <div class="cart-main-wheel right"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="cartWrapper">
+    <div id="cartStrip">
+      <div class="cartHeader">
+        <span class="cartIcon">🛒</span>
+        <span>카트</span>
+      </div>
+      <div id="cartBasket">
+        <div id="cartItems"></div>
+        <span id="cartEmpty">초록색 이름표 건강식품만 골라 담아!</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="tipBar">🟢 초록 태그(건강식)는 담고, 🔴 빨간 태그(정크푸드)는 피하세요!</div>
+
+  <div id="flash"></div>
+
+  <!-- 시작 화면 -->
+  <div class="screen" id="startScreen">
+    <div class="cart">🛒</div>
+    <h1>건강 장보기 타임어택</h1>
+    <p class="sub">30초 안에 건강한 음식만 쏙쏙 담아보자!</p>
+    <div class="rules">
+      <div class="rule"><span class="ico">🥗</span><span><b>🟢 초록 태그 (건강식)</b> 누르면 <b class="g">+10점</b></span></div>
+      <div class="rule"><span class="ico">🍔</span><span><b>🔴 빨간 태그 (정크푸드)</b> 누르면 <b class="r">-10점</b></span></div>
+      <div class="rule"><span class="ico">✨</span><span><b>★ 황금 베리 ★</b> 누르면 <b class="y">+50점</b></span></div>
+      <div class="rule"><span class="ico">👆</span><span>손가락 톡! / 방향키 + 스페이스바</span></div>
+    </div>
+    <button class="btn" id="startBtn">장보기 시작! 🛒</button>
+    <p class="hint" id="startBest"></p>
+  </div>
+
+  <!-- 결과 화면 -->
+  <div class="screen hidden" id="overScreen">
+    <div class="gradeBadge" id="gradeBadge">S</div>
+    <h1 id="resultTitle">장보기 끝!</h1>
+    <p id="resultMsg">정말 잘했어!</p>
+    <div class="statRow">
+      <div class="stat"><div class="k">🛒 점수</div><div class="v" id="finalScore">0</div></div>
+      <div class="stat"><div class="k">🎯 정확도</div><div class="v" id="finalAcc">0%</div></div>
+    </div>
+    <button class="btn" id="retryBtn">다시 장보기! 🔁</button>
+    <p id="bestLine"></p>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // 고품질 현대식 벡터 SVG 가이드 (부드러운 곡선과 그라데이션)
+  var FOOD_DB = {
+    // === 건강 식품 (GOOD) ===
+    apple: {
+      name: '사과',
+      kind: 'good',
+      svg: '<svg viewBox="0 0 64 64"><defs><linearGradient id="appleGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ff5252"/><stop offset="100%" stop-color="#c62828"/></linearGradient></defs><path d="M 32 16 C 20 16, 10 22, 10 38 C 10 52, 22 60, 32 54 C 42 60, 54 52, 54 38 C 54 22, 44 16, 32 16 Z" fill="url(#appleGrad)"/><path d="M 32 16 Q 29 8 35 2" stroke="#5D4037" stroke-width="4" stroke-linecap="round" fill="none"/><path d="M 34 10 C 44 4, 48 12, 48 12 C 48 12, 40 14, 34 10 Z" fill="#4CAF50"/><ellipse cx="22" cy="28" rx="4" ry="7" fill="#ffffff" opacity="0.4" transform="rotate(-20 22 28)"/></svg>'
+    },
+    broccoli: {
+      name: '브로콜리',
+      kind: 'good',
+      svg: '<svg viewBox="0 0 64 64"><defs><linearGradient id="brocGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#66bb6a"/><stop offset="100%" stop-color="#2e7d32"/></linearGradient></defs><path d="M 26 38 L 22 58 C 22 60, 26 62, 32 62 C 38 62, 42 60, 42 58 L 38 38 Z" fill="#a1887f"/><circle cx="20" cy="28" r="14" fill="url(#brocGrad)"/><circle cx="44" cy="28" r="14" fill="url(#brocGrad)"/><circle cx="32" cy="18" r="16" fill="url(#brocGrad)"/><circle cx="26" cy="22" r="12" fill="#81c784" opacity="0.6"/><circle cx="38" cy="20" r="10" fill="#a5d6a7" opacity="0.6"/></svg>'
+    },
+    milk: {
+      name: '우유',
+      kind: 'good',
+      svg: '<svg viewBox="0 0 64 64"><defs><linearGradient id="milkGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#e3f2fd"/><stop offset="100%" stop-color="#bbdefb"/></linearGradient></defs><path d="M 22 6 L 42 6 L 46 16 L 18 16 Z" fill="#0288d1"/><path d="M 18 16 L 46 16 L 48 58 C 48 60, 46 62, 42 62 L 22 62 C 18 62, 16 60, 16 58 Z" fill="url(#milkGrad)"/><path d="M 16 32 C 24 36, 40 28, 48 32 L 48 58 C 48 60, 46 62, 42 62 L 22 62 C 18 62, 16 60, 16 58 Z" fill="#29b6f6" opacity="0.85"/><path d="M 24 42 Q 32 38 40 42 Q 32 46 24 42" fill="#ffffff"/></svg>'
+    },
+    banana: {
+      name: '바나나',
+      kind: 'good',
+      svg: '<svg viewBox="0 0 64 64"><defs><linearGradient id="banGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fff176"/><stop offset="100%" stop-color="#fbc02d"/></linearGradient></defs><path d="M 10 14 C 30 10, 52 28, 50 52 C 46 52, 40 44, 28 36 C 18 28, 12 20, 10 14 Z" fill="url(#banGrad)" stroke="#f57f17" stroke-width="2"/><path d="M 10 14 Q 8 10 12 8 Q 14 10 12 14 Z" fill="#5D4037"/><path d="M 50 52 L 53 55 L 48 56 Z" fill="#5D4037"/></svg>'
+    },
+    carrot: {
+      name: '당근',
+      kind: 'good',
+      svg: '<svg viewBox="0 0 64 64"><defs><linearGradient id="carrGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ff9800"/><stop offset="100%" stop-color="#e65100"/></linearGradient></defs><path d="M 40 8 C 48 4, 56 12, 54 20 Z" fill="#4caf50"/><path d="M 48 16 C 14 36, 8 58, 8 58 C 8 58, 30 52, 50 24 C 52 20, 51 17, 48 16 Z" fill="url(#carrGrad)"/><path d="M 28 38 Q 34 36 32 32" stroke="#ffb74d" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M 20 46 Q 26 44 24 40" stroke="#ffb74d" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>'
+    },
+    bread: {
+      name: '통밀빵',
+      kind: 'good',
+      svg: '<svg viewBox="0 0 64 64"><defs><linearGradient id="breadGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#b17a58"/><stop offset="100%" stop-color="#795548"/></linearGradient></defs><path d="M 10 26 C 10 12, 54 12, 54 26 C 56 36, 56 52, 50 56 C 44 58, 20 58, 14 56 C 8 52, 8 36, 10 26 Z" fill="url(#breadGrad)"/><path d="M 14 28 C 14 20, 50 20, 50 28 C 51 35, 50 48, 46 52 C 40 54, 24 54, 18 52 C 14 48, 13 35, 14 28 Z" fill="#f5d6ba"/><path d="M 22 28 Q 28 36 24 42" stroke="#d7ccc8" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M 32 28 Q 38 36 34 42" stroke="#d7ccc8" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M 42 28 Q 48 36 44 42" stroke="#d7ccc8" stroke-width="3" stroke-linecap="round" fill="none"/></svg>'
+    },
+    blueberry: {
+      name: '블루베리',
+      kind: 'good',
+      svg: '<svg viewBox="0 0 64 64"><defs><radialGradient id="blueGrad" cx="30%" cy="30%" r="70%"><stop offset="0%" stop-color="#7986cb"/><stop offset="60%" stop-color="#3f51b5"/><stop offset="100%" stop-color="#1a237e"/></radialGradient></defs><circle cx="26" cy="38" r="18" fill="url(#blueGrad)"/><circle cx="42" cy="28" r="16" fill="url(#blueGrad)"/><path d="M 24 24 Q 28 20 28 26 Q 22 28 24 24" fill="#0d47a1"/><path d="M 40 16 Q 44 12 44 18 Q 38 20 40 16" fill="#0d47a1"/><path d="M 28 12 C 32 8, 38 12, 38 12 C 38 12, 32 16, 28 12 Z" fill="#4caf50"/></svg>'
+    },
+    gold: {
+      name: '황금베리',
+      kind: 'gold',
+      svg: '<svg viewBox="0 0 64 64"><defs><radialGradient id="goldGrad" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#ffffff"/><stop offset="30%" stop-color="#ffe082"/><stop offset="70%" stop-color="#ffb300"/><stop offset="100%" stop-color="#ff6f00"/></radialGradient></defs><circle cx="32" cy="36" r="22" fill="url(#goldGrad)" stroke="#ffe082" stroke-width="2"/><path d="M 28 18 Q 32 12 36 18 Q 32 20 28 18" fill="#e65100"/><path d="M 26 12 C 32 6, 40 12, 40 12 C 40 12, 34 16, 26 12 Z" fill="#2e7d32"/><path d="M 22 28 L 24 34 L 30 34 L 25 38 L 27 44 L 22 40 L 17 44 L 19 38 L 14 34 L 20 34 Z" fill="#ffffff" opacity="0.85"/></svg>'
+    },
+
+    // === 정크 푸드 (BAD) ===
+    donut: {
+      name: '도넛',
+      kind: 'bad',
+      svg: '<svg viewBox="0 0 64 64"><defs><linearGradient id="donutGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ff80ab"/><stop offset="100%" stop-color="#ec407a"/></linearGradient></defs><ellipse cx="32" cy="34" rx="24" ry="20" fill="#d7ccc8"/><ellipse cx="32" cy="32" rx="24" ry="20" fill="#f5d6ba"/><path d="M 10 30 C 12 18, 52 18, 54 30 C 52 38, 48 32, 42 36 C 36 40, 32 34, 26 38 C 20 42, 14 34, 10 30 Z" fill="url(#donutGrad)"/><ellipse cx="32" cy="32" rx="8" ry="6" fill="#f1f5f9"/><rect x="20" y="22" width="5" height="2.5" rx="1" fill="#fff" transform="rotate(20 20 22)"/><rect x="38" y="22" width="5" height="2.5" rx="1" fill="#ffeb3b" transform="rotate(-30 38 22)"/><rect x="28" y="18" width="5" height="2.5" rx="1" fill="#00e676" transform="rotate(10 28 18)"/><rect x="44" y="30" width="5" height="2.5" rx="1" fill="#00b0ff" transform="rotate(45 44 30)"/></svg>'
+    },
+    fries: {
+      name: '감자튀김',
+      kind: 'bad',
+      svg: '<svg viewBox="0 0 64 64"><defs><linearGradient id="fryGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#ffeb3b"/><stop offset="100%" stop-color="#fbc02d"/></linearGradient></defs><rect x="18" y="10" width="6" height="28" rx="2" fill="url(#fryGrad)" transform="rotate(-10 18 10)"/><rect x="26" y="6" width="7" height="32" rx="2" fill="url(#fryGrad)"/><rect x="35" y="8" width="6" height="30" rx="2" fill="url(#fryGrad)" transform="rotate(8 35 8)"/><rect x="42" y="14" width="6" height="24" rx="2" fill="url(#fryGrad)" transform="rotate(15 42 14)"/><path d="M 14 26 L 50 26 L 44 60 C 44 61, 42 62, 40 62 L 24 62 C 22 62, 20 61, 20 60 Z" fill="#e53935"/><path d="M 14 26 Q 32 32 50 26 L 48 34 Q 32 40 16 34 Z" fill="#ef5350"/><circle cx="32" cy="46" r="8" fill="#ffffff"/><path d="M 32 40 L 32 52 M 26 46 L 38 46" stroke="#e53935" stroke-width="3"/></svg>'
+    },
+    candy: {
+      name: '사탕',
+      kind: 'bad',
+      svg: '<svg viewBox="0 0 64 64"><defs><linearGradient id="candyGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ff4081"/><stop offset="100%" stop-color="#c2185b"/></linearGradient></defs><path d="M 8 16 L 22 28 L 12 36 Z" fill="#ff80ab"/><path d="M 56 48 L 42 36 L 52 28 Z" fill="#ff80ab"/><circle cx="32" cy="32" r="16" fill="url(#candyGrad)"/><path d="M 22 22 Q 32 32 42 42" stroke="#ffffff" stroke-width="4" stroke-linecap="round" fill="none"/><path d="M 28 18 Q 38 28 46 34" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="3 3" fill="none"/></svg>'
+    },
+    soda: {
+      name: '탄산음료',
+      kind: 'bad',
+      svg: '<svg viewBox="0 0 64 64"><defs><linearGradient id="sodaGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#ef5350"/><stop offset="100%" stop-color="#b71c1c"/></linearGradient></defs><path d="M 40 6 L 46 2 L 42 2 L 36 6 Z" fill="#e0e0e0"/><rect x="22" y="6" width="20" height="6" rx="2" fill="#b0bec5"/><path d="M 18 12 L 46 12 L 48 56 C 48 60, 44 62, 40 62 L 24 62 C 20 62, 16 60, 16 56 Z" fill="url(#sodaGrad)"/><path d="M 16 28 Q 32 34 48 28 L 48 42 Q 32 48 16 42 Z" fill="#ffffff"/><path d="M 26 31 C 26 31, 32 38, 38 31" stroke="#ef5350" stroke-width="3" fill="none" stroke-linecap="round"/></svg>'
+    },
+    cake: {
+      name: '초코케이크',
+      kind: 'bad',
+      svg: '<svg viewBox="0 0 64 64"><defs><linearGradient id="chocoGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#5d4037"/><stop offset="100%" stop-color="#3e2723"/></linearGradient></defs><path d="M 32 8 C 30 8, 28 12, 32 16 C 36 12, 34 8, 32 8 Z" fill="#ff1744"/><path d="M 12 28 L 52 18 L 54 50 L 10 56 Z" fill="url(#chocoGrad)"/><path d="M 12 28 L 32 23 L 52 18 L 52 26 L 32 31 L 12 36 Z" fill="#d81b60"/><path d="M 10 42 L 52 32" stroke="#ffffff" stroke-width="4" stroke-linecap="round" fill="none"/><path d="M 12 28 C 16 32, 20 28, 24 32 C 28 36, 32 30, 36 34 C 40 38, 44 30, 52 28" stroke="#ffffff" stroke-width="3" fill="none"/></svg>'
+    },
+    hotdog: {
+      name: '핫도그',
+      kind: 'bad',
+      svg: '<svg viewBox="0 0 64 64"><defs><linearGradient id="bunGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#ffe082"/><stop offset="100%" stop-color="#ffb300"/></linearGradient></defs><rect x="8" y="24" width="48" height="24" rx="12" fill="url(#bunGrad)" transform="rotate(-15 32 36)"/><rect x="4" y="28" width="56" height="14" rx="7" fill="#e53935" transform="rotate(-15 32 35)"/><path d="M 12 30 Q 20 38 28 28 Q 36 38 44 28 Q 52 36 56 32" stroke="#fbc02d" stroke-width="4" stroke-linecap="round" fill="none"/></svg>'
+    }
+  };
+
+  var GOOD_KEYS = ['apple', 'broccoli', 'milk', 'banana', 'carrot', 'bread', 'blueberry'];
+  var BAD_KEYS  = ['donut', 'fries', 'candy', 'soda', 'cake', 'hotdog'];
+  var TILE_COUNT = 12;
+  var GAME_TIME = 30;
+  var BEST_KEY = 'healthy-shopping-best';
+
+  var shelfEl = document.getElementById('shelf');
+  var timeValueEl = document.getElementById('timeValue');
+  var timeBarEl = document.getElementById('timeBar');
+  var scoreValueEl = document.getElementById('scoreValue');
+  var tipBarEl = document.getElementById('tipBar');
+  var cartStripEl = document.getElementById('cartStrip');
+  var cartItemsEl = document.getElementById('cartItems');
+  var cartEmptyEl = document.getElementById('cartEmpty');
+  var flashEl = document.getElementById('flash');
+  var startScreen = document.getElementById('startScreen');
+  var overScreen = document.getElementById('overScreen');
+  var startBtn = document.getElementById('startBtn');
+  var retryBtn = document.getElementById('retryBtn');
+  var startBest = document.getElementById('startBest');
+  var gradeBadge = document.getElementById('gradeBadge');
+  var resultTitle = document.getElementById('resultTitle');
+  var resultMsg = document.getElementById('resultMsg');
+  var finalScore = document.getElementById('finalScore');
+  var finalAcc = document.getElementById('finalAcc');
+  var bestLine = document.getElementById('bestLine');
+
+  var tiles = [];
+  var state = 'start';
+  var score = 0;
+  var timeLeft = GAME_TIME;
+  var picks = 0;
+  var goodPicks = 0;
+  var goldCooldown = 3;
+  var goldLife = 0;
+  var goldIndex = -1;
+  var cursor = 0;
+  var keyboardMode = false;
+  var basket = [];
+  var cartTimer = 0;
+  var rafId = 0;
+  var lastTs = 0;
+  var shakeTimer = 0;
+  var flashTimer = 0;
+  var tipTimer = 0;
+
+  var audioCtx = null;
+  function initAudio() {
+    if (!audioCtx) {
+      var AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) audioCtx = new AudioCtx();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  }
+
+  function playSound(type) {
+    if (!audioCtx) return;
+    try {
+      var now = audioCtx.currentTime;
+
+      if (type === 'good') {
+        var osc1 = audioCtx.createOscillator();
+        var osc2 = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+
+        osc1.type = 'triangle';
+        osc2.type = 'sine';
+
+        osc1.frequency.setValueAtTime(783.99, now);
+        osc1.frequency.exponentialRampToValueAtTime(1046.50, now + 0.08);
+
+        osc2.frequency.setValueAtTime(987.77, now);
+        osc2.frequency.exponentialRampToValueAtTime(1318.51, now + 0.08);
+
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 0.15);
+        osc2.stop(now + 0.15);
+
+      } else if (type === 'bad') {
+        var osc = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.exponentialRampToValueAtTime(120, now + 0.15);
+
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.16);
+
+      } else if (type === 'gold') {
+        var notes = [1046.50, 1318.51, 1567.98, 2093.00];
+        notes.forEach(function(freq, idx) {
+          var osc = audioCtx.createOscillator();
+          var gain = audioCtx.createGain();
+          var startTime = now + idx * 0.045;
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, startTime);
+
+          gain.gain.setValueAtTime(0.16, startTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.22);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          osc.start(startTime);
+          osc.stop(startTime + 0.22);
+        });
+
+      } else if (type === 'over') {
+        var finishNotes = [523.25, 659.25, 783.99, 1046.50];
+        finishNotes.forEach(function(freq, idx) {
+          var osc = audioCtx.createOscillator();
+          var gain = audioCtx.createGain();
+          var startTime = now + idx * 0.08;
+
+          osc.type = idx === 3 ? 'triangle' : 'sine';
+          osc.frequency.setValueAtTime(freq, startTime);
+
+          gain.gain.setValueAtTime(0.18, startTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          osc.start(startTime);
+          osc.stop(startTime + 0.35);
+        });
+      }
+    } catch (e) {}
+  }
+
+  function loadBest() {
+    try {
+      var v = window.localStorage.getItem(BEST_KEY);
+      var n = parseInt(v, 10);
+      return isNaN(n) ? 0 : n;
+    } catch (e) { return 0; }
+  }
+  function saveBest(v) {
+    try { window.localStorage.setItem(BEST_KEY, String(v)); } catch (e) {}
+  }
+
+  function randKind() {
+    return Math.random() < 0.58 ? 'good' : 'bad';
+  }
+  function foodKeyFor(kind) {
+    if (kind === 'gold') return 'gold';
+    var list = kind === 'good' ? GOOD_KEYS : BAD_KEYS;
+    return list[Math.floor(Math.random() * list.length)];
+  }
+
+  function buildShelf() {
+    shelfEl.innerHTML = '';
+    tiles = [];
+    for (var i = 0; i < TILE_COUNT; i++) {
+      var btn = document.createElement('button');
+      btn.className = 'tile';
+      btn.type = 'button';
+      var span = document.createElement('span');
+      span.className = 'face';
+      btn.appendChild(span);
+      shelfEl.appendChild(btn);
+      tiles.push({ el: btn, span: span, kind: 'good', foodKey: 'apple' });
+      (function (idx) {
+        btn.addEventListener('click', function () { pick(idx); });
+      })(i);
+    }
+  }
+
+  function fillAll() {
+    for (var i = 0; i < TILE_COUNT; i++) {
+      setTile(i, randKind(), false);
+    }
+  }
+
+  function setTile(i, kind, animate) {
+    var t = tiles[i];
+    t.kind = kind;
+    t.foodKey = foodKeyFor(kind);
+    var item = FOOD_DB[t.foodKey] || FOOD_DB.apple;
+    
+    t.span.innerHTML = item.svg;
+    t.el.setAttribute('data-name', item.name);
+    t.el.setAttribute('data-kind', item.kind);
+
+    if (kind === 'gold') {
+      t.el.classList.add('gold');
+      t.el.setAttribute('aria-label', '황금 베리');
+    } else {
+      t.el.classList.remove('gold');
+      t.el.setAttribute('aria-label', item.name + ' (' + (kind === 'good' ? '건강식품' : '정크푸드') + ')');
+    }
+
+    if (animate) {
+      t.el.classList.remove('fresh');
+      void t.el.offsetWidth;
+      t.el.classList.add('fresh');
+    }
+  }
+
+  function floatText(i, msg, type) {
+    var tile = tiles[i];
+    if (!tile || !tile.el) return;
+    var el = document.createElement('div');
+    el.className = 'float ' + (type || 'plus');
+    el.textContent = msg;
+    tile.el.appendChild(el);
+    setTimeout(function () {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, 750);
+  }
+
+  function doShake() {
+    shelfEl.classList.remove('shake');
+    void shelfEl.offsetWidth;
+    shelfEl.classList.add('shake');
+    window.clearTimeout(shakeTimer);
+    shakeTimer = window.setTimeout(function () {
+      shelfEl.classList.remove('shake');
+    }, 400);
+  }
+
+  function doFlash(type) {
+    flashEl.className = type;
+    window.clearTimeout(flashTimer);
+    flashTimer = window.setTimeout(function () {
+      flashEl.className = '';
+    }, 340);
+  }
+
+  function bumpScore() {
+    scoreValueEl.classList.remove('bump');
+    void scoreValueEl.offsetWidth;
+    scoreValueEl.classList.add('bump');
+  }
+
+  function drawCart() {
+    cartItemsEl.innerHTML = '';
+    for (var i = 0; i < basket.length; i++) {
+      var s = document.createElement('span');
+      var item = FOOD_DB[basket[i]] || FOOD_DB.apple;
+      s.innerHTML = item.svg;
+      cartItemsEl.appendChild(s);
+    }
+    cartEmptyEl.style.display = basket.length ? 'none' : 'inline';
+  }
+
+  function wobbleCart() {
+    cartStripEl.classList.remove('wobble');
+    void cartStripEl.offsetWidth;
+    cartStripEl.classList.add('wobble');
+    window.clearTimeout(cartTimer);
+    cartTimer = window.setTimeout(function () {
+      cartStripEl.classList.remove('wobble');
+    }, 440);
+  }
+
+  function say(msg) {
+    tipBarEl.textContent = msg;
+    window.clearTimeout(tipTimer);
+    tipTimer = window.setTimeout(function () {
+      if (state === 'play') tipBarEl.textContent = '🟢 초록 태그(건강식)는 담고, 🔴 빨간 태그(정크푸드)는 피하세요!';
+    }, 1000);
+  }
+
+  var shownTime = -1;
+  var shownScore = -1;
+
+  function flyToCart(fromIndex, foodKey, onComplete) {
+    var tile = tiles[fromIndex];
+    if (!tile || !tile.el) {
+      if (onComplete) onComplete();
+      return;
+    }
+
+    var startRect = tile.el.getBoundingClientRect();
+    var cartBasket = document.getElementById('cartBasket');
+    var targetRect = cartBasket ? cartBasket.getBoundingClientRect() : null;
+
+    var startX = startRect.left + startRect.width / 2 - 24;
+    var startY = startRect.top + startRect.height / 2 - 24;
+
+    var targetX = targetRect ? targetRect.left + targetRect.width / 2 - 24 : startX;
+    var targetY = targetRect ? targetRect.top + targetRect.height / 2 - 24 : startY + 200;
+
+    var flyEl = document.createElement('div');
+    flyEl.className = 'flying-food';
+    var item = FOOD_DB[foodKey] || FOOD_DB.apple;
+    flyEl.innerHTML = item.svg;
+    flyEl.style.left = startX + 'px';
+    flyEl.style.top = startY + 'px';
+    document.body.appendChild(flyEl);
+
+    void flyEl.offsetWidth;
+
+    var deltaX = targetX - startX;
+    var deltaY = targetY - startY;
+
+    flyEl.style.transform = 'translate(' + deltaX + 'px, ' + deltaY + 'px) scale(0.65) rotate(18deg)';
+
+    window.setTimeout(function () {
+      if (flyEl.parentNode) flyEl.parentNode.removeChild(flyEl);
+      if (onComplete) onComplete();
+    }, 400);
+  }
+
+  function drawHud() {
+    var shown = Math.max(0, Math.ceil(timeLeft));
+    if (shown !== shownTime) {
+      shownTime = shown;
+      timeValueEl.textContent = shown;
+      if (shown <= 10) {
+        timeValueEl.classList.add('warn');
+        timeBarEl.classList.add('warn');
+      } else {
+        timeValueEl.classList.remove('warn');
+        timeBarEl.classList.remove('warn');
+      }
+    }
+    var ratio = Math.max(0, timeLeft / GAME_TIME);
+    timeBarEl.style.width = (ratio * 100) + '%';
+    if (score !== shownScore) {
+      shownScore = score;
+      scoreValueEl.innerHTML = score + '<small>점</small>';
+    }
+  }
+
+  function pick(i) {
+    if (state !== 'play') return;
+    initAudio();
+    var kind = tiles[i].kind;
+    var key = tiles[i].foodKey;
+    var item = FOOD_DB[key] || FOOD_DB.apple;
+    picks++;
+
+    if (kind === 'gold') {
+      score += 50;
+      goodPicks++;
+      floatText(i, '+50 ✨', 'golden');
+      doFlash('good');
+      playSound('gold');
+      say('와! ' + item.name + ' 골인! ✨ (+50점)');
+      goldIndex = -1;
+      goldLife = 0;
+      goldCooldown = 4 + Math.random() * 4;
+
+      flyToCart(i, 'gold', function () {
+        basket.push('gold');
+        while (basket.length > 7) basket.shift();
+        drawCart();
+        wobbleCart();
+        bumpScore();
+      });
+    } else if (kind === 'good') {
+      score += 10;
+      goodPicks++;
+      floatText(i, '+10', 'plus');
+      playSound('good');
+      say('건강한 ' + item.name + ' 카트에 쏙! 🥗 (+10점)');
+
+      flyToCart(i, key, function () {
+        basket.push(key);
+        while (basket.length > 7) basket.shift();
+        drawCart();
+        wobbleCart();
+        bumpScore();
+      });
+    } else {
+      score -= 10;
+      if (score < 0) score = 0;
+      basket.pop();
+      floatText(i, '-10', 'minus');
+      doShake();
+      doFlash('bad');
+      playSound('bad');
+      say('앗! ' + item.name + '은(는) 정크푸드야! 😱 (-10점)');
+      drawCart();
+      wobbleCart();
+      bumpScore();
+    }
+
+    setTile(i, randKind(), true);
+    drawHud();
+  }
+
+  function updateGold(dt) {
+    if (goldIndex >= 0) {
+      goldLife -= dt;
+      if (goldLife <= 0) {
+        setTile(goldIndex, randKind(), true);
+        goldIndex = -1;
+        goldCooldown = 4 + Math.random() * 4;
+      }
+      return;
+    }
+    goldCooldown -= dt;
+    if (goldCooldown <= 0) {
+      var i = Math.floor(Math.random() * TILE_COUNT);
+      goldIndex = i;
+      goldLife = 2.8;
+      setTile(i, 'gold', true);
+    }
+  }
+
+  function loop(ts) {
+    rafId = window.requestAnimationFrame(loop);
+    if (!lastTs) lastTs = ts;
+    var dt = (ts - lastTs) / 1000;
+    lastTs = ts;
+    if (document.hidden) return;
+    if (dt > 0.1) dt = 0.1;
+    if (dt < 0) dt = 0;
+    if (state !== 'play') return;
+
+    timeLeft -= dt;
+    updateGold(dt);
+
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      drawHud();
+      gameOver();
+      return;
+    }
+    drawHud();
+  }
+
+  function startLoop() {
+    stopLoop();
+    lastTs = 0;
+    rafId = window.requestAnimationFrame(loop);
+  }
+  function stopLoop() {
+    if (rafId) { window.cancelAnimationFrame(rafId); rafId = 0; }
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    lastTs = 0;
+  });
+
+  function moveCursor(dx, dy) {
+    keyboardMode = true;
+    var col = cursor % 4;
+    var row = Math.floor(cursor / 4);
+    col = Math.min(3, Math.max(0, col + dx));
+    row = Math.min(2, Math.max(0, row + dy));
+    cursor = row * 4 + col;
+    drawCursor();
+  }
+
+  function drawCursor() {
+    for (var i = 0; i < tiles.length; i++) {
+      if (keyboardMode && state === 'play' && i === cursor) tiles[i].el.classList.add('cursor');
+      else tiles[i].el.classList.remove('cursor');
+    }
+  }
+
+  document.addEventListener('keydown', function (e) {
+    var k = e.key;
+    if (e.repeat && (k === ' ' || k === 'Spacebar' || k === 'Enter')) { e.preventDefault(); return; }
+    if (k === ' ' || k === 'Spacebar' || k === 'Enter' || k === 'ArrowUp' ||
+        k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowRight') {
+      e.preventDefault();
+    }
+    if (state === 'start') {
+      if (k === ' ' || k === 'Spacebar' || k === 'Enter') startGame();
+      return;
+    }
+    if (state === 'over') {
+      if (k === ' ' || k === 'Spacebar' || k === 'Enter') startGame();
+      return;
+    }
+    if (k === 'ArrowLeft') moveCursor(-1, 0);
+    else if (k === 'ArrowRight') moveCursor(1, 0);
+    else if (k === 'ArrowUp') moveCursor(0, -1);
+    else if (k === 'ArrowDown') moveCursor(0, 1);
+    else if (k === ' ' || k === 'Spacebar' || k === 'Enter') {
+      keyboardMode = true;
+      drawCursor();
+      pick(cursor);
+    }
+  });
+
+  function startGame() {
+    initAudio();
+    state = 'play';
+    score = 0;
+    timeLeft = GAME_TIME;
+    picks = 0;
+    goodPicks = 0;
+    goldCooldown = 3 + Math.random() * 2;
+    goldLife = 0;
+    goldIndex = -1;
+    cursor = 5;
+    keyboardMode = false;
+    shownTime = -1;
+    shownScore = -1;
+
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+
+    basket = [];
+    drawCart();
+
+    window.clearTimeout(shakeTimer);
+    window.clearTimeout(flashTimer);
+    window.clearTimeout(tipTimer);
+    window.clearTimeout(cartTimer);
+    shelfEl.classList.remove('shake');
+    cartStripEl.classList.remove('wobble');
+    flashEl.classList.remove('bad', 'good');
+    tipBarEl.textContent = '🟢 초록 태그(건강식)는 담고, 🔴 빨간 태그(정크푸드)는 피하세요!';
+
+    startScreen.classList.add('hidden');
+    overScreen.classList.add('hidden');
+
+    fillAll();
+    drawCursor();
+    drawHud();
+    startLoop();
+  }
+
+  function gradeOf(sc, acc) {
+    if (sc >= 500 && acc >= 85) return { g: 'S', t: '완벽한 장보기 왕! 👑', c: '#f59e0b' };
+    if (sc >= 350) return { g: 'A', t: '와, 건강 박사님! 🥇', c: '#10b981' };
+    if (sc >= 220) return { g: 'B', t: '잘했어! 조금만 더! 💪', c: '#0284c7' };
+    if (sc >= 100) return { g: 'C', t: '연습하면 더 잘할 수 있어! 🙂', c: '#f97316' };
+    return { g: 'D', t: '천천히 골라보자! 다시 도전! 🐢', c: '#ef4444' };
+  }
+
+  function gameOver() {
+    state = 'over';
+    stopLoop();
+    drawCursor();
+    playSound('over');
+
+    var acc = picks > 0 ? Math.round((goodPicks / picks) * 100) : 0;
+    var info = gradeOf(score, acc);
+
+    gradeBadge.textContent = info.g;
+    gradeBadge.style.color = info.c;
+    resultTitle.textContent = '장보기 끝! 🛒';
+    resultMsg.textContent = info.t;
+    finalScore.textContent = score;
+    finalAcc.textContent = acc + '%';
+
+    var best = loadBest();
+    if (score > best) {
+      best = score;
+      saveBest(best);
+      bestLine.textContent = '🎉 신기록이야! 최고 점수 ' + best + '점';
+    } else {
+      bestLine.textContent = '최고 점수: ' + best + '점';
+    }
+
+    overScreen.classList.remove('hidden');
+  }
+
+  startBtn.addEventListener('click', startGame);
+  retryBtn.addEventListener('click', startGame);
+
+  buildShelf();
+  fillAll();
+  drawCart();
+  drawHud();
+  var b = loadBest();
+  startBest.textContent = b > 0 ? '내 최고 점수: ' + b + '점' : '스페이스바를 눌러도 시작돼!';
+})();
+</script>
+</body>
+</html>
