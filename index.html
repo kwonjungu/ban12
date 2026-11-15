@@ -425,7 +425,7 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
     <nav class="tabs" role="tablist" aria-label="저장소 메뉴">
       <button class="tabbtn" id="tab-games"   role="tab" aria-selected="true"  aria-controls="panel-games"   data-tab="games">🕹️ 게임 저장소<span class="n">18</span></button>
       <button class="tabbtn" id="tab-prompts" role="tab" aria-selected="false" aria-controls="panel-prompts" data-tab="prompts" tabindex="-1">💬 프롬프트 저장소<span class="n">+9</span></button>
-      <button class="tabbtn" id="tab-new"     role="tab" aria-selected="false" aria-controls="panel-new"     data-tab="new" tabindex="-1">✨ 새 게임<span class="n">72</span></button>
+      <button class="tabbtn" id="tab-new"     role="tab" aria-selected="false" aria-controls="panel-new"     data-tab="new" tabindex="-1">✨ 새 게임<span class="n">78</span></button>
       <button class="tabbtn" id="tab-next"    role="tab" aria-selected="false" aria-controls="panel-next"    data-tab="next" tabindex="-1">🌱 추가 개발 예정</button>
       <button class="tabbtn" id="tab-howto"  role="tab" aria-selected="false" aria-controls="panel-howto"  data-tab="howto" tabindex="-1">📘 사용법</button>
     </nav>
@@ -450,7 +450,7 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
           여러 초등학교 친구들이 AI와 대화하면서 만든 HTML 게임 저장소예요.
           카드의 미리보기는 <b>진짜 게임 화면</b>이에요.</p>
         <div class="stats">
-          <div class="stat"><b>90</b><span>아이들이 만든 게임</span></div>
+          <div class="stat"><b>96</b><span>아이들이 만든 게임</span></div>
           <div class="stat"><b>17</b><span>완성 예시 게임</span></div>
           <div class="stat"><b>109</b><span>단계별 프롬프트</span></div>
           <div class="stat"><b>∞</b><span>만들 수 있는 것</span></div>
@@ -881,7 +881,13 @@ const NEWGAMES = [
   {f:'lunch-recipe-combo-2.html',    t:'급식실 5단계 조합',         d:'조합 60요리 도감 완성하기',         c:'재료 드래그 · ← → · 스페이스', k:'2d', e:'🥘', by:'사천초 09'},
   {f:'gold-miner-hd.html',           t:'골드 마이너',               d:'갈고리로 금덩이를 캐요',            c:'스페이스 발사 · D 폭탄',      k:'canvas', e:'⛏️', by:'사천초 10'},
   {f:'space-rocket-adventure.html',  t:'스페이스 로켓',             d:'외계 함대와 보스를 격추!',          c:'방향키/WASD · 스페이스 발사', k:'canvas', e:'🚀', by:'사천초 11'},
-  {f:'whack-a-puppy.html',           t:'강아지 잡기',               d:'60초 안에 강아지를 잡아요',         c:'클릭·터치로 콕! · 스페이스',  k:'canvas', e:'🐶', by:'사천초 12'}
+  {f:'whack-a-puppy.html',           t:'강아지 잡기',               d:'60초 안에 강아지를 잡아요',         c:'클릭·터치로 콕! · 스페이스',  k:'canvas', e:'🐶', by:'사천초 12'},
+  {f:'sky-drone-fpv-racing-3d/index.html', t:'3D 스카이 드론 레이싱', d:'링을 통과하는 FPV 드론 레이싱', c:'W S 상승·하강 · A D 회전 · 방향키 이동 · Space 부스터', k:'3d', e:'🚁', by:'사천초 신버젼 2', zip:'sky-drone-fpv-racing-3d.zip'},
+  {f:'holy-sword-chronicles/index.html', t:'성검의 연대기', d:'3D 오픈월드 턴제 판타지 RPG', c:'WASD 이동 · 드래그 시점 · 전투는 클릭', k:'3d', e:'⚔️', by:'사천초 신버젼 2', zip:'holy-sword-chronicles.zip'},
+  {f:'arctic-clay-shooter-3d/index.html', t:'북극 클레이 배틀 슈터 3D', d:'클레이 설원 1인칭 슈터', c:'WASD 이동 · 드래그 시선 · Space 발사 · 1~4 교체', k:'3d', e:'🐧', by:'사천초 신버젼 2', zip:'arctic-clay-shooter-3d.zip'},
+  {f:'infinite-stairs-boxer/index.html', t:'무한의 계단', d:'복서와 끝없는 계단 오르기', c:'Space/↑ 오르기 · ← → Z 방향전환', k:'canvas', e:'🥊', by:'사천초 신버젼 2', zip:'infinite-stairs-boxer.zip'},
+  {f:'sky-career-3d/index.html', t:'스카이 커리어 3D', d:'비행기로 화물·승객 수송', c:'Shift/Ctrl 출력 · W S 기수 · A D 선회 · G 기어', k:'3d', e:'✈️', by:'사천초 신버젼 2', zip:'sky-career-3d.zip'},
+  {f:'starfighter-ufo-3d/index.html', t:'스타파이터 3D: UFO 격추', d:'UFO 함대와 모선 보스 격추', c:'← → / A D 이동 · 자동 사격 · Shift 필살기', k:'3d', e:'🛸', by:'사천초 신버젼 2', zip:'starfighter-ufo-3d.zip'}
 ];
 
 /* ─────────── 유틸 ─────────── */
@@ -894,7 +900,8 @@ const promptBlock = text =>
 const hueOf = s => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
 
 /* 캡처 이미지 경로: assets/shots/<폴더>__<파일이름>.jpg */
-const shotOf = (dir, file) => `assets/shots/${dir}__${file.replace(/\.html$/, '')}.jpg`;
+/* 폴더형 게임(빌드 결과를 폴더째 올린 것: 'slug/index.html')은 폴더 이름을 쓴다 */
+const shotOf = (dir, file) => `assets/shots/${dir}__${file.replace(/\/index\.html$/, '').replace(/\.html$/, '')}.jpg`;
 
 /* 카드 아래 버튼들.
    zip 소스가 있는 게임(React 등 빌드해서 올린 것)은 본문이 압축된 번들이라
@@ -904,8 +911,11 @@ const actionsOf = g => `
       ${g.zip
         ? `<a class="act primary" href="games/src/${g.zip}" download>&#128476; zip 다운</a>`
         : `<button class="act primary" type="button" data-copy="games/${g.f}">&#128203; 코드 복사</button>`}
-      <button class="act" type="button" data-view="games/${g.f}" data-title="${esc(g.t)}">&lt;/&gt; 코드 보기</button>
-      <a class="act" href="games/${g.f}" download>&#11015; 저장</a>
+      ${g.f.includes('/')
+        /* 폴더형 게임은 index.html 한 장만으로는 안 돌아가서 코드 보기·저장 대신 새 창 플레이 */
+        ? `<a class="act" href="games/${g.f}" target="_blank" rel="noopener">&#9654; 새 창 플레이</a>`
+        : `<button class="act" type="button" data-view="games/${g.f}" data-title="${esc(g.t)}">&lt;/&gt; 코드 보기</button>
+      <a class="act" href="games/${g.f}" download>&#11015; 저장</a>`}
     </div>`;
 
 /* 캡처가 없을 때 뒤에 깔리는 대체 화면 + 그 위에 실제 게임 화면 캡처 */
