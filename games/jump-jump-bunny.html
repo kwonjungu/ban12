@@ -1,0 +1,1949 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>점프점프 토끼 (Jump Jump Bunny)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+        body {
+            font-family: 'Jua', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            touch-action: manipulation;
+            min-height: 100vh;
+            min-height: 100dvh;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            max-width: 480px;
+            max-height: 850px;
+            margin: 0 auto;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            background-color: #70c5ce;
+        }
+        @media (min-width: 640px) and (min-height: 680px) {
+            #game-container {
+                height: 92dvh;
+                margin-top: 4dvh;
+                border-radius: 28px;
+                border: 6px solid #ffffff;
+            }
+        }
+        .safe-top {
+            padding-top: max(0.85rem, env(safe-area-inset-top));
+        }
+        .safe-overlay {
+            padding-top: max(1rem, env(safe-area-inset-top));
+            padding-bottom: max(1rem, env(safe-area-inset-bottom));
+        }
+        .mobile-scroll-panel {
+            max-height: 100%;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .mobile-scroll-panel::-webkit-scrollbar {
+            display: none;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        .btn-game {
+            transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .btn-game:active {
+            transform: translateY(4px) scale(0.96);
+        }
+        .text-stroke {
+            -webkit-text-stroke: 2px #5c3a21;
+            text-shadow: 0 4px 0 #5c3a21;
+        }
+        .text-stroke-sm {
+            -webkit-text-stroke: 1.5px #5c3a21;
+            text-shadow: 0 2px 0 #5c3a21;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(-2deg); }
+            50% { transform: translateY(-10px) rotate(2deg); }
+        }
+        .animate-float {
+            animation: float 2.2s ease-in-out infinite;
+        }
+    </style>
+<script>var SLS={getItem:function(k){try{return localStorage.getItem(k)}catch(e){return null}},setItem:function(k,v){try{localStorage.setItem(k,v)}catch(e){}}};</script>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+    <div id="game-container">
+        <!-- 게임 캔버스 -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- 상단 HUD (점수 & 단계 & 사운드 버튼) -->
+        <div class="safe-top absolute top-0 left-3 right-3 sm:left-4 sm:right-4 flex justify-between items-start pointer-events-none z-10">
+            <div class="flex flex-col gap-1 sm:gap-1.5">
+                <div class="bg-white/85 backdrop-blur-xs px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-2xl border-2 border-amber-800/30 shadow-sm flex items-center gap-1.5 sm:gap-2">
+                    <span class="text-amber-700 text-xs sm:text-sm">최고</span>
+                    <span id="bestScoreDisplay" class="text-amber-900 text-sm sm:text-lg font-bold">0</span>
+                </div>
+                <div id="hudStageBox" class="hidden bg-white/90 backdrop-blur-xs px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-2xl border-2 border-amber-800/30 shadow-sm flex items-center gap-1.5 sm:gap-2">
+                    <span id="stageDisplay" class="text-amber-950 text-xs sm:text-sm font-bold">1 / 30단계</span>
+                    <span id="difficultyBadge" class="text-[11px] sm:text-xs px-2 py-0.5 rounded-full font-bold bg-emerald-500 text-white">쉬움</span>
+                </div>
+                <div id="hudTimerBox" class="hidden bg-white/90 backdrop-blur-xs px-2.5 py-1 sm:px-3 rounded-2xl border-2 border-amber-800/30 shadow-sm flex items-center gap-1.5 text-amber-950 text-xs sm:text-sm font-bold">
+                    <span>⏱️</span>
+                    <span id="timerDisplay">생존 20.0초</span>
+                </div>
+                <div id="hudBossBox" class="hidden bg-rose-950/90 backdrop-blur-xs px-2.5 py-1 sm:px-3 rounded-2xl border-2 border-amber-300 shadow-sm flex items-center gap-1.5 text-white text-xs sm:text-sm font-bold">
+                    <span id="bossHudName">🤍 흰토끼 보스</span>
+                    <span id="bossRaceStatus" class="text-amber-300">레이스 중!</span>
+                </div>
+                <div id="hudShieldBox" class="hidden bg-sky-500/90 backdrop-blur-xs px-2.5 py-1 sm:px-3 rounded-2xl border-2 border-white shadow-sm flex items-center gap-1.5 text-white text-xs sm:text-sm animate-pulse">
+                    <span>🛡️</span>
+                    <span id="shieldCountText">보호막 x1</span>
+                </div>
+            </div>
+
+            <!-- 중앙 현재 점수 -->
+            <div id="currentScoreDisplay" class="hidden text-5xl sm:text-6xl text-white text-stroke tracking-wider select-none">
+                0
+            </div>
+
+            <!-- 음소거 토글 버튼 -->
+            <button id="soundToggleBtn" type="button" class="pointer-events-auto bg-white/85 hover:bg-white p-2.5 sm:p-3 rounded-2xl border-2 border-amber-800/30 shadow-sm text-amber-900 transition active:scale-90 cursor-pointer" aria-label="소리 켜기/끄기">
+                <svg id="soundOnIcon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                </svg>
+                <svg id="soundOffIcon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 hidden text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- 단계 상승 알림 배너 -->
+        <div id="stageBanner" class="hidden absolute top-24 left-1/2 -translate-x-1/2 pointer-events-none z-20 transition-all duration-300">
+            <div class="bg-amber-950/85 backdrop-blur-sm border-2 border-amber-300 text-white px-5 py-2 rounded-full shadow-lg flex items-center gap-2 whitespace-nowrap">
+                <span id="stageBannerText" class="text-base sm:text-lg font-bold tracking-wide">🎉 2단계 (쉬움)</span>
+            </div>
+        </div>
+
+        <!-- 1. 메인 모드 분리 선택 로비 화면 -->
+        <div id="modeSelectScreen" class="safe-overlay mobile-scroll-panel absolute inset-0 flex flex-col items-center justify-center bg-black/30 backdrop-blur-[2px] z-20 px-4 sm:px-5 text-center">
+            <div class="animate-float mb-1.5 sm:mb-2">
+                <svg class="w-20 h-20 sm:w-24 sm:h-24" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                    <ellipse cx="42" cy="34" rx="11" ry="28" transform="rotate(-12 42 34)" fill="#FFFFFF" stroke="#5C3A21" stroke-width="4.5"/>
+                    <ellipse cx="43" cy="35" rx="5" ry="18" transform="rotate(-12 43 35)" fill="#FFB6C1"/>
+                    <ellipse cx="76" cy="34" rx="11" ry="28" transform="rotate(14 76 34)" fill="#FFFFFF" stroke="#5C3A21" stroke-width="4.5"/>
+                    <ellipse cx="75" cy="35" rx="5" ry="18" transform="rotate(14 75 35)" fill="#FFB6C1"/>
+                    <circle cx="24" cy="82" r="11" fill="#FFFFFF" stroke="#5C3A21" stroke-width="4"/>
+                    <ellipse cx="60" cy="76" rx="34" ry="30" fill="#FFFFFF" stroke="#5C3A21" stroke-width="5"/>
+                    <ellipse cx="60" cy="84" rx="22" ry="18" fill="#FFF0F5"/>
+                    <circle cx="72" cy="68" r="5" fill="#2B1B17"/>
+                    <circle cx="74" cy="66" r="1.8" fill="#FFFFFF"/>
+                    <circle cx="80" cy="78" r="6" fill="#FF8DA1" opacity="0.7"/>
+                    <ellipse cx="90" cy="74" rx="4" ry="3" fill="#FF6B8B" stroke="#5C3A21" stroke-width="2"/>
+                    <rect x="85" y="78" width="6" height="6" rx="1.5" fill="#FFFFFF" stroke="#5C3A21" stroke-width="2"/>
+                </svg>
+            </div>
+
+            <h1 class="text-4xl sm:text-6xl text-pink-200 text-stroke mb-1.5 sm:mb-2 tracking-wide drop-shadow-md">
+                점프점프 토끼
+            </h1>
+            <p class="text-white text-stroke-sm text-sm sm:text-base mb-4 sm:mb-6 bg-amber-900/50 px-3.5 py-1 rounded-full">
+                화면을 터치해 점프! 모드를 선택하세요
+            </p>
+
+            <!-- 획득한 칭호 & 명예 배지 전시대 -->
+            <div id="lobbyBadgeShowcase" class="w-full max-w-sm bg-white/90 backdrop-blur-xs border-2 border-amber-500 rounded-2xl p-2 sm:p-2.5 mb-3 sm:mb-4 shadow-md flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
+                <div id="lobbyHeroBadge" class="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-200 text-slate-500 text-[11px] sm:text-xs font-bold border border-slate-300">
+                    <span>🔒</span>
+                    <span>숲의 영웅 배지 (미획득)</span>
+                </div>
+                <div id="lobbyLegendBadge" class="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-200 text-slate-500 text-[11px] sm:text-xs font-bold border border-slate-300">
+                    <span>🔒</span>
+                    <span>전설의 토끼 배지 (미획득)</span>
+                </div>
+            </div>
+
+            <div class="w-full max-w-sm space-y-3 sm:space-y-4">
+                <!-- 일반 모드 전용 카드 -->
+                <button id="enterNormalLobbyBtn" type="button" class="btn-game w-full bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-300 hover:to-teal-400 text-left p-4 sm:p-5 rounded-3xl border-4 border-emerald-800 shadow-xl cursor-pointer flex items-center justify-between gap-2">
+                    <div>
+                        <div class="text-xl sm:text-3xl text-white text-stroke-sm mb-0.5 sm:mb-1">🏃 일반 모드</div>
+                        <div class="text-emerald-950 font-bold text-xs sm:text-base">1~30단계 · 20초 동안 살아남아 클리어!</div>
+                    </div>
+                    <span class="text-3xl sm:text-4xl shrink-0">🐰</span>
+                </button>
+
+                <!-- 보스전 모드 전용 카드 -->
+                <button id="enterBossLobbyBtn" type="button" class="btn-game w-full bg-gradient-to-r from-rose-500 to-purple-600 hover:from-rose-400 hover:to-purple-500 text-left p-4 sm:p-5 rounded-3xl border-4 border-rose-950 shadow-xl cursor-pointer flex items-center justify-between gap-2">
+                    <div>
+                        <div class="text-xl sm:text-3xl text-amber-200 text-stroke-sm mb-0.5 sm:mb-1">👑 보스전 모드</div>
+                        <div class="text-white font-bold text-xs sm:text-base">5대 전설 토끼와 1등 선두 추월 스피드 대결!</div>
+                    </div>
+                    <span class="text-3xl sm:text-4xl shrink-0">💎</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 2-A. 일반 모드 전용 대기실 화면 -->
+        <div id="normalLobbyScreen" class="safe-overlay mobile-scroll-panel hidden absolute inset-0 flex flex-col items-center justify-center bg-black/30 backdrop-blur-[2px] z-20 px-4 sm:px-5 text-center">
+            <div class="w-full max-w-sm flex justify-between items-center mb-2">
+                <button id="backFromNormalBtn" type="button" class="bg-white/90 hover:bg-white text-amber-950 font-bold text-xs sm:text-sm px-3.5 py-2 rounded-2xl border-2 border-amber-700 shadow-sm cursor-pointer">
+                    ← 모드 선택으로
+                </button>
+                <span class="bg-emerald-500 text-white text-xs sm:text-sm font-bold px-3 py-1 rounded-full border-2 border-emerald-800">🏃 일반 모드</span>
+            </div>
+
+            <h2 class="text-3xl sm:text-4xl text-emerald-200 text-stroke mb-1">일반 생존 모드</h2>
+            <p class="text-white text-stroke-sm text-xs sm:text-sm mb-2.5 sm:mb-3">20초 동안 장애물을 피해 살아남으면 다음 단계로!</p>
+
+            <div class="bg-white/95 backdrop-blur-sm border-4 border-emerald-600 rounded-3xl p-3 sm:p-3.5 mb-3 sm:mb-4 w-full max-w-sm shadow-xl">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-amber-950 text-sm sm:text-base font-bold">🎯 단계 선택 (1~30단계)</span>
+                    <span id="normalDiffBadge" class="text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-500 text-white">1단계 · 쉬움</span>
+                </div>
+                <div class="flex items-center gap-2 mb-2">
+                    <button id="normalPrevBtn" type="button" class="bg-amber-200 hover:bg-amber-300 active:scale-95 text-amber-950 font-bold w-10 h-10 rounded-xl border-2 border-amber-500 text-lg flex items-center justify-center cursor-pointer">◀</button>
+                    <select id="normalStageSelect" class="flex-1 bg-amber-50 border-2 border-amber-500 rounded-xl h-10 px-2 text-center text-amber-950 text-sm sm:text-base font-bold focus:outline-none cursor-pointer"></select>
+                    <button id="normalNextBtn" type="button" class="bg-amber-200 hover:bg-amber-300 active:scale-95 text-amber-950 font-bold w-10 h-10 rounded-xl border-2 border-amber-500 text-lg flex items-center justify-center cursor-pointer">▶</button>
+                </div>
+                <div id="normalGridContainer" class="grid grid-cols-5 sm:grid-cols-6 gap-1.5 text-xs max-h-36 sm:max-h-40 overflow-y-auto p-1.5 bg-amber-50/80 rounded-xl border border-amber-300"></div>
+                <p id="normalShieldHint" class="hidden text-xs text-sky-700 font-bold mt-2 bg-sky-100 rounded-lg py-1 px-2"></p>
+            </div>
+
+            <button id="startNormalBtn" type="button" class="btn-game w-full max-w-sm bg-gradient-to-b from-emerald-400 to-emerald-600 hover:from-emerald-300 hover:to-emerald-500 text-white text-stroke-sm text-2xl sm:text-3xl px-8 py-3 rounded-3xl border-4 border-emerald-900 cursor-pointer" style="box-shadow: 0 6px 0 #064e3b, 0 10px 15px rgba(0,0,0,0.2);">
+                일반 모드 시작! 🐰
+            </button>
+        </div>
+
+        <!-- 2-B. 보스전 모드 전용 대기실 화면 -->
+        <div id="bossLobbyScreen" class="safe-overlay mobile-scroll-panel hidden absolute inset-0 flex flex-col items-center justify-center bg-black/35 backdrop-blur-[2px] z-20 px-4 sm:px-5 text-center">
+            <div class="w-full max-w-sm flex justify-between items-center mb-2">
+                <button id="backFromBossBtn" type="button" class="bg-white/90 hover:bg-white text-rose-950 font-bold text-xs sm:text-sm px-3.5 py-2 rounded-2xl border-2 border-rose-700 shadow-sm cursor-pointer">
+                    ← 모드 선택으로
+                </button>
+                <span class="bg-rose-600 text-white text-xs sm:text-sm font-bold px-3 py-1 rounded-full border-2 border-rose-950">👑 보스전 전용</span>
+            </div>
+
+            <h2 class="text-3xl sm:text-4xl text-amber-200 text-stroke mb-1">보스전 레이스</h2>
+            <p class="text-white text-stroke-sm text-xs sm:text-sm mb-2.5 sm:mb-3">보스를 추월해 가장 먼저 앞쪽으로 치고 나가면 즉시 승리!</p>
+
+            <div class="bg-white/95 backdrop-blur-sm border-4 border-rose-600 rounded-3xl p-3 sm:p-3.5 mb-3 sm:mb-4 w-full max-w-sm shadow-xl">
+                <div class="text-left text-rose-950 text-xs sm:text-sm font-bold mb-2">⚔️ 도전할 보스 선택 (난이도별 5대 보스)</div>
+                <!-- 5대 보스 직관 선택 카드 -->
+                <div class="grid grid-cols-1 gap-1.5 mb-2.5 text-left">
+                    <button type="button" data-boss-stage="1" class="boss-preset-btn flex items-center justify-between px-3 py-2.5 rounded-xl border-2 border-emerald-400 bg-emerald-50 hover:bg-emerald-100 cursor-pointer transition">
+                        <span class="font-bold text-emerald-950 text-xs sm:text-sm">🤍 흰토끼 보스 (쉬움 · 1~5단계)</span>
+                        <span class="text-[11px] sm:text-xs font-bold text-emerald-700 shrink-0">1단계 출발</span>
+                    </button>
+                    <button type="button" data-boss-stage="6" class="boss-preset-btn flex items-center justify-between px-3 py-2.5 rounded-xl border-2 border-amber-400 bg-amber-50 hover:bg-amber-100 cursor-pointer transition">
+                        <span class="font-bold text-amber-950 text-xs sm:text-sm">🖤 흑토끼 보스 (보통 · 6~10단계)</span>
+                        <span class="text-[11px] sm:text-xs font-bold text-amber-700 shrink-0">6단계 출발</span>
+                    </button>
+                    <button type="button" data-boss-stage="11" class="boss-preset-btn flex items-center justify-between px-3 py-2.5 rounded-xl border-2 border-orange-400 bg-orange-50 hover:bg-orange-100 cursor-pointer transition">
+                        <span class="font-bold text-orange-950 text-xs sm:text-sm">💚 에메랄드토끼 보스 (어려움 · 11~15단계)</span>
+                        <span class="text-[11px] sm:text-xs font-bold text-orange-700 shrink-0">11단계 출발</span>
+                    </button>
+                    <button type="button" data-boss-stage="16" class="boss-preset-btn flex items-center justify-between px-3 py-2.5 rounded-xl border-2 border-rose-400 bg-rose-50 hover:bg-rose-100 cursor-pointer transition">
+                        <span class="font-bold text-rose-950 text-xs sm:text-sm">💛 금토끼 보스 (불가능 · 16~20단계)</span>
+                        <span class="text-[11px] sm:text-xs font-bold text-rose-700 shrink-0">16단계 출발</span>
+                    </button>
+                    <button type="button" data-boss-stage="21" class="boss-preset-btn flex items-center justify-between px-3 py-2.5 rounded-xl border-2 border-purple-400 bg-purple-50 hover:bg-purple-100 cursor-pointer transition">
+                        <span class="font-bold text-purple-950 text-xs sm:text-sm">💎 다이아몬드토끼 보스 (헬 · 21~30단계)</span>
+                        <span class="text-[11px] sm:text-xs font-bold text-purple-700 shrink-0">21단계 (방패6)</span>
+                    </button>
+                </div>
+
+                <!-- 세부 보스전 단계 미세 조정 (1~30단계) -->
+                <div class="flex items-center justify-between gap-2 bg-rose-50 p-2 rounded-xl border border-rose-300">
+                    <span class="text-xs font-bold text-rose-950 whitespace-nowrap">세부 단계:</span>
+                    <select id="bossStageSelect" class="flex-1 bg-white border border-rose-400 rounded-lg px-2 py-1.5 text-rose-950 text-xs sm:text-sm font-bold focus:outline-none cursor-pointer"></select>
+                </div>
+            </div>
+
+            <button id="startBossBtn" type="button" class="btn-game w-full max-w-sm bg-gradient-to-b from-rose-500 to-purple-600 hover:from-rose-400 hover:to-purple-500 text-amber-200 text-stroke-sm text-2xl sm:text-3xl px-8 py-3 rounded-3xl border-4 border-rose-950 cursor-pointer" style="box-shadow: 0 6px 0 #4c0519, 0 10px 15px rgba(0,0,0,0.25);">
+                보스전 출격! 👑
+            </button>
+        </div>
+
+        <!-- 게임 오버 화면 오버레이 -->
+        <div id="gameOverScreen" class="safe-overlay mobile-scroll-panel hidden absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-xs z-20 px-4 sm:px-6">
+            <div class="bg-amber-50 border-4 border-amber-700 rounded-3xl p-5 sm:p-6 w-full max-w-xs sm:max-w-sm text-center shadow-2xl transform transition-all">
+                <div id="gameOverModeTag" class="inline-block text-xs font-bold px-3 py-0.5 rounded-full bg-emerald-500 text-white mb-2">🏃 일반 모드</div>
+                <h2 id="gameOverTitle" class="text-2xl sm:text-4xl text-rose-500 text-stroke-sm mb-3 sm:mb-4">아야! 부딪혔어요!</h2>
+                
+                <!-- 점수판 -->
+                <div class="bg-amber-100/80 border-2 border-amber-300 rounded-2xl p-3.5 sm:p-4 mb-3.5 sm:mb-4 space-y-2">
+                    <div class="flex justify-between items-center border-b border-amber-300/70 pb-1.5">
+                        <span class="text-amber-800 text-base sm:text-lg">도달 단계</span>
+                        <span id="finalStage" class="text-base sm:text-xl text-rose-600 font-bold">1단계 (쉬움)</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-amber-300/70 pb-1.5">
+                        <span class="text-amber-800 text-base sm:text-lg">이번 점수</span>
+                        <span id="finalScore" class="text-xl sm:text-2xl text-amber-950">0</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-amber-800 text-base sm:text-lg flex items-center gap-1">최고 점수 👑</span>
+                        <span id="finalBestScore" class="text-xl sm:text-2xl text-amber-600">0</span>
+                    </div>
+                    <div id="newRecordBadge" class="hidden bg-rose-500 text-white text-xs sm:text-sm py-1 px-3 rounded-full animate-bounce">
+                        🎉 신기록 달성! 🎉
+                    </div>
+                </div>
+
+                <!-- 재도전 시 단계 변경 선택 -->
+                <div class="mb-3 bg-white border-2 border-amber-400 rounded-2xl p-2.5 flex items-center justify-between gap-2">
+                    <span class="text-amber-900 text-xs sm:text-sm font-bold whitespace-nowrap">다음 도전 단계:</span>
+                    <select id="retryStageSelect" class="flex-1 bg-amber-50 border border-amber-400 rounded-xl px-2 py-1.5 text-amber-950 text-xs sm:text-sm font-bold focus:outline-none cursor-pointer"></select>
+                </div>
+
+                <div class="space-y-2">
+                    <button id="restartBtn" type="button" class="btn-game w-full bg-gradient-to-b from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-emerald-950 text-lg sm:text-2xl py-3 rounded-2xl border-4 border-emerald-700 cursor-pointer" style="box-shadow: 0 5px 0 #047857, 0 8px 12px rgba(0,0,0,0.2);">
+                        같은 모드로 재도전! 🔄
+                    </button>
+                    <button id="goModeSelectBtn" type="button" class="w-full bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm sm:text-base py-2.5 rounded-2xl border-2 border-amber-600 cursor-pointer transition">
+                        다른 모드 선택하기 (일반 / 보스전)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3-A. 엔딩 1: 일반 모드 30단계 클리어 (숲의 영웅 엔딩) -->
+        <div id="heroEndingScreen" class="safe-overlay mobile-scroll-panel hidden absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-amber-900/85 via-emerald-950/90 to-black/90 backdrop-blur-sm z-30 px-4 sm:px-5 text-center">
+            <div class="bg-gradient-to-b from-amber-50 to-emerald-50 border-4 border-amber-400 rounded-3xl p-5 sm:p-6 w-full max-w-sm shadow-2xl">
+                <div class="inline-block bg-emerald-600 text-white text-xs font-bold px-3.5 py-1 rounded-full mb-2 shadow-xs">
+                    🌟 ENDING 1 · 일반 모드 30단계 완전 정복
+                </div>
+                <h2 class="text-3xl sm:text-4xl text-amber-500 text-stroke-sm mb-2">
+                    숲의 전설적인 영웅!
+                </h2>
+
+                <!-- 영웅 망토 & 황금 왕관 토끼 SVG -->
+                <div class="animate-float my-2 flex justify-center">
+                    <svg width="130" height="120" viewBox="0 0 140 130" xmlns="http://www.w3.org/2000/svg">
+                        <!-- 영웅 붉은 망토 -->
+                        <path d="M35 65 Q12 95 22 118 Q70 112 115 118 Q105 90 85 65 Z" fill="#EF4444" stroke="#7F1D1D" stroke-width="3.5"/>
+                        <!-- 귀 -->
+                        <ellipse cx="52" cy="38" rx="10" ry="26" transform="rotate(-10 52 38)" fill="#FFFFFF" stroke="#5C3A21" stroke-width="4"/>
+                        <ellipse cx="53" cy="39" rx="4.5" ry="16" transform="rotate(-10 53 39)" fill="#FFB6C1"/>
+                        <ellipse cx="84" cy="38" rx="10" ry="26" transform="rotate(12 84 38)" fill="#FFFFFF" stroke="#5C3A21" stroke-width="4"/>
+                        <ellipse cx="83" cy="39" rx="4.5" ry="16" transform="rotate(12 83 39)" fill="#FFB6C1"/>
+                        <!-- 황금 영웅 왕관 -->
+                        <polygon points="52,24 48,8 61,17 68,4 75,17 88,8 84,24" fill="#FACC15" stroke="#854D0E" stroke-width="3"/>
+                        <!-- 몸통 -->
+                        <ellipse cx="68" cy="78" rx="32" ry="28" fill="#FFFFFF" stroke="#5C3A21" stroke-width="4.5"/>
+                        <ellipse cx="68" cy="85" rx="20" ry="16" fill="#FFF0F5"/>
+                        <!-- 영웅 별 엠블럼 -->
+                        <polygon points="68,75 71,82 78,82 72,87 74,94 68,89 62,94 64,87 58,82 65,82" fill="#FACC15" stroke="#B45309" stroke-width="1.5"/>
+                        <!-- 눈 & 표정 -->
+                        <circle cx="79" cy="68" r="4.5" fill="#2B1B17"/>
+                        <circle cx="81" cy="66" r="1.6" fill="#FFFFFF"/>
+                        <circle cx="86" cy="77" r="5.5" fill="#FF8DA1" opacity="0.75"/>
+                        <ellipse cx="95" cy="73" rx="3.5" ry="2.5" fill="#FF6B8B" stroke="#5C3A21" stroke-width="1.8"/>
+                        <!-- 반짝이 -->
+                        <text x="15" y="45" font-size="18">✨</text>
+                        <text x="108" y="42" font-size="18">🏆</text>
+                    </svg>
+                </div>
+
+                <p class="text-amber-950 font-bold text-sm sm:text-base bg-amber-200/70 rounded-2xl p-3 mb-3 leading-relaxed border border-amber-400">
+                    모든 시련을 이겨내고 끝까지 살아남은 토끼는<br>
+                    숲속 친구들을 지키는 <span class="text-emerald-700 underline">위대한 영웅</span>이 되었습니다!
+                </p>
+
+                <div class="flex justify-between items-center bg-white rounded-xl px-4 py-2 mb-4 border-2 border-amber-300 text-sm font-bold text-amber-900">
+                    <span>최종 달성 점수</span>
+                    <span id="heroEndingScore" class="text-xl text-emerald-600">0점</span>
+                </div>
+
+                <!-- 획득한 숲의 영웅 배지 카드 -->
+                <div class="bg-gradient-to-r from-emerald-100 via-amber-100 to-emerald-100 border-2 border-emerald-500 rounded-2xl p-2.5 mb-4 flex items-center justify-center gap-2.5 shadow-inner">
+                    <span class="text-2xl">🎖️</span>
+                    <div class="text-left">
+                        <div class="text-xs text-emerald-800 font-bold">신규 배지 획득 완료!</div>
+                        <div class="text-sm sm:text-base text-amber-950 font-bold">[🏅 숲의 수호 영웅] 명예 배지</div>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <button id="heroToBossBtn" type="button" class="btn-game w-full bg-gradient-to-r from-rose-500 to-purple-600 text-amber-200 text-lg py-2.5 rounded-2xl border-3 border-rose-950 font-bold cursor-pointer shadow-md">
+                        👑 보스전 깨고 전설의 토끼도 되기!
+                    </button>
+                    <button id="heroToLobbyBtn" type="button" class="w-full bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm py-2 rounded-xl border-2 border-amber-500 cursor-pointer">
+                        모드 선택 화면으로 돌아가기
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3-B. 엔딩 2: 보스전 30단계 클리어 (전설의 토끼 각성 진엔딩) -->
+        <div id="diamondEndingScreen" class="safe-overlay mobile-scroll-panel hidden absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-amber-950/90 via-purple-950/90 to-black/95 backdrop-blur-sm z-30 px-4 sm:px-5 text-center">
+            <div class="bg-gradient-to-b from-amber-50 via-yellow-50 to-purple-100 border-4 border-amber-400 rounded-3xl p-5 sm:p-6 w-full max-w-sm shadow-2xl">
+                <div class="inline-block bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 text-white text-xs font-bold px-3.5 py-1 rounded-full mb-2 shadow-xs">
+                    👑 TRUE ENDING 2 · 다이아몬드 토끼 격파!
+                </div>
+                <h2 class="text-3xl sm:text-4xl text-amber-400 text-stroke-sm mb-2">
+                    ✨ 전설의 토끼 등극! ✨
+                </h2>
+
+                <!-- 전설의 토끼 각성 SVG (황금 아우라 + 무지개 날개 + 제왕의 왕관) -->
+                <div class="animate-float my-2 flex justify-center">
+                    <svg width="140" height="125" viewBox="0 0 150 135" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="legendBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#FFFFFF"/>
+                                <stop offset="50%" stop-color="#FEF08A"/>
+                                <stop offset="100%" stop-color="#F59E0B"/>
+                            </linearGradient>
+                            <linearGradient id="legendWingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#FDE047"/>
+                                <stop offset="50%" stop-color="#38BDF8"/>
+                                <stop offset="100%" stop-color="#C084FC"/>
+                            </linearGradient>
+                        </defs>
+                        <!-- 신비로운 황금·무지개 후광 -->
+                        <circle cx="75" cy="72" r="56" fill="#FACC15" opacity="0.25"/>
+                        <circle cx="75" cy="72" r="44" fill="#38BDF8" opacity="0.2"/>
+                        <!-- 전설의 빛나는 날개 -->
+                        <path d="M44 74 Q10 42 18 76 Q28 92 48 86 Z" fill="url(#legendWingGrad)" stroke="#92400E" stroke-width="3"/>
+                        <path d="M106 74 Q140 42 132 76 Q122 92 102 86 Z" fill="url(#legendWingGrad)" stroke="#92400E" stroke-width="3"/>
+                        <!-- 전설의 귀 -->
+                        <ellipse cx="58" cy="40" rx="10" ry="26" transform="rotate(-10 58 40)" fill="url(#legendBodyGrad)" stroke="#78350F" stroke-width="4"/>
+                        <ellipse cx="59" cy="41" rx="4.5" ry="16" transform="rotate(-10 59 41)" fill="#FDE68A"/>
+                        <ellipse cx="90" cy="40" rx="10" ry="26" transform="rotate(12 90 40)" fill="url(#legendBodyGrad)" stroke="#78350F" stroke-width="4"/>
+                        <ellipse cx="89" cy="41" rx="4.5" ry="16" transform="rotate(12 89 41)" fill="#FDE68A"/>
+                        <!-- 다이아몬드가 박힌 전설의 대왕관 -->
+                        <polygon points="56,25 51,8 65,17 74,3 83,17 97,8 92,25" fill="#FACC15" stroke="#78350F" stroke-width="3"/>
+                        <polygon points="74,9 79,15 74,21 69,15" fill="#38BDF8" stroke="#0369A1" stroke-width="1.5"/>
+                        <!-- 전설의 토끼 몸통 -->
+                        <ellipse cx="74" cy="80" rx="33" ry="29" fill="url(#legendBodyGrad)" stroke="#78350F" stroke-width="4.5"/>
+                        <ellipse cx="74" cy="87" rx="21" ry="17" fill="#FFFBEB"/>
+                        <!-- 승리의 다이아몬드 훈장 -->
+                        <polygon points="74,75 82,85 74,95 66,85" fill="#7DD3FC" stroke="#0369A1" stroke-width="2"/>
+                        <!-- 위엄 있고 빛나는 눈 -->
+                        <circle cx="85" cy="70" r="4.5" fill="#451A03"/>
+                        <circle cx="87" cy="68" r="1.8" fill="#FFFFFF"/>
+                        <circle cx="92" cy="79" r="5.5" fill="#FB7185" opacity="0.75"/>
+                        <ellipse cx="101" cy="75" rx="3.5" ry="2.5" fill="#F43F5E" stroke="#78350F" stroke-width="1.8"/>
+                        <!-- 전설의 오라 이펙트 -->
+                        <text x="10" y="38" font-size="20">👑</text>
+                        <text x="116" y="38" font-size="20">💎</text>
+                        <text x="15" y="114" font-size="18">⚡</text>
+                        <text x="114" y="114" font-size="18">🌟</text>
+                    </svg>
+                </div>
+
+                <p class="text-amber-950 font-bold text-sm sm:text-base bg-amber-200/85 rounded-2xl p-3 mb-3 leading-relaxed border border-amber-400">
+                    최강의 라이벌 <strong>💎 다이아몬드 토끼</strong>까지 꺾고<br>
+                    모든 토끼들이 우러러보는 <span class="text-purple-700 underline">전설의 토끼</span>가 되었습니다!
+                </p>
+
+                <div class="flex justify-between items-center bg-white rounded-xl px-4 py-2 mb-4 border-2 border-amber-400 text-sm font-bold text-amber-950">
+                    <span>전설의 토끼 최종 점수</span>
+                    <span id="diamondEndingScore" class="text-xl text-amber-600">0점</span>
+                </div>
+
+                <!-- 획득한 전설의 토끼 칭호 & 배지 카드 -->
+                <div class="bg-gradient-to-r from-amber-200 via-yellow-100 to-purple-200 border-2 border-amber-500 rounded-2xl p-2.5 mb-4 flex items-center justify-center gap-2.5 shadow-inner">
+                    <span class="text-2xl">👑</span>
+                    <div class="text-left">
+                        <div class="text-xs text-purple-800 font-bold">최고 영예 칭호 & 배지 획득!</div>
+                        <div class="text-sm sm:text-base text-amber-950 font-bold">[💎 전설의 토끼] 챔피언 배지</div>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <button id="diamondToNormalBtn" type="button" class="btn-game w-full bg-gradient-to-r from-emerald-400 to-teal-500 text-emerald-950 text-lg py-2.5 rounded-2xl border-3 border-emerald-800 font-bold cursor-pointer shadow-md">
+                        🦸 일반 모드 깨고 숲의 영웅도 되기!
+                    </button>
+                    <button id="diamondToLobbyBtn" type="button" class="w-full bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-sm py-2 rounded-xl border-2 border-amber-500 cursor-pointer">
+                        모드 선택 화면으로 돌아가기
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM 요소 참조
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('game-container');
+        const modeSelectScreen = document.getElementById('modeSelectScreen');
+        const normalLobbyScreen = document.getElementById('normalLobbyScreen');
+        const bossLobbyScreen = document.getElementById('bossLobbyScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+
+        const enterNormalLobbyBtn = document.getElementById('enterNormalLobbyBtn');
+        const enterBossLobbyBtn = document.getElementById('enterBossLobbyBtn');
+        const backFromNormalBtn = document.getElementById('backFromNormalBtn');
+        const backFromBossBtn = document.getElementById('backFromBossBtn');
+        const goModeSelectBtn = document.getElementById('goModeSelectBtn');
+
+        const normalStageSelect = document.getElementById('normalStageSelect');
+        const normalPrevBtn = document.getElementById('normalPrevBtn');
+        const normalNextBtn = document.getElementById('normalNextBtn');
+        const normalDiffBadge = document.getElementById('normalDiffBadge');
+        const normalGridContainer = document.getElementById('normalGridContainer');
+        const normalShieldHint = document.getElementById('normalShieldHint');
+        const startNormalBtn = document.getElementById('startNormalBtn');
+
+        const bossStageSelect = document.getElementById('bossStageSelect');
+        const bossPresetBtns = document.querySelectorAll('.boss-preset-btn');
+        const startBossBtn = document.getElementById('startBossBtn');
+
+        const currentScoreDisplay = document.getElementById('currentScoreDisplay');
+        const bestScoreDisplay = document.getElementById('bestScoreDisplay');
+        const hudStageBox = document.getElementById('hudStageBox');
+        const stageDisplay = document.getElementById('stageDisplay');
+        const difficultyBadge = document.getElementById('difficultyBadge');
+        const hudTimerBox = document.getElementById('hudTimerBox');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const hudBossBox = document.getElementById('hudBossBox');
+        const bossHudName = document.getElementById('bossHudName');
+        const bossRaceStatus = document.getElementById('bossRaceStatus');
+        const hudShieldBox = document.getElementById('hudShieldBox');
+        const shieldCountText = document.getElementById('shieldCountText');
+        const stageBanner = document.getElementById('stageBanner');
+        const stageBannerText = document.getElementById('stageBannerText');
+
+        const gameOverModeTag = document.getElementById('gameOverModeTag');
+        const gameOverTitle = document.getElementById('gameOverTitle');
+        const finalStage = document.getElementById('finalStage');
+        const finalScore = document.getElementById('finalScore');
+        const finalBestScore = document.getElementById('finalBestScore');
+        const newRecordBadge = document.getElementById('newRecordBadge');
+        const retryStageSelect = document.getElementById('retryStageSelect');
+        const restartBtn = document.getElementById('restartBtn');
+
+        const heroEndingScreen = document.getElementById('heroEndingScreen');
+        const heroEndingScore = document.getElementById('heroEndingScore');
+        const heroToBossBtn = document.getElementById('heroToBossBtn');
+        const heroToLobbyBtn = document.getElementById('heroToLobbyBtn');
+
+        const diamondEndingScreen = document.getElementById('diamondEndingScreen');
+        const diamondEndingScore = document.getElementById('diamondEndingScore');
+        const diamondToNormalBtn = document.getElementById('diamondToNormalBtn');
+        const diamondToLobbyBtn = document.getElementById('diamondToLobbyBtn');
+
+        const lobbyHeroBadge = document.getElementById('lobbyHeroBadge');
+        const lobbyLegendBadge = document.getElementById('lobbyLegendBadge');
+
+        const soundToggleBtn = document.getElementById('soundToggleBtn');
+        const soundOnIcon = document.getElementById('soundOnIcon');
+        const soundOffIcon = document.getElementById('soundOffIcon');
+
+        // 게임 상태 변수
+        let width = 0;
+        let height = 0;
+        let gameState = 'START'; // 'START', 'PLAYING', 'GAMEOVER'
+        let gameMode = 'NORMAL'; // 'NORMAL', 'BOSS'
+        let score = 0;
+        let selectedNormalStage = 1;
+        let selectedBossStage = 1;
+        let currentStage = 1;
+        const MAX_STAGE = 30;
+        const STAGE_SURVIVE_TIME = 20;
+        let stageTimeLeft = STAGE_SURVIVE_TIME;
+        let lastFrameTime = 0;
+        let bestScore = parseInt(SLS.getItem('jumpJumpBunnyBestScore')) || 0;
+        let frames = 0;
+        let soundEnabled = true;
+        let stageBannerTimeout = null;
+        let shieldCount = 0;
+        const MAX_SHIELD_COUNT = 6;
+        let shieldInvincibleTimer = 0;
+        let bossFirstGoal = false;
+        let hasHeroBadge = SLS.getItem('jumpJumpBunnyHeroBadge') === 'true';
+        let hasLegendBadge = SLS.getItem('jumpJumpBunnyLegendBadge') === 'true';
+
+        function updateBadgeShowcase() {
+            if (hasHeroBadge) {
+                lobbyHeroBadge.className = 'flex items-center gap-1 px-2.5 py-1 rounded-xl bg-gradient-to-r from-emerald-400 to-amber-300 text-amber-950 text-xs font-bold border-2 border-emerald-700 shadow-xs';
+                lobbyHeroBadge.innerHTML = '<span>🏅</span><span>숲의 영웅 배지</span>';
+            }
+            if (hasLegendBadge) {
+                lobbyLegendBadge.className = 'flex items-center gap-1 px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-300 via-yellow-200 to-purple-300 text-purple-950 text-xs font-bold border-2 border-amber-600 shadow-xs';
+                lobbyLegendBadge.innerHTML = '<span>👑</span><span>전설의 토끼 배지</span>';
+            }
+        }
+
+        // 캔버스 크기 맞춤 함수
+        function resizeCanvas() {
+            const rect = container.getBoundingClientRect();
+            width = Math.max(280, rect.width);
+            height = Math.max(420, rect.height);
+            canvas.width = width;
+            canvas.height = height;
+        }
+
+        bestScoreDisplay.textContent = bestScore;
+
+        // 단계별 난이도 및 보스 정보 반환 (1~30단계)
+        function getStageConfig(stage) {
+            const clampedStage = Math.min(Math.max(stage, 1), MAX_STAGE);
+
+            if (clampedStage <= 5) {
+                const sub = clampedStage - 1;
+                return {
+                    stage: clampedStage,
+                    label: '쉬움',
+                    badgeClass: 'bg-emerald-500 text-white',
+                    speed: 2.3 + sub * 0.12,
+                    gap: 185 - sub * 3,
+                    spawnInterval: 118 - sub * 2,
+                    shieldChance: 0.25,
+                    boss: {
+                        name: '흰토끼 보스',
+                        icon: '🤍',
+                        bodyColor: '#FFFFFF',
+                        innerEarColor: '#FFB6C1',
+                        bellyColor: '#FFF0F5',
+                        eyeColor: '#2B1B17',
+                        outlineColor: '#475569',
+                        auraColor: 'rgba(255, 255, 255, 0.55)',
+                        targetLead: 12 + sub * 4
+                    }
+                };
+            } else if (clampedStage <= 10) {
+                const sub = clampedStage - 6;
+                return {
+                    stage: clampedStage,
+                    label: '보통',
+                    badgeClass: 'bg-amber-500 text-amber-950',
+                    speed: 3.1 + sub * 0.15,
+                    gap: 162 - sub * 3,
+                    spawnInterval: 102 - sub * 2,
+                    shieldChance: 0.30,
+                    boss: {
+                        name: '흑토끼 보스',
+                        icon: '🖤',
+                        bodyColor: '#1E293B',
+                        innerEarColor: '#F43F5E',
+                        bellyColor: '#334155',
+                        eyeColor: '#FDE047',
+                        outlineColor: '#020617',
+                        auraColor: 'rgba(71, 85, 105, 0.55)',
+                        targetLead: 24 + sub * 5
+                    }
+                };
+            } else if (clampedStage <= 15) {
+                const sub = clampedStage - 11;
+                return {
+                    stage: clampedStage,
+                    label: '어려움',
+                    badgeClass: 'bg-orange-500 text-white',
+                    speed: 4.0 + sub * 0.18,
+                    gap: 142 - sub * 2.5,
+                    spawnInterval: 88 - sub * 2,
+                    shieldChance: 0.35,
+                    boss: {
+                        name: '에메랄드토끼 보스',
+                        icon: '💚',
+                        bodyColor: '#10B981',
+                        innerEarColor: '#A7F3D0',
+                        bellyColor: '#6EE7B7',
+                        eyeColor: '#064E3B',
+                        outlineColor: '#065F46',
+                        auraColor: 'rgba(16, 185, 129, 0.55)',
+                        targetLead: 38 + sub * 5
+                    }
+                };
+            } else if (clampedStage <= 20) {
+                const sub = clampedStage - 16;
+                const normalMult = gameMode === 'NORMAL' ? 1.05 : 1.0; // 일반 모드 불가능 난이도 5% 상향
+                return {
+                    stage: clampedStage,
+                    label: '불가능',
+                    badgeClass: 'bg-rose-600 text-white',
+                    speed: (5.1 + sub * 0.2) * normalMult,
+                    gap: Math.round((126 - sub * 2) / normalMult),
+                    spawnInterval: Math.round((76 - sub * 1.5) / normalMult),
+                    shieldChance: 0.78,
+                    boss: {
+                        name: '금토끼 보스',
+                        icon: '💛',
+                        bodyColor: '#FACC15',
+                        innerEarColor: '#FEF08A',
+                        bellyColor: '#FEF9C3',
+                        eyeColor: '#B91C1C',
+                        outlineColor: '#854D0E',
+                        auraColor: 'rgba(250, 204, 21, 0.65)',
+                        targetLead: 52 + sub * 5
+                    }
+                };
+            } else {
+                const sub = clampedStage - 21;
+                const normalMult = gameMode === 'NORMAL' ? 1.05 : 1.0; // 일반 모드 헬 난이도 5% 상향
+                const hellBoost = 1.20 * 0.90; // 이전 헬 난이도에서 10% 완화 (1.08)
+                return {
+                    stage: clampedStage,
+                    label: '헬 🔥',
+                    badgeClass: 'bg-purple-600 text-white',
+                    speed: (5.3 + sub * 0.14) * normalMult * hellBoost,
+                    gap: Math.max(106, Math.round(((136 - sub * 1.2) / normalMult) / hellBoost)),
+                    spawnInterval: Math.max(60, Math.round(((80 - sub * 1.0) / normalMult) / hellBoost)),
+                    shieldChance: 0.90,
+                    boss: {
+                        name: '다이아몬드토끼 보스',
+                        icon: '💎',
+                        bodyColor: '#38BDF8',
+                        innerEarColor: '#E0F2FE',
+                        bellyColor: '#BAE6FD',
+                        eyeColor: '#4F46E5',
+                        outlineColor: '#0369A1',
+                        auraColor: 'rgba(56, 189, 248, 0.75)',
+                        targetLead: 52 + sub * 3.5
+                    }
+                };
+            }
+        }
+
+        // 화면 전환 헬퍼
+        function showLobbyScreen(screenName) {
+            gameState = 'START';
+            modeSelectScreen.classList.add('hidden');
+            normalLobbyScreen.classList.add('hidden');
+            bossLobbyScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            heroEndingScreen.classList.add('hidden');
+            diamondEndingScreen.classList.add('hidden');
+            currentScoreDisplay.classList.add('hidden');
+            hudStageBox.classList.add('hidden');
+            hudTimerBox.classList.add('hidden');
+            hudBossBox.classList.add('hidden');
+            hudShieldBox.classList.add('hidden');
+
+            if (screenName === 'MODE_SELECT') {
+                updateBadgeShowcase();
+                modeSelectScreen.classList.remove('hidden');
+            } else if (screenName === 'NORMAL_LOBBY') {
+                gameMode = 'NORMAL';
+                setNormalStage(selectedNormalStage);
+                normalLobbyScreen.classList.remove('hidden');
+            } else if (screenName === 'BOSS_LOBBY') {
+                gameMode = 'BOSS';
+                setBossStage(selectedBossStage);
+                bossLobbyScreen.classList.remove('hidden');
+            }
+            bunny.reset();
+        }
+
+        heroToBossBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showLobbyScreen('BOSS_LOBBY');
+        });
+        heroToLobbyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showLobbyScreen('MODE_SELECT');
+        });
+        diamondToNormalBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showLobbyScreen('NORMAL_LOBBY');
+        });
+        diamondToLobbyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showLobbyScreen('MODE_SELECT');
+        });
+
+        // 일반 모드 & 보스전 단계 선택기 초기화
+        function initStageSelectors() {
+            normalStageSelect.innerHTML = '';
+            bossStageSelect.innerHTML = '';
+            retryStageSelect.innerHTML = '';
+
+            for (let i = 1; i <= MAX_STAGE; i++) {
+                const cfg = getStageConfig(i);
+
+                const optNormal = document.createElement('option');
+                optNormal.value = i;
+                optNormal.textContent = `${i}단계 (${cfg.label})`;
+                normalStageSelect.appendChild(optNormal);
+
+                const optBoss = document.createElement('option');
+                optBoss.value = i;
+                optBoss.textContent = `${i}단계 · ${cfg.boss.icon} ${cfg.boss.name} (${cfg.label})`;
+                bossStageSelect.appendChild(optBoss);
+
+                const optRetry = document.createElement('option');
+                optRetry.value = i;
+                optRetry.textContent = `${i}단계 (${cfg.label})`;
+                retryStageSelect.appendChild(optRetry);
+            }
+
+            // 일반 모드 1~30단계 번호 버튼 그리드
+            normalGridContainer.innerHTML = '';
+            for (let i = 1; i <= MAX_STAGE; i++) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.dataset.stageNum = i;
+                btn.textContent = `${i}`;
+
+                let colorClass = 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border-emerald-400';
+                if (i >= 6 && i <= 10) colorClass = 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-400';
+                else if (i >= 11 && i <= 15) colorClass = 'bg-orange-100 hover:bg-orange-200 text-orange-900 border-orange-400';
+                else if (i >= 16 && i <= 20) colorClass = 'bg-rose-100 hover:bg-rose-200 text-rose-900 border-rose-400';
+                else if (i >= 21) colorClass = 'bg-purple-100 hover:bg-purple-200 text-purple-900 border-purple-400';
+
+                btn.className = `normal-num-btn ${colorClass} border rounded-lg py-1.5 font-bold cursor-pointer transition`;
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    setNormalStage(i);
+                });
+                normalGridContainer.appendChild(btn);
+            }
+
+            setNormalStage(1);
+            setBossStage(1);
+        }
+
+        function setNormalStage(stage) {
+            selectedNormalStage = Math.min(Math.max(parseInt(stage) || 1, 1), MAX_STAGE);
+            normalStageSelect.value = selectedNormalStage;
+            retryStageSelect.value = selectedNormalStage;
+
+            const cfg = getStageConfig(selectedNormalStage);
+            normalDiffBadge.textContent = `${selectedNormalStage}단계 · ${cfg.label}`;
+            normalDiffBadge.className = `text-xs px-2.5 py-0.5 rounded-full font-bold ${cfg.badgeClass}`;
+
+            if (selectedNormalStage >= 16) {
+                normalShieldHint.textContent = selectedNormalStage >= 20
+                    ? '🛡️ 20~30단계 특전: 시작 시 방패 6개 즉시 지급!'
+                    : '🛡️ 16~19단계 보너스: 방패 아이템 대량 출현!';
+                normalShieldHint.classList.remove('hidden');
+            } else {
+                normalShieldHint.classList.add('hidden');
+            }
+
+            normalGridContainer.querySelectorAll('.normal-num-btn').forEach(btn => {
+                const isSel = parseInt(btn.dataset.stageNum) === selectedNormalStage;
+                btn.classList.toggle('ring-2', isSel);
+                btn.classList.toggle('ring-amber-950', isSel);
+                btn.classList.toggle('scale-105', isSel);
+            });
+        }
+
+        function setBossStage(stage) {
+            selectedBossStage = Math.min(Math.max(parseInt(stage) || 1, 1), MAX_STAGE);
+            bossStageSelect.value = selectedBossStage;
+            retryStageSelect.value = selectedBossStage;
+
+            let activePreset = 1;
+            if (selectedBossStage >= 21) activePreset = 21;
+            else if (selectedBossStage >= 16) activePreset = 16;
+            else if (selectedBossStage >= 11) activePreset = 11;
+            else if (selectedBossStage >= 6) activePreset = 6;
+
+            bossPresetBtns.forEach(btn => {
+                const isSel = parseInt(btn.dataset.bossStage) === activePreset;
+                btn.classList.toggle('ring-2', isSel);
+                btn.classList.toggle('ring-rose-950', isSel);
+                btn.classList.toggle('scale-[1.02]', isSel);
+            });
+        }
+
+        // 로비 및 버튼 이벤트 연결
+        enterNormalLobbyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showLobbyScreen('NORMAL_LOBBY');
+        });
+        enterBossLobbyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showLobbyScreen('BOSS_LOBBY');
+        });
+        backFromNormalBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showLobbyScreen('MODE_SELECT');
+        });
+        backFromBossBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showLobbyScreen('MODE_SELECT');
+        });
+        goModeSelectBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showLobbyScreen('MODE_SELECT');
+        });
+
+        normalStageSelect.addEventListener('change', (e) => setNormalStage(e.target.value));
+        normalPrevBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setNormalStage(selectedNormalStage > 1 ? selectedNormalStage - 1 : MAX_STAGE);
+        });
+        normalNextBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setNormalStage(selectedNormalStage < MAX_STAGE ? selectedNormalStage + 1 : 1);
+        });
+
+        bossStageSelect.addEventListener('change', (e) => setBossStage(e.target.value));
+        bossPresetBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                setBossStage(btn.dataset.bossStage);
+            });
+        });
+
+        retryStageSelect.addEventListener('change', (e) => {
+            if (gameMode === 'BOSS') setBossStage(e.target.value);
+            else setNormalStage(e.target.value);
+        });
+
+        startNormalBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            gameMode = 'NORMAL';
+            startGame();
+        });
+        startBossBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            gameMode = 'BOSS';
+            startGame();
+        });
+
+        function updateStageHUD() {
+            const cfg = getStageConfig(currentStage);
+            stageDisplay.textContent = `${currentStage} / ${MAX_STAGE}단계`;
+            difficultyBadge.textContent = cfg.label;
+            difficultyBadge.className = `text-xs px-2 py-0.5 rounded-full font-bold ${cfg.badgeClass}`;
+            if (gameMode === 'BOSS') {
+                bossHudName.textContent = `${cfg.boss.icon} ${cfg.boss.name}`;
+                hudBossBox.classList.remove('hidden');
+            } else {
+                hudBossBox.classList.add('hidden');
+            }
+        }
+
+        function updateTimerHUD() {
+            if (gameMode === 'BOSS') {
+                const goalX = width - 36;
+                const playerPct = Math.min(100, Math.max(0, Math.round(((bunny.x - 40) / (goalX - 40)) * 100)));
+                timerDisplay.textContent = `선두 도달률 ${playerPct}%`;
+                hudTimerBox.classList.add('bg-white/90', 'text-amber-950', 'border-amber-800/30');
+                hudTimerBox.classList.remove('bg-emerald-500', 'text-white', 'border-white', 'animate-pulse');
+                return;
+            }
+            const clampedTime = Math.max(0, stageTimeLeft);
+            timerDisplay.textContent = `생존 ${clampedTime.toFixed(1)}초`;
+            if (clampedTime <= 5.0) {
+                hudTimerBox.classList.remove('bg-white/90', 'text-amber-950', 'border-amber-800/30');
+                hudTimerBox.classList.add('bg-emerald-500', 'text-white', 'border-white', 'animate-pulse');
+            } else {
+                hudTimerBox.classList.add('bg-white/90', 'text-amber-950', 'border-amber-800/30');
+                hudTimerBox.classList.remove('bg-emerald-500', 'text-white', 'border-white', 'animate-pulse');
+            }
+        }
+
+        function updateShieldHUD() {
+            if (shieldCount > 0) {
+                shieldCountText.textContent = `보호막 x${shieldCount}`;
+                hudShieldBox.classList.remove('hidden');
+            } else {
+                hudShieldBox.classList.add('hidden');
+            }
+        }
+
+        function showStageBanner(text) {
+            stageBannerText.textContent = text;
+            stageBanner.classList.remove('hidden');
+            if (stageBannerTimeout) clearTimeout(stageBannerTimeout);
+            stageBannerTimeout = setTimeout(() => {
+                stageBanner.classList.add('hidden');
+            }, 1900);
+        }
+
+        // Tone.js 사운드 신디사이저
+        let synth = null;
+        function initAudio() {
+            if (!synth && typeof Tone !== 'undefined') {
+                synth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: 'triangle' },
+                    envelope: { attack: 0.01, decay: 0.1, sustain: 0.05, release: 0.2 }
+                }).toDestination();
+                synth.volume.value = -8;
+            }
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            initAudio();
+            if (!synth) return;
+            try {
+                if (Tone.context.state !== 'running') Tone.start();
+                const now = Tone.now();
+                if (type === 'flap') {
+                    synth.triggerAttackRelease('C5', '32n', now);
+                    synth.triggerAttackRelease('F5', '32n', now + 0.04);
+                } else if (type === 'score') {
+                    synth.triggerAttackRelease('E5', '16n', now);
+                    synth.triggerAttackRelease('A5', '16n', now + 0.07);
+                } else if (type === 'stageup') {
+                    synth.triggerAttackRelease('C5', '16n', now);
+                    synth.triggerAttackRelease('E5', '16n', now + 0.07);
+                    synth.triggerAttackRelease('G5', '16n', now + 0.14);
+                    synth.triggerAttackRelease('C6', '8n', now + 0.21);
+                } else if (type === 'shield') {
+                    synth.triggerAttackRelease('F5', '16n', now);
+                    synth.triggerAttackRelease('A5', '16n', now + 0.06);
+                    synth.triggerAttackRelease('C6', '16n', now + 0.12);
+                } else if (type === 'shieldBreak') {
+                    synth.triggerAttackRelease('G4', '16n', now);
+                    synth.triggerAttackRelease('D4', '16n', now + 0.06);
+                } else if (type === 'hit') {
+                    synth.triggerAttackRelease('A3', '16n', now);
+                    synth.triggerAttackRelease('D3', '8n', now + 0.08);
+                }
+            } catch (e) {}
+        }
+
+        soundToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            soundEnabled = !soundEnabled;
+            soundOnIcon.classList.toggle('hidden', !soundEnabled);
+            soundOffIcon.classList.toggle('hidden', soundEnabled);
+        });
+
+        // 파티클 시스템
+        let particles = [];
+        class Particle {
+            constructor(x, y, color, size, vx, vy) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.size = size;
+                this.vx = vx;
+                this.vy = vy;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.03 + 0.025;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.decay;
+            }
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function createJumpParticles(x, y) {
+            const colors = ['#FFFFFF', '#FFB6C1', '#FFF0F5', '#FDE047'];
+            for (let i = 0; i < 7; i++) {
+                particles.push(new Particle(
+                    x - 8,
+                    y + 8,
+                    colors[Math.floor(Math.random() * colors.length)],
+                    Math.random() * 4 + 2.5,
+                    -Math.random() * 2.5 - 1,
+                    (Math.random() - 0.5) * 3.5
+                ));
+            }
+        }
+
+        function createShieldParticles(x, y, isBreak = false) {
+            const colors = isBreak ? ['#38BDF8', '#BAE6FD', '#FFFFFF'] : ['#38BDF8', '#7DD3FC', '#FDE047'];
+            const count = isBreak ? 18 : 12;
+            for (let i = 0; i < count; i++) {
+                const angle = (Math.PI * 2 / count) * i;
+                const speed = isBreak ? (Math.random() * 4 + 2) : (Math.random() * 2.5 + 1.5);
+                particles.push(new Particle(
+                    x,
+                    y,
+                    colors[Math.floor(Math.random() * colors.length)],
+                    Math.random() * 4 + 2.5,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed
+                ));
+            }
+        }
+
+        // 배경 구름 & 언덕
+        const clouds = [
+            { x: 50, y: 90, scale: 0.9, speed: 0.3 },
+            { x: 240, y: 150, scale: 1.2, speed: 0.2 },
+            { x: 400, y: 70, scale: 0.75, speed: 0.35 }
+        ];
+        let groundOffset = 0;
+
+        // 플레이어 토끼 객체
+        const bunny = {
+            x: 90,
+            y: 250,
+            radius: 17,
+            velocity: 0,
+            gravity: 0.42,
+            jumpStrength: -7.6,
+            rotation: 0,
+            earAngle: 0,
+
+            reset() {
+                this.x = gameMode === 'BOSS' ? Math.min(width * 0.22, 95) : Math.min(width * 0.26, 120);
+                this.y = height * 0.45;
+                this.velocity = 0;
+                this.rotation = 0;
+                this.earAngle = 0;
+            },
+
+            flap() {
+                this.velocity = this.jumpStrength;
+                this.earAngle = -0.55;
+                if (gameMode === 'BOSS' && gameState === 'PLAYING') {
+                    this.x = Math.min(width - 30, this.x + 15);
+                }
+                playSound('flap');
+                createJumpParticles(this.x, this.y);
+            },
+
+            update() {
+                if (gameState === 'START') {
+                    this.y = (height * 0.43) + Math.sin(frames * 0.08) * 10;
+                    this.earAngle = Math.sin(frames * 0.1) * 0.15;
+                    return;
+                }
+
+                if (gameMode === 'BOSS' && gameState === 'PLAYING') {
+                    this.x += 0.55;
+                }
+
+                this.velocity += this.gravity;
+                this.y += this.velocity;
+
+                if (this.velocity < 0) {
+                    this.rotation = Math.max(-0.42, this.velocity * 0.05);
+                } else {
+                    this.rotation = Math.min(Math.PI / 2.2, (this.velocity - 2) * 0.075);
+                }
+
+                this.earAngle += (0 - this.earAngle) * 0.12;
+
+                const groundY = height - 85;
+                if (this.y + this.radius >= groundY) {
+                    this.y = groundY - this.radius;
+                    if (gameState === 'PLAYING') {
+                        triggerGameOver('HIT');
+                    }
+                }
+
+                if (this.y - this.radius < 0) {
+                    this.y = this.radius;
+                    this.velocity = 0;
+                }
+            },
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                // 뒤쪽 귀
+                ctx.save();
+                ctx.translate(-5, -12);
+                ctx.rotate(-0.2 + this.earAngle * 0.8);
+                ctx.fillStyle = '#F1F5F9';
+                ctx.strokeStyle = '#5C3A21';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.ellipse(0, -13, 5.5, 15, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+
+                // 꼬리
+                ctx.fillStyle = '#FFFFFF';
+                ctx.strokeStyle = '#5C3A21';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(-18, 4, 6.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // 몸통
+                ctx.fillStyle = '#FFFFFF';
+                ctx.strokeStyle = '#5C3A21';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 19, 17, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // 배 털
+                ctx.fillStyle = '#FFF0F5';
+                ctx.beginPath();
+                ctx.ellipse(2, 5, 12, 9, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 앞쪽 귀
+                ctx.save();
+                ctx.translate(1, -12);
+                ctx.rotate(0.1 + this.earAngle);
+                ctx.fillStyle = '#FFFFFF';
+                ctx.strokeStyle = '#5C3A21';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.ellipse(0, -14, 6, 16, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = '#FFB6C1';
+                ctx.beginPath();
+                ctx.ellipse(0, -14, 2.8, 10, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+                // 눈
+                ctx.fillStyle = '#2B1B17';
+                ctx.beginPath();
+                ctx.arc(8, -4, 3.2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.arc(9, -5.2, 1.2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 볼터치
+                ctx.fillStyle = 'rgba(255, 130, 160, 0.65)';
+                ctx.beginPath();
+                ctx.arc(11, 2, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 코 & 앞니
+                ctx.fillStyle = '#FF6B8B';
+                ctx.beginPath();
+                ctx.ellipse(18, -1, 2.5, 2, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#FFFFFF';
+                ctx.strokeStyle = '#5C3A21';
+                ctx.lineWidth = 1.5;
+                ctx.fillRect(13, 3, 4.5, 4.5);
+                ctx.strokeRect(13, 3, 4.5, 4.5);
+
+                // 앞발
+                ctx.fillStyle = '#F8FAFC';
+                ctx.strokeStyle = '#5C3A21';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.ellipse(-4, 7, 6, 4.5, -0.2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.restore();
+
+                // 보호막 이펙트
+                if (shieldCount > 0) {
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    const pulse = Math.sin(frames * 0.15) * 2.5;
+                    const shieldRadius = this.radius + 11 + pulse;
+
+                    const grad = ctx.createRadialGradient(0, 0, this.radius * 0.5, 0, 0, shieldRadius);
+                    grad.addColorStop(0, 'rgba(56, 189, 248, 0.05)');
+                    grad.addColorStop(0.75, 'rgba(56, 189, 248, 0.28)');
+                    grad.addColorStop(1, 'rgba(186, 230, 253, 0.75)');
+
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, shieldRadius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.strokeStyle = '#E0F2FE';
+                    ctx.lineWidth = 2.5;
+                    ctx.setLineDash([8, 5]);
+                    ctx.lineDashOffset = -frames * 0.8;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, shieldRadius, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    ctx.setLineDash([]);
+                    for (let i = 0; i < shieldCount; i++) {
+                        const orbAngle = (frames * 0.06) + (Math.PI * 2 / shieldCount) * i;
+                        const ox = Math.cos(orbAngle) * (shieldRadius + 3);
+                        const oy = Math.sin(orbAngle) * (shieldRadius + 3);
+                        ctx.fillStyle = '#FDE047';
+                        ctx.strokeStyle = '#0284C7';
+                        ctx.lineWidth = 1.5;
+                        ctx.beginPath();
+                        ctx.arc(ox, oy, 3.8, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                } else if (shieldInvincibleTimer > 0 && frames % 4 < 2) {
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius + 7, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+        };
+
+        // 보스 토끼 객체
+        const bossBunny = {
+            x: 130,
+            y: 200,
+            radius: 19,
+
+            reset() {
+                this.x = Math.min(width * 0.22, 95) + 12;
+                this.y = height * 0.38;
+            },
+
+            update() {
+                if (gameMode !== 'BOSS' || gameState !== 'PLAYING') return;
+                const cfg = getStageConfig(currentStage);
+                const bossAdvance = 0.72 + (cfg.speed - 2.3) * 0.14 + Math.sin(frames * 0.06) * 0.25;
+                this.x += bossAdvance;
+
+                let targetY = (height - 85) * 0.42 + Math.sin(frames * 0.07) * 35;
+                for (const p of pipes) {
+                    if (p.x + pipeWidth > this.x - 20) {
+                        targetY = p.topHeight + p.gap * 0.5 + Math.sin(frames * 0.12) * 10;
+                        break;
+                    }
+                }
+                this.y += (targetY - this.y) * 0.085;
+
+                if (this.x > bunny.x + 4) {
+                    bossRaceStatus.textContent = '보스 선두! 빠르게 점프!';
+                    bossRaceStatus.className = 'text-rose-300';
+                } else {
+                    bossRaceStatus.textContent = '플레이어 1등 추월! ⚡';
+                    bossRaceStatus.className = 'text-emerald-300';
+                }
+            },
+
+            draw() {
+                if (gameMode !== 'BOSS') return;
+                const cfg = getStageConfig(currentStage);
+                const b = cfg.boss;
+                const earFlap = Math.sin(frames * 0.18) * 0.22;
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                const aura = ctx.createRadialGradient(0, 0, 8, 0, 0, 32);
+                aura.addColorStop(0, b.auraColor);
+                aura.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = aura;
+                ctx.beginPath();
+                ctx.arc(0, 0, 32, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.save();
+                ctx.translate(-5, -13);
+                ctx.rotate(-0.2 + earFlap);
+                ctx.fillStyle = b.bodyColor;
+                ctx.strokeStyle = b.outlineColor;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.ellipse(0, -14, 6, 16, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+
+                ctx.fillStyle = b.bellyColor;
+                ctx.strokeStyle = b.outlineColor;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(-19, 4, 7, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = b.bodyColor;
+                ctx.strokeStyle = b.outlineColor;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 21, 18, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = b.bellyColor;
+                ctx.beginPath();
+                ctx.ellipse(2, 5, 13, 9, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.save();
+                ctx.translate(1, -13);
+                ctx.rotate(0.1 - earFlap);
+                ctx.fillStyle = b.bodyColor;
+                ctx.strokeStyle = b.outlineColor;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.ellipse(0, -15, 6.5, 17, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = b.innerEarColor;
+                ctx.beginPath();
+                ctx.ellipse(0, -15, 3, 11, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+                ctx.fillStyle = '#FACC15';
+                ctx.strokeStyle = '#854D0E';
+                ctx.lineWidth = 1.8;
+                ctx.beginPath();
+                ctx.moveTo(-8, -18);
+                ctx.lineTo(-10, -27);
+                ctx.lineTo(-3, -22);
+                ctx.lineTo(0, -29);
+                ctx.lineTo(4, -22);
+                ctx.lineTo(10, -27);
+                ctx.lineTo(8, -18);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = b.eyeColor;
+                ctx.beginPath();
+                ctx.arc(9, -4, 3.4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.arc(10, -5.2, 1.2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = b.outlineColor;
+                ctx.lineWidth = 2.2;
+                ctx.beginPath();
+                ctx.moveTo(4, -9);
+                ctx.lineTo(13, -6.5);
+                ctx.stroke();
+
+                if (currentStage >= 21 && frames % 10 < 5) {
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.beginPath();
+                    ctx.arc(-6, -4, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            }
+        };
+
+        // 파이프 & 방패 아이템 관리
+        let pipes = [];
+        let shields = [];
+        const pipeWidth = 64;
+        let pipeSpawnTimer = 0;
+
+        function spawnPipe() {
+            const cfg = getStageConfig(currentStage);
+            const groundY = height - 85;
+            const minPipeHeight = 55;
+            const maxTopHeight = groundY - cfg.gap - minPipeHeight;
+            const topHeight = Math.floor(Math.random() * (maxTopHeight - minPipeHeight + 1)) + minPipeHeight;
+            const isHell = currentStage >= 21;
+            const hellMoveScale = 1.20 * 0.90; // 헬 움직이는 파이프 10% 완화
+
+            pipes.push({
+                x: width + 20,
+                topHeight: topHeight,
+                baseTopHeight: topHeight,
+                gap: cfg.gap,
+                passed: false,
+                broken: false,
+                isMoving: isHell,
+                movePhase: Math.random() * Math.PI * 2,
+                moveSpeed: isHell ? (0.048 + (currentStage - 21) * 0.004) * hellMoveScale : 0,
+                moveAmp: isHell ? Math.round(46 * hellMoveScale) : 0
+            });
+
+            if (Math.random() < cfg.shieldChance) {
+                shields.push({
+                    x: width + 20 + pipeWidth / 2,
+                    y: topHeight + cfg.gap / 2 + (Math.random() - 0.5) * 30,
+                    radius: 16,
+                    collected: false
+                });
+            }
+        }
+
+        function updatePipes() {
+            const cfg = getStageConfig(currentStage);
+            const pipeSpeed = gameMode === 'BOSS' ? cfg.speed * 1.18 : cfg.speed;
+            const groundY = height - 85;
+
+            pipeSpawnTimer++;
+            if (pipeSpawnTimer >= cfg.spawnInterval) {
+                spawnPipe();
+                pipeSpawnTimer = 0;
+            }
+
+            if (shieldInvincibleTimer > 0) shieldInvincibleTimer--;
+
+            for (let i = pipes.length - 1; i >= 0; i--) {
+                const p = pipes[i];
+                p.x -= pipeSpeed;
+
+                if (p.isMoving) {
+                    p.movePhase += p.moveSpeed;
+                    const minH = 48;
+                    const maxH = groundY - p.gap - 48;
+                    const nextH = p.baseTopHeight + Math.sin(p.movePhase) * p.moveAmp;
+                    p.topHeight = Math.min(Math.max(nextH, minH), maxH);
+                }
+
+                if (!p.passed && p.x + pipeWidth < bunny.x) {
+                    p.passed = true;
+                    score++;
+                    currentScoreDisplay.textContent = score;
+                    playSound('score');
+                }
+
+                if (!p.broken && shieldInvincibleTimer <= 0) {
+                    const hitRadius = bunny.radius - 3;
+                    const withinPipeX = bunny.x + hitRadius > p.x && bunny.x - hitRadius < p.x + pipeWidth;
+                    const hitTop = bunny.y - hitRadius < p.topHeight;
+                    const hitBottom = bunny.y + hitRadius > p.topHeight + p.gap;
+
+                    if (withinPipeX && (hitTop || hitBottom)) {
+                        if (shieldCount > 0) {
+                            shieldCount--;
+                            p.broken = true;
+                            shieldInvincibleTimer = 25;
+                            updateShieldHUD();
+                            playSound('shieldBreak');
+                            createShieldParticles(bunny.x, bunny.y, true);
+                        } else {
+                            triggerGameOver('HIT');
+                            return;
+                        }
+                    }
+                }
+
+                if (p.x + pipeWidth < -30) {
+                    pipes.splice(i, 1);
+                }
+            }
+
+            // 방패 아이템 업데이트
+            for (let i = shields.length - 1; i >= 0; i--) {
+                const s = shields[i];
+                s.x -= pipeSpeed;
+
+                if (!s.collected) {
+                    const dx = bunny.x - s.x;
+                    const dy = bunny.y - s.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < bunny.radius + s.radius + 4) {
+                        s.collected = true;
+                        shieldCount = Math.min(MAX_SHIELD_COUNT, shieldCount + 1);
+                        updateShieldHUD();
+                        playSound('shield');
+                        createShieldParticles(s.x, s.y, false);
+                    }
+                }
+
+                if (s.collected || s.x < -40) {
+                    shields.splice(i, 1);
+                }
+            }
+        }
+
+        function drawPipes() {
+            const groundY = height - 85;
+            for (const p of pipes) {
+                if (p.broken) continue;
+
+                // 위쪽 파이프
+                const topGrad = ctx.createLinearGradient(p.x, 0, p.x + pipeWidth, 0);
+                topGrad.addColorStop(0, '#73BF2E');
+                topGrad.addColorStop(0.3, '#9CE659');
+                topGrad.addColorStop(1, '#558B2F');
+
+                ctx.fillStyle = topGrad;
+                ctx.strokeStyle = '#2E4D14';
+                ctx.lineWidth = 3;
+                ctx.fillRect(p.x + 3, 0, pipeWidth - 6, p.topHeight);
+                ctx.strokeRect(p.x + 3, -2, pipeWidth - 6, p.topHeight + 2);
+
+                ctx.fillRect(p.x - 3, p.topHeight - 24, pipeWidth + 6, 24);
+                ctx.strokeRect(p.x - 3, p.topHeight - 24, pipeWidth + 6, 24);
+
+                // 아래쪽 파이프
+                const bottomY = p.topHeight + p.gap;
+                const bottomH = groundY - bottomY;
+                ctx.fillStyle = topGrad;
+                ctx.fillRect(p.x + 3, bottomY, pipeWidth - 6, bottomH);
+                ctx.strokeRect(p.x + 3, bottomY, pipeWidth - 6, bottomH + 2);
+
+                ctx.fillRect(p.x - 3, bottomY, pipeWidth + 6, 24);
+                ctx.strokeRect(p.x - 3, bottomY, pipeWidth + 6, 24);
+            }
+        }
+
+        function drawShields() {
+            for (const s of shields) {
+                if (s.collected) continue;
+                const bobY = s.y + Math.sin(frames * 0.12) * 5;
+
+                ctx.save();
+                ctx.translate(s.x, bobY);
+
+                const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, 24);
+                glow.addColorStop(0, 'rgba(56, 189, 248, 0.85)');
+                glow.addColorStop(1, 'rgba(56, 189, 248, 0)');
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(0, 0, 24, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#0284C7';
+                ctx.strokeStyle = '#FFFFFF';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(0, -13);
+                ctx.lineTo(12, -8);
+                ctx.lineTo(10, 4);
+                ctx.quadraticCurveTo(0, 14, 0, 15);
+                ctx.quadraticCurveTo(0, 14, -10, 4);
+                ctx.lineTo(-12, -8);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = '#BAE6FD';
+                ctx.beginPath();
+                ctx.arc(0, -1, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        function drawBackground() {
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
+            skyGrad.addColorStop(0, '#4FC3F7');
+            skyGrad.addColorStop(0.7, '#B3E5FC');
+            skyGrad.addColorStop(1, '#E1F5FE');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            for (const c of clouds) {
+                if (gameState === 'PLAYING' || gameState === 'START') {
+                    c.x -= c.speed;
+                    if (c.x < -100) c.x = width + 80;
+                }
+                ctx.save();
+                ctx.translate(c.x, c.y);
+                ctx.scale(c.scale, c.scale);
+                ctx.beginPath();
+                ctx.arc(0, 0, 24, 0, Math.PI * 2);
+                ctx.arc(22, -6, 28, 0, Math.PI * 2);
+                ctx.arc(46, 0, 22, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            const groundY = height - 85;
+            ctx.fillStyle = '#A5D6A7';
+            ctx.beginPath();
+            ctx.moveTo(0, groundY);
+            for (let x = 0; x <= width + 60; x += 60) {
+                const hillH = Math.sin(x * 0.012) * 28 + 45;
+                ctx.lineTo(x, groundY - hillH);
+            }
+            ctx.lineTo(width, groundY);
+            ctx.closePath();
+            ctx.fill();
+
+            if (gameState === 'PLAYING') {
+                const cfg = getStageConfig(currentStage);
+                const bgSpeed = gameMode === 'BOSS' ? cfg.speed * 1.18 : cfg.speed;
+                groundOffset = (groundOffset + bgSpeed) % 32;
+            }
+
+            ctx.fillStyle = '#DED895';
+            ctx.fillRect(0, groundY, width, 85);
+
+            ctx.fillStyle = '#7CB342';
+            ctx.fillRect(0, groundY, width, 18);
+
+            ctx.fillStyle = '#9CCC65';
+            for (let x = -groundOffset; x < width + 32; x += 32) {
+                ctx.beginPath();
+                ctx.moveTo(x, groundY);
+                ctx.lineTo(x + 16, groundY);
+                ctx.lineTo(x + 8, groundY + 18);
+                ctx.lineTo(x - 8, groundY + 18);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            ctx.strokeStyle = '#558B2F';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, groundY);
+            ctx.lineTo(width, groundY);
+            ctx.stroke();
+        }
+
+        function startGame() {
+            initAudio();
+            gameState = 'PLAYING';
+            score = 0;
+            currentStage = gameMode === 'BOSS' ? selectedBossStage : selectedNormalStage;
+            stageTimeLeft = STAGE_SURVIVE_TIME;
+            lastFrameTime = performance.now();
+            pipes = [];
+            shields = [];
+            particles = [];
+            pipeSpawnTimer = 0;
+            bossFirstGoal = false;
+            shieldCount = currentStage >= 20 ? MAX_SHIELD_COUNT : 0;
+            shieldInvincibleTimer = 0;
+
+            bunny.reset();
+            bossBunny.reset();
+            bunny.flap();
+
+            currentScoreDisplay.textContent = '0';
+            currentScoreDisplay.classList.remove('hidden');
+            hudStageBox.classList.remove('hidden');
+            hudTimerBox.classList.remove('hidden');
+            updateTimerHUD();
+            updateShieldHUD();
+
+            modeSelectScreen.classList.add('hidden');
+            normalLobbyScreen.classList.add('hidden');
+            bossLobbyScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            heroEndingScreen.classList.add('hidden');
+            diamondEndingScreen.classList.add('hidden');
+
+            updateStageHUD();
+            const cfg = getStageConfig(currentStage);
+            if (gameMode === 'BOSS') {
+                showStageBanner(`${cfg.boss.icon} ${cfg.boss.name} 대결! 보스를 앞질러 먼저 돌파하세요!`);
+            } else if (currentStage >= 20) {
+                showStageBanner(`🛡️ ${currentStage}단계 (${cfg.label}) 방패 6개 · 20초 생존 도전!`);
+            } else {
+                showStageBanner(`🚀 ${currentStage}단계 (${cfg.label}) · 20초 동안 살아남으세요!`);
+            }
+        }
+
+        function triggerGameOver(reason = 'HIT') {
+            gameState = 'GAMEOVER';
+            const cfg = getStageConfig(currentStage);
+
+            if (score > bestScore) {
+                bestScore = score;
+                SLS.setItem('jumpJumpBunnyBestScore', bestScore);
+                bestScoreDisplay.textContent = bestScore;
+                newRecordBadge.classList.remove('hidden');
+            } else {
+                newRecordBadge.classList.add('hidden');
+            }
+
+            currentScoreDisplay.classList.add('hidden');
+            // 30단계 클리어 시 모드별 전용 엔딩 및 배지 지급
+            if (reason === 'CLEAR') {
+                playSound('stageup');
+                if (gameMode === 'BOSS') {
+                    hasLegendBadge = true;
+                    SLS.setItem('jumpJumpBunnyLegendBadge', 'true');
+                    updateBadgeShowcase();
+                    diamondEndingScore.textContent = `${score}점`;
+                    diamondEndingScreen.classList.remove('hidden');
+                } else {
+                    hasHeroBadge = true;
+                    SLS.setItem('jumpJumpBunnyHeroBadge', 'true');
+                    updateBadgeShowcase();
+                    heroEndingScore.textContent = `${score}점`;
+                    heroEndingScreen.classList.remove('hidden');
+                }
+                return;
+            }
+
+            if (gameMode === 'BOSS') {
+                gameOverModeTag.textContent = '👑 보스전 모드';
+                gameOverModeTag.className = 'inline-block text-xs font-bold px-3 py-0.5 rounded-full bg-rose-600 text-white mb-2';
+            } else {
+                gameOverModeTag.textContent = '🏃 일반 모드';
+                gameOverModeTag.className = 'inline-block text-xs font-bold px-3 py-0.5 rounded-full bg-emerald-500 text-white mb-2';
+            }
+
+            if (reason === 'BOSS_LOSE') {
+                playSound('hit');
+                gameOverTitle.textContent = `${cfg.boss.icon} ${cfg.boss.name}가 먼저 도착했어요!`;
+                gameOverTitle.className = 'text-2xl sm:text-3xl text-rose-500 text-stroke-sm mb-4';
+            } else {
+                playSound('hit');
+                gameOverTitle.textContent = '아야! 부딪혔어요!';
+                gameOverTitle.className = 'text-3xl sm:text-4xl text-rose-500 text-stroke-sm mb-4';
+            }
+
+            finalStage.textContent = `${currentStage}단계 (${cfg.label})`;
+            finalScore.textContent = score;
+            finalBestScore.textContent = bestScore;
+
+            if (gameMode === 'BOSS') setBossStage(currentStage);
+            else setNormalStage(currentStage);
+
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        function handleInput(e) {
+            if (e && e.target && e.target.closest('button, select')) return;
+            if (gameState === 'PLAYING') {
+                bunny.flap();
+            }
+        }
+
+        restartBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (gameMode === 'BOSS') {
+                selectedBossStage = parseInt(retryStageSelect.value) || currentStage;
+            } else {
+                selectedNormalStage = parseInt(retryStageSelect.value) || currentStage;
+            }
+            startGame();
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                e.preventDefault();
+                handleInput(e);
+            }
+        });
+
+        container.addEventListener('pointerdown', (e) => {
+            handleInput(e);
+        });
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            if (gameState === 'START') bunny.reset();
+        });
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                resizeCanvas();
+                if (gameState === 'START') bunny.reset();
+            }, 150);
+        });
+
+        // 메인 게임 루프
+        function gameLoop(now) {
+            if (!lastFrameTime) lastFrameTime = now;
+            const deltaSec = Math.min(0.1, (now - lastFrameTime) / 1000);
+            lastFrameTime = now;
+
+            frames++;
+            ctx.clearRect(0, 0, width, height);
+
+            drawBackground();
+
+            if (gameState === 'PLAYING') {
+                if (gameMode === 'BOSS') {
+                    updateTimerHUD();
+                    const goalX = width - 36;
+
+                    if (bossBunny.x + bossBunny.radius >= goalX && bunny.x + bunny.radius < goalX) {
+                        bossFirstGoal = true;
+                        triggerGameOver('BOSS_LOSE');
+                    } else if (bunny.x + bunny.radius >= goalX && !bossFirstGoal) {
+                        if (currentStage >= MAX_STAGE) {
+                            triggerGameOver('CLEAR');
+                        } else {
+                            currentStage++;
+                            updateStageHUD();
+                            const nextCfg = getStageConfig(currentStage);
+                            playSound('stageup');
+                            bunny.reset();
+                            bossBunny.reset();
+                            if (currentStage === 20) {
+                                shieldCount = MAX_SHIELD_COUNT;
+                                updateShieldHUD();
+                                createShieldParticles(bunny.x, bunny.y, false);
+                            }
+                            showStageBanner(`🏆 1등 추월 승리! 다음 상대: ${nextCfg.boss.icon} ${nextCfg.boss.name}!`);
+                        }
+                    }
+
+                    if (gameState === 'PLAYING') {
+                        updatePipes();
+                    }
+                } else {
+                    stageTimeLeft -= deltaSec;
+                    updateTimerHUD();
+                    if (stageTimeLeft <= 0) {
+                        if (currentStage >= MAX_STAGE) {
+                            stageTimeLeft = 0;
+                            updateTimerHUD();
+                            triggerGameOver('CLEAR');
+                        } else {
+                            currentStage++;
+                            stageTimeLeft = STAGE_SURVIVE_TIME;
+                            updateTimerHUD();
+                            updateStageHUD();
+                            const nextCfg = getStageConfig(currentStage);
+                            playSound('stageup');
+                            if (currentStage === 20) {
+                                shieldCount = MAX_SHIELD_COUNT;
+                                updateShieldHUD();
+                                createShieldParticles(bunny.x, bunny.y, false);
+                                showStageBanner(`🎉 20초 생존 성공! 20단계 방패 6개 지급!`);
+                            } else {
+                                showStageBanner(`🎉 20초 생존 성공! ${currentStage}단계 (${nextCfg.label}) 시작!`);
+                            }
+                        }
+                    } else {
+                        updatePipes();
+                    }
+                }
+            }
+
+            drawPipes();
+            drawShields();
+
+            bossBunny.update();
+            bossBunny.draw();
+
+            bunny.update();
+            bunny.draw();
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+                if (particles[i].alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.onload = function () {
+            resizeCanvas();
+            initStageSelectors();
+            showLobbyScreen('MODE_SELECT');
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>아이돌 공룡 달리기 (IDOL DINO RUN)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Jua & Outfit -->
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Outfit:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            font-family: 'Jua', sans-serif;
+            background: linear-gradient(180deg, #1e1b4b 0%, #4c1d95 50%, #db2777 100%);
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .font-eng {
+            font-family: 'Outfit', sans-serif;
+        }
+        .ive-shadow {
+            box-shadow: 0 6px 0 #1e1b4b, 0 10px 24px rgba(219, 39, 119, 0.35);
+        }
+        .ive-btn {
+            transition: transform 0.08s ease, box-shadow 0.08s ease;
+            box-shadow: 0 5px 0 #1e1b4b;
+        }
+        .ive-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 1px 0 #1e1b4b;
+        }
+        .text-stroke {
+            text-shadow:
+                -2px -2px 0 #1e1b4b,
+                 2px -2px 0 #1e1b4b,
+                -2px  2px 0 #1e1b4b,
+                 2px  2px 0 #1e1b4b,
+                 0px  4px 0 #1e1b4b;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.06); }
+        }
+        .animate-pulse-glow {
+            animation: pulseGlow 1.8s ease-in-out infinite;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center p-1.5 sm:p-4">
+
+    <!-- 메인 게임 컨테이너 -->
+    <div class="relative w-full max-w-5xl h-full sm:h-[88vh] sm:max-h-[680px] bg-white rounded-2xl sm:rounded-3xl border-3 sm:border-4 border-indigo-950 ive-shadow overflow-hidden flex flex-col">
+        
+        <!-- 상단 HUD 바 -->
+        <div class="bg-gradient-to-r from-indigo-950 via-purple-900 to-pink-700 text-white px-2.5 py-1.5 sm:px-6 sm:py-3 flex items-center justify-between gap-1.5 sm:gap-2 border-b-3 sm:border-b-4 border-indigo-950 z-10">
+            <div class="flex items-center gap-1.5 sm:gap-3 min-w-0">
+                <span id="hud-char-badge" class="bg-pink-500 text-white text-[11px] sm:text-sm px-2 py-0.5 rounded-full border-2 border-indigo-950 font-black tracking-wider shrink-0">
+                    원영 🐰 체리핑크
+                </span>
+                <h1 id="hud-title" class="hidden sm:block text-lg sm:text-2xl font-black text-pink-200 tracking-tight truncate">
+                    🐰 아이브 캐릭터 달리기
+                </h1>
+            </div>
+
+            <!-- 점수 & 아이템 & 피버 게이지 -->
+            <div class="flex items-center gap-1.5 sm:gap-4 text-xs sm:text-base shrink-0">
+                <div class="flex items-center gap-1 bg-indigo-950/70 px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg sm:rounded-xl border border-pink-400/40">
+                    <span>💖</span>
+                    <span id="heart-count" class="font-eng font-bold text-pink-300">0</span>
+                </div>
+                <div class="hidden xs:flex sm:flex items-center gap-1 bg-indigo-950/70 px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg sm:rounded-xl border border-amber-400/40">
+                    <span class="text-[10px] sm:text-xs text-amber-300">BEST</span>
+                    <span id="high-score" class="font-eng font-bold text-amber-300">00000</span>
+                </div>
+                <div class="flex items-center gap-1 bg-indigo-950/70 px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg sm:rounded-xl border border-sky-400/40">
+                    <span class="text-[10px] sm:text-xs text-sky-300">SCORE</span>
+                    <span id="current-score" class="font-eng font-black text-white text-sm sm:text-lg">00000</span>
+                </div>
+                <button id="btn-sound" title="효과음 켜기/끄기" class="ive-btn bg-pink-500 hover:bg-pink-400 text-white px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg sm:rounded-xl border-2 border-indigo-950 text-xs sm:text-sm">
+                    🔊
+                </button>
+            </div>
+        </div>
+
+        <!-- 피버 게이지 서브 바 -->
+        <div class="w-full h-2 sm:h-2.5 bg-indigo-950 relative overflow-hidden shrink-0">
+            <div id="fever-bar" class="h-full bg-gradient-to-r from-pink-400 via-amber-300 to-cyan-300 transition-all duration-150" style="width: 0%;"></div>
+        </div>
+
+        <!-- 게임 캔버스 영역 -->
+        <div id="canvas-wrapper" class="relative flex-1 w-full overflow-hidden">
+            <canvas id="dino-canvas"></canvas>
+
+            <!-- 피버 모드 배너 -->
+            <div id="fever-banner" class="hidden absolute top-3 left-1/2 -translate-x-1/2 whitespace-nowrap bg-gradient-to-r from-pink-500 via-amber-400 to-purple-500 text-white px-3.5 py-1 sm:px-5 sm:py-1.5 rounded-full border-2 sm:border-3 border-indigo-950 font-black text-xs sm:text-xl ive-shadow animate-pulse-glow pointer-events-none">
+                ✨ DIVE INTO RUN! 피버 타임 무적 질주 ✨
+            </div>
+
+            <!-- 시작 / 아이브 멤버 캐릭터 선택 오버레이 -->
+            <div id="start-overlay" class="absolute inset-0 bg-indigo-950/75 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-4 z-20 overflow-y-auto">
+                <div class="bg-white border-3 sm:border-4 border-indigo-950 rounded-2xl sm:rounded-3xl max-w-xl w-full p-3.5 sm:p-6 text-center ive-shadow my-auto">
+                    <div class="inline-block bg-gradient-to-r from-pink-500 to-purple-600 text-white text-[10px] sm:text-xs font-eng font-black px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full border-2 border-indigo-950 mb-1">
+                        IDOL ANIMAL CHARACTER EDITION
+                    </div>
+                    <h2 class="text-xl sm:text-4xl font-black text-pink-500 text-stroke mb-1">
+                        아이브 캐릭터 달리기
+                    </h2>
+                    <p class="text-slate-600 text-[11px] sm:text-sm mb-2.5 sm:mb-3 break-keep">
+                        아이브 멤버들의 <b>공식 상징 색깔과 동물 캐릭터</b>를 선택해 달려보세요!
+                    </p>
+
+                    <!-- 아이브 6인 캐릭터 선택 그리드 -->
+                    <div id="ive-member-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2 mb-2.5 sm:mb-3 text-left">
+                        <button type="button" data-member="0" class="member-card bg-pink-50 border-3 border-pink-500 ring-2 ring-pink-300 rounded-xl sm:rounded-2xl p-2 sm:p-2.5 transition">
+                            <div class="flex items-center justify-between mb-0.5 sm:mb-1">
+                                <span class="text-base sm:text-lg">🐰</span>
+                                <span class="text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full text-white" style="background:#f43f5e;">체리핑크</span>
+                            </div>
+                            <div class="font-black text-indigo-950 text-xs sm:text-sm">원영 (체리버니)</div>
+                            <div class="text-[10px] sm:text-[11px] text-pink-600 font-bold">💖 하트 점수 2배</div>
+                        </button>
+
+                        <button type="button" data-member="1" class="member-card bg-white border-2 border-slate-300 hover:border-sky-400 rounded-xl sm:rounded-2xl p-2 sm:p-2.5 transition">
+                            <div class="flex items-center justify-between mb-0.5 sm:mb-1">
+                                <span class="text-base sm:text-lg">🐶</span>
+                                <span class="text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full text-white" style="background:#2563eb;">로열블루</span>
+                            </div>
+                            <div class="font-black text-indigo-950 text-xs sm:text-sm">유진 (블루퍼피)</div>
+                            <div class="text-[10px] sm:text-[11px] text-sky-600 font-bold">🚀 하이 점프 업</div>
+                        </button>
+
+                        <button type="button" data-member="2" class="member-card bg-white border-2 border-slate-300 hover:border-indigo-400 rounded-xl sm:rounded-2xl p-2 sm:p-2.5 transition">
+                            <div class="flex items-center justify-between mb-0.5 sm:mb-1">
+                                <span class="text-base sm:text-lg">🐿️</span>
+                                <span class="text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full text-white" style="background:#1e3a8a;">네이비</span>
+                            </div>
+                            <div class="font-black text-indigo-950 text-xs sm:text-sm">가을 (네이비다람)</div>
+                            <div class="text-[10px] sm:text-[11px] text-indigo-700 font-bold">🔥 피버 충전 +25%</div>
+                        </button>
+
+                        <button type="button" data-member="3" class="member-card bg-white border-2 border-slate-300 hover:border-emerald-400 rounded-xl sm:rounded-2xl p-2 sm:p-2.5 transition">
+                            <div class="flex items-center justify-between mb-0.5 sm:mb-1">
+                                <span class="text-base sm:text-lg">🐥</span>
+                                <span class="text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full text-slate-900" style="background:#4ade80;">파스텔그린</span>
+                            </div>
+                            <div class="font-black text-indigo-950 text-xs sm:text-sm">레이 (그린병아리)</div>
+                            <div class="text-[10px] sm:text-[11px] text-emerald-600 font-bold">⚡ 급강하 속도 업</div>
+                        </button>
+
+                        <button type="button" data-member="4" class="member-card bg-white border-2 border-slate-300 hover:border-orange-400 rounded-xl sm:rounded-2xl p-2 sm:p-2.5 transition">
+                            <div class="flex items-center justify-between mb-0.5 sm:mb-1">
+                                <span class="text-base sm:text-lg">🐱</span>
+                                <span class="text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full text-white" style="background:#f97316;">오렌지</span>
+                            </div>
+                            <div class="font-black text-indigo-950 text-xs sm:text-sm">리즈 (치즈냥이)</div>
+                            <div class="text-[10px] sm:text-[11px] text-orange-600 font-bold">🦘 공중 더블 점프</div>
+                        </button>
+
+                        <button type="button" data-member="5" class="member-card bg-white border-2 border-slate-300 hover:border-amber-400 rounded-xl sm:rounded-2xl p-2 sm:p-2.5 transition">
+                            <div class="flex items-center justify-between mb-0.5 sm:mb-1">
+                                <span class="text-base sm:text-lg">🐯</span>
+                                <span class="text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full text-slate-900" style="background:#facc15;">옐로우</span>
+                            </div>
+                            <div class="font-black text-indigo-950 text-xs sm:text-sm">이서 (아기호랑이)</div>
+                            <div class="text-[10px] sm:text-[11px] text-amber-600 font-bold">⏳ 피버 지속시간 연장</div>
+                        </button>
+                    </div>
+
+                    <div class="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-1.5 sm:p-2 text-[11px] sm:text-xs text-slate-700 mb-2.5 sm:mb-3 flex flex-col sm:flex-row justify-around gap-0.5">
+                        <span>⬆️ <b>탭 / 위 스와이프 / 버튼</b> : 점프</span>
+                        <span>⬇️ <b>아래 스와이프 / 버튼</b> : 숙이기</span>
+                    </div>
+
+                    <button id="btn-start" class="ive-btn w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white text-lg sm:text-2xl font-black py-2.5 sm:py-3 rounded-2xl border-3 sm:border-4 border-indigo-950">
+                        ✨ 선택한 아이브 캐릭터로 출발!
+                    </button>
+                </div>
+            </div>
+
+            <!-- 게임 오버 오버레이 -->
+            <div id="gameover-overlay" class="hidden absolute inset-0 bg-indigo-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-20">
+                <div class="bg-white border-4 border-indigo-950 rounded-2xl sm:rounded-3xl max-w-md w-full p-4 sm:p-6 text-center ive-shadow">
+                    <div id="gameover-emoji" class="text-4xl sm:text-5xl mb-1.5">💫🐰</div>
+                    <h2 id="gameover-title" class="text-2xl sm:text-3xl font-black text-pink-500 text-stroke mb-1">
+                        스테이지 종료!
+                    </h2>
+                    <p id="gameover-msg" class="text-slate-600 text-xs sm:text-sm mb-3 sm:mb-4 break-keep">
+                        장애물에 부딪혔어요! 다시 도전해 볼까요?
+                    </p>
+                    <div class="grid grid-cols-3 gap-2 bg-pink-50 border-2 border-pink-200 rounded-2xl p-2.5 sm:p-3 mb-4 sm:mb-5">
+                        <div>
+                            <span class="text-[11px] sm:text-xs text-slate-500 block">최종 점수</span>
+                            <span id="final-score" class="font-eng text-base sm:text-lg font-black text-indigo-950">0</span>
+                        </div>
+                        <div>
+                            <span class="text-[11px] sm:text-xs text-slate-500 block">최고 기록</span>
+                            <span id="final-best" class="font-eng text-base sm:text-lg font-black text-amber-500">0</span>
+                        </div>
+                        <div>
+                            <span class="text-[11px] sm:text-xs text-slate-500 block">모은 하트</span>
+                            <span id="final-hearts" class="font-eng text-base sm:text-lg font-black text-pink-500">0</span>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="btn-change-dino" class="ive-btn flex-1 bg-slate-200 hover:bg-slate-300 text-indigo-950 font-black py-2.5 sm:py-3 rounded-2xl border-3 border-indigo-950 text-sm sm:text-base">
+                            🎀 멤버 변경
+                        </button>
+                        <button id="btn-retry" class="ive-btn flex-[2] bg-pink-500 hover:bg-pink-400 text-white font-black py-2.5 sm:py-3 rounded-2xl border-3 border-indigo-950 text-base sm:text-lg">
+                            🔁 다시 달리기
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 모바일 하단 컨트롤 버튼 -->
+        <div class="lg:hidden bg-indigo-950 px-3 py-2.5 sm:px-4 sm:py-3 flex gap-3 border-t-3 sm:border-t-4 border-indigo-950 shrink-0">
+            <button id="btn-mobile-duck" class="ive-btn flex-1 bg-purple-600 active:bg-purple-500 text-white font-black py-3.5 sm:py-4 rounded-2xl border-2 border-white/25 text-base sm:text-lg">
+                ⬇️ 숙이기
+            </button>
+            <button id="btn-mobile-jump" class="ive-btn flex-[1.6] bg-pink-500 active:bg-pink-400 text-white font-black py-3.5 sm:py-4 rounded-2xl border-2 border-white/25 text-base sm:text-lg">
+                ⬆️ 점프
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Web Audio API 신디사이저 효과음 & 경쾌한 비트 ---
+        class IveAudio {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+            }
+            playJump(isDouble = false) {
+                if (!this.enabled) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(isDouble ? 360 : 260, now);
+                osc.frequency.exponentialRampToValueAtTime(isDouble ? 720 : 560, now + 0.14);
+                gain.gain.setValueAtTime(0.18, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            }
+            playHeart() {
+                if (!this.enabled) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(587.33, now);
+                osc.frequency.setValueAtTime(880, now + 0.06);
+                gain.gain.setValueAtTime(0.16, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.18);
+            }
+            playFever() {
+                if (!this.enabled) return;
+                this.init();
+                const notes = [523.25, 659.25, 783.99, 1046.5];
+                notes.forEach((freq, idx) => {
+                    const now = this.ctx.currentTime + idx * 0.07;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.22);
+                });
+            }
+            playHit() {
+                if (!this.enabled) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(190, now);
+                osc.frequency.exponentialRampToValueAtTime(65, now + 0.28);
+                gain.gain.setValueAtTime(0.22, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+        }
+        const sfx = new IveAudio();
+
+        // --- 2. 아이브(IVE) 멤버별 공식 상징 컬러 & 동물 캐릭터 프리셋 ---
+        const IVE_MEMBERS = [
+            {
+                id: 'wonyoung',
+                name: '원영',
+                charTitle: '체리버니',
+                colorName: '체리핑크',
+                emoji: '🐰',
+                body: '#fb7185',
+                belly: '#ffe4e6',
+                crest: '#e11d48',
+                earType: 'bunny',
+                perk: 'heart2x'
+            },
+            {
+                id: 'yujin',
+                name: '유진',
+                charTitle: '블루퍼피',
+                colorName: '로열블루',
+                emoji: '🐶',
+                body: '#3b82f6',
+                belly: '#dbeafe',
+                crest: '#1d4ed8',
+                earType: 'puppy',
+                perk: 'highJump'
+            },
+            {
+                id: 'gaeul',
+                name: '가을',
+                charTitle: '네이비다람',
+                colorName: '네이비',
+                emoji: '🐿️',
+                body: '#312e81',
+                belly: '#e0e7ff',
+                crest: '#1e1b4b',
+                earType: 'squirrel',
+                perk: 'fastFever'
+            },
+            {
+                id: 'rei',
+                name: '레이',
+                charTitle: '그린병아리',
+                colorName: '파스텔그린',
+                emoji: '🐥',
+                body: '#4ade80',
+                belly: '#dcfce7',
+                crest: '#16a34a',
+                earType: 'chick',
+                perk: 'fastDuck'
+            },
+            {
+                id: 'liz',
+                name: '리즈',
+                charTitle: '치즈냥이',
+                colorName: '오렌지',
+                emoji: '🐱',
+                body: '#fb923c',
+                belly: '#ffedd5',
+                crest: '#ea580c',
+                earType: 'cat',
+                perk: 'doubleJump'
+            },
+            {
+                id: 'leeseo',
+                name: '이서',
+                charTitle: '아기호랑이',
+                colorName: '옐로우',
+                emoji: '🐯',
+                body: '#facc15',
+                belly: '#fef9c3',
+                crest: '#ca8a04',
+                earType: 'tiger',
+                perk: 'longFever'
+            }
+        ];
+
+        let selectedMemberIdx = 0;
+        function getCurrentMember() {
+            return IVE_MEMBERS[selectedMemberIdx];
+        }
+
+        // --- 3. 캔버스 및 반응형 크기 조정 ---
+        const canvas = document.getElementById('dino-canvas');
+        const ctx = canvas.getContext('2d');
+        const wrapper = document.getElementById('canvas-wrapper');
+
+        let width = 800;
+        let height = 400;
+        let groundY = 320;
+
+        function resizeCanvas() {
+            const rect = wrapper.getBoundingClientRect();
+            width = rect.width;
+            height = rect.height;
+            canvas.width = width * Math.min(window.devicePixelRatio, 2);
+            canvas.height = height * Math.min(window.devicePixelRatio, 2);
+            ctx.setTransform(Math.min(window.devicePixelRatio, 2), 0, 0, Math.min(window.devicePixelRatio, 2), 0, 0);
+            groundY = height - (width < 640 ? 48 : 64);
+            if (state && state.dino) {
+                state.dino.x = width < 640 ? 46 : 88;
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- 4. 게임 상태 변수 ---
+        const state = {
+            running: false,
+            gameOver: false,
+            score: 0,
+            highScore: (()=>{try{return parseInt(localStorage.getItem('ive_dino_best') || '0', 10)}catch(e){return 0}})(),
+            hearts: 0,
+            speed: 380,
+            baseSpeed: 380,
+            fever: 0, // 0 ~ 100
+            isFever: false,
+            feverTimer: 0,
+            bgTime: 0,
+            dino: {
+                x: 88,
+                y: 0,
+                vy: 0,
+                w: 52,
+                h: 58,
+                duckH: 34,
+                isJumping: false,
+                isDucking: false,
+                jumpCount: 0,
+                runFrame: 0
+            },
+            obstacles: [],
+            collectibles: [],
+            particles: [],
+            clouds: [],
+            stars: [],
+            nextObstacleTimer: 1.2,
+            nextItemTimer: 0.8
+        };
+
+        document.getElementById('high-score').textContent = String(state.highScore).padStart(5, '0');
+
+        // 배경 별 & 구름 초기화
+        function initDecor() {
+            state.stars = Array.from({ length: 28 }, () => ({
+                x: Math.random() * 1200,
+                y: Math.random() * 240,
+                size: 1.5 + Math.random() * 2.5,
+                phase: Math.random() * Math.PI * 2
+            }));
+            state.clouds = Array.from({ length: 6 }, (_, i) => ({
+                x: i * 240 + Math.random() * 100,
+                y: 45 + Math.random() * 90,
+                scale: 0.7 + Math.random() * 0.5,
+                speed: 25 + Math.random() * 20
+            }));
+        }
+        initDecor();
+
+        // --- 5. 아이브 멤버 선택 UI 바인딩 ---
+        function syncMemberLabels() {
+            const m = getCurrentMember();
+            const badge = document.getElementById('hud-char-badge');
+            badge.textContent = `${m.name} ${m.emoji} ${m.colorName}`;
+            badge.style.backgroundColor = m.crest;
+            document.getElementById('hud-title').textContent = `${m.emoji} 아이브 캐릭터 달리기`;
+            document.getElementById('fever-banner').textContent = `✨ ${m.name} (${m.charTitle}) 피버 타임! 무적 질주 ✨`;
+        }
+
+        document.querySelectorAll('.member-card').forEach(card => {
+            card.addEventListener('click', () => {
+                selectedMemberIdx = parseInt(card.dataset.member, 10);
+                const m = getCurrentMember();
+                document.querySelectorAll('.member-card').forEach(c => {
+                    c.classList.remove('bg-pink-50', 'border-3', 'border-pink-500', 'ring-2', 'ring-pink-300');
+                    c.classList.add('bg-white', 'border-2', 'border-slate-300');
+                });
+                card.classList.remove('bg-white', 'border-2', 'border-slate-300');
+                card.classList.add('bg-pink-50', 'border-3', 'border-pink-500', 'ring-2', 'ring-pink-300');
+                syncMemberLabels();
+            });
+        });
+
+        // --- 6. 조작 입력 (점프 & 숙이기) ---
+        function triggerJump() {
+            if (!state.running || state.gameOver) return;
+            const m = getCurrentMember();
+            const maxJumps = m.perk === 'doubleJump' ? 2 : 1;
+            const jumpPower = m.perk === 'highJump' ? -770 : -690;
+
+            if (state.dino.jumpCount < maxJumps) {
+                state.dino.vy = jumpPower;
+                state.dino.isJumping = true;
+                state.dino.isDucking = false;
+                state.dino.jumpCount++;
+                sfx.playJump(state.dino.jumpCount === 2);
+                spawnParticles(state.dino.x + 20, groundY - state.dino.y, m.body, 8);
+            }
+        }
+
+        function setDuck(active) {
+            if (!state.running || state.gameOver) return;
+            const m = getCurrentMember();
+            state.dino.isDucking = active;
+            if (active && state.dino.isJumping) {
+                // 공중에서 아래 키 누르면 급강하
+                state.dino.vy += m.perk === 'fastDuck' ? 950 : 650;
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+                e.preventDefault();
+                if (!state.running && !state.gameOver) {
+                    startGame();
+                } else if (state.gameOver) {
+                    startGame();
+                } else {
+                    triggerJump();
+                }
+            }
+            if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+                e.preventDefault();
+                setDuck(true);
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+                setDuck(false);
+            }
+        });
+
+        // 모바일 & 태블릿 터치 제스처 (탭/위로 스와이프 = 점프, 아래로 스와이프 = 숙이기)
+        let touchStartY = null;
+        let touchHandled = false;
+
+        canvas.addEventListener('touchstart', (e) => {
+            if (!state.running || state.gameOver) return;
+            e.preventDefault();
+            touchStartY = e.touches[0].clientY;
+            touchHandled = false;
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (!state.running || state.gameOver || touchStartY === null) return;
+            e.preventDefault();
+            const dy = e.touches[0].clientY - touchStartY;
+            if (!touchHandled && dy > 24) {
+                setDuck(true);
+                touchHandled = true;
+            } else if (!touchHandled && dy < -24) {
+                setDuck(false);
+                triggerJump();
+                touchHandled = true;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (!state.running || state.gameOver) return;
+            e.preventDefault();
+            if (!touchHandled) {
+                triggerJump();
+            }
+            setDuck(false);
+            touchStartY = null;
+            touchHandled = false;
+        }, { passive: false });
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (state.running && !state.gameOver) {
+                triggerJump();
+            }
+        });
+
+        const btnMobileJump = document.getElementById('btn-mobile-jump');
+        const btnMobileDuck = document.getElementById('btn-mobile-duck');
+        btnMobileJump.addEventListener('touchstart', (e) => { e.preventDefault(); setDuck(false); triggerJump(); }, { passive: false });
+        btnMobileJump.addEventListener('mousedown', (e) => { e.preventDefault(); setDuck(false); triggerJump(); });
+        btnMobileDuck.addEventListener('touchstart', (e) => { e.preventDefault(); setDuck(true); }, { passive: false });
+        btnMobileDuck.addEventListener('touchend', (e) => { e.preventDefault(); setDuck(false); }, { passive: false });
+        btnMobileDuck.addEventListener('touchcancel', (e) => { e.preventDefault(); setDuck(false); }, { passive: false });
+        btnMobileDuck.addEventListener('mousedown', (e) => { e.preventDefault(); setDuck(true); });
+        btnMobileDuck.addEventListener('mouseup', (e) => { e.preventDefault(); setDuck(false); });
+        btnMobileDuck.addEventListener('mouseleave', () => { setDuck(false); });
+
+        // --- 7. 파티클 이펙트 ---
+        function spawnParticles(x, y, color, count = 10) {
+            for (let i = 0; i < count; i++) {
+                state.particles.push({
+                    x,
+                    y,
+                    vx: (Math.random() - 0.5) * 260,
+                    vy: -80 - Math.random() * 200,
+                    size: 4 + Math.random() * 5,
+                    color,
+                    life: 0.45 + Math.random() * 0.25
+                });
+            }
+        }
+
+        // --- 8. 게임 시작 & 리셋 ---
+        function startGame() {
+            sfx.init();
+            syncMemberLabels();
+            document.getElementById('start-overlay').classList.add('hidden');
+            document.getElementById('gameover-overlay').classList.add('hidden');
+            document.getElementById('fever-banner').classList.add('hidden');
+
+            state.running = true;
+            state.gameOver = false;
+            state.score = 0;
+            state.hearts = 0;
+            state.speed = 400;
+            state.fever = 0;
+            state.isFever = false;
+            state.feverTimer = 0;
+            state.obstacles = [];
+            state.collectibles = [];
+            state.particles = [];
+            state.nextObstacleTimer = 1.0;
+            state.nextItemTimer = 0.6;
+
+            state.dino.y = 0;
+            state.dino.vy = 0;
+            state.dino.isJumping = false;
+            state.dino.isDucking = false;
+            state.dino.jumpCount = 0;
+
+            updateHud();
+        }
+
+        document.getElementById('btn-start').addEventListener('click', startGame);
+        document.getElementById('btn-retry').addEventListener('click', startGame);
+        document.getElementById('btn-change-dino').addEventListener('click', () => {
+            document.getElementById('gameover-overlay').classList.add('hidden');
+            document.getElementById('start-overlay').classList.remove('hidden');
+            state.running = false;
+            state.gameOver = false;
+        });
+        document.getElementById('btn-sound').addEventListener('click', (e) => {
+            sfx.enabled = !sfx.enabled;
+            e.currentTarget.textContent = sfx.enabled ? '🔊' : '🔇';
+        });
+
+        function updateHud() {
+            document.getElementById('current-score').textContent = String(Math.floor(state.score)).padStart(5, '0');
+            document.getElementById('high-score').textContent = String(state.highScore).padStart(5, '0');
+            document.getElementById('heart-count').textContent = state.hearts;
+            document.getElementById('fever-bar').style.width = `${Math.min(100, state.fever)}%`;
+        }
+
+        // --- 9. 장애물 및 하트/응원봉 아이템 생성 ---
+        function spawnObstacle() {
+            const types = ['lightstick_single', 'lightstick_double', 'speaker_stack', 'flying_drone'];
+            const type = state.score > 180
+                ? types[Math.floor(Math.random() * types.length)]
+                : types[Math.floor(Math.random() * 3)];
+
+            if (type === 'lightstick_single') {
+                state.obstacles.push({ type, x: width + 40, y: 0, w: 30, h: 52 });
+            } else if (type === 'lightstick_double') {
+                state.obstacles.push({ type, x: width + 40, y: 0, w: 58, h: 48 });
+            } else if (type === 'speaker_stack') {
+                state.obstacles.push({ type, x: width + 40, y: 0, w: 46, h: 66 });
+            } else if (type === 'flying_drone') {
+                // 숙여서 피하거나 높이 점프해 피하는 공중 카메라 드론
+                const flyHeight = Math.random() < 0.65 ? 44 : 88;
+                state.obstacles.push({ type, x: width + 40, y: flyHeight, w: 52, h: 32, wingPhase: 0 });
+            }
+        }
+
+        function spawnCollectible() {
+            const isDiamond = Math.random() < 0.22;
+            const yOffset = Math.random() < 0.5 ? 24 : 86;
+            state.collectibles.push({
+                type: isDiamond ? 'diamond' : 'heart',
+                x: width + 30,
+                y: yOffset,
+                r: 15,
+                bobPhase: Math.random() * Math.PI * 2
+            });
+        }
+
+        // --- 10. 업데이트 루프 ---
+        function update(dt) {
+            state.bgTime += dt;
+
+            // 배경 구름 이동
+            state.clouds.forEach(c => {
+                c.x -= c.speed * dt;
+                if (c.x < -120) c.x = width + 100;
+            });
+
+            if (!state.running || state.gameOver) return;
+
+            // 피버 타이머 & 속도 계산
+            const m = getCurrentMember();
+            if (state.isFever) {
+                state.feverTimer -= dt;
+                state.fever = Math.max(0, (state.feverTimer / (m.perk === 'longFever' ? 7.5 : 5.5)) * 100);
+                if (state.feverTimer <= 0) {
+                    state.isFever = false;
+                    document.getElementById('fever-banner').classList.add('hidden');
+                }
+            }
+
+            const speedMult = state.isFever ? 1.45 : 1.0;
+            state.speed = Math.min(860, (state.baseSpeed + state.score * 0.28) * speedMult);
+            state.score += (state.speed * dt) * 0.045;
+
+            // 공룡 물리 & 점프
+            const gravity = 2050;
+            if (state.dino.isJumping) {
+                state.dino.vy += gravity * dt;
+                state.dino.y -= state.dino.vy * dt;
+                if (state.dino.y <= 0) {
+                    state.dino.y = 0;
+                    state.dino.vy = 0;
+                    state.dino.isJumping = false;
+                    state.dino.jumpCount = 0;
+                }
+            } else {
+                state.dino.runFrame += dt * 16;
+            }
+
+            // 장애물 스폰 및 이동
+            state.nextObstacleTimer -= dt;
+            if (state.nextObstacleTimer <= 0) {
+                spawnObstacle();
+                const minGap = Math.max(0.75, 1.55 - state.score * 0.0006);
+                state.nextObstacleTimer = minGap + Math.random() * 0.65;
+            }
+
+            // 하트/다이아 스폰
+            state.nextItemTimer -= dt;
+            if (state.nextItemTimer <= 0) {
+                spawnCollectible();
+                state.nextItemTimer = 0.75 + Math.random() * 0.9;
+            }
+
+            // 공룡 히트박스 계산
+            const dinoCurH = state.dino.isDucking ? state.dino.duckH : state.dino.h;
+            const dinoBox = {
+                left: state.dino.x + 10,
+                right: state.dino.x + state.dino.w - 10,
+                bottom: groundY - state.dino.y - 4,
+                top: groundY - state.dino.y - dinoCurH + 8
+            };
+
+            // 장애물 업데이트 및 충돌 판정
+            for (let i = state.obstacles.length - 1; i >= 0; i--) {
+                const ob = state.obstacles[i];
+                ob.x -= state.speed * dt;
+                if (ob.wingPhase !== undefined) ob.wingPhase += dt * 14;
+
+                const obBox = {
+                    left: ob.x + 6,
+                    right: ob.x + ob.w - 6,
+                    bottom: groundY - ob.y - 4,
+                    top: groundY - ob.y - ob.h + 6
+                };
+
+                const hit = !(
+                    dinoBox.right < obBox.left ||
+                    dinoBox.left > obBox.right ||
+                    dinoBox.bottom < obBox.top ||
+                    dinoBox.top > obBox.bottom
+                );
+
+                if (hit) {
+                    if (state.isFever) {
+                        // 피버 무적 상태에서는 장애물을 산산조각 내며 추가 점수 획득!
+                        spawnParticles(ob.x + ob.w / 2, groundY - ob.y - ob.h / 2, '#facc15', 16);
+                        state.score += 30;
+                        state.obstacles.splice(i, 1);
+                        continue;
+                    } else {
+                        triggerGameOver();
+                        return;
+                    }
+                }
+
+                if (ob.x + ob.w < -60) {
+                    state.obstacles.splice(i, 1);
+                }
+            }
+
+            // 하트/다이아몬드 아이템 수집 판정
+            for (let i = state.collectibles.length - 1; i >= 0; i--) {
+                const it = state.collectibles[i];
+                it.x -= state.speed * dt;
+                it.bobPhase += dt * 6;
+                const itemY = groundY - it.y + Math.sin(it.bobPhase) * 5;
+
+                const cx = (dinoBox.left + dinoBox.right) / 2;
+                const cy = (dinoBox.top + dinoBox.bottom) / 2;
+                if (Math.hypot(cx - it.x, cy - itemY) < 36) {
+                    sfx.playHeart();
+                    const mult = m.perk === 'heart2x' ? 2 : 1;
+                    const pts = (it.type === 'diamond' ? 50 : 20) * mult;
+                    state.score += pts;
+                    state.hearts += 1;
+
+                    if (!state.isFever) {
+                        const feverGain = (it.type === 'diamond' ? 28 : 16) * (m.perk === 'fastFever' ? 1.25 : 1);
+                        state.fever += feverGain;
+                        if (state.fever >= 100) {
+                            state.fever = 100;
+                            state.isFever = true;
+                            state.feverTimer = m.perk === 'longFever' ? 7.5 : 5.5;
+                            sfx.playFever();
+                            document.getElementById('fever-banner').classList.remove('hidden');
+                        }
+                    }
+
+                    spawnParticles(it.x, itemY, it.type === 'diamond' ? '#38bdf8' : '#f472b6', 12);
+                    state.collectibles.splice(i, 1);
+                    continue;
+                }
+
+                if (it.x < -40) state.collectibles.splice(i, 1);
+            }
+
+            // 파티클 업데이트
+            for (let i = state.particles.length - 1; i >= 0; i--) {
+                const p = state.particles[i];
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.vy += 480 * dt;
+                p.life -= dt;
+                if (p.life <= 0) state.particles.splice(i, 1);
+            }
+
+            if (Math.floor(state.score) > state.highScore) {
+                state.highScore = Math.floor(state.score);
+            }
+            updateHud();
+        }
+
+        function triggerGameOver() {
+            const m = getCurrentMember();
+            state.gameOver = true;
+            state.running = false;
+            sfx.playHit();
+            try{localStorage.setItem('ive_dino_best', String(state.highScore));}catch(e){}
+
+            document.getElementById('gameover-emoji').textContent = `💫${m.emoji}`;
+            document.getElementById('gameover-msg').textContent = `${m.name} (${m.charTitle}) 캐릭터가 장애물에 부딪혔어요! 다시 도전할까요?`;
+            document.getElementById('final-score').textContent = Math.floor(state.score);
+            document.getElementById('final-best').textContent = state.highScore;
+            document.getElementById('final-hearts').textContent = state.hearts;
+            document.getElementById('gameover-overlay').classList.remove('hidden');
+        }
+
+        // --- 11. 렌더링 함수 (스테이지 & 아이브 멤버별 캐릭터 그래픽) ---
+        function drawBackground() {
+            // 몽환적인 아이브 콘서트 밤하늘 그라데이션
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, groundY);
+            if (state.isFever) {
+                skyGrad.addColorStop(0, '#4c1d95');
+                skyGrad.addColorStop(0.55, '#db2777');
+                skyGrad.addColorStop(1, '#fbcfe8');
+            } else {
+                skyGrad.addColorStop(0, '#1e1b4b');
+                skyGrad.addColorStop(0.6, '#581c87');
+                skyGrad.addColorStop(1, '#f472b6');
+            }
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, width, groundY);
+
+            // 반짝이는 별빛
+            state.stars.forEach(s => {
+                const alpha = 0.4 + 0.6 * Math.abs(Math.sin(state.bgTime * 2.5 + s.phase));
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(s.x % width, s.y, s.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // 핑크빛 솜사탕 구름
+            state.clouds.forEach(c => {
+                ctx.save();
+                ctx.translate(c.x, c.y);
+                ctx.scale(c.scale, c.scale);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+                ctx.beginPath();
+                ctx.arc(0, 0, 26, 0, Math.PI * 2);
+                ctx.arc(24, -6, 32, 0, Math.PI * 2);
+                ctx.arc(52, 0, 24, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // 원거리 콘서트 무대 실루엣
+            ctx.fillStyle = 'rgba(30, 27, 75, 0.35)';
+            for (let x = 0; x < width + 120; x += 120) {
+                const offset = (state.bgTime * 40) % 120;
+                ctx.beginPath();
+                ctx.moveTo(x - offset, groundY);
+                ctx.lineTo(x + 60 - offset, groundY - 55);
+                ctx.lineTo(x + 120 - offset, groundY);
+                ctx.fill();
+            }
+
+            // 바닥 런웨이 스테이지
+            ctx.fillStyle = '#1e1b4b';
+            ctx.fillRect(0, groundY, width, height - groundY);
+
+            // 네온 핑크 런웨이 라인
+            ctx.fillStyle = state.isFever ? '#facc15' : '#f472b6';
+            ctx.fillRect(0, groundY, width, 6);
+
+            // 바닥 그리드 스크롤 패턴
+            ctx.strokeStyle = 'rgba(244, 114, 182, 0.28)';
+            ctx.lineWidth = 2;
+            const tileStep = 48;
+            const scrollOffset = (state.bgTime * state.speed) % tileStep;
+            for (let gx = -scrollOffset; gx < width; gx += tileStep) {
+                ctx.beginPath();
+                ctx.moveTo(gx, groundY + 6);
+                ctx.lineTo(gx - 24, height);
+                ctx.stroke();
+            }
+        }
+
+        function drawDino() {
+            const preset = getCurrentMember();
+            const d = state.dino;
+            const curH = d.isDucking ? d.duckH : d.h;
+            const x = d.x;
+            const y = groundY - d.y - curH;
+            const legSwing = d.isJumping ? 4 : Math.sin(d.runFrame) * 6;
+
+            ctx.save();
+
+            // 캐릭터 머리 위 멤버 이름표
+            ctx.font = 'bold 12px Jua, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#1e1b4b';
+            ctx.lineWidth = 3;
+            ctx.strokeText(`${preset.emoji} ${preset.name}`, x + d.w / 2, y - 18);
+            ctx.fillText(`${preset.emoji} ${preset.name}`, x + d.w / 2, y - 18);
+
+            // 피버 무적 오라
+            if (state.isFever) {
+                ctx.shadowColor = '#facc15';
+                ctx.shadowBlur = 18;
+            }
+
+            // 1) 캐릭터별 고유 꼬리 (공룡 꼬리 대신 각 동물 꼬리)
+            if (preset.earType === 'bunny') {
+                // 토끼 동글 솜사탕 꼬리
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(x + 4, y + curH * 0.68, 7, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (preset.earType === 'puppy') {
+                // 강아지 살랑살랑 꼬리
+                ctx.strokeStyle = preset.crest;
+                ctx.lineWidth = 6;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(x + 6, y + curH * 0.66);
+                ctx.quadraticCurveTo(x - 10, y + curH * 0.45 + Math.sin(state.bgTime * 16) * 4, x - 6, y + curH * 0.34);
+                ctx.stroke();
+            } else if (preset.earType === 'squirrel') {
+                // 다람쥐 풍성한 말린 큰 꼬리
+                ctx.fillStyle = preset.crest;
+                ctx.beginPath();
+                ctx.ellipse(x - 2, y + curH * 0.52, 11, 16, -0.35, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = preset.belly;
+                ctx.beginPath();
+                ctx.ellipse(x - 1, y + curH * 0.54, 5, 9, -0.35, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (preset.earType === 'chick') {
+                // 병아리 앙증맞은 꽁지깃
+                ctx.fillStyle = preset.crest;
+                ctx.beginPath();
+                ctx.moveTo(x + 6, y + curH * 0.62);
+                ctx.lineTo(x - 7, y + curH * 0.54);
+                ctx.lineTo(x + 6, y + curH * 0.74);
+                ctx.closePath();
+                ctx.fill();
+            } else if (preset.earType === 'cat' || preset.earType === 'tiger') {
+                // 고양이 & 호랑이 S자 길쭉 꼬리
+                ctx.strokeStyle = preset.earType === 'tiger' ? '#1e1b4b' : preset.crest;
+                ctx.lineWidth = 5.5;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(x + 6, y + curH * 0.72);
+                ctx.bezierCurveTo(x - 14, y + curH * 0.72, x - 14, y + curH * 0.35, x - 4, y + curH * 0.32);
+                ctx.stroke();
+            }
+
+            // 2) 통통하고 귀여운 동물 인형 몸통 (등뿔 제거)
+            const bodyTop = d.isDucking ? y + 4 : y + curH * 0.44;
+            const bodyH = d.isDucking ? curH - 10 : curH * 0.46;
+            ctx.fillStyle = preset.body;
+            ctx.beginPath();
+            ctx.roundRect(x + 8, bodyTop, d.w - 16, bodyH, 13);
+            ctx.fill();
+
+            // 뱃살 포인트
+            ctx.fillStyle = preset.belly;
+            ctx.beginPath();
+            ctx.roundRect(x + 17, bodyTop + 4, d.w - 30, bodyH - 8, 9);
+            ctx.fill();
+
+            // 팔 (달리기 리듬에 맞춰 흔들림)
+            ctx.fillStyle = preset.body;
+            ctx.beginPath();
+            ctx.ellipse(x + 25, bodyTop + bodyH * 0.48 - legSwing * 0.3, 6, 4.5, 0.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 3) 둥글고 큰 동물 머리
+            const headX = d.isDucking ? x + 28 : x + 26;
+            const headY = d.isDucking ? y + curH * 0.48 : y + curH * 0.3;
+            const headRx = d.isDucking ? 18 : 19;
+            const headRy = d.isDucking ? 14 : 17;
+
+            // 귀 먼저 그리기 (머리 뒤쪽)
+            if (preset.earType === 'bunny') {
+                // 원영 체리버니: 길쭉한 토끼 귀
+                ctx.fillStyle = preset.body;
+                ctx.beginPath();
+                ctx.ellipse(headX - 6, headY - headRy - 7, 4.5, 13, -0.15, 0, Math.PI * 2);
+                ctx.ellipse(headX + 6, headY - headRy - 7, 4.5, 13, 0.15, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = preset.belly;
+                ctx.beginPath();
+                ctx.ellipse(headX - 6, headY - headRy - 7, 2.2, 8, -0.15, 0, Math.PI * 2);
+                ctx.ellipse(headX + 6, headY - headRy - 7, 2.2, 8, 0.15, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (preset.earType === 'squirrel') {
+                // 가을 네이비다람: 둥근 다람쥐 귀
+                ctx.fillStyle = preset.crest;
+                ctx.beginPath();
+                ctx.arc(headX - 11, headY - headRy + 3, 6, 0, Math.PI * 2);
+                ctx.arc(headX + 11, headY - headRy + 3, 6, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (preset.earType === 'chick') {
+                // 레이 그린병아리: 머리 위 노란 벼슬 깃털
+                ctx.fillStyle = '#facc15';
+                ctx.beginPath();
+                ctx.ellipse(headX - 2, headY - headRy - 3, 3.5, 6, -0.25, 0, Math.PI * 2);
+                ctx.ellipse(headX + 4, headY - headRy - 2, 3.5, 5.5, 0.25, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (preset.earType === 'cat') {
+                // 리즈 치즈냥이: 뾰족 고양이 귀
+                ctx.fillStyle = preset.crest;
+                ctx.beginPath();
+                ctx.moveTo(headX - 15, headY - 6);
+                ctx.lineTo(headX - 11, headY - headRy - 8);
+                ctx.lineTo(headX - 3, headY - headRy + 2);
+                ctx.moveTo(headX + 3, headY - headRy + 2);
+                ctx.lineTo(headX + 11, headY - headRy - 8);
+                ctx.lineTo(headX + 15, headY - 6);
+                ctx.fill();
+            } else if (preset.earType === 'tiger') {
+                // 이서 아기호랑이: 반달 귀
+                ctx.fillStyle = preset.crest;
+                ctx.beginPath();
+                ctx.arc(headX - 12, headY - headRy + 3, 6.2, 0, Math.PI * 2);
+                ctx.arc(headX + 12, headY - headRy + 3, 6.2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 머리 본체
+            ctx.fillStyle = preset.body;
+            ctx.beginPath();
+            ctx.ellipse(headX, headY, headRx, headRy, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 강아지 처진 귀 (머리 앞쪽)
+            if (preset.earType === 'puppy') {
+                ctx.fillStyle = preset.crest;
+                ctx.beginPath();
+                ctx.ellipse(headX - 15, headY + 1, 5.5, 11, 0.25, 0, Math.PI * 2);
+                ctx.ellipse(headX + 15, headY + 1, 5.5, 11, -0.25, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 호랑이 이마 줄무늬 (王 무늬)
+            if (preset.earType === 'tiger') {
+                ctx.fillStyle = '#1e1b4b';
+                ctx.fillRect(headX - 3, headY - headRy + 4, 10, 2.2);
+                ctx.fillRect(headX - 1, headY - headRy + 8, 6, 2.2);
+            }
+
+            // 입 & 부리 디테일
+            if (preset.earType === 'chick') {
+                // 병아리 노란 부리
+                ctx.fillStyle = '#facc15';
+                ctx.beginPath();
+                ctx.moveTo(headX + headRx - 2, headY - 1);
+                ctx.lineTo(headX + headRx + 7, headY + 2);
+                ctx.lineTo(headX + headRx - 2, headY + 5);
+                ctx.closePath();
+                ctx.fill();
+            } else {
+                // 하얀 주둥이 & 귀여운 코
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.ellipse(headX + 8, headY + 4, 6.5, 4.8, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#1e1b4b';
+                ctx.beginPath();
+                ctx.arc(headX + 11, headY + 2.5, 2.2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 초롱초롱한 눈 & 볼터치
+            ctx.fillStyle = '#1e1b4b';
+            ctx.beginPath();
+            ctx.arc(headX + 7, headY - 3, 3.8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(headX + 8.2, headY - 4.2, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(244, 63, 94, 0.55)';
+            ctx.beginPath();
+            ctx.arc(headX + 2, headY + 3, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 4) 다리 달리기 애니메이션
+            ctx.fillStyle = preset.crest;
+            ctx.beginPath();
+            ctx.roundRect(x + 14, y + curH - 9 + legSwing * 0.5, 9, 10, 4.5);
+            ctx.roundRect(x + 28, y + curH - 9 - legSwing * 0.5, 9, 10, 4.5);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawObstacles() {
+            state.obstacles.forEach(ob => {
+                const x = ob.x;
+                const y = groundY - ob.y - ob.h;
+
+                if (ob.type === 'lightstick_single' || ob.type === 'lightstick_double') {
+                    const count = ob.type === 'lightstick_double' ? 2 : 1;
+                    for (let c = 0; c < count; c++) {
+                        const lx = x + c * 28 + 14;
+                        // 손잡이
+                        ctx.fillStyle = '#f8fafc';
+                        ctx.fillRect(lx - 4, y + 22, 8, ob.h - 22);
+                        // 아이브 하트 응원봉 헤드
+                        ctx.fillStyle = '#ec4899';
+                        ctx.beginPath();
+                        ctx.arc(lx, y + 15, 13, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = '#fbcfe8';
+                        ctx.beginPath();
+                        ctx.arc(lx, y + 15, 7, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                } else if (ob.type === 'speaker_stack') {
+                    // 콘서트 우퍼 스피커 장애물
+                    ctx.fillStyle = '#312e81';
+                    ctx.beginPath();
+                    ctx.roundRect(x, y, ob.w, ob.h, 8);
+                    ctx.fill();
+                    ctx.strokeStyle = '#f472b6';
+                    ctx.lineWidth = 2.5;
+                    ctx.stroke();
+
+                    [18, 46].forEach(oy => {
+                        ctx.fillStyle = '#1e1b4b';
+                        ctx.beginPath();
+                        ctx.arc(x + ob.w / 2, y + oy, 11, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = '#38bdf8';
+                        ctx.stroke();
+                    });
+                } else if (ob.type === 'flying_drone') {
+                    // 공중 방송 카메라 드론
+                    ctx.fillStyle = '#4f46e5';
+                    ctx.beginPath();
+                    ctx.roundRect(x + 8, y + 10, ob.w - 16, 16, 8);
+                    ctx.fill();
+                    // 카메라 렌즈
+                    ctx.fillStyle = '#f43f5e';
+                    ctx.beginPath();
+                    ctx.arc(x + 14, y + 18, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                    // 프로펠러 날개
+                    const flap = Math.sin(ob.wingPhase) * 6;
+                    ctx.strokeStyle = '#fde047';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(x + 2, y + 8 + flap);
+                    ctx.lineTo(x + ob.w - 2, y + 8 - flap);
+                    ctx.stroke();
+                }
+            });
+        }
+
+        function drawCollectibles() {
+            state.collectibles.forEach(it => {
+                const itemY = groundY - it.y + Math.sin(it.bobPhase) * 5;
+                ctx.save();
+                ctx.translate(it.x, itemY);
+
+                if (it.type === 'heart') {
+                    ctx.fillStyle = '#ff4d94';
+                    ctx.beginPath();
+                    ctx.moveTo(0, 6);
+                    ctx.bezierCurveTo(-14, -6, -14, -16, 0, -8);
+                    ctx.bezierCurveTo(14, -16, 14, -6, 0, 6);
+                    ctx.fill();
+                } else {
+                    // 다이아몬드 보석
+                    ctx.fillStyle = '#38bdf8';
+                    ctx.beginPath();
+                    ctx.moveTo(0, -13);
+                    ctx.lineTo(12, 0);
+                    ctx.lineTo(0, 13);
+                    ctx.lineTo(-12, 0);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.fillStyle = '#e0f2fe';
+                    ctx.beginPath();
+                    ctx.moveTo(0, -13);
+                    ctx.lineTo(5, 0);
+                    ctx.lineTo(0, 13);
+                    ctx.lineTo(-5, 0);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                ctx.restore();
+            });
+        }
+
+        function drawParticles() {
+            state.particles.forEach(p => {
+                ctx.globalAlpha = Math.max(0, p.life * 1.5);
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+        }
+
+        // --- 12. 메인 애니메이션 루프 ---
+        let lastTime = performance.now();
+        function gameLoop(now) {
+            requestAnimationFrame(gameLoop);
+            const dt = Math.min(0.05, (now - lastTime) / 1000);
+            lastTime = now;
+
+            update(dt);
+
+            ctx.clearRect(0, 0, width, height);
+            drawBackground();
+            drawCollectibles();
+            drawObstacles();
+            drawDino();
+            drawParticles();
+        }
+
+        window.onload = function () {
+            resizeCanvas();
+            gameLoop(performance.now());
+        };
+    </script>
+</body>
+</html>

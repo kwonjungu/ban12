@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>잼못타 타워 오비 (JMT Tower Obby)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Google Fonts: Jua (로블록스 느낌의 둥글고 귀여운 폰트) -->
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Jua', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            background-color: #1e293b;
+        }
+        #game-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        /* 로블록스 스타일 UI 테두리 및 그림자 */
+        .rbx-panel {
+            background: rgba(25, 27, 29, 0.85);
+            backdrop-filter: blur(6px);
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+        .rbx-btn {
+            transition: transform 0.1s, background-color 0.15s;
+            box-shadow: 0 4px 0 rgba(0, 0, 0, 0.4);
+        }
+        .rbx-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+        }
+        /* 모바일 조이스틱 */
+        #joystick-zone {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            touch-action: none;
+        }
+        #joystick-knob {
+            position: absolute;
+            top: 35px;
+            left: 35px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        #mobile-jump-btn {
+            position: absolute;
+            bottom: 40px;
+            right: 30px;
+            width: 85px;
+            height: 85px;
+            background: rgba(255, 255, 255, 0.25);
+            border: 3px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            touch-action: none;
+        }
+        #mobile-jump-btn:active {
+            background: rgba(255, 255, 255, 0.5);
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 3D 캔버스 -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- 상단 HUD (스테이지, 타이머, 설정) -->
+    <div class="fixed top-4 left-4 right-4 flex justify-between items-start pointer-events-none z-10">
+        <!-- 좌측: 게임 타이틀 및 현재 층수 -->
+        <div class="rbx-panel rounded-2xl px-4 py-2.5 text-white pointer-events-auto flex flex-col gap-1">
+            <div class="flex items-center gap-2">
+                <span class="bg-red-500 text-xs px-2 py-0.5 rounded-md font-bold tracking-wider">OBBY</span>
+                <h1 class="text-xl sm:text-2xl text-yellow-300 drop-shadow">🔥 잼못타 (JMT)</h1>
+            </div>
+            <div class="flex items-center gap-4 text-sm sm:text-base text-gray-200">
+                <div>현재 단계: <span id="stage-display" class="text-green-400 font-bold text-lg">1</span> / 8 층</div>
+                <div>높이: <span id="height-display" class="text-sky-300 font-bold">0</span>m</div>
+            </div>
+            <!-- 체력(HP) 5칸 표시 -->
+            <div class="flex items-center gap-1.5 mt-0.5">
+                <span class="text-xs text-gray-300">HP:</span>
+                <div id="hp-hearts" class="flex items-center gap-1 text-base sm:text-lg tracking-tight">❤️❤️❤️❤️❤️</div>
+            </div>
+        </div>
+
+        <!-- 중앙: 타이머 -->
+        <div class="rbx-panel rounded-2xl px-5 py-2 text-white text-center hidden sm:block">
+            <div class="text-xs text-gray-400">경과 시간</div>
+            <div id="timer-display" class="text-2xl font-bold text-white tracking-wider">00:00.0</div>
+        </div>
+
+        <!-- 우측: 편의 기능 버튼 (코일, 체크포인트 복귀, 리셋) -->
+        <div class="flex flex-col sm:flex-row gap-2 pointer-events-auto">
+            <button id="btn-coil" class="rbx-btn bg-purple-600 hover:bg-purple-500 text-white px-3 py-2 rounded-xl text-sm sm:text-base flex items-center gap-1.5 border border-purple-400">
+                <span>🌀</span>
+                <span>점프 코일: <b id="coil-status">OFF</b></span>
+            </button>
+            <button id="btn-respawn" class="rbx-btn bg-amber-500 hover:bg-amber-400 text-gray-900 font-bold px-3 py-2 rounded-xl text-sm sm:text-base flex items-center gap-1 border border-amber-300">
+                <span>🏠</span>
+                <span>1층 처음 복귀 (R)</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 중앙 알림 메시지 (체크포인트 도달, 용암 닿음 등) -->
+    <div id="toast-message" class="fixed top-24 left-1/2 transform -translate-x-1/2 pointer-events-none z-20 transition-all duration-300 opacity-0 scale-90">
+        <div id="toast-box" class="rbx-panel px-6 py-3 rounded-2xl text-white text-xl sm:text-2xl font-bold text-center shadow-2xl border-2 border-yellow-400">
+            🚩 2층 세이브 포인트 도달!
+        </div>
+    </div>
+
+    <!-- 조작법 안내 (PC) -->
+    <div class="fixed bottom-4 left-4 rbx-panel rounded-xl px-4 py-2 text-gray-300 text-xs sm:text-sm pointer-events-none hidden md:block z-10">
+        <span class="text-yellow-300 font-bold">[이동]</span> WASD / 방향키 &nbsp;|&nbsp;
+        <span class="text-yellow-300 font-bold">[점프]</span> Space &nbsp;|&nbsp;
+        <span class="text-yellow-300 font-bold">[시점 회전]</span> 마우스 우클릭/좌클릭 드래그 &nbsp;|&nbsp;
+        <span class="text-yellow-300 font-bold">[1층 복귀]</span> R
+    </div>
+
+    <!-- 모바일 컨트롤러 (터치 기기 및 좁은 화면용) -->
+    <div id="mobile-controls" class="md:hidden z-10">
+        <div id="joystick-zone">
+            <div id="joystick-knob"></div>
+        </div>
+        <div id="mobile-jump-btn">JUMP</div>
+    </div>
+
+    <!-- 시작 / 클리어 모달 -->
+    <div id="modal-overlay" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-30 p-4">
+        <div class="rbx-panel max-w-md w-full rounded-3xl p-6 sm:p-8 text-center text-white border-2 border-yellow-400/50">
+            <div class="inline-block bg-yellow-400 text-gray-900 font-bold px-3 py-1 rounded-full text-sm mb-3">
+                BLOCK STYLE OBBY
+            </div>
+            <h2 id="modal-title" class="text-3xl sm:text-4xl text-yellow-300 mb-3 drop-shadow">🔥 잼못타에 오신 걸 환영합니다!</h2>
+            <p id="modal-desc" class="text-gray-200 text-base sm:text-lg mb-6 leading-relaxed">
+                용암 블록과 움직이는 발판을 피해 타워 꼭대기 왕관까지 올라가세요!<br>
+                <span class="text-sm text-purple-300">※ 너무 어려우면 우측 상단 '점프 코일'을 켜보세요!</span>
+            </p>
+            <div id="clear-stats" class="hidden bg-gray-800/80 rounded-2xl p-4 mb-6 border border-gray-600">
+                <div class="text-gray-400 text-sm">최종 클리어 기록</div>
+                <div id="final-time" class="text-3xl text-green-400 font-bold mt-1">00:00.0</div>
+            </div>
+            <button id="modal-start-btn" class="rbx-btn w-full bg-green-500 hover:bg-green-400 text-gray-900 font-bold text-xl py-3.5 rounded-2xl border-2 border-green-300 cursor-pointer">
+                게임 시작하기 ▶
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 로블록스 스타일 3D 잼못타 (Tower Obby) 게임 엔진
+         * - Three.js 기반 3D 렌더링 및 AABB 충돌 물리 엔진 구현
+         * - 로블록스 특유의 스터드(Stud) 텍스처 절차적 생성
+         * - 용암(Kill Brick), 움직이는 발판, 사라지는 발판, 회전 장애물, 체크포인트 포함
+         */
+
+        // ==========================================
+        // 1. 전역 변수 및 게임 상태
+        // ==========================================
+        let scene, camera, renderer;
+        let clock = new THREE.Clock();
+        let isGameRunning = false;
+        let isGameCleared = false;
+        let elapsedTime = 0;
+
+        // 플레이어 상태 및 물리 상수
+        const player = {
+            mesh: null,
+            head: null, torso: null, leftArm: null, rightArm: null, leftLeg: null, rightLeg: null,
+            coilRing: null,
+            pos: new THREE.Vector3(0, 2, 0),
+            vel: new THREE.Vector3(0, 0, 0),
+            width: 1.2,
+            height: 2.8,
+            depth: 1.0,
+            isGrounded: false,
+            speed: 14,
+            baseJumpForce: 21,
+            coilJumpForce: 31,
+            hasCoil: false,
+            walkTime: 0,
+            facingAngle: 0
+        };
+
+        const GRAVITY = 52;
+        const INITIAL_SPAWN = new THREE.Vector3(0, 2.5, 0);
+        let spawnPoint = INITIAL_SPAWN.clone();
+        let currentStage = 1;
+        const MAX_HP = 5;
+        let playerHP = MAX_HP;
+        let invincibleTimer = 0; // 피격 직후 연속 피격 방지 무적 시간
+
+        // 3인칭 궤도 카메라 상태
+        const camState = {
+            yaw: 0,          // 좌우 회전 각도
+            pitch: 0.35,     // 상하 각도
+            distance: 14,    // 플레이어와의 거리
+            isDragging: false,
+            prevMouseX: 0,
+            prevMouseY: 0
+        };
+
+        // 입력 상태
+        const keys = { w: false, a: false, s: false, d: false, space: false };
+        const joystickInput = { x: 0, y: 0 };
+
+        // 맵 오브젝트 배열
+        const platforms = [];       // 일반 발판 및 체크포인트
+        const movingPlatforms = []; // 움직이는 발판
+        const killBricks = [];      // 용암(닿으면 사망)
+        const fadingBricks = [];    // 밟으면 사라지는 발판
+        const spinners = [];        // 회전하는 막대 장애물
+        const ladders = [];         // 사다리 영역 (타고 올라갈 수 있는 구조물)
+        let crownMesh = null;       // 최종 목표 왕관
+
+        // ==========================================
+        // 2. 절차적 텍스처 및 귀여운 토끼 캐릭터 생성
+        // ==========================================
+        function createStudTexture(hexColor, isLava = false) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = hexColor;
+            ctx.fillRect(0, 0, 128, 128);
+
+            if (isLava) {
+                // 용암 균열 효과
+                ctx.strokeStyle = '#fef08a';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(0, 32); ctx.lineTo(48, 52); ctx.lineTo(96, 24); ctx.lineTo(128, 44);
+                ctx.moveTo(16, 96); ctx.lineTo(64, 78); ctx.lineTo(112, 108);
+                ctx.stroke();
+            } else {
+                // 로블록스 스터드(돌기) 원형 패턴
+                ctx.fillStyle = 'rgba(255,255,255,0.16)';
+                ctx.strokeStyle = 'rgba(0,0,0,0.14)';
+                ctx.lineWidth = 2;
+                [32, 96].forEach(cx => {
+                    [32, 96].forEach(cy => {
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, 18, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.stroke();
+                    });
+                });
+            }
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            return tex;
+        }
+
+        function createCuteFaceTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            // 뽀얀 피부톤
+            ctx.fillStyle = '#ffe4d6';
+            ctx.fillRect(0, 0, 256, 256);
+
+            // 초롱초롱한 큰 눈
+            [82, 174].forEach(ex => {
+                ctx.fillStyle = '#1e1b4b';
+                ctx.beginPath();
+                ctx.ellipse(ex, 118, 18, 23, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 눈 하이라이트
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(ex - 5, 109, 7, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(ex + 6, 123, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // 발그레한 볼터치
+            ctx.fillStyle = 'rgba(244, 114, 182, 0.55)';
+            ctx.beginPath();
+            ctx.ellipse(54, 152, 18, 10, 0, 0, Math.PI * 2);
+            ctx.ellipse(202, 152, 18, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 귀여운 고양이 입 (ω)
+            ctx.strokeStyle = '#7f1d1d';
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.arc(118, 156, 10, 0, Math.PI);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(138, 156, 10, 0, Math.PI);
+            ctx.stroke();
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createRobloxCharacter() {
+            const group = new THREE.Group();
+
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xffe4d6, roughness: 0.5 });
+            const faceMat = new THREE.MeshStandardMaterial({ map: createCuteFaceTexture(), roughness: 0.45 });
+            const hoodieMat = new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.65 }); // 핑크 후드티
+            const innerHoodMat = new THREE.MeshStandardMaterial({ color: 0xfce7f3, roughness: 0.7 });
+            const pantsMat = new THREE.MeshStandardMaterial({ color: 0x7dd3fc, roughness: 0.65 }); // 하늘색 바지
+            const shoeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
+
+            // 다리 (좌/우)
+            const legGeo = new THREE.BoxGeometry(0.45, 0.95, 0.45);
+            legGeo.translate(0, -0.475, 0);
+            player.leftLeg = new THREE.Mesh(legGeo, pantsMat);
+            player.leftLeg.position.set(-0.26, 0.95, 0);
+            player.leftLeg.castShadow = true;
+
+            player.rightLeg = new THREE.Mesh(legGeo, pantsMat);
+            player.rightLeg.position.set(0.26, 0.95, 0);
+            player.rightLeg.castShadow = true;
+
+            // 하얀 운동화
+            const shoeGeo = new THREE.BoxGeometry(0.48, 0.22, 0.55);
+            const leftShoe = new THREE.Mesh(shoeGeo, shoeMat);
+            leftShoe.position.set(0, -0.86, 0.04);
+            player.leftLeg.add(leftShoe);
+
+            const rightShoe = new THREE.Mesh(shoeGeo, shoeMat);
+            rightShoe.position.set(0, -0.86, 0.04);
+            player.rightLeg.add(rightShoe);
+
+            // 몸통 (핑크 후드티 + 몽실몽실 토끼 꼬리)
+            const torsoGeo = new THREE.BoxGeometry(1.05, 1.05, 0.55);
+            player.torso = new THREE.Mesh(torsoGeo, hoodieMat);
+            player.torso.position.set(0, 1.48, 0);
+            player.torso.castShadow = true;
+
+            const tail = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), shoeMat);
+            tail.position.set(0, -0.32, -0.35);
+            player.torso.add(tail);
+
+            // 팔 (좌/우)
+            const armGeo = new THREE.BoxGeometry(0.4, 0.95, 0.4);
+            armGeo.translate(0, -0.38, 0);
+            player.leftArm = new THREE.Mesh(armGeo, hoodieMat);
+            player.leftArm.position.set(-0.74, 1.88, 0);
+            player.leftArm.castShadow = true;
+
+            player.rightArm = new THREE.Mesh(armGeo, hoodieMat);
+            player.rightArm.position.set(0.74, 1.88, 0);
+            player.rightArm.castShadow = true;
+
+            // 오른팔 점프 코일
+            const coilGeo = new THREE.TorusGeometry(0.28, 0.06, 8, 20);
+            const coilMat = new THREE.MeshStandardMaterial({ color: 0xa855f7, emissive: 0x6b21a8, roughness: 0.2 });
+            player.coilRing = new THREE.Mesh(coilGeo, coilMat);
+            player.coilRing.rotation.x = Math.PI / 2;
+            player.coilRing.position.set(0, -0.65, 0);
+            player.coilRing.visible = false;
+            player.rightArm.add(player.coilRing);
+
+            // 머리 (앞면 귀여운 얼굴 + 쫑긋 토끼 귀)
+            const headGeo = new THREE.BoxGeometry(0.86, 0.82, 0.82);
+            const headMaterials = [skinMat, skinMat, hoodieMat, skinMat, faceMat, hoodieMat];
+            player.head = new THREE.Mesh(headGeo, headMaterials);
+            player.head.position.set(0, 2.42, 0);
+            player.head.castShadow = true;
+
+            // 왼쪽 쫑긋한 토끼 귀
+            const earGroupL = new THREE.Group();
+            const earOuterL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.68, 0.16), hoodieMat);
+            const earInnerL = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.5, 0.05), innerHoodMat);
+            earInnerL.position.set(0, -0.02, 0.07);
+            earGroupL.add(earOuterL, earInnerL);
+            earGroupL.position.set(-0.24, 0.72, -0.05);
+            earGroupL.rotation.z = 0.12;
+            player.head.add(earGroupL);
+
+            // 오른쪽 살짝 접힌 귀여운 토끼 귀
+            const earGroupR = new THREE.Group();
+            const earOuterR = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.65, 0.16), hoodieMat);
+            const earInnerR = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.48, 0.05), innerHoodMat);
+            earInnerR.position.set(0, -0.02, 0.07);
+            earGroupR.add(earOuterR, earInnerR);
+            earGroupR.position.set(0.26, 0.66, 0.02);
+            earGroupR.rotation.z = -0.32;
+            earGroupR.rotation.x = 0.25;
+            player.head.add(earGroupR);
+
+            group.add(player.leftLeg, player.rightLeg, player.torso, player.leftArm, player.rightArm, player.head);
+            group.position.copy(player.pos);
+            scene.add(group);
+            player.mesh = group;
+        }
+
+        // ==========================================
+        // 3. 잼못타 8층 타워 맵 빌더
+        // ==========================================
+        function addBlock(x, y, z, w, h, d, colorHex, opts = {}) {
+            const isLava = !!opts.isLava;
+            const isFading = !!opts.isFading;
+            const tex = createStudTexture(colorHex, isLava);
+            tex.repeat.set(Math.max(1, Math.round(w / 2)), Math.max(1, Math.round(d / 2)));
+
+            const mat = new THREE.MeshStandardMaterial({
+                map: tex,
+                roughness: isLava ? 0.35 : (isFading ? 0.15 : 0.55),
+                metalness: isLava ? 0.1 : 0.05,
+                emissive: isLava ? new THREE.Color(0xdc2626) : new THREE.Color(0x000000),
+                emissiveIntensity: isLava ? 0.45 : 0,
+                transparent: isFading,
+                opacity: isFading ? 0.75 : 1.0
+            });
+
+            const geo = new THREE.BoxGeometry(w, h, d);
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x, y, z);
+            mesh.castShadow = !isFading;
+            mesh.receiveShadow = true;
+            scene.add(mesh);
+
+            const blockObj = {
+                mesh, x, y, z, w, h, d,
+                stage: opts.stage || null,
+                isFading,
+                isTriggered: false,
+                isBroken: false,
+                fadeTimer: 0,
+                respawnTimer: 0
+            };
+
+            if (isLava) {
+                killBricks.push(blockObj);
+            } else if (opts.moveAxis) {
+                blockObj.axis = opts.moveAxis;
+                blockObj.startX = x;
+                blockObj.startZ = z;
+                blockObj.range = opts.moveRange || 5;
+                blockObj.speed = opts.moveSpeed || 2.0;
+                blockObj.phase = opts.movePhase || 0;
+                blockObj.vx = 0;
+                blockObj.vz = 0;
+                movingPlatforms.push(blockObj);
+            } else if (isFading) {
+                fadingBricks.push(blockObj);
+            } else {
+                platforms.push(blockObj);
+            }
+            return blockObj;
+        }
+
+        function addSpinner(x, y, z, length, rotSpeed = 1.6) {
+            const height = 0.85;
+            const thickness = 0.85;
+            const mat = new THREE.MeshStandardMaterial({
+                color: 0xef4444,
+                emissive: 0xdc2626,
+                emissiveIntensity: 0.65,
+                roughness: 0.25
+            });
+            const mesh = new THREE.Mesh(new THREE.BoxGeometry(length, height, thickness), mat);
+            mesh.position.set(x, y, z);
+            mesh.castShadow = true;
+            scene.add(mesh);
+
+            spinners.push({
+                mesh, x, y, z, length, height, thickness,
+                angle: 0,
+                rotSpeed
+            });
+        }
+
+        function buildTowerMap() {
+            // 아래 바다/심연 바닥
+            const abyssGeo = new THREE.PlaneGeometry(600, 600);
+            const abyssMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3, metalness: 0.2 });
+            const abyss = new THREE.Mesh(abyssGeo, abyssMat);
+            abyss.rotation.x = -Math.PI / 2;
+            abyss.position.y = -12;
+            scene.add(abyss);
+
+            // ------------------------------------------
+            // [1층] 시작 바닥(흰색, 4면 외벽 밀착) & 연핑크 계단 구간 (높이 0 ~ 12.8)
+            // ------------------------------------------
+            addBlock(0, 0, 0, 47.0, 2.0, 47.0, '#ffffff', { stage: 1 }); // 4면 외벽(±23.2)에 빈틈없이 닿는 흰색 시작 바닥
+
+            // 앞벽(+Z = 23.2)에 딱 맞닿아 올라가는 연핑크 발판들
+            addBlock(-14, 2.2, 19.7, 7, 1.2, 7, '#f9a8d4', { stage: 1 });
+            addBlock(-5,  4.4, 19.7, 7, 1.2, 7, '#fbcfe8', { stage: 1 });
+            addBlock(4,   6.6, 19.7, 7, 1.2, 7, '#f9a8d4', { stage: 1 });
+            // 용암 장애물
+            addBlock(4,   7.5, 19.7, 1.4, 0.7, 6.8, '#ef4444', { isLava: true });
+            addBlock(13,  8.8, 19.7, 7, 1.2, 7, '#fbcfe8', { stage: 1 });
+            // 우측 앞 코너(+X, +Z 외벽 밀착)
+            addBlock(19.2, 11.2, 19.2, 8, 1.2, 8, '#f9a8d4', { stage: 1 });
+
+            // ------------------------------------------
+            // [2층] 연핑크 회오리 외벽 밀착 계단 (높이 12.8 ~ 25.5)
+            // ------------------------------------------
+            addBlock(19.7, 13.6, 10,  7, 1.2, 7, '#f9a8d4', { stage: 2 });
+            addBlock(19.7, 16.0, 0,   7, 1.2, 7, '#fbcfe8', { stage: 2 });
+            addBlock(19.7, 18.4, -10, 7, 1.2, 7, '#f9a8d4', { stage: 2 });
+            // 우측 뒤 코너(+X, -Z 외벽 밀착)
+            addBlock(19.2, 20.8, -19.2, 8, 1.2, 8, '#fbcfe8', { stage: 2 });
+            addBlock(10,   23.0, -19.7, 7, 1.2, 7, '#f9a8d4', { stage: 2 });
+            addBlock(0,    25.0, -19.7, 8, 1.2, 7, '#fbcfe8', { stage: 2 });
+
+            // ------------------------------------------
+            // [3층] 진한 핑크 무빙 발판 구간 (높이 25.5 ~ 34.0)
+            // ------------------------------------------
+            addBlock(-10, 27.2, -19.7, 7, 1.2, 7, '#ec4899', { stage: 3, moveAxis: 'z', moveRange: 2.5, moveSpeed: 2.1 });
+            // 좌측 뒤 코너(-X, -Z 외벽 밀착)
+            addBlock(-19.2, 29.4, -19.2, 8, 1.2, 8, '#db2777', { stage: 3 });
+            addBlock(-19.7, 31.6, -9,  7, 1.2, 7, '#ec4899', { stage: 3, moveAxis: 'x', moveRange: 2.2, moveSpeed: 2.3, movePhase: 1.2 });
+            addBlock(-19.7, 33.8, 1,   8, 1.2, 7, '#db2777', { stage: 3 });
+
+            // ------------------------------------------
+            // [4층] 하늘 유리 사라지는 발판 구간 (높이 34.0 ~ 43.0)
+            // ------------------------------------------
+            addBlock(-19.7, 36.0, 10, 7, 1.0, 6.5, '#38bdf8', { stage: 4, isFading: true });
+            // 좌측 앞 코너(-X, +Z 외벽 밀착)
+            addBlock(-19.2, 38.2, 19.2, 8, 1.2, 8, '#0284c7', { stage: 4 });
+            addBlock(-10,   40.4, 19.7, 7, 1.0, 6.5, '#38bdf8', { stage: 4, isFading: true });
+            addBlock(-1,    42.6, 19.7, 8, 1.2, 7, '#0284c7', { stage: 4 });
+
+            // ------------------------------------------
+            // [5층] 주황 용암 점프 구간 (높이 43.0 ~ 52.5)
+            // ------------------------------------------
+            addBlock(8, 44.8, 19.7, 7, 1.2, 7, '#f97316', { stage: 5 });
+            addBlock(8, 45.7, 19.7, 1.3, 0.7, 6.8, '#ef4444', { isLava: true });
+            // 우측 앞 코너(+X, +Z 외벽 밀착)
+            addBlock(19.2, 47.2, 19.2, 8, 1.2, 8, '#ea580c', { stage: 5 });
+            addBlock(19.7, 49.6, 9, 7, 1.2, 7, '#f97316', { stage: 5 });
+            addBlock(19.7, 52.0, -1, 8, 1.2, 7, '#ea580c', { stage: 5 });
+
+            // ------------------------------------------
+            // [6층] 핑크레드 회전 레이저 & 회오리 미니 발판 구간 (높이 52.5 ~ 68.5)
+            // ------------------------------------------
+            addBlock(19.7, 54.4, -11, 7, 1.2, 7, '#f43f5e', { stage: 6 });
+            // 우측 뒤 코너(+X, -Z 외벽 밀착) & 회전 레이저
+            addBlock(19.2, 56.8, -19.2, 8.5, 1.2, 8.5, '#e11d48', { stage: 6 });
+            addSpinner(19.2, 58.1, -19.2, 8.2, 1.9);
+
+            addBlock(9,  59.4, -19.7, 6.5, 1.2, 7, '#f43f5e', { stage: 6 });
+            addBlock(-1, 62.0, -19.7, 6.5, 1.2, 7, '#e11d48', { stage: 6 });
+            addBlock(-11, 64.6, -19.7, 6.5, 1.2, 7, '#f43f5e', { stage: 6 });
+            // 좌측 뒤 코너(-X, -Z 외벽 밀착)
+            addBlock(-19.2, 67.4, -19.2, 8, 1.2, 8, '#e11d48', { stage: 6 });
+
+            // ------------------------------------------
+            // [7층] 에메랄드 외나무다리 & 고난이도 구간 (높이 68.5 ~ 82.0)
+            // ------------------------------------------
+            addBlock(-19.7, 70.0, -10, 6.5, 1.2, 7, '#10b981', { stage: 7 });
+            addBlock(-19.7, 72.6, -1,  5.5, 1.2, 6.5, '#059669', { stage: 7 });
+            addBlock(-19.7, 75.2, 8,   6.5, 1.2, 7, '#10b981', { stage: 7 });
+            addBlock(-19.7, 75.9, 8,   6.3, 0.6, 1.2, '#ef4444', { isLava: true });
+            // 좌측 앞 코너(-X, +Z 외벽 밀착)
+            addBlock(-19.2, 78.2, 19.2, 8, 1.2, 8, '#059669', { stage: 7 });
+
+            // ------------------------------------------
+            // [8층] 최종 정상 & 3cm 초슬림 사다리 + 앞길 & 소파 휴식 공간 (높이 82.0 ~ 90.0)
+            // ------------------------------------------
+            addBlock(-8, 82.0, 8, 22, 2.0, 22, '#fbbf24', { stage: 8, isCheckpoint: true }); // 앞벽(+Z)과 왼쪽벽(-X)에 딱 닿는 정상 발판
+
+            // 8층 정상 발판 끝(x = 3)에서 위로 이어지는 3cm 느낌의 초슬림 사다리 (높이 83.0 ~ 89.2)
+            buildSlimLadder(2.85, 83.0, 8, 6.2);
+
+            // 사다리를 올라가면 나오는 앞길 (x: 3.0 ~ 14.5, 높이 89.0)
+            addBlock(8.8, 88.5, 8, 11.6, 1.0, 6.5, '#fef3c7', { stage: 8 });
+
+            // 앞길 끝(x = 12.2)에 아늑한 핑크/크림 소파 제작
+            buildCozySofa(12.2, 89.0, 8);
+
+            // 타워 외벽 생성 (세 면은 각 층 발판 색상, 나머지 한 면은 완전 투명)
+            buildTowerOuterWalls();
+
+            // 정상 앞길 소파 옆 황금 왕관(트로피) 배치
+            const crownGroup = new THREE.Group();
+            const baseGeo = new THREE.CylinderGeometry(1.5, 1.2, 1.2, 8);
+            const goldMat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.6, roughness: 0.2 });
+            const baseMesh = new THREE.Mesh(baseGeo, goldMat);
+            crownGroup.add(baseMesh);
+
+            const gemGeo = new THREE.OctahedronGeometry(1.1);
+            const gemMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+            const gemMesh = new THREE.Mesh(gemGeo, gemMat);
+            gemMesh.position.y = 1.6;
+            crownGroup.add(gemMesh);
+
+            crownGroup.position.set(12.2, 92.2, 8);
+            scene.add(crownGroup);
+            crownMesh = crownGroup;
+        }
+
+        // 8층 마지막 구간 3cm 초슬림 사다리 생성기
+        function buildSlimLadder(x, baseY, z, height) {
+            const ladderGroup = new THREE.Group();
+            const railMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.4, metalness: 0.3 });
+            const rungMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.3, metalness: 0.2 });
+
+            // 3cm 느낌의 매우 얇은 양쪽 기둥 (폭 0.08m, 3cm 비율 감성)
+            const railGeo = new THREE.BoxGeometry(0.08, height, 0.08);
+            const leftRail = new THREE.Mesh(railGeo, railMat);
+            leftRail.position.set(x, baseY + height / 2, z - 0.55);
+            leftRail.castShadow = true;
+
+            const rightRail = new THREE.Mesh(railGeo, railMat);
+            rightRail.position.set(x, baseY + height / 2, z + 0.55);
+            rightRail.castShadow = true;
+
+            ladderGroup.add(leftRail, rightRail);
+
+            // 3cm 굵기의 얇은 가로 발판(디딤대)들
+            const rungCount = 12;
+            const rungGeo = new THREE.BoxGeometry(0.06, 0.06, 1.15);
+            for (let i = 1; i <= rungCount; i++) {
+                const ry = baseY + (height / (rungCount + 1)) * i;
+                const rung = new THREE.Mesh(rungGeo, rungMat);
+                rung.position.set(x, ry, z);
+                rung.castShadow = true;
+                ladderGroup.add(rung);
+            }
+
+            scene.add(ladderGroup);
+
+            // 플레이어가 가까이 다가가면 위로 탈 수 있도록 사다리 판정 박스 등록
+            ladders.push({
+                minX: x - 0.85, maxX: x + 0.85,
+                minY: baseY - 0.2, maxY: baseY + height + 0.4,
+                minZ: z - 0.9, maxZ: z + 0.9
+            });
+        }
+
+        // 사다리 앞길 끝에 놓이는 아늑한 3D 소파 생성기
+        function buildCozySofa(x, floorY, z) {
+            const sofaGroup = new THREE.Group();
+            const fabricMat = new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.85, metalness: 0.02 });
+            const cushionMat = new THREE.MeshStandardMaterial({ color: 0xfce7f3, roughness: 0.9, metalness: 0.0 });
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.6 });
+
+            // 소파 하단 나무 받침대
+            const base = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.35, 4.6), woodMat);
+            base.position.set(0, 0.175, 0);
+            base.castShadow = true;
+            sofaGroup.add(base);
+
+            // 푹신한 좌석 쿠션 2개
+            const seatGeo = new THREE.BoxGeometry(1.9, 0.45, 2.0);
+            const seat1 = new THREE.Mesh(seatGeo, cushionMat);
+            seat1.position.set(-0.1, 0.55, -1.02);
+            seat1.castShadow = true;
+            const seat2 = new THREE.Mesh(seatGeo, cushionMat);
+            seat2.position.set(-0.1, 0.55, 1.02);
+            seat2.castShadow = true;
+            sofaGroup.add(seat1, seat2);
+
+            // 소파 등받이 (+X 방향 뒤쪽)
+            const backRest = new THREE.Mesh(new THREE.BoxGeometry(0.55, 1.75, 4.6), fabricMat);
+            backRest.position.set(0.85, 0.95, 0);
+            backRest.castShadow = true;
+            sofaGroup.add(backRest);
+
+            // 양쪽 팔걸이 (-Z, +Z)
+            const armGeo = new THREE.BoxGeometry(2.1, 1.15, 0.45);
+            const leftArm = new THREE.Mesh(armGeo, fabricMat);
+            leftArm.position.set(0, 0.65, -2.15);
+            leftArm.castShadow = true;
+            const rightArm = new THREE.Mesh(armGeo, fabricMat);
+            rightArm.position.set(0, 0.65, 2.15);
+            rightArm.castShadow = true;
+            sofaGroup.add(leftArm, rightArm);
+
+            // 귀여운 포인트 베개 쿠션
+            const pillow = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.65, 0.75), fabricMat);
+            pillow.position.set(0.45, 1.05, -1.25);
+            pillow.rotation.z = 0.25;
+            pillow.rotation.y = 0.2;
+            sofaGroup.add(pillow);
+
+            sofaGroup.position.set(x, floorY, z);
+            scene.add(sofaGroup);
+
+            // 소파에 실제로 올라앉을 수 있도록 좌석 충돌 박스 추가
+            addBlock(x - 0.1, floorY + 0.4, z, 1.8, 0.75, 3.8, '#fce7f3', { stage: 8 });
+        }
+
+        // 타워 외벽 빌더: 4면 중 3면은 층별 발판 색상 반투명 벽, 나머지 1면(정면 +Z)은 투명 벽
+        function buildTowerOuterWalls() {
+            const stageWallSections = [
+                { yMin: -1,   yMax: 12.8, color: '#f9a8d4' }, // 1층 연핑크 발판색
+                { yMin: 12.8, yMax: 25.5, color: '#f9a8d4' }, // 2층 연핑크 발판색
+                { yMin: 25.5, yMax: 34.0, color: '#ec4899' }, // 3층 진한 핑크 발판색 (기존 민트 구간)
+                { yMin: 34.0, yMax: 43.0, color: '#38bdf8' }, // 4층 하늘 유리색
+                { yMin: 43.0, yMax: 52.5, color: '#f97316' }, // 5층 주황 발판색
+                { yMin: 52.5, yMax: 68.5, color: '#f43f5e' }, // 6층 핑크레드 발판색
+                { yMin: 68.5, yMax: 91.0, color: '#10b981' }  // 7~8층 정상 & 사다리 구간 에메랄드 발판색
+            ];
+
+            const halfSpan = 23.5; // 타워 중심으로부터 벽면까지 거리
+            const wallThickness = 0.6;
+            const totalWidth = halfSpan * 2 + wallThickness;
+
+            stageWallSections.forEach(sec => {
+                const h = sec.yMax - sec.yMin;
+                const cy = sec.yMin + h / 2;
+
+                // 세 면(뒷면 -Z, 왼쪽면 -X, 오른쪽면 +X)은 각 층 발판 색상과 동일한 반투명 벽
+                const coloredMat = new THREE.MeshPhysicalMaterial({
+                    color: sec.color,
+                    transparent: true,
+                    opacity: 0.34,
+                    roughness: 0.15,
+                    metalness: 0.05,
+                    side: THREE.DoubleSide,
+                    depthWrite: false
+                });
+
+                // 나머지 한 면(정면 +Z)은 시야가 탁 트인 완전 투명 벽
+                const clearMat = new THREE.MeshPhysicalMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.05,
+                    roughness: 0.05,
+                    metalness: 0.0,
+                    side: THREE.DoubleSide,
+                    depthWrite: false
+                });
+
+                const fbGeo = new THREE.BoxGeometry(totalWidth, h, wallThickness);
+                const lrGeo = new THREE.BoxGeometry(wallThickness, h, totalWidth);
+
+                // 뒷벽 (-Z): 발판 색상
+                const backWall = new THREE.Mesh(fbGeo, coloredMat);
+                backWall.position.set(0, cy, -halfSpan);
+                scene.add(backWall);
+
+                // 왼쪽벽 (-X): 발판 색상
+                const leftWall = new THREE.Mesh(lrGeo, coloredMat);
+                leftWall.position.set(-halfSpan, cy, 0);
+                scene.add(leftWall);
+
+                // 오른쪽벽 (+X): 발판 색상
+                const rightWall = new THREE.Mesh(lrGeo, coloredMat);
+                rightWall.position.set(halfSpan, cy, 0);
+                scene.add(rightWall);
+
+                // 앞벽 (+Z): 완전 투명
+                const frontWall = new THREE.Mesh(fbGeo, clearMat);
+                frontWall.position.set(0, cy, halfSpan);
+                scene.add(frontWall);
+            });
+        }
+
+        // ==========================================
+        // 4. 캐릭터 애니메이션 및 메인 루프
+        // ==========================================
+        function updateEnvironment(dt) {
+            if (typeof cloudsGroup !== 'undefined' && cloudsGroup) {
+                cloudsGroup.children.forEach((cloud, idx) => {
+                    cloud.position.x += (0.4 + (idx % 3) * 0.15) * dt;
+                    if (cloud.position.x > 160) cloud.position.x = -160;
+                });
+            }
+            if (crownMesh) {
+                crownMesh.rotation.y += 1.8 * dt;
+                crownMesh.position.y = 92.2 + Math.sin(elapsedTime * 3) * 0.25;
+            }
+        }
+
+        function updatePhysics(dt) {
+            if (!isGameRunning || isGameCleared) return;
+
+            if (invincibleTimer > 0) {
+                invincibleTimer -= dt;
+                if (player.mesh) {
+                    player.mesh.visible = Math.floor(invincibleTimer * 16) % 2 === 0;
+                }
+            } else if (player.mesh) {
+                player.mesh.visible = true;
+            }
+
+            // 입력 방향 계산 (키보드 + 모바일 조이스틱)
+            let forwardInput = (keys.w ? 1 : 0) - (keys.s ? 1 : 0) - joystickInput.y;
+            let rightInput = (keys.d ? 1 : 0) - (keys.a ? 1 : 0) + joystickInput.x;
+
+            const inputLen = Math.hypot(forwardInput, rightInput);
+            if (inputLen > 1) {
+                forwardInput /= inputLen;
+                rightInput /= inputLen;
+            }
+
+            // 카메라 기준 이동 방향 벡터
+            const forwardDir = new THREE.Vector3(-Math.sin(camState.yaw), 0, -Math.cos(camState.yaw));
+            const rightDir = new THREE.Vector3(Math.cos(camState.yaw), 0, -Math.sin(camState.yaw));
+
+            const moveDir = new THREE.Vector3()
+                .addScaledVector(forwardDir, forwardInput)
+                .addScaledVector(rightDir, rightInput);
+
+            if (moveDir.lengthSq() > 0.001) {
+                moveDir.normalize();
+                player.vel.x = moveDir.x * player.speed;
+                player.vel.z = moveDir.z * player.speed;
+
+                const targetAngle = Math.atan2(moveDir.x, moveDir.z);
+                let diff = targetAngle - player.facingAngle;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                player.facingAngle += diff * Math.min(1, 14 * dt);
+            } else {
+                player.vel.x *= Math.pow(0.001, dt);
+                player.vel.z *= Math.pow(0.001, dt);
+            }
+
+            // 점프 처리
+            if (keys.space && player.isGrounded) {
+                player.vel.y = player.hasCoil ? player.coilJumpForce : player.baseJumpForce;
+                player.isGrounded = false;
+            }
+
+            // 사다리 등반 판정: 8층 초슬림 사다리 근처에서 앞/위로 이동하거나 점프 시 위로 상승
+            let onLadder = false;
+            for (let i = 0; i < ladders.length; i++) {
+                const ld = ladders[i];
+                if (
+                    player.pos.x >= ld.minX && player.pos.x <= ld.maxX &&
+                    player.pos.y >= ld.minY && player.pos.y <= ld.maxY &&
+                    player.pos.z >= ld.minZ && player.pos.z <= ld.maxZ
+                ) {
+                    onLadder = true;
+                    break;
+                }
+            }
+
+            if (onLadder) {
+                // 사다리에 매달려 있을 때 중력 대신 부드러운 등반 물리 적용
+                const isClimbingInput = keys.space || Math.abs(forwardInput) > 0.05 || Math.abs(rightInput) > 0.05;
+                player.vel.y = isClimbingInput ? 9.5 : 0;
+            } else {
+                // 일반 중력 적용
+                player.vel.y -= GRAVITY * dt;
+            }
+
+            // 수평 이동 및 충돌 처리
+            player.pos.x += player.vel.x * dt;
+            player.pos.z += player.vel.z * dt;
+
+            // 타워 4면 외벽 경계 충돌 (안쪽 경계 ±23.2)
+            const wallLimit = 23.2 - player.width / 2;
+            if (player.pos.x < -wallLimit) { player.pos.x = -wallLimit; player.vel.x = 0; }
+            if (player.pos.x > wallLimit) { player.pos.x = wallLimit; player.vel.x = 0; }
+            if (player.pos.z < -wallLimit) { player.pos.z = -wallLimit; player.vel.z = 0; }
+            if (player.pos.z > wallLimit) { player.pos.z = wallLimit; player.vel.z = 0; }
+
+            // 수직 이동 및 바닥 착지 판정
+            const prevY = player.pos.y;
+            player.pos.y += player.vel.y * dt;
+            player.isGrounded = false;
+
+            const allSolids = [...platforms, ...movingPlatforms, ...fadingBricks];
+            for (let i = 0; i < allSolids.length; i++) {
+                const p = allSolids[i];
+                if (p.isBroken) continue;
+
+                const halfW = p.w / 2 + player.width / 2 - 0.05;
+                const halfD = p.d / 2 + player.depth / 2 - 0.05;
+                const topY = p.y + p.h / 2;
+                const botY = p.y - p.h / 2;
+
+                if (Math.abs(player.pos.x - p.x) < halfW && Math.abs(player.pos.z - p.z) < halfD) {
+                    // 위에서 아래로 착지
+                    if (player.vel.y <= 0 && prevY >= topY - 0.35 && player.pos.y <= topY) {
+                        player.pos.y = topY;
+                        player.vel.y = 0;
+                        player.isGrounded = true;
+
+                        // 움직이는 발판 위에 있을 때 함께 이동
+                        if (p.vx) player.pos.x += p.vx * dt;
+                        if (p.vz) player.pos.z += p.vz * dt;
+
+                        // 사라지는 발판 작동
+                        if (p.isFading && !p.isTriggered) {
+                            p.isTriggered = true;
+                            p.fadeTimer = 0.75;
+                        }
+
+                        // 층수 업데이트
+                        if (p.stage && p.stage > currentStage) {
+                            currentStage = p.stage;
+                            document.getElementById('stage-display').textContent = currentStage;
+                            showToast(`🎉 ${currentStage}층 도달!`, 'border-green-400');
+                        }
+                    } else if (player.vel.y > 0 && prevY + player.height <= botY + 0.3 && player.pos.y + player.height >= botY) {
+                        // 머리 부딪힘
+                        player.pos.y = botY - player.height;
+                        player.vel.y = 0;
+                    }
+                }
+            }
+
+            // 용암 블록(Kill Bricks) 충돌 판정
+            for (let i = 0; i < killBricks.length; i++) {
+                const kb = killBricks[i];
+                const halfW = kb.w / 2 + player.width / 2 - 0.1;
+                const halfD = kb.d / 2 + player.depth / 2 - 0.1;
+                const topY = kb.y + kb.h / 2;
+                const botY = kb.y - kb.h / 2;
+
+                if (
+                    Math.abs(player.pos.x - kb.x) < halfW &&
+                    Math.abs(player.pos.z - kb.z) < halfD &&
+                    player.pos.y < topY &&
+                    player.pos.y + player.height > botY
+                ) {
+                    damagePlayer('🔥 용암에 닿았습니다!');
+                    break;
+                }
+            }
+
+            // 회전 장애물(Spinners) 충돌 판정
+            for (let i = 0; i < spinners.length; i++) {
+                const sp = spinners[i];
+                const dx = player.pos.x - sp.x;
+                const dz = player.pos.z - sp.z;
+                const cosA = Math.cos(-sp.angle);
+                const sinA = Math.sin(-sp.angle);
+                const localX = dx * cosA - dz * sinA;
+                const localZ = dx * sinA + dz * cosA;
+
+                if (
+                    Math.abs(localX) < sp.length / 2 + player.width / 2 - 0.1 &&
+                    Math.abs(localZ) < sp.thickness / 2 + player.depth / 2 - 0.1 &&
+                    player.pos.y < sp.y + sp.height / 2 &&
+                    player.pos.y + player.height > sp.y - sp.height / 2
+                ) {
+                    damagePlayer('⚡ 회전 레이저에 닿았습니다!');
+                    break;
+                }
+            }
+
+            // 타워 아래 추락 판정
+            if (player.pos.y < -10) {
+                damagePlayer('💥 아래로 떨어졌습니다!');
+                player.pos.copy(INITIAL_SPAWN);
+                player.vel.set(0, 0, 0);
+            }
+
+            // 최종 왕관 도달 판정
+            if (crownMesh && player.pos.distanceTo(crownMesh.position) < 2.8) {
+                clearGame();
+            }
+
+            // 캐릭터 메시 위치 및 애니메이션 동기화
+            if (player.mesh) {
+                player.mesh.position.copy(player.pos);
+                player.mesh.rotation.y = player.facingAngle;
+
+                const horizSpeed = Math.hypot(player.vel.x, player.vel.z);
+                if (!player.isGrounded) {
+                    // 점프 만세 포즈
+                    player.leftArm.rotation.x = Math.PI * 0.85;
+                    player.rightArm.rotation.x = Math.PI * 0.85;
+                    player.leftLeg.rotation.x = 0.35;
+                    player.rightLeg.rotation.x = -0.35;
+                } else if (horizSpeed > 0.5) {
+                    // 걷기 팔다리 흔들기
+                    player.walkTime += dt * 11;
+                    const swing = Math.sin(player.walkTime) * 0.65;
+                    player.leftArm.rotation.x = swing;
+                    player.rightArm.rotation.x = -swing;
+                    player.leftLeg.rotation.x = -swing;
+                    player.rightLeg.rotation.x = swing;
+                } else {
+                    // 대기 자세
+                    player.leftArm.rotation.x = 0;
+                    player.rightArm.rotation.x = 0;
+                    player.leftLeg.rotation.x = 0;
+                    player.rightLeg.rotation.x = 0;
+                }
+            }
+
+            // 높이 HUD 및 배경 하늘색 업데이트
+            const displayHeight = Math.max(0, Math.round(player.pos.y - 1));
+            document.getElementById('height-display').textContent = displayHeight;
+            updateSkyByHeight(player.pos.y);
+        }
+
+        function updateMovingObjects(dt) {
+            // 움직이는 발판 업데이트
+            movingPlatforms.forEach(mp => {
+                const prevX = mp.x;
+                const prevZ = mp.z;
+                mp.phase += mp.speed * dt;
+                if (mp.axis === 'x') {
+                    mp.x = mp.startX + Math.sin(mp.phase) * mp.range;
+                } else if (mp.axis === 'z') {
+                    mp.z = mp.startZ + Math.sin(mp.phase) * mp.range;
+                }
+                mp.vx = (mp.x - prevX) / dt;
+                mp.vz = (mp.z - prevZ) / dt;
+                mp.mesh.position.set(mp.x, mp.y, mp.z);
+            });
+
+            // 사라지는 유리 발판 업데이트
+            fadingBricks.forEach(fb => {
+                if (fb.isTriggered && !fb.isBroken) {
+                    fb.fadeTimer -= dt;
+                    fb.mesh.material.opacity = Math.max(0.1, fb.fadeTimer / 0.75);
+                    if (fb.fadeTimer <= 0) {
+                        fb.isBroken = true;
+                        fb.mesh.visible = false;
+                        fb.respawnTimer = 3.0;
+                    }
+                } else if (fb.isBroken) {
+                    fb.respawnTimer -= dt;
+                    if (fb.respawnTimer <= 0) {
+                        fb.isBroken = false;
+                        fb.isTriggered = false;
+                        fb.mesh.visible = true;
+                        fb.mesh.material.opacity = 0.75;
+                    }
+                }
+            });
+
+            // 회전 장애물 업데이트
+            spinners.forEach(sp => {
+                sp.angle += sp.rotSpeed * dt;
+                sp.mesh.rotation.y = sp.angle;
+            });
+        }
+
+        // 높이에 따라 하늘과 안개 색상이 부드럽게 바뀌는 함수
+        const skyThemes = [
+            { height: 0,  color: new THREE.Color(0x7dd3fc) }, // 1~2층: 맑은 하늘색
+            { height: 22, color: new THREE.Color(0x6ee7b7) }, // 3층: 상쾌한 에메랄드 민트
+            { height: 42, color: new THREE.Color(0xfda4af) }, // 4~5층: 따뜻한 핑크빛 노을
+            { height: 62, color: new THREE.Color(0xc084fc) }, // 6~7층: 신비로운 보랏빛 황혼
+            { height: 88, color: new THREE.Color(0x1e1b4b) }  // 8층 정상 & 소파 라운지: 별빛 밤하늘 네이비
+        ];
+
+        function updateSkyByHeight(y) {
+            const clampedY = Math.max(0, Math.min(90, y));
+            let lower = skyThemes[0];
+            let upper = skyThemes[skyThemes.length - 1];
+
+            for (let i = 0; i < skyThemes.length - 1; i++) {
+                if (clampedY >= skyThemes[i].height && clampedY <= skyThemes[i + 1].height) {
+                    lower = skyThemes[i];
+                    upper = skyThemes[i + 1];
+                    break;
+                }
+            }
+
+            const range = upper.height - lower.height || 1;
+            const t = (clampedY - lower.height) / range;
+            const currentSky = lower.color.clone().lerp(upper.color, t);
+
+            if (scene) {
+                scene.background = currentSky;
+                if (scene.fog) scene.fog.color.copy(currentSky);
+            }
+        }
+
+        // 피격 및 HP 관리
+        function updateHPUI() {
+            const fullHearts = '❤️'.repeat(Math.max(0, playerHP));
+            const emptyHearts = '🖤'.repeat(Math.max(0, MAX_HP - playerHP));
+            document.getElementById('hp-hearts').textContent = fullHearts + emptyHearts;
+        }
+
+        function damagePlayer(reason) {
+            if (invincibleTimer > 0 || isGameCleared) return;
+            playerHP -= 1;
+            invincibleTimer = 1.2;
+            updateHPUI();
+
+            if (playerHP <= 0) {
+                showToast('💀 체력을 모두 잃었습니다! 1층 처음에서 부활합니다.', 'border-red-500');
+                playerHP = MAX_HP;
+                updateHPUI();
+                respawnToFirstFloor();
+            } else {
+                showToast(`${reason} (남은 HP: ${playerHP}/${MAX_HP})`, 'border-orange-400');
+            }
+        }
+
+        function respawnToFirstFloor() {
+            player.pos.copy(INITIAL_SPAWN);
+            player.vel.set(0, 0, 0);
+            currentStage = 1;
+            document.getElementById('stage-display').textContent = '1';
+        }
+
+        let toastTimeout = null;
+        function showToast(text, borderClass = 'border-yellow-400') {
+            const toast = document.getElementById('toast-message');
+            const box = document.getElementById('toast-box');
+            box.textContent = text;
+            box.className = `rbx-panel px-6 py-3 rounded-2xl text-white text-xl sm:text-2xl font-bold text-center shadow-2xl border-2 ${borderClass}`;
+            toast.classList.remove('opacity-0', 'scale-90');
+            toast.classList.add('opacity-100', 'scale-100');
+
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('opacity-100', 'scale-100');
+                toast.classList.add('opacity-0', 'scale-90');
+            }, 2200);
+        }
+
+        function formatTime(sec) {
+            const mins = Math.floor(sec / 60).toString().padStart(2, '0');
+            const secs = Math.floor(sec % 60).toString().padStart(2, '0');
+            const tenths = Math.floor((sec * 10) % 10);
+            return `${mins}:${secs}.${tenths}`;
+        }
+
+        function clearGame() {
+            isGameCleared = true;
+            isGameRunning = false;
+            document.getElementById('modal-title').textContent = '👑 잼못타 정상 클리어!';
+            document.getElementById('modal-desc').innerHTML = '축하합니다! 8층 사다리와 아늑한 소파 정상까지 모두 정복했습니다!';
+            document.getElementById('clear-stats').classList.remove('hidden');
+            document.getElementById('final-time').textContent = formatTime(elapsedTime);
+            document.getElementById('modal-start-btn').textContent = '처음부터 다시 도전하기 ↻';
+            document.getElementById('modal-overlay').classList.remove('hidden');
+        }
+
+        function updateCamera() {
+            if (!camera) return;
+            const target = new THREE.Vector3(player.pos.x, player.pos.y + 2.2, player.pos.z);
+            const offsetX = Math.sin(camState.yaw) * Math.cos(camState.pitch) * camState.distance;
+            const offsetY = Math.sin(camState.pitch) * camState.distance;
+            const offsetZ = Math.cos(camState.yaw) * Math.cos(camState.pitch) * camState.distance;
+
+            camera.position.set(target.x + offsetX, Math.max(0.8, target.y + offsetY), target.z + offsetZ);
+            camera.lookAt(target);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = Math.min(clock.getDelta(), 0.05);
+
+            if (isGameRunning && !isGameCleared) {
+                elapsedTime += dt;
+                document.getElementById('timer-display').textContent = formatTime(elapsedTime);
+            }
+
+            updateMovingObjects(dt);
+            updatePhysics(dt);
+            updateEnvironment(dt);
+            updateCamera();
+
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        // ==========================================
+        // 5. 초기화 및 이벤트 바인딩
+        // ==========================================
+        function setupControls() {
+            window.addEventListener('keydown', (e) => {
+                const code = e.code;
+                if (code === 'KeyW' || code === 'ArrowUp') keys.w = true;
+                if (code === 'KeyS' || code === 'ArrowDown') keys.s = true;
+                if (code === 'KeyA' || code === 'ArrowLeft') keys.a = true;
+                if (code === 'KeyD' || code === 'ArrowRight') keys.d = true;
+                if (code === 'Space') { keys.space = true; e.preventDefault(); }
+                if (code === 'KeyR' && isGameRunning) {
+                    respawnToFirstFloor();
+                    showToast('🏠 1층 처음 구간으로 복귀했습니다!', 'border-amber-400');
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                const code = e.code;
+                if (code === 'KeyW' || code === 'ArrowUp') keys.w = false;
+                if (code === 'KeyS' || code === 'ArrowDown') keys.s = false;
+                if (code === 'KeyA' || code === 'ArrowLeft') keys.a = false;
+                if (code === 'KeyD' || code === 'ArrowRight') keys.d = false;
+                if (code === 'Space') keys.space = false;
+            });
+
+            // 마우스 드래그 시점 회전 & 휠 줌
+            const canvas = document.getElementById('game-canvas');
+            canvas.addEventListener('mousedown', (e) => {
+                camState.isDragging = true;
+                camState.prevMouseX = e.clientX;
+                camState.prevMouseY = e.clientY;
+            });
+            window.addEventListener('mouseup', () => { camState.isDragging = false; });
+            window.addEventListener('mousemove', (e) => {
+                if (!camState.isDragging) return;
+                const dx = e.clientX - camState.prevMouseX;
+                const dy = e.clientY - camState.prevMouseY;
+                camState.prevMouseX = e.clientX;
+                camState.prevMouseY = e.clientY;
+
+                camState.yaw -= dx * 0.0065;
+                camState.pitch = Math.max(-0.25, Math.min(1.25, camState.pitch + dy * 0.0065));
+            });
+            canvas.addEventListener('wheel', (e) => {
+                camState.distance = Math.max(6, Math.min(28, camState.distance + e.deltaY * 0.01));
+            }, { passive: true });
+
+            // 모바일 조이스틱
+            const joyZone = document.getElementById('joystick-zone');
+            const joyKnob = document.getElementById('joystick-knob');
+            let joyTouchId = null;
+
+            joyZone.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const touch = e.changedTouches[0];
+                joyTouchId = touch.identifier;
+                updateJoystick(touch);
+            }, { passive: false });
+
+            joyZone.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === joyTouchId) {
+                        updateJoystick(e.changedTouches[i]);
+                    }
+                }
+            }, { passive: false });
+
+            const resetJoystick = () => {
+                joyTouchId = null;
+                joystickInput.x = 0;
+                joystickInput.y = 0;
+                joyKnob.style.transform = 'translate(0px, 0px)';
+            };
+            joyZone.addEventListener('touchend', resetJoystick);
+            joyZone.addEventListener('touchcancel', resetJoystick);
+
+            function updateJoystick(touch) {
+                const rect = joyZone.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                const maxRadius = 35;
+                let dx = touch.clientX - centerX;
+                let dy = touch.clientY - centerY;
+                const dist = Math.hypot(dx, dy);
+                if (dist > maxRadius) {
+                    dx = (dx / dist) * maxRadius;
+                    dy = (dy / dist) * maxRadius;
+                }
+                joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+                joystickInput.x = dx / maxRadius;
+                joystickInput.y = dy / maxRadius;
+            }
+
+            // 모바일 점프 버튼
+            const jumpBtn = document.getElementById('mobile-jump-btn');
+            jumpBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys.space = true; }, { passive: false });
+            jumpBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys.space = false; }, { passive: false });
+
+            // 점프 코일 버튼
+            document.getElementById('btn-coil').addEventListener('click', () => {
+                player.hasCoil = !player.hasCoil;
+                document.getElementById('coil-status').textContent = player.hasCoil ? 'ON' : 'OFF';
+                if (player.coilRing) player.coilRing.visible = player.hasCoil;
+                showToast(player.hasCoil ? '🌀 점프 코일 장착! (점프력 상승)' : '점프 코일을 해제했습니다.', 'border-purple-400');
+            });
+
+            // 1층 복귀 버튼
+            document.getElementById('btn-respawn').addEventListener('click', () => {
+                respawnToFirstFloor();
+                showToast('🏠 1층 처음 구간으로 복귀했습니다!', 'border-amber-400');
+            });
+
+            // 게임 시작 / 재시작 버튼
+            document.getElementById('modal-start-btn').addEventListener('click', () => {
+                document.getElementById('modal-overlay').classList.add('hidden');
+                if (isGameCleared) {
+                    isGameCleared = false;
+                    elapsedTime = 0;
+                    playerHP = MAX_HP;
+                    updateHPUI();
+                    respawnToFirstFloor();
+                }
+                isGameRunning = true;
+            });
+
+            window.addEventListener('resize', () => {
+                if (!camera || !renderer) return;
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        function init() {
+            const canvas = document.getElementById('game-canvas');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x7dd3fc);
+            scene.fog = new THREE.FogExp2(0x7dd3fc, 0.0045);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
+            renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.08;
+
+            // 조명 설정
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x94a3b8, 0.75);
+            scene.add(hemiLight);
+
+            const dirLight = new THREE.DirectionalLight(0xfffbeb, 1.1);
+            dirLight.position.set(45, 95, 55);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            dirLight.shadow.camera.near = 10;
+            dirLight.shadow.camera.far = 220;
+            const d = 55;
+            dirLight.shadow.camera.left = -d;
+            dirLight.shadow.camera.right = d;
+            dirLight.shadow.camera.top = d;
+            dirLight.shadow.camera.bottom = -d;
+            scene.add(dirLight);
+
+            // 배경 구름 생성
+            window.cloudsGroup = new THREE.Group();
+            const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95 });
+            for (let i = 0; i < 18; i++) {
+                const cloud = new THREE.Group();
+                for (let j = 0; j < 3; j++) {
+                    const puff = new THREE.Mesh(new THREE.BoxGeometry(8 + j * 2, 3.5, 6), cloudMat);
+                    puff.position.set(j * 4, (j % 2) * 1.2, 0);
+                    cloud.add(puff);
+                }
+                cloud.position.set((Math.random() - 0.5) * 260, 15 + Math.random() * 75, -50 - Math.random() * 90);
+                cloudsGroup.add(cloud);
+            }
+            scene.add(cloudsGroup);
+
+            // 캐릭터 및 맵 생성 (함수 존재 시 호출)
+            if (typeof createRobloxCharacter === 'function') createRobloxCharacter();
+            if (typeof buildTowerMap === 'function') buildTowerMap();
+
+            setupControls();
+            updateHPUI();
+            animate();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
