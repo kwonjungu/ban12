@@ -425,7 +425,7 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
     <nav class="tabs" role="tablist" aria-label="저장소 메뉴">
       <button class="tabbtn" id="tab-games"   role="tab" aria-selected="true"  aria-controls="panel-games"   data-tab="games">🕹️ 게임 저장소<span class="n">18</span></button>
       <button class="tabbtn" id="tab-prompts" role="tab" aria-selected="false" aria-controls="panel-prompts" data-tab="prompts" tabindex="-1">💬 프롬프트 저장소<span class="n">+9</span></button>
-      <button class="tabbtn" id="tab-new"     role="tab" aria-selected="false" aria-controls="panel-new"     data-tab="new" tabindex="-1">✨ 새 게임<span class="n">82</span></button>
+      <button class="tabbtn" id="tab-new"     role="tab" aria-selected="false" aria-controls="panel-new"     data-tab="new" tabindex="-1">✨ 새 게임<span class="n">94</span></button>
       <button class="tabbtn" id="tab-next"    role="tab" aria-selected="false" aria-controls="panel-next"    data-tab="next" tabindex="-1">🌱 추가 개발 예정</button>
       <button class="tabbtn" id="tab-howto"  role="tab" aria-selected="false" aria-controls="panel-howto"  data-tab="howto" tabindex="-1">📘 사용법</button>
     </nav>
@@ -450,7 +450,7 @@ h1.title .box{display:inline-block;background:var(--lime);border:var(--bw) solid
           여러 초등학교 친구들이 AI와 대화하면서 만든 HTML 게임 저장소예요.
           카드의 미리보기는 <b>진짜 게임 화면</b>이에요.</p>
         <div class="stats">
-          <div class="stat"><b>100</b><span>아이들이 만든 게임</span></div>
+          <div class="stat"><b>112</b><span>아이들이 만든 게임</span></div>
           <div class="stat"><b>17</b><span>완성 예시 게임</span></div>
           <div class="stat"><b>109</b><span>단계별 프롬프트</span></div>
           <div class="stat"><b>∞</b><span>만들 수 있는 것</span></div>
@@ -891,7 +891,19 @@ const NEWGAMES = [
   {f:'jmt-tower-obby-3d.html', t:'잼못타 타워 오비', d:'용암을 피해 탑 꼭대기까지', c:'WASD/방향키 이동 · Space 점프 · R 다시', k:'3d', e:'🗼', by:'사천초'},
   {f:'idol-dino-run.html', t:'아이돌 공룡 달리기', d:'동물 캐릭터로 장애물 점프', c:'Space/↑ 점프 · ↓ 숙이기', k:'canvas', e:'🦖', by:'사천초'},
   {f:'hero-and-magic-castle.html', t:'용사와 마법의 성', d:'용사가 되어 마법의 성 탐험', c:'WASD/방향키 이동 · Space 공격 · Q E F 기술', k:'canvas', e:'🏰', by:'사천초'},
-  {f:'jump-jump-bunny.html', t:'점프점프 토끼', d:'장애물 피해 20초 버티기', c:'Space/↑/탭 점프', k:'canvas', e:'🐇', by:'사천초'}
+  {f:'jump-jump-bunny.html', t:'점프점프 토끼', d:'장애물 피해 20초 버티기', c:'Space/↑/탭 점프', k:'canvas', e:'🐇', by:'사천초'},
+  {f:'fpv-drone-racing-sim-3d.html', t:'3D FPV 드론 레이싱', d:'1인칭 시점 드론 레이싱', c:'WASD/방향키 조종 · R 다시 · C 시점', k:'3d', e:'🚁'},
+  {f:'neon-sky-drone-racer-3d.html', t:'네온 스카이 드론 레이서', d:'네온 하늘 코스를 질주', c:'WASD/방향키 조종 · Space 부스터', k:'3d', e:'🌃'},
+  {f:'space-drone-shooting-3d.html', t:'꼬마 친구들 우주 드론 슈팅', d:'우주에서 드론 슈팅 대작전', c:'WASD/방향키 이동 · Space 발사', k:'3d', e:'🚀'},
+  {f:'aether-wing-drone-odyssey.html', t:'에테르 윙 드론 오디세이', d:'2D 드론 비행 모험', c:'WASD/방향키 이동 · Space 발사 · Z X 기술', k:'canvas', e:'🪽'},
+  {f:'tactical-fighter-return.html', t:'전술 전투기 기지 복귀', d:'전투기로 공군기지 복귀', c:'WASD/방향키 조종 · Space 발사 · Shift 가속', k:'canvas', e:'✈️'},
+  {f:'aerial-strike-3d.html', t:'에어리얼 스트라이크 3D', d:'전술 드론 전쟁 시뮬레이터', c:'WASD/방향키 조종 · Space 공격 · 1~3 무기', k:'3d', e:'🎯'},
+  {f:'aero-drone-race-3d.html', t:'에어로 드론 레이스 3D', d:'링을 통과하는 드론 레이싱', c:'방향키 조종 · Space 상승', k:'3d', e:'🏁'},
+  {f:'deep-sea-drone-shooter-3d.html', t:'심해 드론 슈터 3D', d:'깊은 바다 잠수 드론 슈팅', c:'방향키 이동 · 클릭 발사', k:'3d', e:'🐙'},
+  {f:'neon-drone-race-battle-3d.html', t:'네온 드론 레이스 대결', d:'9명이 겨루는 드론 레이스', c:'WASD/방향키 조종 · Shift 부스터 · R 다시', k:'3d', e:'🏆'},
+  {f:'eco-robot-forest.html', t:'에코 로봇: 숲의 수호자', d:'로봇으로 숲을 되살려요', c:'WASD/방향키 이동 · Space 행동', k:'canvas', e:'🌳'},
+  {f:'weird-drone-stunt.html', t:'이상한 드론 스턴트 쇼', d:'드론으로 묘기 부리기', c:'방향키/AD 조종 · Space 부스트', k:'canvas', e:'🤸'},
+  {f:'shark-drone-harmony.html', t:'상어 드론: 하늘과 바다', d:'하늘과 바다를 오가는 상어 드론', c:'WASD/방향키 이동 · Space 행동', k:'canvas', e:'🦈'}
 ];
 
 /* ─────────── 유틸 ─────────── */

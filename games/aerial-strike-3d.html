@@ -1,0 +1,2163 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>AERIAL STRIKE 3D - 전술 드론 전쟁 시뮬레이터</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+KR:wght@400;700;900&display=swap');
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #090a0f;
+            color: #e2e8f0;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .font-mono-tech {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .tac-btn {
+            background: linear-gradient(180deg, rgba(16, 185, 129, 0.25) 0%, rgba(6, 78, 59, 0.45) 100%);
+            border: 1px solid rgba(16, 185, 129, 0.55);
+            transition: all 0.12s ease;
+        }
+        .tac-btn:hover {
+            background: rgba(16, 185, 129, 0.4);
+            border-color: #34d399;
+        }
+        .tac-btn-amber {
+            background: linear-gradient(180deg, rgba(245, 158, 11, 0.25) 0%, rgba(120, 53, 15, 0.45) 100%);
+            border: 1px solid rgba(245, 158, 11, 0.6);
+            transition: all 0.12s ease;
+        }
+        .tac-btn-amber:hover {
+            background: rgba(245, 158, 11, 0.4);
+        }
+        .tac-btn-danger {
+            background: linear-gradient(180deg, rgba(244, 63, 94, 0.25) 0%, rgba(136, 19, 55, 0.45) 100%);
+            border: 1px solid rgba(244, 63, 94, 0.6);
+            transition: all 0.12s ease;
+        }
+        .tac-btn-danger:hover {
+            background: rgba(244, 63, 94, 0.4);
+        }
+        .thermal-filter canvas {
+            filter: grayscale(100%) contrast(165%) brightness(110%) hue-rotate(95deg) invert(88%);
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col">
+
+    <!-- 상단 전술 상태 바 -->
+    <header class="w-full px-3 py-2 bg-stone-950/95 border-b border-emerald-500/30 flex items-center justify-between text-xs z-20 shrink-0">
+        <div class="flex items-center gap-3">
+            <span class="font-mono-tech font-bold text-emerald-400 tracking-wider text-sm">AERIAL STRIKE 3D</span>
+            <span id="hud-mission-title" class="text-amber-300 font-bold truncate max-w-[180px] sm:max-w-md">작전 대기 중</span>
+        </div>
+        <div class="flex items-center gap-2.5 sm:gap-5 font-mono-tech">
+            <div>목표: <span id="hud-progress" class="text-emerald-400 font-bold">0/0</span></div>
+            <div>격파: <span id="hud-kills" class="text-rose-400 font-bold">0</span></div>
+            <div>PTS: <span id="hud-score" class="text-amber-400 font-bold">0</span></div>
+            <div class="flex items-center gap-1.5">
+                <span>HP</span>
+                <div class="w-16 sm:w-28 h-2.5 bg-stone-800 rounded overflow-hidden border border-emerald-500/40">
+                    <div id="hud-hp-bar" class="h-full bg-emerald-500 transition-all duration-150" style="width: 100%;"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 3D 전장 영역 -->
+    <main id="three-container" class="relative flex-1 w-full overflow-hidden bg-stone-950">
+        <!-- 중앙 조준 십자선 -->
+        <div class="pointer-events-none absolute inset-0 flex items-center justify-center z-10">
+            <div class="w-8 h-8 border border-emerald-400/50 rounded-full flex items-center justify-center">
+                <div class="w-1 h-1 bg-emerald-400 rounded-full"></div>
+            </div>
+        </div>
+
+        <!-- 상단 전술 무전 알림 배너 -->
+        <div id="tactical-alert" class="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 z-20 bg-stone-950/85 border border-amber-500/50 px-4 py-1.5 rounded-full text-xs sm:text-sm text-amber-200 font-bold shadow-lg transition-opacity duration-300 opacity-0 text-center max-w-[90%]">
+        </div>
+
+        <!-- 좌측 상단 실시간 텔레메트리 -->
+        <div class="absolute top-3 left-3 font-mono-tech text-[11px] text-emerald-400/90 pointer-events-none z-10 leading-snug bg-stone-950/65 p-2.5 rounded border border-emerald-500/30">
+            <div>FLIGHT STATUS: <span id="hud-flight-state" class="text-amber-400 font-bold">RUNWAY READY (이륙 대기)</span></div>
+            <div>AIRCRAFT: <span id="hud-drone-type" class="text-cyan-300 font-bold">KF-21 멀티롤 전투기 (MULTIROLE)</span></div>
+            <div>ENV / SECTOR: <span id="hud-env-name" class="text-sky-300 font-bold">온대 야전 전선</span></div>
+            <div>ALTITUDE (고도): <span id="hud-alt" class="text-white font-bold">0.0m</span></div>
+            <div>AIRSPEED (속도): <span id="hud-spd" class="text-white">0 km/h</span></div>
+            <div>HEADING  (방위): <span id="hud-hdg" class="text-white">000° N</span></div>
+            <div>CAMERA   (시점): <span id="hud-cam-mode" class="text-amber-300">3인칭 추적 시점 (V)</span></div>
+            <div class="text-[10px] text-emerald-500 mt-1">W: 가속/이륙 | S: 감속/착륙 | Q/E: 상승/하강 | A/D: 선회</div>
+        </div>
+
+        <!-- 우측 고도 및 상승/하강 전용 컨트롤 패드 -->
+        <div class="absolute right-3 top-36 sm:top-32 z-20 flex flex-col items-center gap-1.5 bg-stone-950/75 p-2 rounded-xl border border-emerald-500/40 shadow-lg">
+            <span class="font-mono-tech text-[9px] text-emerald-400">ALTITUDE</span>
+            <button id="btn-alt-up" class="tac-btn w-11 h-11 rounded-lg font-bold text-base text-white flex items-center justify-center active:scale-95" title="이륙 및 고도 상승 (Q)">
+                ▲
+            </button>
+            <div class="w-2.5 h-24 bg-stone-900 rounded-full overflow-hidden border border-emerald-500/40 flex flex-col justify-end p-0.5">
+                <div id="hud-alt-gauge" class="w-full bg-gradient-to-t from-emerald-500 to-cyan-300 rounded-full transition-all duration-100" style="height: 2%;"></div>
+            </div>
+            <button id="btn-alt-down" class="tac-btn w-11 h-11 rounded-lg font-bold text-base text-white flex items-center justify-center active:scale-95" title="고도 하강 및 착륙 (E)">
+                ▼
+            </button>
+            <span class="font-mono-tech text-[9px] text-slate-400">Q / E</span>
+        </div>
+
+        <!-- 우측 상단 미니 전술 레이더 -->
+        <div class="absolute top-3 right-3 z-10 pointer-events-none bg-stone-950/80 p-1 rounded-full border border-emerald-500/40 shadow-lg">
+            <canvas id="radarCanvas" width="104" height="104" class="rounded-full block"></canvas>
+        </div>
+
+        <!-- 작전 브리핑 및 시작/결과 모달 오버레이 -->
+        <div id="menu-overlay" class="absolute inset-0 z-30 bg-stone-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="max-w-xl w-full bg-stone-900/95 border border-emerald-500/40 rounded-2xl p-5 sm:p-6 shadow-2xl">
+                <div class="font-mono-tech text-xs text-emerald-400 mb-1">SUPERSONIC FIGHTER &amp; AIR COMBAT SIMULATOR</div>
+                <h1 id="modal-title" class="text-2xl sm:text-3xl font-black text-white mb-2">AERIAL STRIKE 3D: FIGHTER WING</h1>
+                <p id="modal-desc" class="text-xs sm:text-sm text-slate-300 mb-4 leading-relaxed">
+                    아군 전술 비행기지 활주로에서 초음속 전투기로 직접 출격하여 제공권을 장악하고, 온대·사막·설원·야간 전장의 적 기갑 및 방공망을 제압하십시오.
+                </p>
+
+                <!-- 조작 가이드 요약 -->
+                <div class="bg-stone-950/90 rounded-lg p-3 mb-4 border border-emerald-500/20 text-xs text-slate-300 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    <div>• <span class="text-amber-400 font-bold">활주로 가속 이륙 / 순항:</span> W / S (또는 Q/E 고도 제어)</div>
+                    <div>• <span class="text-cyan-400 font-bold">기지 활주로 착륙 수리:</span> E 하강 + S 감속 착륙</div>
+                    <div>• <span class="text-white font-bold">기체 선회 및 기동:</span> A, D / 좌우 방향키</div>
+                    <div>• <span class="text-sky-400 font-bold">20mm 발칸 기관포:</span> Space / 좌클릭</div>
+                    <div>• <span class="text-rose-400 font-bold">유도 미사일 / 정밀 폭격:</span> Shift / B / 우클릭</div>
+                    <div>• <span class="text-emerald-400 font-bold">편대 지원 / 배경 전환:</span> F / G (환경 변경)</div>
+                </div>
+
+                <button id="start-btn" class="w-full py-3.5 px-6 rounded-xl tac-btn font-bold text-base sm:text-lg text-white tracking-wider uppercase cursor-pointer">
+                    ▶ 활주로 출격 및 작전 개시 (SCRAMBLE FIGHTER)
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- 하단 컨트롤 바 -->
+    <footer class="w-full px-2 py-2 sm:px-5 sm:py-2.5 bg-stone-950 border-t border-emerald-500/30 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2.5 z-20 shrink-0">
+        <button id="btn-switch-bomber" class="tac-btn-amber px-2.5 py-1.5 rounded-lg text-xs font-bold text-amber-200 cursor-pointer" onclick="switchDroneInGame('MULTIROLE')">
+            ✈️ 전폭기 KF-21(1)
+        </button>
+        <button id="btn-switch-kamikaze" class="tac-btn-danger px-2.5 py-1.5 rounded-lg text-xs font-bold text-rose-200 cursor-pointer" onclick="switchDroneInGame('INTERCEPTOR')">
+            🚀 요격기 F-22(2)
+        </button>
+        <button id="btn-switch-gunship" class="tac-btn px-2.5 py-1.5 rounded-lg text-xs font-bold text-emerald-200 cursor-pointer" onclick="switchDroneInGame('STRIKER')">
+            💣 공격기 A-10(3)
+        </button>
+
+        <div class="h-5 w-px bg-emerald-500/30 hidden sm:block"></div>
+
+        <button id="btn-ordnance" class="tac-btn-danger px-3 py-1.5 rounded-lg text-xs font-bold text-white cursor-pointer">
+            🚀 미사일 / 폭탄 (Shift)
+        </button>
+        <button id="btn-airstrike" class="tac-btn-amber px-3 py-1.5 rounded-lg text-xs font-bold text-amber-300 cursor-pointer">
+            ✈️ 편대 폭격요청 (F)
+        </button>
+        <button id="btn-env" class="tac-btn px-2.5 py-1.5 rounded-lg text-xs font-bold text-sky-300 cursor-pointer">
+            🌍 배경전환 (G)
+        </button>
+
+        <button id="btn-camera" class="tac-btn px-2.5 py-1.5 rounded-lg text-xs font-bold text-cyan-300 cursor-pointer">
+            🎥 시점 (V)
+        </button>
+        <button id="btn-thermal" class="tac-btn px-2.5 py-1.5 rounded-lg text-xs font-bold text-emerald-300 cursor-pointer">
+            👁️ 열화상 (T)
+        </button>
+        <button id="btn-sound" class="tac-btn px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-300 cursor-pointer">
+            <span id="sound-icon">🔊 ON</span>
+        </button>
+    </footer>
+
+    <script>
+        // ==========================================
+        // 2. 전장 배경 테마 & 작전(MISSION) 데이터베이스
+        // ==========================================
+        const ENVIRONMENTS = [
+            {
+                id: 'TEMPERATE',
+                name: '온대 야전 전선 (TEMPERATE)',
+                skyColor: 0x1e3a5f,
+                fogColor: 0x26466d,
+                fogDensity: 0.0010,
+                groundColor: 0x2d3e22,
+                hillColor: 0x3b4d2b,
+                roadColor: 0x27272a,
+                sunColor: 0xfffbeb,
+                sunIntensity: 1.4,
+                hemiSky: 0x93c5fd,
+                hemiGround: 0x293224,
+                propType: 'PINE'
+            },
+            {
+                id: 'DESERT',
+                name: '사막 협곡 유전 (DESERT CANYON)',
+                skyColor: 0xd97706,
+                fogColor: 0xb45309,
+                fogDensity: 0.0011,
+                groundColor: 0xc29b61,
+                hillColor: 0xa17a43,
+                roadColor: 0x574c3f,
+                sunColor: 0xfef3c7,
+                sunIntensity: 1.65,
+                hemiSky: 0xfde68a,
+                hemiGround: 0x78350f,
+                propType: 'DESERT_ROCK'
+            },
+            {
+                id: 'ARCTIC',
+                name: '설원 극지 기지 (ARCTIC TUNDRA)',
+                skyColor: 0x94a3b8,
+                fogColor: 0xcbd5e1,
+                fogDensity: 0.0012,
+                groundColor: 0xe2e8f0,
+                hillColor: 0xcbd5e1,
+                roadColor: 0x334155,
+                sunColor: 0xffffff,
+                sunIntensity: 1.5,
+                hemiSky: 0xf8fafc,
+                hemiGround: 0x64748b,
+                propType: 'SNOW_PINE'
+            },
+            {
+                id: 'NIGHT',
+                name: '야간 제공 작전 (MIDNIGHT OPS)',
+                skyColor: 0x050811,
+                fogColor: 0x090d16,
+                fogDensity: 0.0015,
+                groundColor: 0x111827,
+                hillColor: 0x1f2937,
+                roadColor: 0x0f172a,
+                sunColor: 0x60a5fa,
+                sunIntensity: 0.55,
+                hemiSky: 0x1e3a8a,
+                hemiGround: 0x030712,
+                propType: 'NIGHT_CITY'
+            }
+        ];
+
+        const OPERATIONS = [
+            {
+                id: 1,
+                envIndex: 0,
+                title: "작전 01: 활주로 출격 및 전선 정찰대 섬멸",
+                briefing: "W 키로 활주로에서 가속한 뒤 Q 키로 이륙하십시오! 적 전술 장갑차와 정찰 전투기가 접근 중입니다.",
+                targetType: "ALL",
+                targetCount: 5,
+                spawnConfig: { JEEP: 4, AAA: 1, TANK: 0, RADAR: 0, DEPOT: 0 },
+                aircraftConfig: { ENEMY_FIGHTER: 1, ENEMY_BOMBER: 0 },
+                reward: 500
+            },
+            {
+                id: 2,
+                envIndex: 1,
+                title: "작전 02: 사막 유전 대공망 및 폭격기 요격",
+                briefing: "사막 전선으로 이동했습니다! 적 대공포와 레이더를 파괴하고 적 전략 폭격기(Tu-95)를 공중 요격하십시오!",
+                targetType: "PRIORITY_AA",
+                targetCount: 4,
+                spawnConfig: { JEEP: 2, AAA: 2, TANK: 0, RADAR: 2, DEPOT: 0 },
+                aircraftConfig: { ENEMY_FIGHTER: 1, ENEMY_BOMBER: 1 },
+                reward: 800
+            },
+            {
+                id: 3,
+                envIndex: 2,
+                title: "작전 03: 설원 기갑 사단 진격 저지",
+                briefing: "극지 설원 전선입니다! 중장갑 전차 부대를 유도 미사일과 정밀 폭격으로 격파하십시오.",
+                targetType: "TANK",
+                targetCount: 4,
+                spawnConfig: { JEEP: 2, AAA: 2, TANK: 4, RADAR: 0, DEPOT: 0 },
+                aircraftConfig: { ENEMY_FIGHTER: 2, ENEMY_BOMBER: 0 },
+                reward: 1200
+            },
+            {
+                id: 4,
+                envIndex: 3,
+                title: "작전 04: 야간 후방 보급기지 정밀 타격",
+                briefing: "심야 야간 작전입니다! 활주로 유도등과 적 연료 탱크의 불빛을 포착하여 보급선을 차단하십시오.",
+                targetType: "DEPOT",
+                targetCount: 3,
+                spawnConfig: { JEEP: 2, AAA: 3, TANK: 2, RADAR: 1, DEPOT: 3 },
+                aircraftConfig: { ENEMY_FIGHTER: 1, ENEMY_BOMBER: 1 },
+                reward: 1500
+            },
+            {
+                id: 5,
+                envIndex: 0,
+                title: "작전 05: 총력전 - 제공권 및 지상 장악",
+                briefing: "적 기갑 부대와 전투기·전략 폭격기 편대가 총출동했습니다. 초음속 기동으로 전장을 제압하십시오!",
+                targetType: "ALL",
+                targetCount: 11,
+                spawnConfig: { JEEP: 3, AAA: 3, TANK: 3, RADAR: 2, DEPOT: 2 },
+                aircraftConfig: { ENEMY_FIGHTER: 2, ENEMY_BOMBER: 1 },
+                reward: 2500
+            }
+        ];
+
+        // ==========================================
+        // 3. Three.js 3D 씬 및 카메라 초기화
+        // ==========================================
+        const container = document.getElementById('three-container');
+        const radarCanvas = document.getElementById('radarCanvas');
+        const radarCtx = radarCanvas.getContext('2d');
+
+        let scene, camera, renderer;
+        let terrainMesh, roadMesh, waterMesh;
+        let sunLight, hemiLight;
+        let envPropsGroup = null;
+        let cloudsGroup = null;
+        let currentEnvIdx = 0;
+
+        let droneGroup = null;
+        let afterburners = [];
+        let bombAimRing = null;
+        let basePadBeacon = null;
+        let radarDishMesh = null;
+
+        let enemies3D = [];
+        let aircraft3D = [];
+        let bombs3D = [];
+        let missiles3D = [];
+        let bullets3D = [];
+        let enemyBullets3D = [];
+        let particles3D = [];
+        let craters3D = [];
+
+        let gameState = 'MENU';
+        let selectedDroneType = 'MULTIROLE';
+        let cameraMode = 'THIRD_PERSON'; // 'THIRD_PERSON' | 'FPS' | 'TOP_DOWN'
+        let isThermal = false;
+
+        let score = 0;
+        let totalKills = 0;
+        let currentMissionIdx = 0;
+        let missionProgress = 0;
+        let screenShake = 0;
+        let airstrikeCooldown = 0;
+        let repairAccumulator = 0;
+
+        const GROUND_ALTITUDE = 1.45;
+
+        const droneState = {
+            pos: new THREE.Vector3(0, GROUND_ALTITUDE, 108),
+            vel: new THREE.Vector3(0, 0, 0),
+            speed: 0,
+            yaw: 0,
+            pitch: 0,
+            roll: 0,
+            throttle: 0,
+            isGrounded: true,
+            hp: 120,
+            maxHp: 120,
+            fireCooldown: 0,
+            ordnanceCooldown: 0
+        };
+
+        const keys = {};
+        let isFiring = false;
+        let touchAltInput = 0;
+        let cameraYawOffset = 0;
+        let isDraggingCamera = false;
+        let lastMouseX = 0;
+
+        // ==========================================
+        // 3-1. Web Audio API 합성 사운드 모듈
+        // ==========================================
+        const audio = {
+            ctx: null,
+            enabled: true,
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            },
+            playTone(freq, type, duration, vol = 0.12, slideTo = null) {
+                if (!this.enabled || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, now);
+                if (slideTo) {
+                    osc.frequency.exponentialRampToValueAtTime(slideTo, now + duration);
+                }
+                gain.gain.setValueAtTime(vol, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + duration);
+            },
+            playGun() {
+                this.playTone(180, 'sawtooth', 0.07, 0.08, 65);
+            },
+            playBombDrop() {
+                this.playTone(520, 'sine', 0.35, 0.1, 140);
+            },
+            playKamikazeDive() {
+                this.playTone(320, 'sawtooth', 0.45, 0.12, 880);
+            },
+            playTakeoff() {
+                this.playTone(110, 'triangle', 0.6, 0.15, 340);
+            },
+            playRepair() {
+                this.playTone(580, 'sine', 0.12, 0.1, 880);
+            },
+            playExplosion() {
+                if (!this.enabled || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const bufferSize = this.ctx.sampleRate * 0.45;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.14));
+                }
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(420, now);
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start(now);
+            }
+        };
+
+        function initScene() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1e3a5f);
+            scene.fog = new THREE.FogExp2(0x26466d, 0.0010);
+
+            const w = container.clientWidth || window.innerWidth;
+            const h = container.clientHeight || (window.innerHeight - 96);
+            camera = new THREE.PerspectiveCamera(62, w / h, 0.5, 2400);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(w, h);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.insertBefore(renderer.domElement, container.firstChild);
+
+            hemiLight = new THREE.HemisphereLight(0x93c5fd, 0x293224, 0.9);
+            scene.add(hemiLight);
+
+            sunLight = new THREE.DirectionalLight(0xfffbeb, 1.4);
+            sunLight.position.set(220, 320, 180);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            const d = 450;
+            sunLight.shadow.camera.left = -d;
+            sunLight.shadow.camera.right = d;
+            sunLight.shadow.camera.top = d;
+            sunLight.shadow.camera.bottom = -d;
+            scene.add(sunLight);
+
+            buildBattlefield3D();
+            applyEnvironmentTheme(0, false);
+            buildPlayerFighter3D('MULTIROLE');
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onWindowResize() {
+            if (!renderer || !camera) return;
+            const w = container.clientWidth || window.innerWidth;
+            const h = container.clientHeight || (window.innerHeight - 96);
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        }
+
+        // ==========================================
+        // 4. 3D 전장 지형, 아군 공군기지 활주로, 구름 및 다중 환경 디테일 생성
+        // ==========================================
+        function buildBattlefield3D() {
+            // 1) 초대형 고해상도 다층 산악·협곡 지형 (1800m x 1800m 광역 전장)
+            const groundGeo = new THREE.PlaneGeometry(1800, 1800, 140, 140);
+            groundGeo.rotateX(-Math.PI / 2);
+
+            const posAttr = groundGeo.attributes.position;
+            const colors = new Float32Array(posAttr.count * 3);
+
+            for (let i = 0; i < posAttr.count; i++) {
+                const x = posAttr.getX(i);
+                const z = posAttr.getZ(i);
+                const distFromRoad = Math.abs(x);
+                const isBaseArea = (z > 35 && z < 155 && Math.abs(x) < 65);
+                const isRiverChannel = (Math.abs(x + Math.sin(z * 0.015) * 95 - 160) < 22);
+
+                let y = 0;
+                if (!isBaseArea && distFromRoad > 26) {
+                    if (isRiverChannel) {
+                        y = -2.2;
+                    } else {
+                        const ridge = Math.sin(x * 0.018) * Math.cos(z * 0.018) * 22.0
+                                    + Math.sin(x * 0.055 + z * 0.045) * 7.5
+                                    + Math.cos(x * 0.12 - z * 0.10) * 2.4;
+                        y = Math.max(0, ridge);
+                    }
+                }
+                posAttr.setY(i, y);
+                colors[i * 3] = 0.2;
+                colors[i * 3 + 1] = 0.28;
+                colors[i * 3 + 2] = 0.16;
+            }
+            groundGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            groundGeo.computeVertexNormals();
+
+            const groundMat = new THREE.MeshStandardMaterial({
+                vertexColors: true,
+                roughness: 0.9,
+                metalness: 0.05
+            });
+            terrainMesh = new THREE.Mesh(groundGeo, groundMat);
+            terrainMesh.receiveShadow = true;
+            scene.add(terrainMesh);
+
+            // 2) 광역 강물 / 빙판 수면 레이어 (1800m x 1800m)
+            const waterGeo = new THREE.PlaneGeometry(1800, 1800);
+            waterGeo.rotateX(-Math.PI / 2);
+            const waterMat = new THREE.MeshStandardMaterial({
+                color: 0x0284c7,
+                roughness: 0.15,
+                metalness: 0.7,
+                transparent: true,
+                opacity: 0.82
+            });
+            waterMesh = new THREE.Mesh(waterGeo, waterMat);
+            waterMesh.position.y = -0.55;
+            scene.add(waterMesh);
+
+            // 3) 중앙 전술 보급 도로 & 교량 디테일 (1800m 연장)
+            const roadGeo = new THREE.PlaneGeometry(22, 1800);
+            roadGeo.rotateX(-Math.PI / 2);
+            const roadMat = new THREE.MeshStandardMaterial({ color: 0x242427, roughness: 0.85 });
+            roadMesh = new THREE.Mesh(roadGeo, roadMat);
+            roadMesh.position.y = 0.06;
+            roadMesh.receiveShadow = true;
+            scene.add(roadMesh);
+
+            const dashMat = new THREE.MeshBasicMaterial({ color: 0xa1a1aa });
+            for (let z = -850; z <= 850; z += 16) {
+                if (z > 40 && z < 138) continue;
+                const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 7), dashMat);
+                dash.rotation.x = -Math.PI / 2;
+                dash.position.set(0, 0.08, z);
+                scene.add(dash);
+            }
+
+            // 4) 아군 전술 공군기지 (대형 활주로 + 격납고 3동 + 회전 레이더 관제탑 + 유도로)
+            buildAlliedAirbase();
+
+            // 5) 광역 상공 입체 구름 레이어 (90기 구름 군집)
+            cloudsGroup = new THREE.Group();
+            const cloudMat = new THREE.MeshLambertMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.55
+            });
+            for (let i = 0; i < 90; i++) {
+                const cluster = new THREE.Group();
+                const puffs = 3 + Math.floor(Math.random() * 4);
+                for (let p = 0; p < puffs; p++) {
+                    const puff = new THREE.Mesh(
+                        new THREE.DodecahedronGeometry(9 + Math.random() * 11, 1),
+                        cloudMat
+                    );
+                    puff.position.set((Math.random() - 0.5) * 24, (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 18);
+                    puff.scale.set(1.5, 0.55, 1.2);
+                    cluster.add(puff);
+                }
+                cluster.position.set(
+                    (Math.random() - 0.5) * 1500,
+                    85 + Math.random() * 55,
+                    (Math.random() - 0.5) * 1500
+                );
+                cloudsGroup.add(cluster);
+            }
+            scene.add(cloudsGroup);
+
+            // 6) 환경별 소품 컨테이너
+            envPropsGroup = new THREE.Group();
+            scene.add(envPropsGroup);
+
+            // 7) 정밀 폭격 탄착 예측 조준 링
+            const ringGeo = new THREE.RingGeometry(3.2, 4.2, 32);
+            ringGeo.rotateX(-Math.PI / 2);
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: 0xfbbf24,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.9
+            });
+            bombAimRing = new THREE.Mesh(ringGeo, ringMat);
+            bombAimRing.position.y = 0.25;
+            scene.add(bombAimRing);
+        }
+
+        function buildAlliedAirbase() {
+            const baseGroup = new THREE.Group();
+
+            // 대형 전투기 이착륙 활주로 (길이 85m, 폭 24m)
+            const runway = new THREE.Mesh(
+                new THREE.PlaneGeometry(24, 86),
+                new THREE.MeshStandardMaterial({ color: 0x27272a, roughness: 0.78 })
+            );
+            runway.rotation.x = -Math.PI / 2;
+            runway.position.set(0, 0.11, 88);
+            runway.receiveShadow = true;
+            baseGroup.add(runway);
+
+            // 활주로 양끝 피아노 건반(접지대) 백색 마킹 & 중앙선
+            const whiteMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
+            for (const endZ of [50, 126]) {
+                for (let rx = -9; rx <= 9; rx += 3) {
+                    const stripe = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 6.5), whiteMat);
+                    stripe.rotation.x = -Math.PI / 2;
+                    stripe.position.set(rx, 0.13, endZ);
+                    baseGroup.add(stripe);
+                }
+            }
+            for (let cz = 56; cz <= 120; cz += 8) {
+                const centerDash = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 4.2), whiteMat);
+                centerDash.rotation.x = -Math.PI / 2;
+                centerDash.position.set(0, 0.13, cz);
+                baseGroup.add(centerDash);
+            }
+
+            // 착륙 수리 존 비콘 (활주로 남단)
+            basePadBeacon = new THREE.Mesh(
+                new THREE.RingGeometry(9.5, 10.6, 32),
+                new THREE.MeshBasicMaterial({ color: 0x34d399, side: THREE.DoubleSide, transparent: true, opacity: 0.75 })
+            );
+            basePadBeacon.rotation.x = -Math.PI / 2;
+            basePadBeacon.position.set(0, 0.15, 108);
+            baseGroup.add(basePadBeacon);
+
+            // 좌측 전투기 쉘터 격납고 3동
+            const hangarMat = new THREE.MeshStandardMaterial({ color: 0x3f4e32, roughness: 0.65, metalness: 0.35 });
+            for (const hz of [66, 88, 110]) {
+                const hangarGeo = new THREE.CylinderGeometry(7.2, 7.2, 16, 16, 1, false, 0, Math.PI);
+                hangarGeo.rotateZ(Math.PI / 2);
+                const hangar = new THREE.Mesh(hangarGeo, hangarMat);
+                hangar.position.set(-24, 0, hz);
+                hangar.castShadow = true;
+                hangar.receiveShadow = true;
+                baseGroup.add(hangar);
+            }
+
+            // 우측 대형 항공 관제탑 & 회전 레이더
+            const towerBase = new THREE.Mesh(
+                new THREE.BoxGeometry(6, 14, 6),
+                new THREE.MeshStandardMaterial({ color: 0x52525b, roughness: 0.7 })
+            );
+            towerBase.position.set(24, 7, 92);
+            towerBase.castShadow = true;
+            baseGroup.add(towerBase);
+
+            const controlRoom = new THREE.Mesh(
+                new THREE.BoxGeometry(8, 3.6, 8),
+                new THREE.MeshStandardMaterial({ color: 0x0ea5e9, emissive: 0x0369a1, roughness: 0.2 })
+            );
+            controlRoom.position.set(24, 15.5, 92);
+            baseGroup.add(controlRoom);
+
+            radarDishMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(5.5, 1.4, 0.4),
+                new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.8 })
+            );
+            radarDishMesh.position.set(24, 18.6, 92);
+            baseGroup.add(radarDishMesh);
+
+            // 활주로 고휘도 유도등 (야간 시인성 대폭 강화)
+            const greenLight = new THREE.MeshBasicMaterial({ color: 0x34d399 });
+            const amberLight = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
+            for (let lz = 46; lz <= 130; lz += 7) {
+                for (const lx of [-13.5, 13.5]) {
+                    const lamp = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.45, 8, 8),
+                        lz < 60 || lz > 116 ? amberLight : greenLight
+                    );
+                    lamp.position.set(lx, 0.42, lz);
+                    baseGroup.add(lamp);
+                }
+            }
+
+            scene.add(baseGroup);
+        }
+
+        function applyEnvironmentTheme(envIdx, announce = true) {
+            currentEnvIdx = envIdx % ENVIRONMENTS.length;
+            const env = ENVIRONMENTS[currentEnvIdx];
+
+            scene.background = new THREE.Color(env.skyColor);
+            scene.fog = new THREE.FogExp2(env.fogColor, env.fogDensity);
+            sunLight.color.setHex(env.sunColor);
+            sunLight.intensity = env.sunIntensity;
+            hemiLight.color.setHex(env.hemiSky);
+            hemiLight.groundColor.setHex(env.hemiGround);
+            roadMesh.material.color.setHex(env.roadColor);
+
+            // 수면 / 빙판 색상 전환
+            if (env.id === 'ARCTIC') {
+                waterMesh.material.color.setHex(0xbae6fd);
+                waterMesh.material.roughness = 0.35;
+            } else if (env.id === 'DESERT') {
+                waterMesh.material.color.setHex(0x0d9488);
+            } else {
+                waterMesh.material.color.setHex(0x0284c7);
+            }
+
+            // 지형 고도별 버텍스 컬러 재계산
+            const posAttr = terrainMesh.geometry.attributes.position;
+            const colAttr = terrainMesh.geometry.attributes.color;
+            const baseCol = new THREE.Color(env.groundColor);
+            const hillCol = new THREE.Color(env.hillColor);
+
+            for (let i = 0; i < posAttr.count; i++) {
+                const y = posAttr.getY(i);
+                const t = Math.min(1, Math.max(0, y / 22));
+                const c = baseCol.clone().lerp(hillCol, t);
+                colAttr.setXYZ(i, c.r, c.g, c.b);
+            }
+            colAttr.needsUpdate = true;
+
+            // 기존 환경 소품 제거 후 광역 테마별 디테일 오브젝트 재생성
+            while (envPropsGroup.children.length > 0) {
+                envPropsGroup.remove(envPropsGroup.children[0]);
+            }
+
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3f2e21 });
+            const pineMat = new THREE.MeshStandardMaterial({ color: env.id === 'ARCTIC' ? 0xdbeafe : 0x1d3519, roughness: 0.85 });
+            const rockMat = new THREE.MeshStandardMaterial({ color: 0x9a5b25, roughness: 0.92 });
+            const bldgMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 });
+            const windowGlowMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+            const sandbagMat = new THREE.MeshStandardMaterial({ color: 0x857557, roughness: 0.95 });
+
+            for (let i = 0; i < 360; i++) {
+                const x = (Math.random() - 0.5) * 1450;
+                const z = (Math.random() - 0.5) * 1450;
+                if (Math.abs(x) < 32 || (z > 32 && z < 156 && Math.abs(x) < 68)) continue;
+
+                const roll = Math.random();
+                if (roll < 0.14) {
+                    // 공통 야전 참호 & 모래주머니 진지
+                    const bunker = new THREE.Group();
+                    const wall1 = new THREE.Mesh(new THREE.BoxGeometry(8.5, 1.8, 1.4), sandbagMat);
+                    wall1.position.set(0, 0.9, 3.0);
+                    const wall2 = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.8, 6), sandbagMat);
+                    wall2.position.set(-3.8, 0.9, 0);
+                    const wall3 = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.8, 6), sandbagMat);
+                    wall3.position.set(3.8, 0.9, 0);
+                    bunker.add(wall1, wall2, wall3);
+                    bunker.position.set(x, 0, z);
+                    bunker.rotation.y = Math.random() * Math.PI;
+                    envPropsGroup.add(bunker);
+                } else if (env.propType === 'DESERT_ROCK') {
+                    // 사막 거대 사암 메사(Mesa) 바위
+                    const w = 8 + Math.random() * 18;
+                    const h = 7 + Math.random() * 24;
+                    const d = 8 + Math.random() * 18;
+                    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(w * 0.55, 0), rockMat);
+                    rock.scale.set(1, h / w, d / w);
+                    rock.position.set(x, h * 0.35, z);
+                    rock.rotation.y = Math.random() * Math.PI;
+                    rock.castShadow = true;
+                    envPropsGroup.add(rock);
+                } else if (env.propType === 'NIGHT_CITY') {
+                    // 야간 작전용 고층 조명 빌딩
+                    const w = 8 + Math.random() * 10;
+                    const h = 14 + Math.random() * 28;
+                    const d = 8 + Math.random() * 10;
+                    const bldg = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), bldgMat);
+                    bldg.position.set(x, h / 2, z);
+                    const lightStrip = new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, 0.8, d + 0.3), windowGlowMat);
+                    lightStrip.position.set(x, h * 0.75, z);
+                    envPropsGroup.add(bldg, lightStrip);
+                } else {
+                    // 온대 침엽수 또는 설원 눈 덮인 거목
+                    const tree = new THREE.Group();
+                    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.75, 4.5, 6), trunkMat);
+                    trunk.position.y = 2.25;
+                    const cone1 = new THREE.Mesh(new THREE.ConeGeometry(3.8, 7.5, 7), pineMat);
+                    cone1.position.y = 6.8;
+                    cone1.castShadow = true;
+                    const cone2 = new THREE.Mesh(new THREE.ConeGeometry(2.8, 6.0, 7), pineMat);
+                    cone2.position.y = 10.2;
+                    tree.add(trunk, cone1, cone2);
+                    tree.position.set(x, 0, z);
+                    envPropsGroup.add(tree);
+                }
+            }
+
+            document.getElementById('hud-env-name').textContent = env.name;
+            if (announce) {
+                showTacticalAlert(`🌍 작전 전역 환경 전환: ${env.name}`);
+            }
+        }
+
+        // ==========================================
+        // 5. 플레이어 초음속 전투기 3D 모델 빌더 (기종별 외형 및 무장)
+        // ==========================================
+        function buildPlayerFighter3D(type) {
+            if (droneGroup) scene.remove(droneGroup);
+            droneGroup = new THREE.Group();
+            afterburners = [];
+
+            const bodyColor = type === 'MULTIROLE' ? 0x475569 : (type === 'INTERCEPTOR' ? 0x1e293b : 0x3f4e32);
+            const wingColor = type === 'MULTIROLE' ? 0x334155 : (type === 'INTERCEPTOR' ? 0x0f172a : 0x2d3a22);
+            const burnerColor = type === 'INTERCEPTOR' ? 0x38bdf8 : 0xf97316;
+
+            const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, metalness: 0.72, roughness: 0.28 });
+            const wingMat = new THREE.MeshStandardMaterial({ color: wingColor, metalness: 0.62, roughness: 0.35 });
+            const cockpitMat = new THREE.MeshStandardMaterial({
+                color: 0x0284c7,
+                emissive: 0x0369a1,
+                roughness: 0.1,
+                metalness: 0.9
+            });
+            const burnerMat = new THREE.MeshBasicMaterial({ color: burnerColor });
+            const gearMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8 });
+
+            // 1) 유선형 전투기 동체 및 레이돔 기수
+            const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.95, 7.8, 12), bodyMat);
+            fuselage.rotation.x = Math.PI / 2;
+            fuselage.castShadow = true;
+            droneGroup.add(fuselage);
+
+            const nose = new THREE.Mesh(new THREE.ConeGeometry(0.55, 3.2, 12), wingMat);
+            nose.rotation.x = -Math.PI / 2;
+            nose.position.set(0, -0.05, -5.5);
+            droneGroup.add(nose);
+
+            // 2) 조종석 버블 캐노피
+            const canopy = new THREE.Mesh(new THREE.SphereGeometry(0.68, 14, 12), cockpitMat);
+            canopy.scale.set(0.78, 0.68, 2.5);
+            canopy.position.set(0, 0.58, -2.1);
+            droneGroup.add(canopy);
+
+            // 3) 주익 (기종별 날개 형상 차별화)
+            const wingSpan = type === 'STRIKER' ? 11.2 : (type === 'INTERCEPTOR' ? 8.8 : 9.6);
+            const mainWing = new THREE.Mesh(new THREE.BoxGeometry(wingSpan, 0.16, 2.7), wingMat);
+            mainWing.position.set(0, 0.05, 0.4);
+            mainWing.castShadow = true;
+            droneGroup.add(mainWing);
+
+            // 전방 카나드(소형 날개) - KF-21 / 멀티롤 스타일
+            if (type !== 'STRIKER') {
+                const canard = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.1, 0.9), wingMat);
+                canard.position.set(0, 0.12, -2.0);
+                droneGroup.add(canard);
+            }
+
+            // 4) 쌍발 수직 꼬리날개 & 수평 미익
+            for (const vx of [-0.85, 0.85]) {
+                const vTail = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.9, 1.5), wingMat);
+                vTail.position.set(vx, 0.95, 3.1);
+                vTail.rotation.z = vx > 0 ? -0.24 : 0.24;
+                droneGroup.add(vTail);
+
+                // 쌍발 제트 노즐 및 애프터버너 불꽃 콘
+                const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.42, 0.7, 10), gearMat);
+                nozzle.rotation.x = Math.PI / 2;
+                nozzle.position.set(vx * 0.55, 0, 4.1);
+                droneGroup.add(nozzle);
+
+                const flame = new THREE.Mesh(new THREE.ConeGeometry(0.35, 2.4, 10), burnerMat);
+                flame.rotation.x = Math.PI / 2;
+                flame.position.set(vx * 0.55, 0, 5.4);
+                droneGroup.add(flame);
+                afterburners.push(flame);
+            }
+
+            const hTail = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.12, 1.3), wingMat);
+            hTail.position.set(0, 0.05, 3.3);
+            droneGroup.add(hTail);
+
+            // 5) 날개 하부 무장 파일런 (공대공 미사일 / 대전차 폭탄)
+            const ordnanceColor = type === 'INTERCEPTOR' ? 0x38bdf8 : (type === 'STRIKER' ? 0xfbbf24 : 0xf43f5e);
+            for (const mx of [-3.6, -2.2, 2.2, 3.6]) {
+                const pod = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.12, 0.12, 2.2, 8),
+                    new THREE.MeshStandardMaterial({ color: ordnanceColor, metalness: 0.6 })
+                );
+                pod.rotation.x = Math.PI / 2;
+                pod.position.set(mx, -0.22, 0.2);
+                droneGroup.add(pod);
+            }
+
+            // 6) 착륙 랜딩기어 (지상 활주로 대기 시)
+            for (const gx of [-1.2, 1.2]) {
+                const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.95, 6), gearMat);
+                strut.position.set(gx, -0.65, 0.5);
+                const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.18, 10), gearMat);
+                wheel.rotation.z = Math.PI / 2;
+                wheel.position.set(gx, -1.1, 0.5);
+                droneGroup.add(strut, wheel);
+            }
+            const noseGear = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.95, 6), gearMat);
+            noseGear.position.set(0, -0.65, -3.2);
+            droneGroup.add(noseGear);
+
+            droneGroup.position.copy(droneState.pos);
+            scene.add(droneGroup);
+        }
+
+        // ==========================================
+        // 6. 초음속 전투기 & 전략 폭격기 3D 모델 및 편대 시스템
+        // ==========================================
+        function createAircraft3D(role, isAllied, x, y, z, headingYaw) {
+            const group = new THREE.Group();
+            const bodyColor = isAllied ? 0x475569 : 0x3f2e2e;
+            const wingColor = isAllied ? 0x334155 : 0x572626;
+            const accentColor = isAllied ? 0x38bdf8 : 0xef4444;
+
+            const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, metalness: 0.65, roughness: 0.35 });
+            const wingMat = new THREE.MeshStandardMaterial({ color: wingColor, metalness: 0.55, roughness: 0.4 });
+            const cockpitMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, emissive: 0x0369a1, roughness: 0.1 });
+            const afterburnerMat = new THREE.MeshBasicMaterial({ color: isAllied ? 0x38bdf8 : 0xf97316 });
+
+            let hp = 150, speed = 55, radius = 5.5, scoreVal = 600;
+
+            if (role === 'FIGHTER') {
+                hp = 130;
+                speed = 68;
+                radius = 5.0;
+                scoreVal = 650;
+
+                const fuselage = new THREE.Mesh(new THREE.ConeGeometry(1.1, 11.5, 10), bodyMat);
+                fuselage.rotation.x = -Math.PI / 2;
+                fuselage.castShadow = true;
+                group.add(fuselage);
+
+                const canopy = new THREE.Mesh(new THREE.SphereGeometry(0.85, 12, 10), cockpitMat);
+                canopy.scale.set(0.75, 0.65, 2.3);
+                canopy.position.set(0, 0.65, -1.6);
+                group.add(canopy);
+
+                const wings = new THREE.Mesh(new THREE.BoxGeometry(10.5, 0.18, 3.2), wingMat);
+                wings.position.set(0, 0, 1.0);
+                wings.castShadow = true;
+                group.add(wings);
+
+                for (const vx of [-0.95, 0.95]) {
+                    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.2, 1.8), wingMat);
+                    tail.position.set(vx, 1.1, 4.2);
+                    tail.rotation.z = vx > 0 ? -0.22 : 0.22;
+                    group.add(tail);
+
+                    const burner = new THREE.Mesh(new THREE.ConeGeometry(0.42, 2.4, 8), afterburnerMat);
+                    burner.rotation.x = Math.PI / 2;
+                    burner.position.set(vx * 0.6, 0, 6.4);
+                    group.add(burner);
+                }
+
+                for (const mx of [-5.2, 5.2]) {
+                    const missile = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.12, 0.12, 2.5, 8),
+                        new THREE.MeshBasicMaterial({ color: accentColor })
+                    );
+                    missile.rotation.x = Math.PI / 2;
+                    missile.position.set(mx, -0.1, 0.8);
+                    group.add(missile);
+                }
+            } else {
+                hp = 260;
+                speed = 38;
+                radius = 8.5;
+                scoreVal = 1100;
+
+                const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.5, 18.0, 12), bodyMat);
+                fuselage.rotation.x = Math.PI / 2;
+                fuselage.castShadow = true;
+                group.add(fuselage);
+
+                const nose = new THREE.Mesh(new THREE.SphereGeometry(1.3, 12, 12), cockpitMat);
+                nose.position.set(0, 0, -9.0);
+                group.add(nose);
+
+                const mainWing = new THREE.Mesh(new THREE.BoxGeometry(24.0, 0.28, 3.8), wingMat);
+                mainWing.position.set(0, 0.4, -1.0);
+                mainWing.castShadow = true;
+                group.add(mainWing);
+
+                for (const ex of [-8.0, -4.2, 4.2, 8.0]) {
+                    const pod = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 3.4, 10), bodyMat);
+                    pod.rotation.x = Math.PI / 2;
+                    pod.position.set(ex, -0.35, -1.5);
+                    group.add(pod);
+
+                    const exhaust = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 8), afterburnerMat);
+                    exhaust.position.set(ex, -0.35, 0.3);
+                    group.add(exhaust);
+                }
+
+                const vTail = new THREE.Mesh(new THREE.BoxGeometry(0.25, 4.2, 3.0), wingMat);
+                vTail.position.set(0, 2.2, 7.2);
+                group.add(vTail);
+
+                const hTail = new THREE.Mesh(new THREE.BoxGeometry(8.5, 0.2, 2.0), wingMat);
+                hTail.position.set(0, 0.3, 7.6);
+                group.add(hTail);
+            }
+
+            const airMarker = new THREE.Mesh(
+                new THREE.OctahedronGeometry(1.1, 0),
+                new THREE.MeshBasicMaterial({ color: isAllied ? 0x38bdf8 : 0xf43f5e, wireframe: true })
+            );
+            airMarker.position.y = 4.5;
+            group.add(airMarker);
+
+            group.position.set(x, y, z);
+            group.rotation.y = headingYaw;
+            scene.add(group);
+
+            aircraft3D.push({
+                role,
+                isAllied,
+                mesh: group,
+                marker: airMarker,
+                hp,
+                maxHp: hp,
+                speed,
+                yaw: headingYaw,
+                radius,
+                scoreVal,
+                actionTimer: 1.5 + Math.random() * 1.5,
+                bombCount: role === 'BOMBER' ? 5 : 2
+            });
+        }
+
+        function callAlliedAirstrike() {
+            if (gameState !== 'PLAYING') return;
+            if (airstrikeCooldown > 0) {
+                showTacticalAlert(`⏳ 편대 지원 재출격 준비 중 (${airstrikeCooldown.toFixed(1)}초 남음)`);
+                return;
+            }
+            if (score < 300) {
+                showTacticalAlert("⚠️ 전술 포인트 부족! (편대 지원 요청: 300 PTS 필요)");
+                return;
+            }
+
+            score -= 300;
+            airstrikeCooldown = 14.0;
+            audio.playKamikazeDive();
+            showTacticalAlert("✈️ 아군 KF-21 전투기 & B-52 전략 폭격기 편대가 전장에 진입합니다!");
+
+            createAircraft3D('FIGHTER', true, droneState.pos.x - 18, 48, 150, 0);
+            createAircraft3D('BOMBER', true, droneState.pos.x + 12, 58, 165, 0);
+            updateHUD();
+        }
+
+        // ==========================================
+        // 7. 지상 적군 유닛 생성기
+        // ==========================================
+        function createEnemy3D(type, x, z) {
+            const group = new THREE.Group();
+            let hp = 60, speed = 8, radius = 3.2, scoreVal = 150;
+
+            const armorMat = new THREE.MeshStandardMaterial({ color: 0x4b5320, roughness: 0.7, metalness: 0.3 });
+            const darkMat = new THREE.MeshStandardMaterial({ color: 0x27272a, roughness: 0.8 });
+
+            if (type === 'JEEP') {
+                hp = 55; speed = 13; radius = 2.6; scoreVal = 150;
+                const hull = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.3, 4.4), armorMat);
+                hull.position.y = 1.0;
+                hull.castShadow = true;
+                const gun = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.0, 8), darkMat);
+                gun.rotation.x = Math.PI / 2;
+                gun.position.set(0, 1.9, 0.4);
+                group.add(hull, gun);
+            } else if (type === 'AAA') {
+                hp = 95; speed = 4; radius = 3.2; scoreVal = 250;
+                const base = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.5, 4.8), armorMat);
+                base.position.y = 1.0;
+                const turret = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.3, 1.2, 10), darkMat);
+                turret.position.y = 2.2;
+                const barrel1 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 3.2, 8), darkMat);
+                barrel1.rotation.x = Math.PI / 4;
+                barrel1.position.set(-0.35, 3.1, 0.8);
+                const barrel2 = barrel1.clone();
+                barrel2.position.x = 0.35;
+                group.add(base, turret, barrel1, barrel2);
+            } else if (type === 'TANK') {
+                hp = 210; speed = 6.5; radius = 3.8; scoreVal = 400;
+                const hull = new THREE.Mesh(new THREE.BoxGeometry(3.8, 1.5, 6.4), armorMat);
+                hull.position.y = 1.0;
+                hull.castShadow = true;
+                const turret = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.1, 3.2), armorMat);
+                turret.position.set(0, 2.2, -0.3);
+                const cannon = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 4.6, 10), darkMat);
+                cannon.rotation.x = Math.PI / 2;
+                cannon.position.set(0, 2.2, 2.6);
+                group.add(hull, turret, cannon);
+            } else if (type === 'RADAR') {
+                hp = 120; speed = 0; radius = 3.5; scoreVal = 300;
+                const truck = new THREE.Mesh(new THREE.BoxGeometry(3.0, 2.2, 5.5), armorMat);
+                truck.position.y = 1.3;
+                const dish = new THREE.Mesh(
+                    new THREE.BoxGeometry(3.6, 2.4, 0.3),
+                    new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.6 })
+                );
+                dish.position.set(0, 3.8, 0);
+                group.add(truck, dish);
+                group.userData.dish = dish;
+            } else if (type === 'DEPOT') {
+                hp = 240; speed = 0; radius = 4.8; scoreVal = 500;
+                const tankMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.5 });
+                const tank1 = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 5.5, 14), tankMat);
+                tank1.position.set(-2.4, 2.75, 0);
+                tank1.castShadow = true;
+                const tank2 = tank1.clone();
+                tank2.position.x = 2.4;
+                group.add(tank1, tank2);
+            }
+
+            // 적 지상 표적 식별 비콘
+            const marker = new THREE.Mesh(
+                new THREE.RingGeometry(radius * 0.95, radius * 1.15, 24),
+                new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide })
+            );
+            marker.rotation.x = -Math.PI / 2;
+            marker.position.y = 0.22;
+            group.add(marker);
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+
+            enemies3D.push({
+                type,
+                mesh: group,
+                hp,
+                maxHp: hp,
+                speed,
+                radius,
+                scoreVal,
+                fireTimer: 1.5 + Math.random() * 2.0
+            });
+        }
+
+        // ==========================================
+        // 8. 작전(미션) 스폰 및 진행 관리
+        // ==========================================
+        function setupOperation(index) {
+            for (const e of enemies3D) scene.remove(e.mesh);
+            for (const ac of aircraft3D) scene.remove(ac.mesh);
+            for (const b of bombs3D) scene.remove(b.mesh);
+            for (const bu of bullets3D) scene.remove(bu.mesh);
+            for (const eb of enemyBullets3D) scene.remove(eb.mesh);
+            enemies3D = [];
+            aircraft3D = [];
+            bombs3D = [];
+            bullets3D = [];
+            enemyBullets3D = [];
+
+            const op = OPERATIONS[index];
+            missionProgress = 0;
+
+            const cfg = op.spawnConfig;
+            const spawnList = [];
+            for (let i = 0; i < cfg.JEEP; i++) spawnList.push('JEEP');
+            for (let i = 0; i < cfg.AAA; i++) spawnList.push('AAA');
+            for (let i = 0; i < cfg.TANK; i++) spawnList.push('TANK');
+            for (let i = 0; i < cfg.RADAR; i++) spawnList.push('RADAR');
+            for (let i = 0; i < cfg.DEPOT; i++) spawnList.push('DEPOT');
+
+            spawnList.forEach((type, idx) => {
+                const spreadX = (Math.random() - 0.5) * 95;
+                const spreadZ = -25 - idx * 18 - Math.random() * 15;
+                createEnemy3D(type, spreadX, spreadZ);
+            });
+
+            const airCfg = op.aircraftConfig || { ENEMY_FIGHTER: 1, ENEMY_BOMBER: 0 };
+            for (let i = 0; i < airCfg.ENEMY_FIGHTER; i++) {
+                createAircraft3D('FIGHTER', false, (i - 0.5) * 55, 44 + i * 6, -150 - i * 35, Math.PI);
+            }
+            for (let i = 0; i < airCfg.ENEMY_BOMBER; i++) {
+                createAircraft3D('BOMBER', false, (Math.random() - 0.5) * 50, 56, -180, Math.PI);
+            }
+
+            // 작전 단계에 맞춘 전장 배경 테마 자동 전환
+            if (typeof op.envIndex === 'number') {
+                applyEnvironmentTheme(op.envIndex, false);
+            }
+
+            droneState.pos.set(0, GROUND_ALTITUDE, 108);
+            droneState.vel.set(0, 0, 0);
+            droneState.speed = 0;
+            droneState.yaw = 0;
+            droneState.throttle = 0;
+            droneState.isGrounded = true;
+            cameraYawOffset = 0;
+
+            showTacticalAlert(`📡 ${op.title} — ${op.briefing}`);
+            updateHUD();
+        }
+
+        function checkMissionTargetProgress(destroyedType) {
+            const op = OPERATIONS[currentMissionIdx];
+            if (!op) return;
+
+            let counts = false;
+            if (op.targetType === 'ALL') counts = true;
+            else if (op.targetType === 'PRIORITY_AA' && (destroyedType === 'AAA' || destroyedType === 'RADAR' || destroyedType === 'BOMBER' || destroyedType === 'FIGHTER')) counts = true;
+            else if (op.targetType === destroyedType) counts = true;
+
+            if (counts) {
+                missionProgress++;
+                if (missionProgress >= op.targetCount) {
+                    score += op.reward;
+                    audio.playRepair();
+                    if (currentMissionIdx + 1 < OPERATIONS.length) {
+                        currentMissionIdx++;
+                        showTacticalAlert(`✅ 작전 완수! 보상 +${op.reward} PTS 획득! 다음 작전으로 이동합니다.`);
+                        setTimeout(() => {
+                            if (gameState === 'PLAYING') setupOperation(currentMissionIdx);
+                        }, 1600);
+                    } else {
+                        gameState = 'VICTORY';
+                        showMenuModal(
+                            "🏆 전 작전 완수 (VICTORY)",
+                            `모든 전선과 제공권을 장악했습니다! 최종 전술 점수: ${score} PTS / 총 격파 수: ${totalKills}기`,
+                            "↻ 처음부터 다시 작전 시작"
+                        );
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // 9. 전투기 무기 시스템 (20mm 발칸 기관포, 공대공/공대지 유도 미사일, 정밀 폭격)
+        // ==========================================
+        function firePrimaryWeapon() {
+            if (gameState !== 'PLAYING' || droneState.fireCooldown > 0) return;
+            if (droneState.isGrounded) {
+                showTacticalAlert("⚠️ 활주로에 주기 중입니다! W 키로 가속 후 Q 키로 이륙하십시오.");
+                return;
+            }
+
+            droneState.fireCooldown = selectedDroneType === 'STRIKER' ? 0.08 : 0.12;
+            audio.playGun();
+
+            // 기체 기수 피치각을 반영한 전방 발칸포 탄도 벡터
+            const forward = new THREE.Vector3(
+                -Math.sin(droneState.yaw) * Math.cos(droneState.pitch),
+                Math.sin(droneState.pitch) - 0.06,
+                -Math.cos(droneState.yaw) * Math.cos(droneState.pitch)
+            ).normalize();
+
+            const offsets = selectedDroneType === 'STRIKER' ? [-0.9, 0, 0.9] : [-0.65, 0.65];
+            for (const ox of offsets) {
+                const bulletMesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.24, 0.24, 2.8),
+                    new THREE.MeshBasicMaterial({ color: 0xfef08a })
+                );
+                const startPos = droneState.pos.clone();
+                startPos.x += Math.cos(droneState.yaw) * ox;
+                startPos.z -= Math.sin(droneState.yaw) * ox;
+                bulletMesh.position.copy(startPos);
+                bulletMesh.rotation.y = droneState.yaw;
+                scene.add(bulletMesh);
+
+                bullets3D.push({
+                    mesh: bulletMesh,
+                    vel: forward.clone().multiplyScalar(220),
+                    damage: selectedDroneType === 'STRIKER' ? 32 : 24,
+                    life: 1.6
+                });
+            }
+        }
+
+        function launchHomingMissile() {
+            let bestTarget = null;
+            let minDist = Infinity;
+
+            // 공중 적 항공기 우선 락온, 없으면 지상 표적 락온
+            for (const ac of aircraft3D) {
+                if (ac.isAllied) continue;
+                const d = droneState.pos.distanceTo(ac.mesh.position);
+                if (d < minDist) { minDist = d; bestTarget = ac; }
+            }
+            if (!bestTarget) {
+                for (const e of enemies3D) {
+                    const d = droneState.pos.distanceTo(e.mesh.position);
+                    if (d < minDist) { minDist = d; bestTarget = e; }
+                }
+            }
+
+            const missileGroup = new THREE.Group();
+            const body = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.16, 0.16, 2.6, 8),
+                new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.7 })
+            );
+            body.rotation.x = Math.PI / 2;
+            const exhaust = new THREE.Mesh(
+                new THREE.ConeGeometry(0.22, 1.1, 8),
+                new THREE.MeshBasicMaterial({ color: 0xf97316 })
+            );
+            exhaust.rotation.x = Math.PI / 2;
+            exhaust.position.z = 1.6;
+            missileGroup.add(body, exhaust);
+
+            missileGroup.position.copy(droneState.pos);
+            missileGroup.rotation.y = droneState.yaw;
+            scene.add(missileGroup);
+
+            const initDir = new THREE.Vector3(-Math.sin(droneState.yaw), -0.05, -Math.cos(droneState.yaw)).normalize();
+            missiles3D.push({
+                mesh: missileGroup,
+                vel: initDir.multiplyScalar(130),
+                target: bestTarget,
+                damage: 240,
+                blastRadius: 15,
+                life: 4.5
+            });
+        }
+
+        function triggerSpecialOrdnance() {
+            if (gameState !== 'PLAYING' || droneState.ordnanceCooldown > 0) return;
+            if (droneState.isGrounded) {
+                showTacticalAlert("⚠️ 이륙 후 무장을 발사할 수 있습니다! W + Q 키로 이륙하십시오.");
+                return;
+            }
+
+            if (selectedDroneType === 'INTERCEPTOR') {
+                droneState.ordnanceCooldown = 1.6;
+                audio.playKamikazeDive();
+                showTacticalAlert("🚀 AIM-120 암람 공대공/다목적 유도 미사일 발사! (FOX-3)");
+                launchHomingMissile();
+            } else if (selectedDroneType === 'MULTIROLE') {
+                droneState.ordnanceCooldown = 1.6;
+                audio.playKamikazeDive();
+                showTacticalAlert("🚀 유도 미사일 & JDAM 정밀 폭탄 동시 투하!");
+                launchHomingMissile();
+                dropGuidedBomb();
+            } else if (selectedDroneType === 'STRIKER') {
+                droneState.ordnanceCooldown = 1.4;
+                audio.playBombDrop();
+                showTacticalAlert("💣 MK-84 고폭 확산탄 융단 투하!");
+                dropGuidedBomb();
+            }
+        }
+
+        function dropGuidedBomb() {
+            const bombGroup = new THREE.Group();
+            const body = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.28, 0.28, 1.7, 10),
+                new THREE.MeshStandardMaterial({ color: 0x4d7c0f, metalness: 0.5 })
+            );
+            const fin = new THREE.Mesh(
+                new THREE.BoxGeometry(0.75, 0.45, 0.75),
+                new THREE.MeshStandardMaterial({ color: 0xfbbf24 })
+            );
+            fin.position.y = 0.85;
+            bombGroup.add(body, fin);
+
+            bombGroup.position.copy(droneState.pos);
+            bombGroup.position.y -= 1.0;
+            scene.add(bombGroup);
+
+            bombs3D.push({
+                mesh: bombGroup,
+                vel: new THREE.Vector3(droneState.vel.x * 0.75, -5, droneState.vel.z * 0.75),
+                damage: 260,
+                blastRadius: 18
+            });
+        }
+
+        // ==========================================
+        // 10. 폭발 이펙트 & 데미지 처리
+        // ==========================================
+        function spawnExplosion(pos, scale = 1.0) {
+            audio.playExplosion();
+            screenShake = Math.min(1.2, screenShake + 0.45 * scale);
+
+            // 지면 탄착 크레이터 생성
+            if (pos.y < 3.0) {
+                const crater = new THREE.Mesh(
+                    new THREE.CircleGeometry(2.8 * scale, 16),
+                    new THREE.MeshBasicMaterial({ color: 0x18181b })
+                );
+                crater.rotation.x = -Math.PI / 2;
+                crater.position.set(pos.x, 0.11, pos.z);
+                scene.add(crater);
+                craters3D.push(crater);
+                if (craters3D.length > 25) {
+                    const old = craters3D.shift();
+                    scene.remove(old);
+                }
+            }
+
+            const count = Math.floor(16 * scale);
+            for (let i = 0; i < count; i++) {
+                const isFire = i % 2 === 0;
+                const pMesh = new THREE.Mesh(
+                    new THREE.SphereGeometry((0.45 + Math.random() * 0.65) * scale, 6, 6),
+                    new THREE.MeshBasicMaterial({ color: isFire ? 0xf97316 : 0x3f3f46 })
+                );
+                pMesh.position.copy(pos);
+                scene.add(pMesh);
+
+                particles3D.push({
+                    mesh: pMesh,
+                    vel: new THREE.Vector3(
+                        (Math.random() - 0.5) * 18 * scale,
+                        (4 + Math.random() * 14) * scale,
+                        (Math.random() - 0.5) * 18 * scale
+                    ),
+                    life: 0.55 + Math.random() * 0.45
+                });
+            }
+        }
+
+        function applyAreaDamage(center, radius, maxDamage) {
+            // 지상 적 피해 판정
+            for (let i = enemies3D.length - 1; i >= 0; i--) {
+                const e = enemies3D[i];
+                const dist = center.distanceTo(e.mesh.position);
+                if (dist <= radius + e.radius) {
+                    const dmg = Math.max(25, maxDamage * (1 - dist / (radius + e.radius + 2)));
+                    e.hp -= dmg;
+                    if (e.hp <= 0) {
+                        spawnExplosion(e.mesh.position.clone().add(new THREE.Vector3(0, 1.5, 0)), 1.3);
+                        score += e.scoreVal;
+                        totalKills++;
+                        checkMissionTargetProgress(e.type);
+                        scene.remove(e.mesh);
+                        enemies3D.splice(i, 1);
+                    }
+                }
+            }
+
+            // 공중 적 항공기 근접 폭발 피해 판정
+            for (let i = aircraft3D.length - 1; i >= 0; i--) {
+                const ac = aircraft3D[i];
+                if (ac.isAllied) continue;
+                const dist = center.distanceTo(ac.mesh.position);
+                if (dist <= radius + ac.radius) {
+                    ac.hp -= maxDamage;
+                    if (ac.hp <= 0) {
+                        spawnExplosion(ac.mesh.position.clone(), 1.8);
+                        score += ac.scoreVal;
+                        totalKills++;
+                        checkMissionTargetProgress(ac.role);
+                        scene.remove(ac.mesh);
+                        aircraft3D.splice(i, 1);
+                    }
+                }
+            }
+            updateHUD();
+        }
+
+        // ==========================================
+        // 11. 메인 물리, AI 교전, 카메라 및 레이더 업데이트 루프
+        // ==========================================
+        let lastTime = performance.now();
+
+        function updateSimulation(dt) {
+            if (gameState !== 'PLAYING') return;
+
+            if (droneState.fireCooldown > 0) droneState.fireCooldown -= dt;
+            if (droneState.ordnanceCooldown > 0) droneState.ordnanceCooldown -= dt;
+            if (airstrikeCooldown > 0) airstrikeCooldown -= dt;
+            if (screenShake > 0) screenShake = Math.max(0, screenShake - dt * 2.5);
+
+            // 연속 사격 처리
+            if (isFiring && !droneState.isGrounded) {
+                firePrimaryWeapon();
+            }
+
+            // 1) 고도(이륙/상승/하강/착륙) 및 전진 추력 입력 계산
+            let altInput = touchAltInput;
+            if (keys['KeyQ']) altInput += 1;
+            if (keys['KeyE']) altInput -= 1;
+
+            let throttleInput = 0;
+            if (keys['KeyW'] || keys['ArrowUp']) throttleInput += 1;
+            if (keys['KeyS'] || keys['ArrowDown']) throttleInput -= 1;
+
+            let turnInput = 0;
+            if (keys['KeyA'] || keys['ArrowLeft']) turnInput += 1;
+            if (keys['KeyD'] || keys['ArrowRight']) turnInput -= 1;
+
+            const maxSpeed = selectedDroneType === 'INTERCEPTOR' ? 76 : (selectedDroneType === 'MULTIROLE' ? 64 : 52);
+            const minAirSpeed = 24;
+
+            if (droneState.isGrounded) {
+                // 지상 활주로 활주 가감속 (W 키로 가속, S 키로 브레이크)
+                if (throttleInput > 0) {
+                    droneState.speed = Math.min(maxSpeed * 0.75, droneState.speed + 26 * dt);
+                } else if (throttleInput < 0) {
+                    droneState.speed = Math.max(0, droneState.speed - 32 * dt);
+                } else {
+                    droneState.speed = Math.max(0, droneState.speed - 8 * dt);
+                }
+
+                // 지상 활주 중 조향
+                if (droneState.speed > 2) {
+                    droneState.yaw += turnInput * 1.1 * dt;
+                }
+
+                const forwardX = -Math.sin(droneState.yaw);
+                const forwardZ = -Math.cos(droneState.yaw);
+                droneState.vel.set(forwardX * droneState.speed, 0, forwardZ * droneState.speed);
+                droneState.pos.addScaledVector(droneState.vel, dt);
+
+                // 이륙 판정: Q 키 상승 입력 시 즉시 추력 부스트 후 이륙
+                if (altInput > 0) {
+                    droneState.speed = Math.max(droneState.speed, 34);
+                    droneState.isGrounded = false;
+                    droneState.vel.y = 14;
+                    audio.playTakeoff();
+                    showTacticalAlert("🛫 애프터버너 점화! 초음속 전투기 이륙 완료!");
+                } else {
+                    // 아군 활주로 구역(x: ±18, z: 45~132) 정차/저속 활주 시 자동 수리
+                    const onRunway = Math.abs(droneState.pos.x) < 18 && droneState.pos.z > 45 && droneState.pos.z < 132;
+                    if (onRunway && droneState.speed < 12 && droneState.hp < droneState.maxHp) {
+                        repairAccumulator += dt;
+                        if (repairAccumulator >= 0.45) {
+                            repairAccumulator = 0;
+                            droneState.hp = Math.min(droneState.maxHp, droneState.hp + 18);
+                            audio.playRepair();
+                            showTacticalAlert(`🛠️ 활주로 정비반 기체 수리 중... (HP: ${Math.round((droneState.hp / droneState.maxHp) * 100)}%)`);
+                        }
+                    }
+                }
+            } else {
+                // 공중 전투기 비행 물리 (순항 속도 유지 + W/S 가감속 + Q/E 고도 및 피치 제어)
+                if (throttleInput > 0) {
+                    droneState.speed = Math.min(maxSpeed, droneState.speed + 28 * dt);
+                } else if (throttleInput < 0) {
+                    droneState.speed = Math.max(minAirSpeed, droneState.speed - 26 * dt);
+                } else {
+                    const cruiseSpeed = maxSpeed * 0.62;
+                    droneState.speed += (cruiseSpeed - droneState.speed) * Math.min(1, dt * 1.5);
+                }
+
+                // 선회 및 뱅크각(Roll) 연동
+                droneState.yaw += turnInput * 1.95 * dt;
+                const targetRoll = turnInput * 0.58;
+                droneState.roll += (targetRoll - droneState.roll) * Math.min(1, dt * 7);
+
+                // 상승/하강 및 기수 피치각(Pitch) 연동
+                const targetVy = altInput * 28;
+                droneState.vel.y += (targetVy - droneState.vel.y) * Math.min(1, dt * 6);
+                const targetPitch = altInput * 0.34;
+                droneState.pitch += (targetPitch - droneState.pitch) * Math.min(1, dt * 6);
+
+                const forwardX = -Math.sin(droneState.yaw);
+                const forwardZ = -Math.cos(droneState.yaw);
+                droneState.vel.x = forwardX * droneState.speed;
+                droneState.vel.z = forwardZ * droneState.speed;
+
+                droneState.pos.addScaledVector(droneState.vel, dt);
+
+                // 확장된 전장 경계 (±820m) 및 최대 고도 제한 (165m)
+                droneState.pos.x = Math.max(-820, Math.min(820, droneState.pos.x));
+                droneState.pos.z = Math.max(-820, Math.min(820, droneState.pos.z));
+                droneState.pos.y = Math.min(165, droneState.pos.y);
+
+                // 지면 착륙 판정
+                if (droneState.pos.y <= GROUND_ALTITUDE) {
+                    droneState.pos.y = GROUND_ALTITUDE;
+                    droneState.vel.y = 0;
+                    droneState.pitch = 0;
+                    droneState.roll = 0;
+                    droneState.isGrounded = true;
+                    const onRunway = Math.abs(droneState.pos.x) < 18 && droneState.pos.z > 45 && droneState.pos.z < 132;
+                    if (onRunway) {
+                        showTacticalAlert("🛬 아군 활주로 착륙 성공! S 키로 감속하면 자동 수리가 시작됩니다.");
+                    } else {
+                        showTacticalAlert("🛬 야전 불시착! W + Q 키를 눌러 재이륙하십시오.");
+                    }
+                }
+            }
+
+            // 전투기 메쉬 및 애프터버너 불꽃 애니메이션 업데이트
+            if (droneGroup) {
+                droneGroup.position.copy(droneState.pos);
+                droneGroup.rotation.order = 'YXZ';
+                droneGroup.rotation.y = droneState.yaw;
+                droneGroup.rotation.x = droneState.isGrounded ? 0 : droneState.pitch;
+                droneGroup.rotation.z = droneState.isGrounded ? 0 : droneState.roll;
+
+                const thrustScale = droneState.isGrounded
+                    ? Math.max(0.15, droneState.speed / 35)
+                    : (0.75 + (droneState.speed / maxSpeed) * 0.85 + Math.sin(performance.now() * 0.04) * 0.15);
+                for (const flame of afterburners) {
+                    flame.scale.set(1, thrustScale, 1);
+                }
+            }
+
+            // 관제탑 레이더 안테나 회전 및 구름 이동
+            if (radarDishMesh) radarDishMesh.rotation.y += dt * 1.6;
+            if (cloudsGroup) {
+                cloudsGroup.position.x += dt * 2.2;
+                if (cloudsGroup.position.x > 300) cloudsGroup.position.x = -300;
+            }
+
+            // 정밀 폭격 조준 링 위치 업데이트
+            if (bombAimRing) {
+                bombAimRing.visible = !droneState.isGrounded && (selectedDroneType === 'MULTIROLE' || selectedDroneType === 'STRIKER');
+                const fallTime = Math.sqrt(Math.max(0.1, (2 * droneState.pos.y) / 28));
+                bombAimRing.position.set(
+                    droneState.pos.x + droneState.vel.x * fallTime * 0.75,
+                    0.25,
+                    droneState.pos.z + droneState.vel.z * fallTime * 0.75
+                );
+            }
+
+            // 2) 자유낙하 폭탄 물리 업데이트
+            for (let i = bombs3D.length - 1; i >= 0; i--) {
+                const b = bombs3D[i];
+                b.vel.y -= 28 * dt;
+                b.mesh.position.addScaledVector(b.vel, dt);
+                b.mesh.rotation.x += dt * 2.5;
+
+                if (b.mesh.position.y <= 0.3) {
+                    const impact = b.mesh.position.clone();
+                    impact.y = 0.5;
+                    spawnExplosion(impact, 1.6);
+                    applyAreaDamage(impact, b.blastRadius, b.damage);
+                    scene.remove(b.mesh);
+                    bombs3D.splice(i, 1);
+                }
+            }
+
+            // 2-2) 유도 미사일(AIM-120) 추적 물리 업데이트
+            for (let i = missiles3D.length - 1; i >= 0; i--) {
+                const m = missiles3D[i];
+                m.life -= dt;
+
+                if (m.target && m.target.mesh && m.target.hp > 0) {
+                    const targetPos = m.target.mesh.position.clone();
+                    if (m.target.type) targetPos.y += 1.5;
+                    const desiredDir = targetPos.sub(m.mesh.position).normalize();
+                    const currentDir = m.vel.clone().normalize();
+                    currentDir.lerp(desiredDir, Math.min(1, dt * 6.5)).normalize();
+                    m.vel.copy(currentDir.multiplyScalar(145));
+                    m.mesh.lookAt(m.mesh.position.clone().add(m.vel));
+
+                    if (m.mesh.position.distanceTo(targetPos) < 4.5) {
+                        spawnExplosion(m.mesh.position.clone(), 1.7);
+                        applyAreaDamage(m.mesh.position.clone(), m.blastRadius, m.damage);
+                        scene.remove(m.mesh);
+                        missiles3D.splice(i, 1);
+                        continue;
+                    }
+                }
+
+                m.mesh.position.addScaledVector(m.vel, dt);
+                if (m.life <= 0 || m.mesh.position.y <= 0.3) {
+                    spawnExplosion(m.mesh.position.clone(), 1.3);
+                    applyAreaDamage(m.mesh.position.clone(), m.blastRadius, m.damage);
+                    scene.remove(m.mesh);
+                    missiles3D.splice(i, 1);
+                }
+            }
+
+            // 3) 아군 기관포 탄환 업데이트
+            for (let i = bullets3D.length - 1; i >= 0; i--) {
+                const bu = bullets3D[i];
+                bu.life -= dt;
+                bu.mesh.position.addScaledVector(bu.vel, dt);
+
+                let hit = false;
+                // 지상 적 명중 판정
+                for (let j = enemies3D.length - 1; j >= 0; j--) {
+                    const e = enemies3D[j];
+                    const eCenter = e.mesh.position.clone().add(new THREE.Vector3(0, 1.5, 0));
+                    if (bu.mesh.position.distanceTo(eCenter) < e.radius + 1.0) {
+                        hit = true;
+                        e.hp -= bu.damage;
+                        if (e.hp <= 0) {
+                            spawnExplosion(eCenter, 1.2);
+                            score += e.scoreVal;
+                            totalKills++;
+                            checkMissionTargetProgress(e.type);
+                            scene.remove(e.mesh);
+                            enemies3D.splice(j, 1);
+                        }
+                        break;
+                    }
+                }
+
+                // 공중 적 항공기 명중 판정
+                if (!hit) {
+                    for (let j = aircraft3D.length - 1; j >= 0; j--) {
+                        const ac = aircraft3D[j];
+                        if (ac.isAllied) continue;
+                        if (bu.mesh.position.distanceTo(ac.mesh.position) < ac.radius + 1.8) {
+                            hit = true;
+                            ac.hp -= bu.damage;
+                            if (ac.hp <= 0) {
+                                spawnExplosion(ac.mesh.position.clone(), 1.8);
+                                score += ac.scoreVal;
+                                totalKills++;
+                                checkMissionTargetProgress(ac.role);
+                                scene.remove(ac.mesh);
+                                aircraft3D.splice(j, 1);
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                if (hit || bu.life <= 0 || bu.mesh.position.y <= 0) {
+                    scene.remove(bu.mesh);
+                    bullets3D.splice(i, 1);
+                }
+            }
+
+            // 4) 지상 적군 AI 이동 및 대공사격
+            for (const e of enemies3D) {
+                if (e.type === 'RADAR' && e.mesh.userData.dish) {
+                    e.mesh.userData.dish.rotation.y += dt * 1.8;
+                }
+                if (e.speed > 0) {
+                    e.mesh.position.z += e.speed * dt;
+                    if (e.mesh.position.z > 62) e.mesh.position.z = -180;
+                }
+
+                // 대공포(AAA) 및 장갑차의 대공 사격
+                if ((e.type === 'AAA' || e.type === 'JEEP') && !droneState.isGrounded) {
+                    e.fireTimer -= dt;
+                    const dist = e.mesh.position.distanceTo(droneState.pos);
+                    if (e.fireTimer <= 0 && dist < 135) {
+                        e.fireTimer = e.type === 'AAA' ? 1.6 : 2.8;
+                        const aimDir = droneState.pos.clone().sub(e.mesh.position).normalize();
+                        const tracer = new THREE.Mesh(
+                            new THREE.SphereGeometry(0.32, 6, 6),
+                            new THREE.MeshBasicMaterial({ color: 0xf43f5e })
+                        );
+                        tracer.position.copy(e.mesh.position).add(new THREE.Vector3(0, 2.5, 0));
+                        scene.add(tracer);
+
+                        enemyBullets3D.push({
+                            mesh: tracer,
+                            vel: aimDir.multiplyScalar(75),
+                            damage: e.type === 'AAA' ? 11 : 6,
+                            life: 2.2
+                        });
+                    }
+                }
+            }
+
+            // 5) 적 대공탄 업데이트
+            for (let i = enemyBullets3D.length - 1; i >= 0; i--) {
+                const eb = enemyBullets3D[i];
+                eb.life -= dt;
+                eb.mesh.position.addScaledVector(eb.vel, dt);
+
+                if (eb.mesh.position.distanceTo(droneState.pos) < 2.2 && !droneState.isGrounded) {
+                    droneState.hp -= eb.damage;
+                    screenShake = Math.min(1.0, screenShake + 0.25);
+                    scene.remove(eb.mesh);
+                    enemyBullets3D.splice(i, 1);
+
+                    if (droneState.hp <= 0) {
+                        droneState.hp = 0;
+                        spawnExplosion(droneState.pos.clone(), 1.6);
+                        gameState = 'GAMEOVER';
+                        showMenuModal(
+                            "💥 드론 격추됨 (MISSION FAILED)",
+                            `적의 대공 화망에 기체가 파괴되었습니다. 획득 점수: ${score} PTS`,
+                            "↻ 현재 작전 재도전"
+                        );
+                    }
+                    continue;
+                }
+
+                if (eb.life <= 0 || eb.mesh.position.y <= 0) {
+                    scene.remove(eb.mesh);
+                    enemyBullets3D.splice(i, 1);
+                }
+            }
+
+            // 6) 공중 전투기 & 전략 폭격기 편대 AI 업데이트
+            for (let i = aircraft3D.length - 1; i >= 0; i--) {
+                const ac = aircraft3D[i];
+                ac.marker.rotation.y += dt * 3;
+                const fwdX = -Math.sin(ac.yaw);
+                const fwdZ = -Math.cos(ac.yaw);
+                ac.mesh.position.x += fwdX * ac.speed * dt;
+                ac.mesh.position.z += fwdZ * ac.speed * dt;
+
+                ac.actionTimer -= dt;
+                if (ac.isAllied) {
+                    // 아군 편대 지상 폭격 지원
+                    if (ac.actionTimer <= 0 && ac.bombCount > 0 && enemies3D.length > 0) {
+                        ac.actionTimer = 0.85;
+                        ac.bombCount--;
+                        const targetEnemy = enemies3D[Math.floor(Math.random() * enemies3D.length)];
+                        const dropPos = targetEnemy.mesh.position.clone().add(
+                            new THREE.Vector3((Math.random() - 0.5) * 6, 0.5, (Math.random() - 0.5) * 6)
+                        );
+                        spawnExplosion(dropPos, 1.4);
+                        applyAreaDamage(dropPos, 15, 180);
+                    }
+                    if (ac.mesh.position.z < -260) {
+                        scene.remove(ac.mesh);
+                        aircraft3D.splice(i, 1);
+                    }
+                } else {
+                    // 적군 전투기/폭격기 선회 및 공대공 사격
+                    if (ac.mesh.position.z > 140) ac.yaw = Math.PI;
+                    if (ac.mesh.position.z < -220) ac.yaw = 0;
+                    ac.mesh.rotation.y = ac.yaw;
+
+                    if (ac.actionTimer <= 0 && !droneState.isGrounded) {
+                        ac.actionTimer = 2.4;
+                        const dist = ac.mesh.position.distanceTo(droneState.pos);
+                        if (dist < 150) {
+                            const aimDir = droneState.pos.clone().sub(ac.mesh.position).normalize();
+                            const missile = new THREE.Mesh(
+                                new THREE.BoxGeometry(0.35, 0.35, 2.5),
+                                new THREE.MeshBasicMaterial({ color: 0xf97316 })
+                            );
+                            missile.position.copy(ac.mesh.position);
+                            scene.add(missile);
+                            enemyBullets3D.push({
+                                mesh: missile,
+                                vel: aimDir.multiplyScalar(85),
+                                damage: 12,
+                                life: 2.0
+                            });
+                        }
+                    }
+                }
+            }
+
+            // 7) 폭발 파티클 업데이트
+            for (let i = particles3D.length - 1; i >= 0; i--) {
+                const p = particles3D[i];
+                p.life -= dt;
+                p.vel.y -= 12 * dt;
+                p.mesh.position.addScaledVector(p.vel, dt);
+                p.mesh.scale.multiplyScalar(0.95);
+                if (p.life <= 0) {
+                    scene.remove(p.mesh);
+                    particles3D.splice(i, 1);
+                }
+            }
+
+            updateCamera();
+            updateHUD();
+            drawRadar();
+        }
+
+        function updateCamera() {
+            if (!camera) return;
+
+            const totalYaw = droneState.yaw + cameraYawOffset;
+            if (cameraMode === 'THIRD_PERSON') {
+                const dist = 11.5;
+                const height = 4.6;
+                const camX = droneState.pos.x + Math.sin(totalYaw) * dist;
+                const camZ = droneState.pos.z + Math.cos(totalYaw) * dist;
+                camera.position.lerp(new THREE.Vector3(camX, droneState.pos.y + height, camZ), 0.18);
+                camera.lookAt(
+                    droneState.pos.x - Math.sin(totalYaw) * 18,
+                    Math.max(0, droneState.pos.y - 3.5),
+                    droneState.pos.z - Math.cos(totalYaw) * 18
+                );
+            } else if (cameraMode === 'FPS') {
+                camera.position.copy(droneState.pos).add(new THREE.Vector3(0, -0.25, 0));
+                camera.lookAt(
+                    droneState.pos.x - Math.sin(totalYaw) * 35,
+                    droneState.pos.y - 8,
+                    droneState.pos.z - Math.cos(totalYaw) * 35
+                );
+            } else if (cameraMode === 'TOP_DOWN') {
+                camera.position.set(droneState.pos.x, droneState.pos.y + 42, droneState.pos.z + 10);
+                camera.lookAt(droneState.pos.x, 0, droneState.pos.z - 8);
+            }
+
+            if (screenShake > 0) {
+                camera.position.x += (Math.random() - 0.5) * screenShake;
+                camera.position.y += (Math.random() - 0.5) * screenShake;
+            }
+        }
+
+        // ==========================================
+        // 12. HUD 텔레메트리 및 전술 레이더 렌더링
+        // ==========================================
+        function updateHUD() {
+            const op = OPERATIONS[currentMissionIdx] || OPERATIONS[0];
+            document.getElementById('hud-mission-title').textContent = op.title;
+            document.getElementById('hud-progress').textContent = `${missionProgress}/${op.targetCount}`;
+            document.getElementById('hud-kills').textContent = totalKills;
+            document.getElementById('hud-score').textContent = score;
+            document.getElementById('hud-hp-bar').style.width = `${Math.max(0, (droneState.hp / droneState.maxHp) * 100)}%`;
+
+            const altMeters = Math.max(0, (droneState.pos.y - GROUND_ALTITUDE) * 12);
+            document.getElementById('hud-alt').textContent = `${altMeters.toFixed(1)}m`;
+
+            const speedKmh = Math.round(droneState.speed * 22);
+            document.getElementById('hud-spd').textContent = `${speedKmh} km/h`;
+
+            const deg = (((-droneState.yaw * 180 / Math.PI) % 360) + 360) % 360;
+            const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+            const dirLabel = dirs[Math.round(deg / 45) % 8];
+            document.getElementById('hud-hdg').textContent = `${String(Math.round(deg)).padStart(3, '0')}° ${dirLabel}`;
+
+            const flightEl = document.getElementById('hud-flight-state');
+            if (droneState.isGrounded) {
+                flightEl.textContent = droneState.speed > 5 ? "TAXI / TAKEOFF ROLL (활주 가속 중)" : "RUNWAY READY (이륙 대기)";
+                flightEl.className = "text-amber-400 font-bold";
+            } else {
+                flightEl.textContent = speedKmh > 1200 ? "SUPERSONIC (초음속 순항)" : "AIRBORNE (전투 비행 중)";
+                flightEl.className = "text-emerald-400 font-bold";
+            }
+
+            const altPct = Math.min(100, Math.max(2, ((droneState.pos.y - GROUND_ALTITUDE) / 110) * 100));
+            document.getElementById('hud-alt-gauge').style.height = `${altPct}%`;
+
+            const camLabels = {
+                THIRD_PERSON: "3인칭 추적 시점 (V)",
+                FPS: "1인칭 조종석 HUD (V)",
+                TOP_DOWN: "전술 정찰 부감 (V)"
+            };
+            document.getElementById('hud-cam-mode').textContent = camLabels[cameraMode];
+        }
+
+        function drawRadar() {
+            const w = radarCanvas.width;
+            const h = radarCanvas.height;
+            const cx = w / 2;
+            const cy = h / 2;
+            const r = w / 2 - 4;
+
+            radarCtx.clearRect(0, 0, w, h);
+            radarCtx.fillStyle = 'rgba(6, 20, 16, 0.9)';
+            radarCtx.beginPath();
+            radarCtx.arc(cx, cy, r, 0, Math.PI * 2);
+            radarCtx.fill();
+
+            radarCtx.strokeStyle = 'rgba(16, 185, 129, 0.3)';
+            radarCtx.lineWidth = 1;
+            radarCtx.beginPath();
+            radarCtx.arc(cx, cy, r * 0.5, 0, Math.PI * 2);
+            radarCtx.moveTo(cx - r, cy);
+            radarCtx.lineTo(cx + r, cy);
+            radarCtx.moveTo(cx, cy - r);
+            radarCtx.lineTo(cx, cy + r);
+            radarCtx.stroke();
+
+            const scale = r / 200;
+
+            // 아군 헬리패드 위치 표시 (청록색 사각형)
+            const bx = cx + (0 - droneState.pos.x) * scale;
+            const bz = cy + (88 - droneState.pos.z) * scale;
+            if (Math.hypot(bx - cx, bz - cy) < r) {
+                radarCtx.fillStyle = '#38bdf8';
+                radarCtx.fillRect(bx - 3, bz - 3, 6, 6);
+            }
+
+            // 지상 적군 (적색 점)
+            radarCtx.fillStyle = '#ef4444';
+            for (const e of enemies3D) {
+                const ex = cx + (e.mesh.position.x - droneState.pos.x) * scale;
+                const ez = cy + (e.mesh.position.z - droneState.pos.z) * scale;
+                if (Math.hypot(ex - cx, ez - cy) < r) {
+                    radarCtx.beginPath();
+                    radarCtx.arc(ex, ez, 2.5, 0, Math.PI * 2);
+                    radarCtx.fill();
+                }
+            }
+
+            // 공중 항공기 (아군 시안 / 적군 주황 삼각형)
+            for (const ac of aircraft3D) {
+                const ax = cx + (ac.mesh.position.x - droneState.pos.x) * scale;
+                const az = cy + (ac.mesh.position.z - droneState.pos.z) * scale;
+                if (Math.hypot(ax - cx, az - cy) < r) {
+                    radarCtx.fillStyle = ac.isAllied ? '#38bdf8' : '#fb923c';
+                    radarCtx.beginPath();
+                    radarCtx.arc(ax, az, 3.2, 0, Math.PI * 2);
+                    radarCtx.fill();
+                }
+            }
+
+            // 중앙 플레이어 드론 표시
+            radarCtx.fillStyle = '#34d399';
+            radarCtx.beginPath();
+            radarCtx.arc(cx, cy, 3, 0, Math.PI * 2);
+            radarCtx.fill();
+        }
+
+        // ==========================================
+        // 13. UI 컨트롤 헬퍼 및 입력 이벤트 바인딩
+        // ==========================================
+        let alertTimer = null;
+        function showTacticalAlert(msg) {
+            const el = document.getElementById('tactical-alert');
+            el.textContent = msg;
+            el.style.opacity = '1';
+            clearTimeout(alertTimer);
+            alertTimer = setTimeout(() => {
+                el.style.opacity = '0';
+            }, 3500);
+        }
+
+        function showMenuModal(title, desc, btnText) {
+            const overlay = document.getElementById('menu-overlay');
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-desc').textContent = desc;
+            document.getElementById('start-btn').textContent = btnText;
+            overlay.classList.remove('hidden');
+        }
+
+        window.switchDroneInGame = function(type) {
+            selectedDroneType = type;
+            buildPlayerFighter3D(type);
+
+            const names = {
+                MULTIROLE: "KF-21 멀티롤 전투기 (MULTIROLE)",
+                INTERCEPTOR: "F-22 스텔스 요격기 (INTERCEPTOR)",
+                STRIKER: "A-10 근접항공지원기 (STRIKER)"
+            };
+            document.getElementById('hud-drone-type').textContent = names[type] || names.MULTIROLE;
+            showTacticalAlert(`✈️ 전투기 기종 전환 완료: ${names[type] || names.MULTIROLE}`);
+        };
+
+        function toggleCameraMode() {
+            const modes = ['THIRD_PERSON', 'FPS', 'TOP_DOWN'];
+            cameraMode = modes[(modes.indexOf(cameraMode) + 1) % modes.length];
+            updateHUD();
+        }
+
+        function toggleThermalMode() {
+            isThermal = !isThermal;
+            container.classList.toggle('thermal-filter', isThermal);
+            showTacticalAlert(isThermal ? "👁️ FLIR 열화상 표적 식별 모드 활성화" : "👁️ 주간 광학 카메라 모드 복귀");
+        }
+
+        // 시작 버튼 클릭
+        document.getElementById('start-btn').addEventListener('click', () => {
+            audio.init();
+            document.getElementById('menu-overlay').classList.add('hidden');
+            if (gameState === 'VICTORY' || gameState === 'MENU') {
+                currentMissionIdx = 0;
+                score = 0;
+                totalKills = 0;
+            }
+            droneState.hp = droneState.maxHp;
+            gameState = 'PLAYING';
+            setupOperation(currentMissionIdx);
+        });
+
+        // 우측 고도 상승/하강 버튼 (마우스 & 터치)
+        const btnAltUp = document.getElementById('btn-alt-up');
+        const btnAltDown = document.getElementById('btn-alt-down');
+
+        btnAltUp.addEventListener('pointerdown', (e) => { e.preventDefault(); touchAltInput = 1; });
+        btnAltUp.addEventListener('pointerup', () => { touchAltInput = 0; });
+        btnAltUp.addEventListener('pointerleave', () => { touchAltInput = 0; });
+
+        btnAltDown.addEventListener('pointerdown', (e) => { e.preventDefault(); touchAltInput = -1; });
+        btnAltDown.addEventListener('pointerup', () => { touchAltInput = 0; });
+        btnAltDown.addEventListener('pointerleave', () => { touchAltInput = 0; });
+
+        // 하단 전술 바 버튼 연결
+        document.getElementById('btn-ordnance').addEventListener('click', triggerSpecialOrdnance);
+        document.getElementById('btn-airstrike').addEventListener('click', callAlliedAirstrike);
+        document.getElementById('btn-env').addEventListener('click', () => applyEnvironmentTheme(currentEnvIdx + 1, true));
+        document.getElementById('btn-camera').addEventListener('click', toggleCameraMode);
+        document.getElementById('btn-thermal').addEventListener('click', toggleThermalMode);
+        document.getElementById('btn-sound').addEventListener('click', () => {
+            audio.enabled = !audio.enabled;
+            document.getElementById('sound-icon').textContent = audio.enabled ? "🔊 ON" : "🔇 OFF";
+        });
+
+        // 키보드 이벤트
+        window.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            if (gameState !== 'PLAYING') return;
+
+            if (e.code === 'Space') {
+                e.preventDefault();
+                firePrimaryWeapon();
+            } else if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyB') {
+                e.preventDefault();
+                triggerSpecialOrdnance();
+            } else if (e.code === 'KeyF') {
+                callAlliedAirstrike();
+            } else if (e.code === 'KeyG') {
+                applyEnvironmentTheme(currentEnvIdx + 1, true);
+            } else if (e.code === 'KeyV') {
+                toggleCameraMode();
+            } else if (e.code === 'KeyT') {
+                toggleThermalMode();
+            } else if (e.code === 'Digit1') {
+                switchDroneInGame('MULTIROLE');
+            } else if (e.code === 'Digit2') {
+                switchDroneInGame('INTERCEPTOR');
+            } else if (e.code === 'Digit3') {
+                switchDroneInGame('STRIKER');
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
+
+        // 마우스 좌클릭 사격 / 우클릭 폭탄·자폭 / 드래그 시점 회전
+        container.addEventListener('mousedown', (e) => {
+            if (gameState !== 'PLAYING') return;
+            if (e.button === 0) {
+                isFiring = true;
+                isDraggingCamera = true;
+                lastMouseX = e.clientX;
+                firePrimaryWeapon();
+            } else if (e.button === 2) {
+                triggerSpecialOrdnance();
+            }
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!isDraggingCamera) return;
+            const dx = e.clientX - lastMouseX;
+            lastMouseX = e.clientX;
+            cameraYawOffset -= dx * 0.006;
+        });
+        window.addEventListener('mouseup', () => {
+            isFiring = false;
+            isDraggingCamera = false;
+        });
+        container.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        // 메인 렌더링 루프
+        function animate(now) {
+            requestAnimationFrame(animate);
+            const dt = Math.min(0.05, (now - lastTime) / 1000);
+            lastTime = now;
+
+            updateSimulation(dt);
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        // 초기화 및 루프 실행
+        initScene();
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>

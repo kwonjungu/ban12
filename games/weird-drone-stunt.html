@@ -1,0 +1,1980 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>이상한 드론 스턴트 쇼 (Weird Drone Stunt)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #090d16;
+            color: #f8fafc;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        .title-font {
+            font-family: 'Black Han Sans', sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        /* 네온 글로우 버튼 효과 */
+        .btn-neon {
+            background: linear-gradient(135deg, #f43f5e 0%, #8b5cf6 100%);
+            box-shadow: 0 0 15px rgba(244, 63, 94, 0.5), inset 0 1px 1px rgba(255,255,255,0.4);
+            transition: all 0.15s ease;
+        }
+        .btn-neon:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 8px rgba(244, 63, 94, 0.8);
+        }
+        .btn-control {
+            background: rgba(30, 41, 59, 0.75);
+            backdrop-filter: blur(8px);
+            border: 2px solid rgba(148, 163, 184, 0.3);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            transition: transform 0.1s, background-color 0.1s;
+        }
+        .btn-control:active, .btn-control.active {
+            transform: scale(0.92);
+            background: rgba(56, 189, 248, 0.4);
+            border-color: #38bdf8;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.7)); }
+            50% { filter: drop-shadow(0 0 18px rgba(250, 204, 21, 1)); }
+        }
+        .combo-glow {
+            animation: pulseGlow 1s infinite;
+        }
+    </style>
+<script>var SLS={getItem:function(k){try{return localStorage.getItem(k)}catch(e){return null}},setItem:function(k,v){try{localStorage.setItem(k,v)}catch(e){}},removeItem:function(k){try{localStorage.removeItem(k)}catch(e){}}};</script>
+</head>
+<body class="flex flex-col h-screen w-screen bg-slate-950">
+
+    <!-- 상단 HUD (점수, 콤보, 배터리, 드론 변경 버튼) -->
+    <header class="flex justify-between items-center px-4 py-2 bg-slate-900/90 border-b border-slate-800 z-20 shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700">
+                <div class="text-[10px] text-slate-400 font-bold tracking-wider">SCORE</div>
+                <div id="scoreDisplay" class="text-xl sm:text-2xl font-black text-cyan-400 leading-none">0</div>
+            </div>
+            <div id="comboBox" class="hidden bg-amber-500/20 px-3 py-1.5 rounded-xl border border-amber-400/50 combo-glow">
+                <div class="text-[10px] text-amber-300 font-bold">STYLE COMBO</div>
+                <div id="comboDisplay" class="text-lg sm:text-xl font-black text-amber-400 leading-none">x2</div>
+            </div>
+        </div>
+
+        <!-- 중앙 타이틀 / 최고기록 -->
+        <div class="hidden md:flex flex-col items-center">
+            <div class="flex items-center gap-2">
+                <span class="title-font text-xl tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-pink-500 via-purple-400 to-cyan-400">
+                    이상한 드론 스턴트 쇼
+                </span>
+                <span id="hudDifficultyBadge" class="text-[11px] font-black px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                    중간
+                </span>
+            </div>
+            <span class="text-xs text-slate-400">최고 점수: <strong id="bestScoreDisplay" class="text-slate-200">0</strong></span>
+        </div>
+
+        <!-- 우측 에너지 및 드론 교체 -->
+        <div class="flex items-center gap-2 sm:gap-3">
+            <div class="flex flex-col items-end">
+                <div class="flex items-center gap-1 text-xs font-bold text-slate-300 mb-1">
+                    <span>⚡ 배터리</span>
+                    <span id="batteryText">100%</span>
+                </div>
+                <div class="w-24 sm:w-32 h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700 p-0.5">
+                    <div id="batteryBar" class="h-full bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full transition-all duration-150" style="width: 100%;"></div>
+                </div>
+            </div>
+            <button id="changeDroneBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-bold px-3 py-2 rounded-xl shadow-lg border border-indigo-400/30 active:scale-95 transition">
+                🛸 드론 변경
+            </button>
+        </div>
+    </header>
+
+    <!-- 메인 게임 캔버스 영역 -->
+    <main class="relative flex-1 w-full overflow-hidden">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- 시작 & 드론 선택 오버레이 모달 -->
+        <div id="startModal" class="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 z-30 overflow-y-auto">
+            <div class="max-w-lg w-full bg-slate-900 border-2 border-slate-700/80 rounded-3xl p-5 sm:p-6 shadow-2xl text-center my-auto">
+                <div class="inline-block px-3 py-1 rounded-full bg-pink-500/20 border border-pink-500/40 text-pink-300 text-xs font-bold mb-1.5">
+                    WEIRD DRONE FREESTYLE
+                </div>
+                <h1 class="title-font text-3xl sm:text-4xl text-white mb-1.5 tracking-wide">
+                    이상한 드론 스턴트
+                </h1>
+                <p class="text-slate-400 text-xs sm:text-sm mb-4">
+                    기괴한 드론으로 공중제비(플립), 링 통과, 아슬아슬한 곡예를 펼쳐 관객들을 열광시키세요!
+                </p>
+
+                <!-- 난이도 선택 버튼 4종 -->
+                <div class="text-left text-xs font-bold text-slate-300 mb-1.5 px-1">난이도 모드 선택:</div>
+                <div id="difficultySelector" class="grid grid-cols-4 gap-2 mb-4">
+                    <!-- JS로 동적 생성됨 -->
+                </div>
+
+                <!-- 드론 선택 카드 그리드 -->
+                <div class="text-left text-xs font-bold text-slate-300 mb-1.5 px-1">출격할 이상한 드론 선택:</div>
+                <div id="droneSelector" class="grid grid-cols-2 gap-2 mb-4 max-h-48 overflow-y-auto pr-1">
+                    <!-- JS로 동적 생성됨 -->
+                </div>
+
+                <!-- 조작법 요약 -->
+                <div class="bg-slate-800/80 rounded-2xl p-2.5 mb-4 text-xs text-slate-300 grid grid-cols-2 gap-1.5 text-left border border-slate-700/50">
+                    <div><span class="text-cyan-400 font-bold">🚀 상하좌우 이동:</span> 방향키 / WASD</div>
+                    <div><span class="text-pink-400 font-bold">🌀 360° 플립:</span> Q / E 또는 스턴트 버튼</div>
+                    <div><span class="text-amber-400 font-bold">🔥 부스터/연막:</span> Space 또는 Shift</div>
+                    <div><span class="text-rose-400 font-bold">🔫 기괴한 무기:</span> F / Enter (폭탄 격추!)</div>
+                </div>
+
+                <button id="startBtn" class="btn-neon w-full py-3.5 rounded-2xl text-white font-black text-lg sm:text-xl tracking-wider cursor-pointer">
+                    쇼 시작하기! (LAUNCH)
+                </button>
+            </div>
+        </div>
+
+        <!-- 게임 오버 오버레이 모달 -->
+        <div id="gameOverModal" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 z-30">
+            <div class="max-w-md w-full bg-slate-900 border-2 border-rose-500/50 rounded-3xl p-6 shadow-2xl text-center">
+                <div class="flex items-center justify-center gap-2 mb-1">
+                    <span id="gameOverDiffBadge" class="text-xs font-black px-2 py-0.5 rounded bg-slate-800 text-cyan-300 border border-slate-600">중간</span>
+                    <span id="gameOverReason" class="text-rose-400 font-bold text-sm">배터리 방전!</span>
+                </div>
+                <h2 class="title-font text-4xl text-white mb-4">공연 종료!</h2>
+
+                <div class="bg-slate-800/90 rounded-2xl p-4 mb-5 border border-slate-700">
+                    <div class="text-xs text-slate-400 mb-1">최종 스턴트 점수</div>
+                    <div id="finalScore" class="text-4xl font-black text-cyan-400 mb-3">0</div>
+                    <div class="grid grid-cols-4 gap-2 pt-3 border-t border-slate-700/80 text-xs">
+                        <div>
+                            <div class="text-slate-400">링 통과</div>
+                            <div id="statRings" class="font-bold text-white text-sm">0개</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-400">공중 플립</div>
+                            <div id="statFlips" class="font-bold text-pink-400 text-sm">0회</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-400">폭탄 격추</div>
+                            <div id="statKills" class="font-bold text-rose-400 text-sm">0대</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-400">최대 콤보</div>
+                            <div id="statMaxCombo" class="font-bold text-amber-400 text-sm">x1</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-3">
+                    <button id="selectDroneAgainBtn" class="flex-1 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm border border-slate-600 transition">
+                        드론 바꾸기
+                    </button>
+                    <button id="restartBtn" class="flex-[2] btn-neon py-3.5 rounded-2xl text-white font-black text-base tracking-wide">
+                        다시 멋부리기!
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 하단 컨트롤러 바 (모바일 & 마우스 터치 완벽 지원, 캔버스 외부 배치) -->
+    <footer class="bg-slate-900/95 border-t border-slate-800 px-3 py-2.5 z-20 shrink-0">
+        <div class="max-w-4xl mx-auto flex items-center justify-between gap-2">
+            <!-- 좌측 이동/추진 패드 -->
+            <div class="flex items-center gap-2">
+                <button id="btnLeft" class="btn-control w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex flex-col items-center justify-center text-slate-200">
+                    <span class="text-xl">◀</span>
+                    <span class="text-[10px] text-slate-400 font-bold">좌이동</span>
+                </button>
+                <button id="btnThrust" class="btn-control w-16 h-14 sm:w-20 sm:h-16 rounded-2xl flex flex-col items-center justify-center text-cyan-300 border-cyan-500/40">
+                    <span class="text-xl">▲</span>
+                    <span class="text-[10px] font-bold">상승</span>
+                </button>
+                <button id="btnRight" class="btn-control w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex flex-col items-center justify-center text-slate-200">
+                    <span class="text-xl">▶</span>
+                    <span class="text-[10px] text-slate-400 font-bold">우이동</span>
+                </button>
+            </div>
+
+            <!-- 중앙 상태 팁 -->
+            <div class="hidden lg:block text-center text-xs text-slate-400">
+                <p>공중에서 <span class="text-pink-400 font-bold">플립(회전)</span> 후 수평 착지/유지 시 보너스 점수!</p>
+                <p>무지개 부스터를 쓰면 화려한 연막과 함께 점수가 2배로 오릅니다!</p>
+            </div>
+
+            <!-- 우측 스턴트 액션 버튼 -->
+            <div class="flex items-center gap-1.5 sm:gap-2">
+                <button id="btnFire" class="btn-control w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex flex-col items-center justify-center text-rose-300 border-rose-500/50">
+                    <span class="text-lg">🔫</span>
+                    <span class="text-[10px] font-bold">발사(F)</span>
+                </button>
+                <button id="btnFlipLeft" class="btn-control w-13 h-14 sm:w-15 sm:h-16 rounded-2xl flex flex-col items-center justify-center text-pink-300 border-pink-500/40 px-2">
+                    <span class="text-lg">↺</span>
+                    <span class="text-[10px] font-bold">백플립</span>
+                </button>
+                <button id="btnFlipRight" class="btn-control w-13 h-14 sm:w-15 sm:h-16 rounded-2xl flex flex-col items-center justify-center text-pink-300 border-pink-500/40 px-2">
+                    <span class="text-lg">↻</span>
+                    <span class="text-[10px] font-bold">프론트</span>
+                </button>
+                <button id="btnBoost" class="btn-control w-14 h-14 sm:w-18 sm:h-16 rounded-2xl flex flex-col items-center justify-center text-amber-300 border-amber-500/50 px-2">
+                    <span class="text-xl">🔥</span>
+                    <span class="text-[10px] font-bold">부스터</span>
+                </button>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        /**
+         * 이상한 드론 스턴트 쇼 (Weird Drone Stunt Show)
+         * Web Audio (Tone.js) 사운드 합성기 + HTML5 2D Canvas 물리/파티클 엔진
+         */
+
+        // ==========================================
+        // 1. 사운드 합성기 (Tone.js)
+        // ==========================================
+        const sfx = {
+            initialized: false,
+            synth: null,
+            noise: null,
+            init() {
+                if (this.initialized) return;
+                try {
+                    if (typeof Tone !== 'undefined') {
+                        Tone.start();
+                        this.synth = new Tone.PolySynth(Tone.Synth, {
+                            oscillator: { type: 'triangle' },
+                            envelope: { attack: 0.01, decay: 0.15, sustain: 0.1, release: 0.3 }
+                        }).toDestination();
+                        this.synth.volume.value = -8;
+
+                        this.noise = new Tone.NoiseSynth({
+                            noise: { type: 'brown' },
+                            envelope: { attack: 0.02, decay: 0.3, sustain: 0 }
+                        }).toDestination();
+                        this.noise.volume.value = -10;
+                    }
+                    this.initialized = true;
+                } catch (e) {
+                    console.warn('Audio init skipped:', e);
+                }
+            },
+            playStunt(comboLevel) {
+                if (!this.synth) return;
+                try {
+                    const notes = ['C5', 'D5', 'E5', 'G5', 'A5', 'C6', 'D6', 'E6'];
+                    const note = notes[Math.min(notes.length - 1, comboLevel - 1)];
+                    this.synth.triggerAttackRelease(note, '16n');
+                } catch (e) {}
+            },
+            playRing() {
+                if (!this.synth) return;
+                try {
+                    const now = Tone.now();
+                    this.synth.triggerAttackRelease('E5', '16n', now);
+                    this.synth.triggerAttackRelease('B5', '8n', now + 0.06);
+                } catch (e) {}
+            },
+            playBoost() {
+                if (!this.synth) return;
+                try {
+                    this.synth.triggerAttackRelease('G4', '32n');
+                } catch (e) {}
+            },
+            playCrash() {
+                if (!this.noise) return;
+                try {
+                    this.noise.triggerAttackRelease('8n');
+                    if (this.synth) {
+                        this.synth.triggerAttackRelease(['C3', 'F#2'], '4n');
+                    }
+                } catch (e) {}
+            },
+            playShoot(weaponType) {
+                if (!this.synth) return;
+                try {
+                    if (weaponType === 'laser') {
+                        this.synth.triggerAttackRelease('C6', '32n');
+                    } else if (weaponType === 'bubble') {
+                        this.synth.triggerAttackRelease('G5', '32n');
+                    } else {
+                        this.synth.triggerAttackRelease('E4', '32n');
+                    }
+                } catch (e) {}
+            }
+        };
+
+        // ==========================================
+        // 2. 난이도 설정 & 이상한 드론 도감 데이터
+        // ==========================================
+        const DIFFICULTIES = [
+            {
+                id: 'easy',
+                name: '쉬움',
+                sub: '느긋한 비행',
+                badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50',
+                btnActiveClass: 'bg-emerald-950/90 border-emerald-400 text-emerald-300 shadow-lg shadow-emerald-500/20',
+                gravity: 0.16,
+                batteryDrain: 0.025,
+                boostDrain: 0.08,
+                ringRadiusMult: 1.25,
+                ringSpeedMult: 0.78,
+                scoreMult: 0.8,
+                hazardInterval: 0, // 장애물 없음
+                hazardSpeed: 0,
+                windForce: 0
+            },
+            {
+                id: 'normal',
+                name: '중간',
+                sub: '표준 스턴트',
+                badgeClass: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50',
+                btnActiveClass: 'bg-cyan-950/90 border-cyan-400 text-cyan-300 shadow-lg shadow-cyan-500/20',
+                gravity: 0.21,
+                batteryDrain: 0.045,
+                boostDrain: 0.14,
+                ringRadiusMult: 1.0,
+                ringSpeedMult: 1.0,
+                scoreMult: 1.0,
+                hazardInterval: 260, // 가끔 폭탄 드론 등장
+                hazardSpeed: 2.6,
+                windForce: 0
+            },
+            {
+                id: 'hard',
+                name: '하드',
+                sub: '고속 장애물',
+                badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/50',
+                btnActiveClass: 'bg-amber-950/90 border-amber-400 text-amber-300 shadow-lg shadow-amber-500/20',
+                gravity: 0.25,
+                batteryDrain: 0.068,
+                boostDrain: 0.19,
+                ringRadiusMult: 0.85,
+                ringSpeedMult: 1.35,
+                scoreMult: 1.6,
+                hazardInterval: 150, // 빈번한 폭탄/레이저 드론
+                hazardSpeed: 4.1,
+                windForce: 0.03
+            },
+            {
+                id: 'impossible',
+                name: '불가능',
+                sub: '악몽의 십자레이저&함정',
+                badgeClass: 'bg-rose-500/20 text-rose-300 border-rose-500/60',
+                btnActiveClass: 'bg-rose-950/90 border-rose-500 text-rose-300 shadow-lg shadow-rose-500/30',
+                gravity: 0.39,
+                batteryDrain: 0.16,
+                boostDrain: 0.38,
+                ringRadiusMult: 0.50,
+                ringSpeedMult: 2.55,
+                scoreMult: 8.0,
+                hazardInterval: 38, // 쉴 틈 없이 쏟아지는 장갑/유도 폭탄 드론
+                hazardSpeed: 7.8,
+                windForce: 0.24
+            }
+        ];
+
+        const WEIRD_DRONES = [
+            {
+                id: 'eyeball',
+                name: '충혈된 외눈 촉수 드론',
+                desc: '충혈된 거대 눈알에 닭발과 뼈다귀 프로펠러가 달린 기괴체.',
+                weaponName: '👁️ 고압 눈물 레이저',
+                weaponType: 'laser',
+                color: '#38bdf8',
+                accent: '#f43f5e',
+                thrustPower: 0.44,
+                turnSpeed: 0.065,
+                flipSpeed: 0.14,
+                trailColor: ['#ef4444', '#ffffff', '#38bdf8']
+            },
+            {
+                id: 'toaster',
+                name: '폭주하는 양변기 로켓',
+                desc: '물줄기와 두루마리 휴지를 흩날리며 날아다니는 욕실의 제왕.',
+                weaponName: '🪠 뚫어뻥 미사일',
+                weaponType: 'plunger',
+                color: '#e2e8f0',
+                accent: '#38bdf8',
+                thrustPower: 0.48,
+                turnSpeed: 0.062,
+                flipSpeed: 0.14,
+                trailColor: ['#38bdf8', '#bae6fd', '#ffffff']
+            },
+            {
+                id: 'jellyfish',
+                name: '뇌세포 해파리 외계인',
+                desc: '주름진 뇌가 훤히 비치는 유리돔 속에서 촉수를 휘두릅니다.',
+                weaponName: '🧠 텔레파시 뇌파탄',
+                weaponType: 'brainwave',
+                color: '#f472b6',
+                accent: '#2dd4bf',
+                thrustPower: 0.43,
+                turnSpeed: 0.075,
+                flipSpeed: 0.16,
+                trailColor: ['#f472b6', '#2dd4bf', '#a855f7']
+            },
+            {
+                id: 'duck',
+                name: '근육질 보디빌더 고무오리',
+                desc: '목욕탕 오리 머리에 우락부락한 팔근육과 핑크 튜튜를 입었습니다.',
+                weaponName: '🫧 초거대 비눗방울포',
+                weaponType: 'bubble',
+                color: '#facc15',
+                accent: '#f97316',
+                thrustPower: 0.46,
+                turnSpeed: 0.068,
+                flipSpeed: 0.15,
+                trailColor: ['#fef08a', '#f472b6', '#4ade80']
+            },
+            {
+                id: 'fishleg',
+                name: '하이힐 신은 붕어빵',
+                desc: '팥앙금을 뿜어내며 섹시한 롱다리로 허공을 박차는 디저트.',
+                weaponName: '🫘 팥앙금 기관총',
+                weaponType: 'redbean',
+                color: '#d97706',
+                accent: '#ec4899',
+                thrustPower: 0.45,
+                turnSpeed: 0.07,
+                flipSpeed: 0.15,
+                trailColor: ['#f59e0b', '#ec4899', '#fde047']
+            },
+            {
+                id: 'cactus',
+                name: '디스코 선인장 붐박스',
+                desc: '가시 대신 네온 레이저를 쏘며 춤추는 화분 스턴트맨.',
+                weaponName: '🌵 미러볼 가시 3연발',
+                weaponType: 'needle',
+                color: '#4ade80',
+                accent: '#a855f7',
+                thrustPower: 0.47,
+                turnSpeed: 0.066,
+                flipSpeed: 0.16,
+                trailColor: ['#4ade80', '#e879f9', '#facc15']
+            }
+        ];
+
+        // ==========================================
+        // 3. 게임 상태 및 캔버스 초기화
+        // ==========================================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = 800;
+        let height = 600;
+        let frameCount = 0;
+        let gameState = 'MENU'; // MENU, PLAYING, GAMEOVER
+        let selectedDifficultyIndex = 1; // 기본값: 중간
+        let selectedDroneIndex = 0;
+
+        let score = 0;
+        let bestScore = parseInt(SLS.getItem('weirdDroneBestScore') || '0', 10);
+        let combo = 1;
+        let maxCombo = 1;
+        let comboTimer = 0;
+        let battery = 100;
+        let ringsPassed = 0;
+        let totalFlips = 0;
+        let hazardsDestroyed = 0;
+        let windGust = 0;
+        let fireCooldown = 0;
+
+        // 드론 물리 객체
+        const drone = {
+            x: 200,
+            y: 300,
+            vx: 0,
+            vy: 0,
+            angle: 0,
+            angularVelocity: 0,
+            flipAccumulator: 0,
+            rotorPhase: 0,
+            radius: 22
+        };
+
+        // 입력 상태
+        const keys = {
+            up: false,
+            left: false,
+            right: false,
+            flipLeft: false,
+            flipRight: false,
+            boost: false,
+            fire: false
+        };
+
+        // 게임 오브젝트 및 이펙트 배열
+        let rings = [];
+        let hazards = [];
+        let enemyBullets = [];
+        let lasers = [];
+        let projectiles = [];
+        let particles = [];
+        let floatingTexts = [];
+        let stars = [];
+
+        document.getElementById('bestScoreDisplay').textContent = bestScore.toLocaleString();
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            width = rect.width;
+            height = rect.height;
+            canvas.width = width;
+            canvas.height = height;
+
+            // 배경 별 초기화
+            stars = [];
+            for (let i = 0; i < 65; i++) {
+                stars.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    size: Math.random() * 2 + 0.5,
+                    speed: Math.random() * 0.6 + 0.2,
+                    alpha: Math.random() * 0.7 + 0.3
+                });
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // ==========================================
+        // 4. 난이도 & 드론 선택 UI 렌더링
+        // ==========================================
+        function renderDifficultySelector() {
+            const container = document.getElementById('difficultySelector');
+            container.innerHTML = '';
+            DIFFICULTIES.forEach((diff, idx) => {
+                const isSelected = idx === selectedDifficultyIndex;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `py-2 px-1.5 rounded-xl border-2 transition-all cursor-pointer flex flex-col items-center justify-center ${
+                    isSelected
+                        ? diff.btnActiveClass
+                        : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:border-slate-500'
+                }`;
+                btn.innerHTML = `
+                    <span class="font-black text-xs sm:text-sm">${diff.name}</span>
+                    <span class="text-[10px] opacity-80 mt-0.5">${diff.sub}</span>
+                    <span class="text-[9px] font-bold mt-0.5 px-1.5 rounded bg-black/30">x${diff.scoreMult.toFixed(1)}점</span>
+                `;
+                btn.addEventListener('click', () => {
+                    selectedDifficultyIndex = idx;
+                    renderDifficultySelector();
+                    updateDifficultyBadge();
+                    sfx.init();
+                });
+                container.appendChild(btn);
+            });
+        }
+
+        function updateDifficultyBadge() {
+            const diff = DIFFICULTIES[selectedDifficultyIndex];
+            const badge = document.getElementById('hudDifficultyBadge');
+            badge.textContent = `${diff.name} (x${diff.scoreMult.toFixed(1)})`;
+            badge.className = `text-[11px] font-black px-2 py-0.5 rounded-full border ${diff.badgeClass}`;
+        }
+
+        function renderDroneSelector() {
+            const container = document.getElementById('droneSelector');
+            container.innerHTML = '';
+            WEIRD_DRONES.forEach((d, idx) => {
+                const isSelected = idx === selectedDroneIndex;
+                const card = document.createElement('button');
+                card.type = 'button';
+                card.className = `p-3 rounded-2xl text-left border-2 transition-all cursor-pointer ${
+                    isSelected
+                        ? 'bg-indigo-950/80 border-cyan-400 shadow-lg shadow-cyan-500/20'
+                        : 'bg-slate-800/60 border-slate-700 hover:border-slate-500'
+                }`;
+                card.innerHTML = `
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-bold text-xs sm:text-sm text-white truncate">${d.name}</span>
+                        ${isSelected ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold">선택됨</span>' : ''}
+                    </div>
+                    <p class="text-[11px] text-slate-400 line-clamp-1 leading-snug mb-1">${d.desc}</p>
+                    <div class="text-[10px] font-bold text-rose-300 bg-rose-950/50 border border-rose-500/30 rounded px-1.5 py-0.5 inline-block">
+                        무기: ${d.weaponName}
+                    </div>
+                `;
+                card.addEventListener('click', () => {
+                    selectedDroneIndex = idx;
+                    renderDroneSelector();
+                    sfx.init();
+                });
+                container.appendChild(card);
+            });
+        }
+
+        // ==========================================
+        // 5. 게임 시작, 종료 및 스턴트 점수 시스템
+        // ==========================================
+        function startGame() {
+            sfx.init();
+            const diff = DIFFICULTIES[selectedDifficultyIndex];
+            updateDifficultyBadge();
+
+            gameState = 'PLAYING';
+            score = 0;
+            combo = 1;
+            maxCombo = 1;
+            comboTimer = 0;
+            battery = 100;
+            ringsPassed = 0;
+            totalFlips = 0;
+            hazardsDestroyed = 0;
+            windGust = 0;
+            fireCooldown = 0;
+
+            drone.x = width * 0.25;
+            drone.y = height * 0.45;
+            drone.vx = 0;
+            drone.vy = 0;
+            drone.angle = 0;
+            drone.angularVelocity = 0;
+            drone.flipAccumulator = 0;
+
+            rings = [];
+            hazards = [];
+            enemyBullets = [];
+            lasers = [];
+            projectiles = [];
+            particles = [];
+            floatingTexts = [];
+
+            // 초기 링 3개 배치
+            for (let i = 0; i < 3; i++) {
+                spawnRing(width * (0.55 + i * 0.35));
+            }
+
+            document.getElementById('startModal').classList.add('hidden');
+            document.getElementById('gameOverModal').classList.add('hidden');
+            updateHUD();
+        }
+
+        function endGame(reason) {
+            if (gameState === 'GAMEOVER') return;
+            gameState = 'GAMEOVER';
+            sfx.playCrash();
+
+            const diff = DIFFICULTIES[selectedDifficultyIndex];
+
+            if (score > bestScore) {
+                bestScore = score;
+                SLS.setItem('weirdDroneBestScore', bestScore.toString());
+                document.getElementById('bestScoreDisplay').textContent = bestScore.toLocaleString();
+            }
+
+            const goBadge = document.getElementById('gameOverDiffBadge');
+            goBadge.textContent = `${diff.name} 모드`;
+            goBadge.className = `text-xs font-black px-2 py-0.5 rounded border ${diff.badgeClass}`;
+
+            document.getElementById('gameOverReason').textContent = reason;
+            document.getElementById('finalScore').textContent = score.toLocaleString();
+            document.getElementById('statRings').textContent = `${ringsPassed}개`;
+            document.getElementById('statFlips').textContent = `${totalFlips}회`;
+            document.getElementById('statKills').textContent = `${hazardsDestroyed}대`;
+            document.getElementById('statMaxCombo').textContent = `x${maxCombo}`;
+            document.getElementById('gameOverModal').classList.remove('hidden');
+        }
+
+        function fireWeapon() {
+            if (gameState !== 'PLAYING' || fireCooldown > 0) return;
+            const spec = WEIRD_DRONES[selectedDroneIndex];
+            sfx.playShoot(spec.weaponType);
+
+            // 현재 드론이 바라보는(기울어진) 방향으로 발사 (공중제비 중이면 전방위 곡예 사격!)
+            const shootAngle = drone.angle;
+            const cosA = Math.cos(shootAngle);
+            const sinA = Math.sin(shootAngle);
+            const startX = drone.x + cosA * 24;
+            const startY = drone.y + sinA * 24;
+
+            if (spec.weaponType === 'needle') {
+                // 디스코 선인장: 부채꼴 3연발 가시
+                [-0.22, 0, 0.22].forEach(offset => {
+                    const ang = shootAngle + offset;
+                    projectiles.push({
+                        type: 'needle',
+                        x: startX,
+                        y: startY,
+                        vx: Math.cos(ang) * 12 + drone.vx * 0.3,
+                        vy: Math.sin(ang) * 12 + drone.vy * 0.3,
+                        angle: ang,
+                        radius: 8,
+                        life: 70
+                    });
+                });
+                fireCooldown = 20;
+            } else if (spec.weaponType === 'redbean') {
+                // 붕어빵: 연사력 빠른 팥앙금 탄환
+                projectiles.push({
+                    type: 'redbean',
+                    x: startX,
+                    y: startY,
+                    vx: cosA * 11 + drone.vx * 0.3,
+                    vy: sinA * 11 + drone.vy * 0.3,
+                    angle: shootAngle,
+                    radius: 7,
+                    life: 75
+                });
+                fireCooldown = 10;
+            } else if (spec.weaponType === 'bubble') {
+                // 근육질 오리: 크고 천천히 나아가며 오래 남는 비눗방울포
+                projectiles.push({
+                    type: 'bubble',
+                    x: startX,
+                    y: startY,
+                    vx: cosA * 7.5 + drone.vx * 0.2,
+                    vy: sinA * 7.5 + drone.vy * 0.2 - 0.5,
+                    angle: shootAngle,
+                    radius: 16,
+                    life: 110
+                });
+                fireCooldown = 24;
+            } else if (spec.weaponType === 'plunger') {
+                // 양변기 로켓: 고속 뚫어뻥 미사일
+                projectiles.push({
+                    type: 'plunger',
+                    x: startX,
+                    y: startY,
+                    vx: cosA * 13 + drone.vx * 0.3,
+                    vy: sinA * 13 + drone.vy * 0.3,
+                    angle: shootAngle,
+                    radius: 10,
+                    life: 80
+                });
+                fireCooldown = 18;
+            } else if (spec.weaponType === 'brainwave') {
+                // 뇌세포 해파리: 웨이브 뇌파탄
+                projectiles.push({
+                    type: 'brainwave',
+                    x: startX,
+                    y: startY,
+                    vx: cosA * 10 + drone.vx * 0.2,
+                    vy: sinA * 10 + drone.vy * 0.2,
+                    angle: shootAngle,
+                    radius: 14,
+                    life: 85,
+                    phase: 0
+                });
+                fireCooldown = 19;
+            } else {
+                // 외눈 촉수 드론: 초고속 눈물 레이저
+                projectiles.push({
+                    type: 'laser',
+                    x: startX,
+                    y: startY,
+                    vx: cosA * 16 + drone.vx * 0.2,
+                    vy: sinA * 16 + drone.vy * 0.2,
+                    angle: shootAngle,
+                    radius: 9,
+                    life: 65
+                });
+                fireCooldown = 15;
+            }
+
+            // 반동 살짝 적용
+            drone.vx -= cosA * 0.6;
+            drone.vy -= sinA * 0.6;
+        }
+
+        function addStuntScore(basePoints, label, x, y, color = '#38bdf8') {
+            const diff = DIFFICULTIES[selectedDifficultyIndex];
+            const boostMult = keys.boost ? 2 : 1;
+            const gained = Math.round(basePoints * combo * boostMult * diff.scoreMult);
+            score += gained;
+            comboTimer = 210; // 3.5초 동안 콤보 유지
+
+            floatingTexts.push({
+                x,
+                y,
+                text: `${label} +${gained}`,
+                color,
+                alpha: 1,
+                vy: -1.6
+            });
+            updateHUD();
+        }
+
+        function incrementCombo() {
+            combo = Math.min(15, combo + 1);
+            if (combo > maxCombo) maxCombo = combo;
+            comboTimer = 210;
+            sfx.playStunt(combo);
+        }
+
+        function spawnRing(customX) {
+            const diff = DIFFICULTIES[selectedDifficultyIndex];
+            const isCursed = diff.id === 'impossible' && Math.random() < 0.35; // 불가능 모드 전용 저주받은 함정 링
+            const isGolden = !isCursed && Math.random() < 0.28;
+            const baseRadius = isGolden ? 44 : 52;
+            rings.push({
+                x: customX || width + 80,
+                y: Math.max(90, Math.min(height - 110, 100 + Math.random() * (height - 220))),
+                radius: Math.round(baseRadius * diff.ringRadiusMult),
+                speed: (2.2 + Math.min(2.5, score / 4000)) * diff.ringSpeedMult,
+                isGolden,
+                isCursed,
+                passed: false,
+                pulse: Math.random() * Math.PI * 2,
+                moveY: diff.id === 'impossible' ? (Math.random() - 0.5) * 3.6 : (diff.id === 'hard' ? (Math.random() - 0.5) * 1.1 : 0)
+            });
+        }
+
+        function spawnHazard() {
+            const diff = DIFFICULTIES[selectedDifficultyIndex];
+            if (diff.hazardInterval <= 0) return;
+
+            const isImpossible = diff.id === 'impossible';
+            const isArmored = isImpossible && Math.random() < 0.55; // 불가능 모드에서는 55% 확률로 체력 2짜리 장갑 폭탄 등장
+            const isHoming = isImpossible && Math.random() < 0.55;   // 불가능 모드에서는 55% 확률로 드론을 추적하는 유도 폭탄
+
+            hazards.push({
+                x: width + 50,
+                y: Math.max(60, Math.min(height - 70, 60 + Math.random() * (height - 140))),
+                radius: isArmored ? 25 : (isImpossible ? 21 : 18),
+                speed: diff.hazardSpeed + Math.random() * 2.2,
+                vy: isImpossible ? (Math.random() - 0.5) * 5.8 : (Math.random() - 0.5) * 1.2,
+                spin: 0,
+                hp: isArmored ? 2 : 1,
+                maxHp: isArmored ? 2 : 1,
+                isHoming
+            });
+        }
+
+        function spawnLaserBeam() {
+            // 불가능 모드 전용: 가로+세로 동시 십자 조준 후 발사되는 극악의 고출력 레이저 함정
+            lasers.push({
+                isHorizontal: true,
+                pos: Math.max(70, Math.min(height - 80, drone.y + (Math.random() - 0.5) * 90)),
+                timer: 52, // 짧은 52프레임 경고 후 즉각 발사
+                activeDuration: 30,
+                thickness: 24
+            });
+            lasers.push({
+                isHorizontal: false,
+                pos: Math.max(80, Math.min(width - 80, drone.x + (Math.random() - 0.5) * 110)),
+                timer: 52,
+                activeDuration: 30,
+                thickness: 24
+            });
+        }
+
+        function spawnTrailParticle() {
+            const spec = WEIRD_DRONES[selectedDroneIndex];
+            const palette = keys.boost
+                ? ['#f43f5e', '#facc15', '#4ade80', '#38bdf8', '#a855f7']
+                : spec.trailColor;
+            const color = palette[Math.floor(Math.random() * palette.length)];
+
+            particles.push({
+                x: drone.x - Math.cos(drone.angle) * 14 + (Math.random() - 0.5) * 10,
+                y: drone.y - Math.sin(drone.angle) * 14 + (Math.random() - 0.5) * 10,
+                vx: -drone.vx * 0.25 + (Math.random() - 0.5) * 2,
+                vy: -drone.vy * 0.25 + (Math.random() - 0.5) * 2 + 0.8,
+                size: keys.boost ? Math.random() * 6 + 4 : Math.random() * 4 + 2,
+                color,
+                alpha: 0.9
+            });
+        }
+
+        function updateHUD() {
+            document.getElementById('scoreDisplay').textContent = score.toLocaleString();
+            const comboBox = document.getElementById('comboBox');
+            if (combo > 1) {
+                comboBox.classList.remove('hidden');
+                document.getElementById('comboDisplay').textContent = `x${combo}`;
+            } else {
+                comboBox.classList.add('hidden');
+            }
+
+            const pct = Math.max(0, Math.min(100, Math.round(battery)));
+            document.getElementById('batteryText').textContent = `${pct}%`;
+            const bar = document.getElementById('batteryBar');
+            bar.style.width = `${pct}%`;
+            if (pct < 25) {
+                bar.className = 'h-full bg-rose-500 rounded-full transition-all duration-150';
+            } else if (pct < 50) {
+                bar.className = 'h-full bg-amber-400 rounded-full transition-all duration-150';
+            } else {
+                bar.className = 'h-full bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full transition-all duration-150';
+            }
+        }
+
+        // ==========================================
+        // 6. 물리 엔진 & 게임 업데이트 루프
+        // ==========================================
+        function update() {
+            frameCount++;
+            drone.rotorPhase += keys.boost ? 1.1 : 0.65;
+
+            // 배경 별 스크롤
+            stars.forEach(s => {
+                s.x -= s.speed * (gameState === 'PLAYING' ? 1.5 : 0.4);
+                if (s.x < 0) s.x = width;
+            });
+
+            if (gameState !== 'PLAYING') {
+                // 대기 화면에서 드론 둥실둥실 떠다니기
+                drone.x = width * 0.5;
+                drone.y = height * 0.48 + Math.sin(frameCount * 0.05) * 14;
+                drone.angle = Math.sin(frameCount * 0.03) * 0.12;
+                return;
+            }
+
+            const spec = WEIRD_DRONES[selectedDroneIndex];
+            const diff = DIFFICULTIES[selectedDifficultyIndex];
+
+            // 배터리 소모 (난이도별 차등 적용)
+            battery -= keys.boost ? diff.boostDrain : diff.batteryDrain;
+            if (battery <= 0) {
+                battery = 0;
+                updateHUD();
+                endGame('⚡ 배터리가 모두 방전되었습니다!');
+                return;
+            }
+
+            // 콤보 타이머 감소
+            if (combo > 1) {
+                comboTimer--;
+                if (comboTimer <= 0) {
+                    combo = 1;
+                    updateHUD();
+                }
+            }
+
+            // 중력, 난이도별 돌풍 및 추력
+            drone.vy += diff.gravity;
+
+            if (diff.windForce > 0) {
+                // 불가능 모드에서는 돌풍의 방향과 세기가 불규칙하게 급변함
+                const gustWave = diff.id === 'impossible'
+                    ? Math.sin(frameCount * 0.05) + Math.cos(frameCount * 0.11) * 0.8
+                    : Math.sin(frameCount * 0.035);
+                windGust = gustWave * diff.windForce;
+                drone.vx += windGust;
+                drone.vy += Math.cos(frameCount * 0.04) * (diff.windForce * 0.75);
+
+                // 불가능 모드 강풍 시각 바람선 파티클
+                if (diff.id === 'impossible' && frameCount % 3 === 0) {
+                    particles.push({
+                        x: windGust < 0 ? width + 10 : -10,
+                        y: Math.random() * height,
+                        vx: windGust * 85,
+                        vy: (Math.random() - 0.5) * 2,
+                        size: 2.5,
+                        color: 'rgba(244, 63, 94, 0.45)',
+                        alpha: 0.7
+                    });
+                }
+            }
+
+            // 무기 발사 쿨타임 & 연속 발사
+            if (fireCooldown > 0) fireCooldown--;
+            if (keys.fire) {
+                fireWeapon();
+            }
+
+            // 수직 상승 및 수평 이동 입력 처리
+            if (keys.up) {
+                drone.vy -= spec.thrustPower;
+            }
+            if (keys.left) {
+                drone.vx -= 0.42;
+            }
+            if (keys.right) {
+                drone.vx += 0.42;
+            }
+            if (keys.boost) {
+                drone.vx += 0.35;
+                if (frameCount % 6 === 0) sfx.playBoost();
+            }
+
+            if (keys.up || keys.left || keys.right || keys.boost || frameCount % 3 === 0) {
+                spawnTrailParticle();
+            }
+
+            // 360도 공중 플립 (Q / E)
+            const isFlipping = keys.flipLeft || keys.flipRight;
+            if (keys.flipLeft) {
+                drone.angularVelocity = -spec.flipSpeed;
+            } else if (keys.flipRight) {
+                drone.angularVelocity = spec.flipSpeed;
+            } else {
+                drone.angularVelocity *= 0.85;
+                // 일반 이동 시 자연스러운 기울기 보정
+                const targetTilt = Math.max(-0.35, Math.min(0.35, drone.vx * 0.05));
+                // 각도를 -PI ~ PI 범위로 정규화 후 목표 기울기로 복원
+                let normAngle = ((drone.angle + Math.PI) % (Math.PI * 2)) - Math.PI;
+                if (normAngle < -Math.PI) normAngle += Math.PI * 2;
+                drone.angle = normAngle + (targetTilt - normAngle) * 0.14;
+                drone.flipAccumulator *= 0.85;
+            }
+
+            if (isFlipping) {
+                drone.angle += drone.angularVelocity;
+                drone.flipAccumulator += drone.angularVelocity;
+
+                // 360도(2 * PI) 회전 달성 시 스턴트 인정!
+                if (Math.abs(drone.flipAccumulator) >= Math.PI * 1.92) {
+                    const dirLabel = drone.flipAccumulator < 0 ? '🌀 백플립 360°!' : '🌀 프론트플립 360°!';
+                    drone.flipAccumulator = 0;
+                    totalFlips++;
+                    incrementCombo();
+                    addStuntScore(250, dirLabel, drone.x, drone.y - 30, '#f472b6');
+                }
+            }
+
+            // 공기 저항(감쇠) 및 위치 업데이트
+            drone.vx *= 0.94;
+            drone.vy *= 0.96;
+            drone.x += drone.vx;
+            drone.y += drone.vy;
+
+            // 좌우 화면 경계 처리
+            if (drone.x < 30) {
+                drone.x = 30;
+                drone.vx = Math.max(0, drone.vx * -0.4);
+            } else if (drone.x > width - 30) {
+                drone.x = width - 30;
+                drone.vx = Math.min(0, drone.vx * -0.4);
+            }
+
+            // 천장 충돌 방지 (불가능 모드는 천장 고압 전기 가시로 즉사!)
+            if (drone.y < 28) {
+                if (diff.id === 'impossible') {
+                    endGame('⚡ 천장의 고압 전기 가시에 닿아 감전되었습니다!');
+                    return;
+                }
+                drone.y = 28;
+                drone.vy = Math.max(0, drone.vy * -0.4);
+            }
+
+            // 바닥(무대) 착지 및 추락 판정 (불가능 모드는 착지 허용 속도도 더 엄격함)
+            const floorY = height - 28;
+            if (drone.y > floorY) {
+                const maxLandingSpeed = diff.id === 'impossible' ? 5.2 : 8.2;
+                if (drone.vy > maxLandingSpeed) {
+                    endGame('💥 너무 빠르게 무대 바닥에 충돌했습니다!');
+                    return;
+                }
+                drone.y = floorY;
+                drone.vy = 0;
+                drone.vx *= 0.85;
+            }
+
+            // 네온 링 생성 및 통과 판정
+            if (rings.length < 3 && (rings.length === 0 || rings[rings.length - 1].x < width - 260)) {
+                spawnRing();
+            }
+
+            for (let i = rings.length - 1; i >= 0; i--) {
+                const r = rings[i];
+                r.x -= r.speed;
+                r.y += r.moveY;
+                if (r.y < 80 || r.y > height - 90) r.moveY *= -1;
+                r.pulse += 0.08;
+
+                const dist = Math.hypot(drone.x - r.x, drone.y - r.y);
+                if (!r.passed && dist < r.radius + 14) {
+                    r.passed = true;
+
+                    if (r.isCursed) {
+                        // 저주받은 함정 링 통과 시 페널티!
+                        sfx.playCrash();
+                        combo = 1;
+                        battery = Math.max(1, battery - 22);
+                        floatingTexts.push({
+                            x: r.x,
+                            y: r.y - 25,
+                            text: '💀 저주받은 함정 링! 배터리 -22%',
+                            color: '#c084fc',
+                            alpha: 1,
+                            vy: -1.6
+                        });
+                        updateHUD();
+                        continue;
+                    }
+
+                    ringsPassed++;
+                    sfx.playRing();
+                    incrementCombo();
+
+                    const batteryGain = r.isGolden ? (diff.id === 'impossible' ? 16 : 25) : (diff.id === 'impossible' ? 9 : 14);
+                    battery = Math.min(100, battery + batteryGain);
+
+                    if (isFlipping) {
+                        addStuntScore(r.isGolden ? 500 : 300, '🤩 아크로바틱 링 통과!', r.x, r.y - 25, '#facc15');
+                    } else {
+                        addStuntScore(r.isGolden ? 300 : 150, r.isGolden ? '🌟 골든 링 통과!' : '⭕ 네온 링 통과!', r.x, r.y - 25, '#4ade80');
+                    }
+
+                    // 링 통과 축하 파티클
+                    for (let p = 0; p < 16; p++) {
+                        const ang = (Math.PI * 2 * p) / 16;
+                        particles.push({
+                            x: r.x,
+                            y: r.y,
+                            vx: Math.cos(ang) * 4,
+                            vy: Math.sin(ang) * 4,
+                            size: 4,
+                            color: r.isGolden ? '#facc15' : '#38bdf8',
+                            alpha: 1
+                        });
+                    }
+                }
+
+                if (r.x < -80) {
+                    rings.splice(i, 1);
+                }
+            }
+
+            // 발사체 이동 및 폭탄 드론(장애물) 격추 판정
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const proj = projectiles[i];
+                proj.x += proj.vx;
+                proj.y += proj.vy;
+                proj.life--;
+                if (proj.type === 'brainwave') {
+                    proj.phase += 0.35;
+                    proj.y += Math.sin(proj.phase) * 2.5;
+                }
+
+                let hit = false;
+                for (let j = hazards.length - 1; j >= 0; j--) {
+                    const h = hazards[j];
+                    const dist = Math.hypot(proj.x - h.x, proj.y - h.y);
+                    if (dist < proj.radius + h.radius + 4) {
+                        hit = true;
+                        h.hp--;
+
+                        if (h.hp > 0) {
+                            // 장갑 폭탄 1차 피격(장갑 파괴)
+                            sfx.playBoost();
+                            floatingTexts.push({
+                                x: h.x,
+                                y: h.y - 20,
+                                text: '🛡️ 장갑 파괴! (1발 더!)',
+                                color: '#facc15',
+                                alpha: 1,
+                                vy: -1.4
+                            });
+                            break;
+                        }
+
+                        hazardsDestroyed++;
+                        sfx.playCrash();
+                        incrementCombo();
+                        battery = Math.min(100, battery + (diff.id === 'impossible' ? 4 : 8));
+
+                        // 불가능 모드에서는 폭탄 드론 격추 시 4방향 붉은 파편탄이 튐!
+                        if (diff.id === 'impossible') {
+                            for (let b = 0; b < 4; b++) {
+                                const bAng = (Math.PI / 2) * b + Math.PI / 4;
+                                enemyBullets.push({
+                                    x: h.x,
+                                    y: h.y,
+                                    vx: Math.cos(bAng) * 4.8,
+                                    vy: Math.sin(bAng) * 4.8,
+                                    radius: 6,
+                                    life: 110
+                                });
+                            }
+                        }
+
+                        const isAcrobaticKill = keys.flipLeft || keys.flipRight;
+                        addStuntScore(
+                            isAcrobaticKill ? 350 : 180,
+                            isAcrobaticKill ? '🎯 곡예 사격 격추!' : '💥 폭탄 드론 격추!',
+                            h.x,
+                            h.y - 20,
+                            '#fb7185'
+                        );
+
+                        for (let p = 0; p < 18; p++) {
+                            const ang = (Math.PI * 2 * p) / 18;
+                            particles.push({
+                                x: h.x,
+                                y: h.y,
+                                vx: Math.cos(ang) * (2 + Math.random() * 4),
+                                vy: Math.sin(ang) * (2 + Math.random() * 4),
+                                size: 5,
+                                color: p % 2 === 0 ? '#f43f5e' : '#facc15',
+                                alpha: 1
+                            });
+                        }
+
+                        hazards.splice(j, 1);
+                        break;
+                    }
+                }
+
+                if (hit || proj.life <= 0 || proj.x < -50 || proj.x > width + 50 || proj.y < -50 || proj.y > height + 50) {
+                    projectiles.splice(i, 1);
+                }
+            }
+
+            // 난이도별 방해꾼(스파이크 폭탄 드론) 생성 및 충돌 판정
+            if (diff.hazardInterval > 0 && frameCount % diff.hazardInterval === 0) {
+                spawnHazard();
+            }
+
+            // 불가능 모드 전용: 105프레임마다 십자 고출력 레이저 빔 함정 발사
+            if (diff.id === 'impossible' && frameCount % 105 === 45) {
+                spawnLaserBeam();
+            }
+
+            // 적 파편탄 업데이트 및 충돌 판정
+            for (let i = enemyBullets.length - 1; i >= 0; i--) {
+                const eb = enemyBullets[i];
+                eb.x += eb.vx;
+                eb.y += eb.vy;
+                eb.life--;
+
+                if (Math.hypot(drone.x - eb.x, drone.y - eb.y) < drone.radius + eb.radius - 4) {
+                    endGame('🔥 폭탄 드론의 자폭 파편탄에 피격되었습니다!');
+                    return;
+                }
+                if (eb.life <= 0 || eb.x < -30 || eb.x > width + 30 || eb.y < -30 || eb.y > height + 30) {
+                    enemyBullets.splice(i, 1);
+                }
+            }
+
+            for (let i = lasers.length - 1; i >= 0; i--) {
+                const l = lasers[i];
+                l.timer--;
+
+                // 레이저 발사 중일 때 드론 피격 판정
+                if (l.timer <= 0 && l.timer > -l.activeDuration) {
+                    const hitLaser = l.isHorizontal
+                        ? Math.abs(drone.y - l.pos) < (l.thickness * 0.5 + drone.radius - 6)
+                        : Math.abs(drone.x - l.pos) < (l.thickness * 0.5 + drone.radius - 6);
+
+                    if (hitLaser) {
+                        endGame('⚡ 지옥의 고출력 레이저 빔에 증발했습니다!');
+                        return;
+                    }
+                }
+
+                if (l.timer <= -l.activeDuration) {
+                    lasers.splice(i, 1);
+                }
+            }
+
+            for (let i = hazards.length - 1; i >= 0; i--) {
+                const h = hazards[i];
+                h.x -= h.speed;
+
+                if (h.isHoming && h.x > drone.x) {
+                    // 유도 폭탄 드론은 플레이어 고도를 끈질기게 추적
+                    const dy = drone.y - h.y;
+                    h.y += Math.sign(dy) * Math.min(Math.abs(dy) * 0.045, 2.8);
+                } else {
+                    h.y += h.vy;
+                    if (h.y < 50 || h.y > height - 50) h.vy *= -1;
+                }
+                h.spin += h.isHoming ? 0.22 : 0.12;
+
+                const dist = Math.hypot(drone.x - h.x, drone.y - h.y);
+                if (dist < drone.radius + h.radius - 4) {
+                    endGame('💣 가시 폭탄 드론과 충돌해 폭발했습니다!');
+                    return;
+                }
+
+                if (h.x < -60) {
+                    hazards.splice(i, 1);
+                }
+            }
+        }
+
+        function updateEffects() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.025;
+                p.size *= 0.97;
+                if (p.alpha <= 0) particles.splice(i, 1);
+            }
+
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                const ft = floatingTexts[i];
+                ft.y += ft.vy;
+                ft.alpha -= 0.018;
+                if (ft.alpha <= 0) floatingTexts.splice(i, 1);
+            }
+        }
+
+        // ==========================================
+        // 7. 렌더링 루프
+        // ==========================================
+        function draw() {
+            // 배경 그라데이션 (불가능 모드는 붉은 지옥빛 테두리 분위기 추가)
+            const diff = DIFFICULTIES[selectedDifficultyIndex];
+            const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+            if (diff.id === 'impossible' && gameState === 'PLAYING') {
+                bgGrad.addColorStop(0, '#18060c');
+                bgGrad.addColorStop(0.65, '#260b18');
+                bgGrad.addColorStop(1, '#31102f');
+            } else {
+                bgGrad.addColorStop(0, '#090d16');
+                bgGrad.addColorStop(0.65, '#131b31');
+                bgGrad.addColorStop(1, '#1e1b4b');
+            }
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            // 반짝이는 별들
+            stars.forEach(s => {
+                ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha})`;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // 원경 스포트라이트 빔
+            ctx.save();
+            ctx.globalAlpha = 0.07;
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath();
+            ctx.moveTo(width * 0.2, height);
+            ctx.lineTo(width * 0.05, 0);
+            ctx.lineTo(width * 0.35, 0);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#f43f5e';
+            ctx.beginPath();
+            ctx.moveTo(width * 0.8, height);
+            ctx.lineTo(width * 0.65, 0);
+            ctx.lineTo(width * 0.95, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+
+            // 바닥 무대 그리드 라인
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, height - 12, width, 12);
+            ctx.strokeStyle = diff.id === 'impossible' ? '#f43f5e' : '#38bdf8';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, height - 12);
+            ctx.lineTo(width, height - 12);
+            ctx.stroke();
+
+            // 불가능 모드 전용: 천장 고압 전기 가시 렌더링
+            if (diff.id === 'impossible') {
+                ctx.fillStyle = '#f43f5e';
+                for (let sx = 0; sx < width; sx += 24) {
+                    ctx.beginPath();
+                    ctx.moveTo(sx, 0);
+                    ctx.lineTo(sx + 12, 14);
+                    ctx.lineTo(sx + 24, 0);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
+
+            // 네온 링 그리기
+            rings.forEach(r => {
+                ctx.save();
+                const glowRadius = r.radius + Math.sin(r.pulse) * 3;
+                const ringColor = r.isCursed ? '#a855f7' : (r.isGolden ? '#facc15' : '#38bdf8');
+                ctx.strokeStyle = r.passed ? 'rgba(148, 163, 184, 0.3)' : ringColor;
+                ctx.shadowColor = r.passed ? 'transparent' : ringColor;
+                ctx.shadowBlur = 16;
+                ctx.lineWidth = 6;
+                ctx.beginPath();
+                ctx.ellipse(r.x, r.y, glowRadius * 0.42, glowRadius, 0, 0, Math.PI * 2);
+                ctx.stroke();
+
+                if (r.isCursed && !r.passed) {
+                    ctx.font = 'bold 14px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = '#e879f9';
+                    ctx.fillText('💀', r.x, r.y + 5);
+                }
+                ctx.restore();
+            });
+
+            // 불가능 모드 고출력 레이저 함정 그리기
+            lasers.forEach(l => {
+                ctx.save();
+                if (l.timer > 0) {
+                    // 조준 경고선 (점멸)
+                    ctx.strokeStyle = frameCount % 8 < 4 ? 'rgba(244, 63, 94, 0.85)' : 'rgba(250, 204, 21, 0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([10, 8]);
+                    ctx.beginPath();
+                    if (l.isHorizontal) {
+                        ctx.moveTo(0, l.pos);
+                        ctx.lineTo(width, l.pos);
+                    } else {
+                        ctx.moveTo(l.pos, 0);
+                        ctx.lineTo(l.pos, height);
+                    }
+                    ctx.stroke();
+                } else {
+                    // 실제 레이저 발사!
+                    ctx.shadowColor = '#f43f5e';
+                    ctx.shadowBlur = 25;
+                    ctx.fillStyle = 'rgba(244, 63, 94, 0.85)';
+                    if (l.isHorizontal) {
+                        ctx.fillRect(0, l.pos - l.thickness / 2, width, l.thickness);
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, l.pos - 4, width, 8);
+                    } else {
+                        ctx.fillRect(l.pos - l.thickness / 2, 0, l.thickness, height);
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(l.pos - 4, 0, 8, height);
+                    }
+                }
+                ctx.restore();
+            });
+
+            // 가시 폭탄 장애물 드론 그리기 (중간/하드/불가능 모드)
+            hazards.forEach(h => {
+                ctx.save();
+                ctx.translate(h.x, h.y);
+                ctx.rotate(h.spin);
+
+                // 가시 돌기 8개
+                ctx.fillStyle = h.isHoming ? '#facc15' : '#f43f5e';
+                for (let s = 0; s < 8; s++) {
+                    ctx.rotate(Math.PI / 4);
+                    ctx.beginPath();
+                    ctx.moveTo(-4, -h.radius + 2);
+                    ctx.lineTo(0, -h.radius - 8);
+                    ctx.lineTo(4, -h.radius + 2);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+
+                // 폭탄 몸체
+                ctx.fillStyle = h.hp > 1 ? '#4c0519' : '#1e293b';
+                ctx.beginPath();
+                ctx.arc(0, 0, h.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.lineWidth = h.hp > 1 ? 4 : 2.5;
+                ctx.strokeStyle = h.hp > 1 ? '#fb7185' : '#f43f5e';
+                ctx.stroke();
+
+                // 경고 눈빛
+                ctx.fillStyle = frameCount % 12 < 6 ? '#facc15' : '#ef4444';
+                ctx.beginPath();
+                ctx.arc(-5, -2, 3, 0, Math.PI * 2);
+                ctx.arc(5, -2, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // 폭탄 드론 자폭 파편탄 그리기
+            enemyBullets.forEach(eb => {
+                ctx.save();
+                ctx.fillStyle = '#fb7185';
+                ctx.shadowColor = '#f43f5e';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(eb.x, eb.y, eb.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#fef08a';
+                ctx.beginPath();
+                ctx.arc(eb.x, eb.y, eb.radius * 0.45, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // 발사된 기괴한 무기 투사체 그리기
+            projectiles.forEach(proj => {
+                ctx.save();
+                ctx.translate(proj.x, proj.y);
+                ctx.rotate(proj.angle);
+
+                if (proj.type === 'laser') {
+                    // 고압 눈물 레이저
+                    ctx.shadowColor = '#38bdf8';
+                    ctx.shadowBlur = 12;
+                    ctx.fillStyle = '#bae6fd';
+                    ctx.fillRect(-14, -3, 28, 6);
+                    ctx.fillStyle = '#0284c7';
+                    ctx.fillRect(-10, -1.5, 20, 3);
+                } else if (proj.type === 'plunger') {
+                    // 뚫어뻥 미사일
+                    ctx.fillStyle = '#d97706';
+                    ctx.fillRect(-12, -2, 16, 4);
+                    ctx.fillStyle = '#e11d48';
+                    ctx.beginPath();
+                    ctx.arc(6, 0, 7, Math.PI * 0.5, Math.PI * 1.5);
+                    ctx.fill();
+                } else if (proj.type === 'brainwave') {
+                    // 텔레파시 뇌파탄
+                    ctx.strokeStyle = '#f472b6';
+                    ctx.lineWidth = 3;
+                    ctx.shadowColor = '#f472b6';
+                    ctx.shadowBlur = 10;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 10, -0.8, 0.8);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(-5, 0, 6, -0.8, 0.8);
+                    ctx.stroke();
+                } else if (proj.type === 'bubble') {
+                    // 초거대 비눗방울포
+                    ctx.strokeStyle = '#67e8f9';
+                    ctx.fillStyle = 'rgba(103, 232, 249, 0.25)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, proj.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(-5, -5, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (proj.type === 'redbean') {
+                    // 팥앙금 기관총
+                    ctx.fillStyle = '#451a03';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 7, 5, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (proj.type === 'needle') {
+                    // 미러볼 네온 가시
+                    ctx.fillStyle = '#4ade80';
+                    ctx.shadowColor = '#4ade80';
+                    ctx.shadowBlur = 8;
+                    ctx.beginPath();
+                    ctx.moveTo(10, 0);
+                    ctx.lineTo(-8, -4);
+                    ctx.lineTo(-8, 4);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                ctx.restore();
+            });
+
+            // 파티클 그리기
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, p.alpha);
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // 기괴한 드론 그리기
+            drawWeirdDrone();
+
+            // 플로팅 스턴트 텍스트
+            floatingTexts.forEach(ft => {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, ft.alpha);
+                ctx.font = '900 18px "Noto Sans KR", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#090d16';
+                ctx.fillText(ft.text, ft.x + 2, ft.y + 2);
+                ctx.fillStyle = ft.color;
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.restore();
+            });
+        }
+
+        // 선택된 기괴한 드론 캐릭터를 정성껏 그리는 함수
+        function drawWeirdDrone() {
+            const spec = WEIRD_DRONES[selectedDroneIndex];
+            const rotorW = Math.sin(drone.rotorPhase) * 26;
+            const wiggle = Math.sin(frameCount * 0.25);
+
+            ctx.save();
+            ctx.translate(drone.x, drone.y);
+            ctx.rotate(drone.angle);
+
+            // 부스터 오라
+            if (keys.boost) {
+                ctx.shadowColor = '#facc15';
+                ctx.shadowBlur = 25;
+            }
+
+            if (spec.id === 'eyeball') {
+                // [드론 1: 충혈된 외눈 촉수 드론]
+                ctx.strokeStyle = '#fb923c';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(-8, 22);
+                ctx.lineTo(-12 + wiggle * 3, 34);
+                ctx.lineTo(-18 + wiggle * 3, 38);
+                ctx.moveTo(-12 + wiggle * 3, 34);
+                ctx.lineTo(-7 + wiggle * 3, 39);
+                ctx.moveTo(8, 22);
+                ctx.lineTo(12 - wiggle * 3, 34);
+                ctx.lineTo(18 - wiggle * 3, 38);
+                ctx.moveTo(12 - wiggle * 3, 34);
+                ctx.lineTo(7 - wiggle * 3, 39);
+                ctx.stroke();
+
+                // 뼈다귀 모양 상단 프로펠러
+                ctx.fillStyle = '#e2e8f0';
+                ctx.fillRect(-Math.abs(rotorW) - 6, -24, (Math.abs(rotorW) + 6) * 2, 4);
+                ctx.beginPath();
+                ctx.arc(-Math.abs(rotorW) - 6, -22, 4, 0, Math.PI * 2);
+                ctx.arc(Math.abs(rotorW) + 6, -22, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 거대한 눈알 몸체
+                ctx.fillStyle = '#fff1f2';
+                ctx.beginPath();
+                ctx.arc(0, 2, 22, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#e11d48';
+                ctx.stroke();
+
+                // 핏줄(충혈) 표현
+                ctx.strokeStyle = '#f43f5e';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(-18, -5); ctx.lineTo(-11, -2); ctx.lineTo(-14, 3);
+                ctx.moveTo(18, 6); ctx.lineTo(12, 3); ctx.lineTo(15, -2);
+                ctx.stroke();
+
+                // 사방으로 굴러가는 동공
+                const lookX = Math.max(-7, Math.min(7, drone.vx * 1.4));
+                const lookY = Math.max(-7, Math.min(7, drone.vy * 1.4));
+                ctx.fillStyle = '#16a34a';
+                ctx.beginPath();
+                ctx.arc(lookX, 2 + lookY, 10, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#090d16';
+                ctx.beginPath();
+                ctx.arc(lookX, 2 + lookY, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(lookX - 3, -1 + lookY, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+
+            } else if (spec.id === 'toaster') {
+                // [드론 2: 폭주하는 양변기 로켓]
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 7;
+                ctx.beginPath();
+                ctx.moveTo(-20, -4);
+                ctx.quadraticCurveTo(-34, -10 + wiggle * 8, -44, 4 - wiggle * 8);
+                ctx.stroke();
+
+                // 물탱크
+                ctx.fillStyle = '#f8fafc';
+                ctx.beginPath();
+                ctx.roundRect(-20, -24, 15, 22, 4);
+                ctx.fill();
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // 변기 본체(사발)
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.moveTo(-12, -4);
+                ctx.lineTo(22, -4);
+                ctx.quadraticCurveTo(20, 18, 2, 20);
+                ctx.lineTo(-12, 20);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // 파란 변기 커버
+                ctx.save();
+                ctx.translate(-5, -5);
+                ctx.rotate(-0.4 + Math.sin(drone.rotorPhase * 0.8) * 0.45);
+                ctx.fillStyle = '#38bdf8';
+                ctx.fillRect(0, -4, 26, 5);
+                ctx.restore();
+
+                // 하단 분수 물줄기 추진
+                if (keys.up || keys.boost) {
+                    ctx.fillStyle = '#38bdf8';
+                    ctx.beginPath();
+                    ctx.moveTo(-6, 20);
+                    ctx.lineTo(10, 20);
+                    ctx.lineTo(2, 36 + Math.random() * 10);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+
+            } else if (spec.id === 'jellyfish') {
+                // [드론 3: 뇌세포 해파리 외계인]
+                ctx.strokeStyle = '#2dd4bf';
+                ctx.lineWidth = 3;
+                for (let i = -2; i <= 2; i++) {
+                    const wave = Math.sin(frameCount * 0.25 + i * 1.2) * 7;
+                    ctx.beginPath();
+                    ctx.moveTo(i * 7, 6);
+                    ctx.quadraticCurveTo(i * 7 + wave, 18, i * 7 - wave, 30);
+                    ctx.stroke();
+                }
+
+                // 주름진 핑크빛 뇌 본체
+                ctx.fillStyle = '#f472b6';
+                ctx.beginPath();
+                ctx.arc(-7, -2, 12, Math.PI, 0);
+                ctx.arc(7, -2, 12, Math.PI, 0);
+                ctx.closePath();
+                ctx.fill();
+
+                // 뇌 주름 선
+                ctx.strokeStyle = '#be185d';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(-6, -5, 6, 0.2, 2.8);
+                ctx.arc(6, -5, 6, 0.3, 2.9);
+                ctx.stroke();
+
+                // 투명 유리 우주 돔
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.25)';
+                ctx.strokeStyle = '#bae6fd';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(0, 4, 23, Math.PI, 0);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // 외계인 더듬이 눈 2개
+                ctx.fillStyle = '#fef08a';
+                ctx.beginPath();
+                ctx.arc(-6, 3, 4, 0, Math.PI * 2);
+                ctx.arc(6, 3, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+            } else if (spec.id === 'duck') {
+                // [드론 4: 근육질 보디빌더 고무오리]
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(0, -23, 6, Math.PI, 0);
+                ctx.fill();
+                ctx.fillStyle = '#38bdf8';
+                ctx.fillRect(-Math.abs(rotorW), -27, Math.abs(rotorW) * 2, 3);
+
+                const flex = Math.sin(frameCount * 0.2) * 3;
+                ctx.fillStyle = '#eab308';
+                ctx.beginPath();
+                ctx.arc(-20, 4 - flex, 8, 0, Math.PI * 2);
+                ctx.arc(-25, -4 - flex, 6, 0, Math.PI * 2);
+                ctx.arc(20, 4 + flex, 8, 0, Math.PI * 2);
+                ctx.arc(25, -4 + flex, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#facc15';
+                ctx.beginPath();
+                ctx.ellipse(0, 6, 16, 14, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#f472b6';
+                ctx.beginPath();
+                ctx.ellipse(0, 14, 22, 5, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#facc15';
+                ctx.beginPath();
+                ctx.arc(0, -11, 11, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#f97316';
+                ctx.beginPath();
+                ctx.ellipse(11, -10, 7, 3.5, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#090d16';
+                ctx.fillRect(-2, -15, 12, 5);
+
+            } else if (spec.id === 'fishleg') {
+                // [드론 5: 하이힐 신은 붕어빵]
+                ctx.fillStyle = '#b45309';
+                ctx.beginPath();
+                ctx.moveTo(-18, -2);
+                ctx.lineTo(-32, -14 + wiggle * 6);
+                ctx.lineTo(-32, 10 - wiggle * 6);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.fillStyle = '#f59e0b';
+                ctx.beginPath();
+                ctx.ellipse(0, -2, 22, 14, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#92400e';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.fillStyle = '#451a03';
+                ctx.beginPath();
+                ctx.arc(20, -2, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(10, -6, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(11, -6, 1.8, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = '#fed7aa';
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.moveTo(-4, 10); ctx.lineTo(-8 + wiggle * 4, 28);
+                ctx.moveTo(6, 10); ctx.lineTo(10 - wiggle * 4, 28);
+                ctx.stroke();
+
+                ctx.fillStyle = '#ec4899';
+                ctx.fillRect(-11 + wiggle * 4, 27, 8, 4);
+                ctx.fillRect(7 - wiggle * 4, 27, 8, 4);
+
+            } else if (spec.id === 'cactus') {
+                // [드론 6: 디스코 선인장 붐박스]
+                ctx.fillStyle = '#e2e8f0';
+                ctx.beginPath();
+                ctx.arc(0, -24, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = frameCount % 10 < 5 ? '#f43f5e' : '#38bdf8';
+                ctx.fillRect(-3, -27, 3, 3);
+                ctx.fillStyle = '#facc15';
+                ctx.fillRect(1, -23, 3, 3);
+
+                ctx.strokeStyle = '#22c55e';
+                ctx.lineWidth = 6;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(-10, 0);
+                ctx.lineTo(-22, -4 + wiggle * 7);
+                ctx.lineTo(-22, -14 + wiggle * 7);
+                ctx.moveTo(10, 0);
+                ctx.lineTo(22, -4 - wiggle * 7);
+                ctx.lineTo(22, -14 - wiggle * 7);
+                ctx.stroke();
+
+                ctx.fillStyle = '#4ade80';
+                ctx.beginPath();
+                ctx.roundRect(-11, -16, 22, 26, 10);
+                ctx.fill();
+
+                ctx.fillStyle = '#ea580c';
+                ctx.beginPath();
+                ctx.moveTo(-14, 8);
+                ctx.lineTo(14, 8);
+                ctx.lineTo(10, 22);
+                ctx.lineTo(-10, 22);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.fillStyle = '#090d16';
+                ctx.fillRect(-9, -10, 18, 5);
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(-6, -2, 12, 3);
+            }
+
+            ctx.restore();
+        }
+
+        // 메인 애니메이션 루프
+        function gameLoop() {
+            update();
+            updateEffects();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ==========================================
+        // 8. 키보드 및 모바일/마우스 버튼 바인딩
+        // ==========================================
+        function bindHoldButton(btnId, keyName) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            const press = (e) => {
+                e.preventDefault();
+                keys[keyName] = true;
+                btn.classList.add('active');
+                sfx.init();
+            };
+            const release = (e) => {
+                e.preventDefault();
+                keys[keyName] = false;
+                btn.classList.remove('active');
+            };
+            btn.addEventListener('mousedown', press);
+            btn.addEventListener('mouseup', release);
+            btn.addEventListener('mouseleave', release);
+            btn.addEventListener('touchstart', press, { passive: false });
+            btn.addEventListener('touchend', release, { passive: false });
+            btn.addEventListener('touchcancel', release, { passive: false });
+        }
+
+        bindHoldButton('btnLeft', 'left');
+        bindHoldButton('btnRight', 'right');
+        bindHoldButton('btnThrust', 'up');
+        bindHoldButton('btnFire', 'fire');
+        bindHoldButton('btnFlipLeft', 'flipLeft');
+        bindHoldButton('btnFlipRight', 'flipRight');
+        bindHoldButton('btnBoost', 'boost');
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'ArrowUp' || e.code === 'KeyW') keys.up = true;
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+            if (e.code === 'KeyQ') keys.flipLeft = true;
+            if (e.code === 'KeyE') keys.flipRight = true;
+            if (e.code === 'KeyF' || e.code === 'Enter') {
+                if (gameState === 'PLAYING') {
+                    e.preventDefault();
+                    keys.fire = true;
+                    sfx.init();
+                }
+            }
+            if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+                e.preventDefault();
+                keys.boost = true;
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'ArrowUp' || e.code === 'KeyW') keys.up = false;
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+            if (e.code === 'KeyQ') keys.flipLeft = false;
+            if (e.code === 'KeyE') keys.flipRight = false;
+            if (e.code === 'KeyF' || e.code === 'Enter') keys.fire = false;
+            if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.boost = false;
+        });
+
+        document.getElementById('startBtn').addEventListener('click', startGame);
+        document.getElementById('restartBtn').addEventListener('click', startGame);
+        document.getElementById('changeDroneBtn').addEventListener('click', () => {
+            gameState = 'MENU';
+            document.getElementById('startModal').classList.remove('hidden');
+            document.getElementById('gameOverModal').classList.add('hidden');
+        });
+        document.getElementById('selectDroneAgainBtn').addEventListener('click', () => {
+            gameState = 'MENU';
+            document.getElementById('gameOverModal').classList.add('hidden');
+            document.getElementById('startModal').classList.remove('hidden');
+        });
+
+        window.onload = function () {
+            resizeCanvas();
+            renderDifficultySelector();
+            updateDifficultyBadge();
+            renderDroneSelector();
+            gameLoop();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,1643 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>에테르 윙: 2D 드론 오디세이 (AETHER WING: DRONE ODYSSEY)</title>
+    <!-- Tailwind CSS & Google Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Noto+Sans+KR:wght@400;700;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050811;
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+        .font-epic {
+            font-family: 'Cinzel', 'Noto Sans KR', serif;
+        }
+        .font-tech {
+            font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        /* 시네마틱 글래스모피즘 패널 */
+        .epic-glass {
+            background: rgba(10, 15, 28, 0.78);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(251, 191, 36, 0.38);
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65), inset 0 1px 2px rgba(255, 255, 255, 0.14);
+        }
+        .epic-btn {
+            background: linear-gradient(135deg, #d97706 0%, #b45309 50%, #78350f 100%);
+            border: 1.5px solid #fde68a;
+            box-shadow: 0 6px 24px rgba(217, 119, 6, 0.45), inset 0 1px 3px rgba(255, 255, 255, 0.5);
+            transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+        }
+        .epic-btn:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.12);
+            box-shadow: 0 8px 30px rgba(251, 191, 36, 0.65);
+        }
+        .epic-btn:active {
+            transform: translateY(1px) scale(0.98);
+        }
+        /* 터치 패드 컨트롤 버튼 */
+        .pad-btn {
+            background: rgba(15, 23, 42, 0.68);
+            backdrop-filter: blur(6px);
+            border: 1.5px solid rgba(251, 191, 36, 0.45);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+            transition: transform 0.08s, background 0.08s;
+        }
+        .pad-btn:active, .pad-btn.active {
+            background: rgba(217, 119, 6, 0.9);
+            border-color: #ffffff;
+            transform: scale(0.92);
+        }
+        @keyframes titleFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-4px); }
+        }
+        .animate-title {
+            animation: titleFloat 3.5s ease-in-out infinite;
+        }
+    </style>
+<script>var SLS={getItem:function(k){try{return localStorage.getItem(k)}catch(e){return null}},setItem:function(k,v){try{localStorage.setItem(k,v)}catch(e){}},removeItem:function(k){try{localStorage.removeItem(k)}catch(e){}}};</script>
+</head>
+<body class="text-white">
+
+    <!-- 메인 2D 시네마틱 캔버스 -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- 상단 HUD -->
+    <div id="hud" class="hidden fixed top-0 left-0 w-full p-2.5 sm:p-4 z-20 pointer-events-none">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+
+            <!-- 좌측: 챕터(스테이지) & 점수 -->
+            <div class="epic-glass rounded-2xl px-3.5 py-2 sm:px-5 sm:py-2.5 flex items-center gap-3 sm:gap-5 pointer-events-auto">
+                <div>
+                    <div class="text-[10px] sm:text-xs font-bold text-amber-400 tracking-widest">CHAPTER</div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="hudStage" class="font-epic text-lg sm:text-2xl font-black text-white">I</span>
+                        <span id="hudChapterTitle" class="text-xs sm:text-sm font-bold text-amber-200">황혼의 거신 협곡</span>
+                    </div>
+                </div>
+                <div class="h-8 w-px bg-slate-700"></div>
+                <div>
+                    <div class="text-[10px] sm:text-xs font-bold text-cyan-300 tracking-wider">SCORE</div>
+                    <div id="hudScore" class="font-tech text-base sm:text-xl font-black text-amber-300">0</div>
+                </div>
+                <div class="hidden md:block h-8 w-px bg-slate-700"></div>
+                <div class="hidden md:block">
+                    <div class="text-xs font-bold text-slate-400 tracking-wider">DISTANCE</div>
+                    <div id="hudDist" class="font-tech text-base font-bold text-sky-300">0m</div>
+                </div>
+            </div>
+
+            <!-- 중앙: 성소 게이트 진행도 -->
+            <div class="epic-glass rounded-2xl px-4 py-2 sm:px-5 sm:py-2.5 flex items-center gap-2.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+                <span id="hudMissionText" class="text-xs sm:text-sm font-bold text-amber-100">
+                    고대 에테르 게이트 통과 (0 / 4)
+                </span>
+            </div>
+
+            <!-- 우측: 선체 내구도, 에너지 코어, 사운드 버튼 -->
+            <div class="epic-glass rounded-2xl px-3.5 py-2 sm:px-4 sm:py-2.5 flex items-center gap-3 sm:gap-4 pointer-events-auto">
+                <div class="w-20 sm:w-28">
+                    <div class="flex justify-between text-[10px] sm:text-xs font-bold mb-1">
+                        <span class="text-rose-300">선체 장갑</span>
+                        <span id="hudHpText" class="font-tech text-white">100%</span>
+                    </div>
+                    <div class="w-full h-2 sm:h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
+                        <div id="hudHpBar" class="h-full bg-gradient-to-r from-rose-500 to-emerald-400 transition-all duration-150" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <div class="w-20 sm:w-28">
+                    <div class="flex justify-between text-[10px] sm:text-xs font-bold mb-1">
+                        <span class="text-amber-300">에테르 코어</span>
+                        <span id="hudBatText" class="font-tech text-white">100%</span>
+                    </div>
+                    <div class="w-full h-2 sm:h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
+                        <div id="hudBatBar" class="h-full bg-gradient-to-r from-amber-500 via-yellow-300 to-cyan-300 transition-all duration-100" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <button id="btnAudio" title="웅장한 오케스트라 & 효과음 켜기/끄기" class="p-2 sm:p-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-amber-500/40 text-amber-300 transition cursor-pointer">
+                    <span id="audioIcon" class="text-base">🔊</span>
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 시작 화면 오버레이 -->
+    <div id="startModal" class="fixed inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+        <div class="epic-glass rounded-3xl max-w-2xl w-full p-6 sm:p-9 text-center">
+            <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/15 border border-amber-400/50 text-amber-300 text-xs font-bold tracking-widest mb-3">
+                <span>✦</span> <span>2D CINEMATIC SKY ODYSSEY</span> <span>✦</span>
+            </div>
+            <h1 class="font-epic text-3xl sm:text-5xl font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-yellow-100 to-sky-300 drop-shadow mb-1 animate-title">
+                AETHER WING: DRONE ODYSSEY
+            </h1>
+            <p class="text-sm sm:text-base font-bold text-amber-300/90 tracking-widest mb-6">
+                에테르 윙 : 천공의 거신과 고대 유적을 넘는 2D 드론 대서사시
+            </p>
+
+            <!-- 조종법 & 모험 가이드 -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-left mb-6">
+                <div class="bg-slate-950/75 border border-amber-500/30 rounded-2xl p-4">
+                    <h3 class="text-xs sm:text-sm font-bold text-amber-300 mb-2 flex items-center gap-1.5">
+                        <span>🚁</span> 비행 조종 시스템
+                    </h3>
+                    <ul class="text-xs text-slate-300 space-y-1.5 leading-relaxed">
+                        <li>• <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-600 text-white">W</kbd> / <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-600 text-white">↑</kbd> / <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-amber-400 text-amber-300 font-bold">Z</kbd> : 메인 추력 상승</li>
+                        <li>• <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-600 text-white">A</kbd> <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-600 text-white">D</kbd> / <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-600 text-white">←</kbd> <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-600 text-white">→</kbd> : 기체 기울기 및 수평 추진</li>
+                        <li>• <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-600 text-white">S</kbd> / <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-600 text-white">↓</kbd> / <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-rose-400 text-rose-300 font-bold">X</kbd> : 감속 및 하강</li>
+                        <li>• <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-cyan-400 text-cyan-300 font-bold">SPACE</kbd> / <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-cyan-400 text-cyan-300 font-bold">SHIFT</kbd> : 초음속 에테르 부스터</li>
+                    </ul>
+                </div>
+
+                <div class="bg-slate-950/75 border border-amber-500/30 rounded-2xl p-4">
+                    <h3 class="text-xs sm:text-sm font-bold text-cyan-300 mb-2 flex items-center gap-1.5">
+                        <span>🏛️</span> 대장정 임무 규칙
+                    </h3>
+                    <ul class="text-xs text-slate-300 space-y-1.5 leading-relaxed">
+                        <li>• 거대한 절벽과 부유섬 사이에 빛나는 <span class="text-amber-300 font-bold">고대 에테르 게이트</span>를 모두 통과하세요.</li>
+                        <li>• 고대 수호 드론의 레이저 감시망과 거대 회오리 폭풍을 돌파하세요.</li>
+                        <li>• 최종 성소의 <span class="text-emerald-300 font-bold">황금 착륙 제단(H)</span>에 수평을 유지하며 정밀 착륙하면 다음 장으로 넘어갑니다!</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="mb-5 text-xs sm:text-sm text-slate-300">
+                <span>🏆 최고 항해 기록: </span>
+                <span id="startBest" class="font-tech font-bold text-amber-300 text-base">0</span>
+                <span> 점</span>
+            </div>
+
+            <button id="btnStart" class="epic-btn w-full sm:w-80 py-4 px-6 rounded-2xl font-black text-lg text-white tracking-wider cursor-pointer">
+                ✦ 천공의 여정 시작하기 ✦
+            </button>
+        </div>
+    </div>
+
+    <!-- 챕터 클리어 모달 -->
+    <div id="clearModal" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm">
+        <div class="epic-glass rounded-3xl max-w-md w-full p-6 sm:p-8 text-center border-emerald-400/60">
+            <div class="text-5xl mb-3">🏛️✨🚁</div>
+            <h2 class="font-epic text-2xl sm:text-3xl font-black text-amber-300 mb-1">CHAPTER CLEAR</h2>
+            <p id="clearDesc" class="text-sm text-slate-300 mb-5">성소의 착륙 제단에 완벽하게 안착했습니다!</p>
+
+            <div class="bg-slate-950/80 rounded-2xl p-4 mb-6 space-y-2 text-sm border border-slate-700">
+                <div class="flex justify-between">
+                    <span class="text-slate-400">정밀 착륙 보너스</span>
+                    <span id="bonusLand" class="font-tech font-bold text-emerald-400">+800</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">잔여 코어 & 장갑 보너스</span>
+                    <span id="bonusCore" class="font-tech font-bold text-cyan-300">+400</span>
+                </div>
+                <div class="h-px bg-slate-700 my-1"></div>
+                <div class="flex justify-between text-base font-bold">
+                    <span class="text-white">누적 항해 점수</span>
+                    <span id="clearScore" class="font-tech text-amber-300">1200</span>
+                </div>
+            </div>
+
+            <button id="btnNextChapter" class="epic-btn w-full py-3.5 px-6 rounded-2xl font-black text-lg text-white cursor-pointer">
+                다음 챕터로 출격 ➔
+            </button>
+        </div>
+    </div>
+
+    <!-- 추락 모달 -->
+    <div id="overModal" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm">
+        <div class="epic-glass rounded-3xl max-w-md w-full p-6 sm:p-8 text-center border-rose-500/60">
+            <div class="text-5xl mb-3">💥🚁⚡</div>
+            <h2 class="font-epic text-2xl sm:text-3xl font-black text-rose-400 mb-1">SIGNAL LOST</h2>
+            <p id="overReason" class="text-sm text-slate-300 mb-5">드론 선체가 파손되어 신호가 두절되었습니다.</p>
+
+            <div class="bg-slate-950/80 rounded-2xl p-4 mb-6 space-y-2 text-sm border border-slate-700">
+                <div class="flex justify-between">
+                    <span class="text-slate-400">도달 챕터</span>
+                    <span id="overChapter" class="font-bold text-white">CHAPTER I</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">최종 점수</span>
+                    <span id="overScore" class="font-tech font-bold text-amber-300 text-lg">0</span>
+                </div>
+            </div>
+
+            <button id="btnRetry" class="epic-btn w-full py-3.5 px-6 rounded-2xl font-black text-lg text-white cursor-pointer">
+                🔄 기체 재출격하기
+            </button>
+        </div>
+    </div>
+
+    <!-- 모바일 / 태블릿 터치 컨트롤러 -->
+    <div id="touchPad" class="hidden fixed bottom-4 left-0 w-full px-4 z-20 pointer-events-none flex justify-between items-end">
+        <div class="flex gap-2.5 pointer-events-auto">
+            <button id="tLeft" class="pad-btn w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-2xl font-black">◀</button>
+            <button id="tRight" class="pad-btn w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-2xl font-black">▶</button>
+        </div>
+        <div class="flex gap-2.5 items-end pointer-events-auto">
+            <button id="tBoost" class="pad-btn bg-cyan-900/75 border-cyan-300 w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex flex-col items-center justify-center text-xs font-bold text-cyan-200">
+                <span class="text-lg">⚡</span>
+                <span>부스터</span>
+            </button>
+            <button id="tThrust" class="pad-btn w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex flex-col items-center justify-center text-sm font-black text-amber-200 border-amber-400">
+                <span class="text-2xl">▲</span>
+                <span>상승 (Z)</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * ============================================================================
+         * 1. Web Audio API 웅장한 시네마틱 브라스/스트링 패드 & 드론 터빈 오디오 엔진
+         * ============================================================================
+         */
+        class EpicDroneAudio {
+            constructor() {
+                this.ctx = null;
+                this.isMuted = false;
+                this.initialized = false;
+                this.rotorOsc = null;
+                this.rotorGain = null;
+                this.rotorFilter = null;
+                this.chordIndex = 0;
+
+                // 웅장한 영화풍 단조(D Minor -> Bb Major -> F Major -> C Major -> A7) 코드 진행
+                this.chords = [
+                    [146.83, 220.00, 293.66, 349.23], // Dm
+                    [116.54, 174.61, 233.08, 293.66], // Bb
+                    [174.61, 220.00, 261.63, 349.23], // F
+                    [130.81, 196.00, 261.63, 329.63], // C
+                    [110.00, 164.81, 220.00, 277.18]  // A
+                ];
+            }
+
+            init() {
+                if (this.initialized) return;
+                try {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+
+                    // 드론 터빈/로터 사운드
+                    this.rotorOsc = this.ctx.createOscillator();
+                    this.rotorOsc.type = 'sawtooth';
+                    this.rotorOsc.frequency.value = 60;
+
+                    this.rotorFilter = this.ctx.createBiquadFilter();
+                    this.rotorFilter.type = 'lowpass';
+                    this.rotorFilter.frequency.value = 170;
+
+                    this.rotorGain = this.ctx.createGain();
+                    this.rotorGain.gain.value = 0;
+
+                    this.rotorOsc.connect(this.rotorFilter);
+                    this.rotorFilter.connect(this.rotorGain);
+                    this.rotorGain.connect(this.ctx.destination);
+                    this.rotorOsc.start();
+
+                    this.initialized = true;
+                    this.startSymphonyPad();
+                } catch (e) {
+                    console.warn('AudioContext 초기화 건너뜀:', e);
+                }
+            }
+
+            resume() {
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            toggleMute() {
+                this.isMuted = !this.isMuted;
+                if (this.isMuted && this.rotorGain && this.ctx) {
+                    this.rotorGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.05);
+                }
+                return this.isMuted;
+            }
+
+            // 웅장한 스트링/브라스 화음 패드 루프
+            startSymphonyPad() {
+                const playChord = () => {
+                    if (!this.initialized) return;
+                    const chord = this.chords[this.chordIndex % this.chords.length];
+                    this.chordIndex++;
+
+                    if (!this.isMuted && this.ctx) {
+                        const now = this.ctx.currentTime;
+                        chord.forEach((freq, i) => {
+                            const osc = this.ctx.createOscillator();
+                            const filter = this.ctx.createBiquadFilter();
+                            const gain = this.ctx.createGain();
+
+                            osc.type = i === 0 ? 'sawtooth' : 'triangle';
+                            osc.frequency.setValueAtTime(freq, now);
+
+                            filter.type = 'lowpass';
+                            filter.frequency.setValueAtTime(420, now);
+                            filter.frequency.linearRampToValueAtTime(760, now + 1.4);
+
+                            gain.gain.setValueAtTime(0.001, now);
+                            gain.gain.linearRampToValueAtTime(i === 0 ? 0.045 : 0.032, now + 0.8);
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + 3.1);
+
+                            osc.connect(filter);
+                            filter.connect(gain);
+                            gain.connect(this.ctx.destination);
+
+                            osc.start(now);
+                            osc.stop(now + 3.2);
+                        });
+                    }
+                    setTimeout(playChord, 2900);
+                };
+                playChord();
+            }
+
+            updateRotor(thrust, boosting, active) {
+                if (!this.initialized || !this.ctx) return;
+                if (this.isMuted || !active) {
+                    this.rotorGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.08);
+                    return;
+                }
+                const freq = 58 + thrust * 52 + (boosting ? 48 : 0);
+                const cutoff = 150 + thrust * 240 + (boosting ? 320 : 0);
+                const vol = 0.02 + thrust * 0.038 + (boosting ? 0.028 : 0);
+                this.rotorOsc.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.06);
+                this.rotorFilter.frequency.setTargetAtTime(cutoff, this.ctx.currentTime, 0.06);
+                this.rotorGain.gain.setTargetAtTime(vol, this.ctx.currentTime, 0.06);
+            }
+
+            playGatePass() {
+                if (this.isMuted || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const notes = [293.66, 440.00, 587.33, 880.00];
+                notes.forEach((f, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(f, now + idx * 0.06);
+                    gain.gain.setValueAtTime(0.14, now + idx * 0.06);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.45);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.06);
+                    osc.stop(now + idx * 0.06 + 0.48);
+                });
+            }
+
+            playChapterClear() {
+                if (this.isMuted || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const fanfare = [293.66, 369.99, 440.00, 587.33, 739.99, 880.00];
+                fanfare.forEach((f, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.value = 1200;
+
+                    osc.frequency.setValueAtTime(f, now + idx * 0.09);
+                    gain.gain.setValueAtTime(0.11, now + idx * 0.09);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.09 + 0.65);
+
+                    osc.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.09);
+                    osc.stop(now + idx * 0.09 + 0.68);
+                });
+            }
+
+            playDamage() {
+                if (this.isMuted || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(140, now);
+                osc.frequency.exponentialRampToValueAtTime(34, now + 0.35);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.36);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.38);
+            }
+        }
+
+        const audio = new EpicDroneAudio();
+
+        /**
+         * ============================================================================
+         * 2. 웅장한 챕터 테마 설정 (황혼의 거신 협곡 / 폭풍의 천공 유적 / 성운의 심연)
+         * ============================================================================
+         */
+        const CHAPTER_THEMES = [
+            {
+                roman: 'I',
+                title: '황혼의 거신 협곡',
+                skyTop: '#090d16',
+                skyMid: '#31102f',
+                skyBot: '#d97706',
+                sunColor: '#fef3c7',
+                sunGlow: 'rgba(251, 191, 36, 0.55)',
+                farMtn: '#1e1b2e',
+                midMtn: '#2d1b36',
+                terrainFill: '#111827',
+                terrainEdge: '#f59e0b',
+                gateColor: '#38bdf8'
+            },
+            {
+                roman: 'II',
+                title: '폭풍의 천공 유적',
+                skyTop: '#020617',
+                skyMid: '#0c4a6e',
+                skyBot: '#0284c7',
+                sunColor: '#e0f2fe',
+                sunGlow: 'rgba(56, 189, 248, 0.45)',
+                farMtn: '#0f172a',
+                midMtn: '#1e293b',
+                terrainFill: '#0b1120',
+                terrainEdge: '#38bdf8',
+                gateColor: '#facc15'
+            },
+            {
+                roman: 'III',
+                title: '성운의 왕좌 성소',
+                skyTop: '#030014',
+                skyMid: '#2e1065',
+                skyBot: '#9d174d',
+                sunColor: '#fae8ff',
+                sunGlow: 'rgba(232, 121, 249, 0.5)',
+                farMtn: '#1e1b4b',
+                midMtn: '#311042',
+                terrainFill: '#09090b',
+                terrainEdge: '#e879f9',
+                gateColor: '#34d399'
+            }
+        ];
+
+        /**
+         * ============================================================================
+         * 3. 캔버스, 카메라(2D 오픈월드 스크롤) 및 드론 물리 상태
+         * ============================================================================
+         */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let viewW = window.innerWidth;
+        let viewH = window.innerHeight;
+
+        // 월드 크기 (가로로 웅장하게 펼쳐지는 2D 오픈 스테이지)
+        let worldW = 3400;
+        let worldH = 1200;
+
+        const camera = {
+            x: 0,
+            y: 0,
+            shakeTime: 0,
+            shakePower: 0
+        };
+
+        let gameState = 'MENU'; // MENU, PLAYING, CLEAR, OVER
+        let chapter = 1;
+        let score = 0;
+        let bestScore = parseInt(SLS.getItem('aetherDrone2DBest') || '0', 10);
+        let theme = CHAPTER_THEMES[0];
+
+        const keys = {
+            up: false,
+            down: false,
+            left: false,
+            right: false,
+            boost: false
+        };
+
+        // 드론 물리 객체
+        const drone = {
+            x: 180,
+            y: 450,
+            vx: 0,
+            vy: 0,
+            w: 58,
+            h: 26,
+            angle: 0,
+            targetAngle: 0,
+            rotorPhase: 0,
+            thrust: 0,
+            hp: 100,
+            core: 100,
+            invuln: 0,
+            landTimer: 0,
+            trail: []
+        };
+
+        const PHYS = {
+            gravity: 340,
+            thrustForce: 720,
+            boostMult: 1.52,
+            maxTilt: 0.46,
+            tiltResponsiveness: 7.2,
+            dragX: 0.985,
+            dragY: 0.992
+        };
+
+        // 스테이지 엔티티
+        let terrainCols = [];
+        let floatingIslands = [];
+        let gates = [];
+        let guardians = [];
+        let windStreams = [];
+        let orbs = [];
+        let landingAltar = null;
+        let particles = [];
+        let callouts = [];
+        let bgStars = [];
+        let bgDust = [];
+
+        function resizeCanvas() {
+            viewW = window.innerWidth;
+            viewH = window.innerHeight;
+            canvas.width = viewW;
+            canvas.height = viewH;
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function initAtmosphere() {
+            bgStars = [];
+            for (let i = 0; i < 130; i++) {
+                bgStars.push({
+                    x: Math.random() * worldW,
+                    y: Math.random() * (worldH * 0.65),
+                    r: Math.random() * 2.1 + 0.6,
+                    phase: Math.random() * Math.PI * 2
+                });
+            }
+            bgDust = [];
+            for (let i = 0; i < 55; i++) {
+                bgDust.push({
+                    x: Math.random() * worldW,
+                    y: Math.random() * worldH,
+                    vx: 15 + Math.random() * 25,
+                    vy: -8 + Math.random() * 16,
+                    size: 1.5 + Math.random() * 2.5
+                });
+            }
+        }
+
+        /**
+         * ============================================================================
+         * 4. 웅장한 2D 스테이지 레벨 제너레이터 (협곡 지형, 부유 유적, 게이트, 수호 드론)
+         * ============================================================================
+         */
+        function buildChapter(chapNum) {
+            theme = CHAPTER_THEMES[(chapNum - 1) % CHAPTER_THEMES.length];
+            worldW = 3200 + (chapNum - 1) * 500;
+            worldH = 1150;
+
+            document.getElementById('hudStage').textContent = theme.roman;
+            document.getElementById('hudChapterTitle').textContent = theme.title;
+
+            terrainCols = [];
+            floatingIslands = [];
+            gates = [];
+            guardians = [];
+            windStreams = [];
+            orbs = [];
+            particles = [];
+            callouts = [];
+            drone.trail = [];
+
+            // 1. 협곡 바닥 지형 생성 (기복이 웅장한 절벽 스카이라인)
+            const colStep = 95;
+            const numCols = Math.ceil(worldW / colStep) + 1;
+            const startY = worldH - 240;
+            const goalCol = numCols - 4;
+            const goalY = worldH - (280 + ((chapNum * 75) % 220));
+
+            for (let i = 0; i < numCols; i++) {
+                const x = i * colStep;
+                let topY;
+                if (i <= 3) {
+                    topY = startY;
+                } else if (i >= goalCol - 1 && i <= goalCol + 2) {
+                    topY = goalY;
+                } else {
+                    const wave1 = Math.sin(i * 0.35 + chapNum) * 145;
+                    const wave2 = Math.cos(i * 0.72) * 75;
+                    topY = Math.max(worldH - 540, Math.min(worldH - 120, worldH - 260 + wave1 + wave2));
+                }
+
+                // 고대 유적 기둥 장식 여부
+                const hasRuins = i > 4 && i < goalCol - 2 && i % 4 === 0;
+                terrainCols.push({ x, w: colStep + 2, topY, hasRuins });
+            }
+
+            // 드론 출발 위치
+            drone.x = 180;
+            drone.y = startY - 30;
+            drone.vx = 0;
+            drone.vy = 0;
+            drone.angle = 0;
+            drone.targetAngle = 0;
+            drone.invuln = 1.2;
+            drone.landTimer = 0;
+
+            // 최종 성소 황금 착륙 제단 (H)
+            const padX = goalCol * colStep;
+            landingAltar = {
+                x: padX - 40,
+                y: goalY - 12,
+                w: 170,
+                h: 12,
+                pulse: 0
+            };
+
+            // 2. 공중 부유 섬 (Floating Sky Ruins)
+            const numIslands = 5 + chapNum;
+            for (let k = 0; k < numIslands; k++) {
+                const ix = 520 + k * ((worldW - 950) / numIslands);
+                const iy = 240 + ((k * 137 + chapNum * 60) % 340);
+                const iw = 150 + (k % 3) * 45;
+                floatingIslands.push({
+                    x: ix,
+                    y: iy,
+                    w: iw,
+                    h: 34,
+                    bobPhase: k * 1.1
+                });
+            }
+
+            // 3. 고대 에테르 게이트 (4 ~ 6개)
+            const numGates = Math.min(6, 3 + chapNum);
+            for (let g = 0; g < numGates; g++) {
+                const ratio = (g + 1) / (numGates + 1);
+                const gx = 420 + ratio * (worldW - 880);
+                const groundAtX = getTerrainYAt(gx);
+                const gy = Math.max(210, Math.min(groundAtX - 150, 260 + ((g * 170 + chapNum * 50) % 380)));
+
+                gates.push({
+                    x: gx,
+                    y: gy,
+                    radius: 54,
+                    passed: false,
+                    pulse: g * 0.9
+                });
+            }
+
+            // 4. 에너지 오브 (코어 충전 + 점수)
+            const numOrbs = 6 + chapNum * 2;
+            for (let o = 0; o < numOrbs; o++) {
+                const ox = 360 + (o / numOrbs) * (worldW - 720);
+                const groundAtX = getTerrainYAt(ox);
+                const oy = Math.max(170, groundAtX - (130 + (o % 4) * 85));
+                orbs.push({
+                    x: ox,
+                    y: oy,
+                    type: o % 4 === 3 ? 'armor' : 'core',
+                    collected: false,
+                    phase: o * 0.8
+                });
+            }
+
+            // 5. 회오리 상승/횡풍 기류 구역
+            const numWinds = 2 + Math.floor(chapNum / 2);
+            for (let w = 0; w < numWinds; w++) {
+                const wx = 750 + w * ((worldW - 1300) / numWinds);
+                const wy = 260 + (w % 2) * 140;
+                const isUpdraft = w % 2 === 0;
+                windStreams.push({
+                    x: wx,
+                    y: wy,
+                    w: 120,
+                    h: 340,
+                    fx: isUpdraft ? 90 : -240,
+                    fy: isUpdraft ? -310 : 80,
+                    label: isUpdraft ? '천공 상승 기류' : '협곡 역풍 주의'
+                });
+            }
+
+            // 6. 고대 수호 드론 (순찰 적기)
+            const numGuards = 2 + chapNum * 2;
+            for (let m = 0; m < numGuards; m++) {
+                const mx = 620 + m * ((worldW - 1050) / numGuards);
+                const groundAtX = getTerrainYAt(mx);
+                const my = Math.max(200, Math.min(groundAtX - 120, 250 + (m * 115) % 360));
+                guardians.push({
+                    x: mx,
+                    y: my,
+                    startX: mx,
+                    startY: my,
+                    rangeX: 110 + (m % 3) * 45,
+                    rangeY: 55,
+                    speed: 1.4 + chapNum * 0.25,
+                    phase: m * 1.3,
+                    radius: 24
+                });
+            }
+
+            camera.x = 0;
+            camera.y = Math.max(0, drone.y - viewH * 0.55);
+            updateMissionUI();
+        }
+
+        function getTerrainYAt(worldX) {
+            for (const col of terrainCols) {
+                if (worldX >= col.x && worldX <= col.x + col.w) {
+                    return col.topY;
+                }
+            }
+            return worldH - 220;
+        }
+
+        function updateMissionUI() {
+            const total = gates.length;
+            const passed = gates.filter(g => g.passed).length;
+            const el = document.getElementById('hudMissionText');
+            if (passed < total) {
+                el.textContent = `고대 에테르 게이트 통과 (${passed} / ${total})`;
+                el.className = 'text-xs sm:text-sm font-bold text-amber-100';
+            } else {
+                el.textContent = `모든 게이트 개방 완료! 황금 착륙 제단(H)에 안착하세요!`;
+                el.className = 'text-xs sm:text-sm font-bold text-emerald-300';
+            }
+        }
+
+        /**
+         * ============================================================================
+         * 5. 파티클 & 시네마틱 콜아웃 연출
+         * ============================================================================
+         */
+        function spawnBurst(x, y, count, color, minSpd, maxSpd, life, size = 3.5) {
+            for (let i = 0; i < count; i++) {
+                const a = Math.random() * Math.PI * 2;
+                const s = minSpd + Math.random() * (maxSpd - minSpd);
+                particles.push({
+                    x,
+                    y,
+                    vx: Math.cos(a) * s,
+                    vy: Math.sin(a) * s,
+                    color,
+                    life: life * (0.65 + Math.random() * 0.35),
+                    maxLife: life,
+                    size: size * (0.6 + Math.random() * 0.8)
+                });
+            }
+        }
+
+        function addCallout(x, y, text, color = '#fde68a') {
+            callouts.push({ x, y, text, color, life: 1.3 });
+        }
+
+        function shakeScreen(power = 11, duration = 0.28) {
+            camera.shakePower = power;
+            camera.shakeTime = duration;
+        }
+
+        /**
+         * ============================================================================
+         * 6. 물리 시뮬레이션 & 오픈월드 카메라 추적 업데이트
+         * ============================================================================
+         */
+        function update(dt) {
+            const now = performance.now() * 0.001;
+
+            // 대기 부유 먼지 이동
+            for (const d of bgDust) {
+                d.x += d.vx * dt;
+                d.y += d.vy * dt;
+                if (d.x > worldW) d.x = 0;
+                if (d.y < 0) d.y = worldH;
+                if (d.y > worldH) d.y = 0;
+            }
+
+            if (gameState !== 'PLAYING') {
+                audio.updateRotor(0, false, false);
+                return;
+            }
+
+            if (camera.shakeTime > 0) camera.shakeTime = Math.max(0, camera.shakeTime - dt);
+            if (drone.invuln > 0) drone.invuln = Math.max(0, drone.invuln - dt);
+
+            // 1. 조종 입력 & 기울기 물리
+            const hasCore = drone.core > 0;
+            const isBoosting = keys.boost && hasCore && (keys.up || keys.left || keys.right);
+
+            let tiltDir = 0;
+            if (keys.left) tiltDir -= 1;
+            if (keys.right) tiltDir += 1;
+            drone.targetAngle = tiltDir * PHYS.maxTilt;
+            drone.angle += (drone.targetAngle - drone.angle) * Math.min(1, PHYS.tiltResponsiveness * dt);
+
+            let targetThrust = 0;
+            if (hasCore) {
+                if (keys.up) targetThrust = 1.0;
+                else if (tiltDir !== 0) targetThrust = 0.54;
+                else if (keys.down) targetThrust = 0.0;
+                else targetThrust = 0.22; // 부드러운 호버링 보조
+            } else {
+                targetThrust = 0.06;
+            }
+
+            drone.thrust += (targetThrust - drone.thrust) * Math.min(1, 12 * dt);
+            drone.rotorPhase += (22 + drone.thrust * 42 + (isBoosting ? 28 : 0)) * dt;
+
+            audio.updateRotor(drone.thrust, isBoosting, true);
+
+            // 에너지 코어 소모 및 자연 재생
+            if (isBoosting) {
+                drone.core = Math.max(0, drone.core - 11.5 * dt);
+            } else {
+                drone.core = Math.min(100, drone.core + 3.2 * dt);
+            }
+
+            // 추력 벡터 계산
+            const force = drone.thrust * PHYS.thrustForce * (isBoosting ? PHYS.boostMult : 1.0);
+            const ax = Math.sin(drone.angle) * force;
+            const ay = PHYS.gravity - Math.cos(drone.angle) * force;
+
+            drone.vx += ax * dt;
+            drone.vy += ay * dt;
+
+            // 기류 구역 영향
+            for (const w of windStreams) {
+                if (drone.x > w.x && drone.x < w.x + w.w && drone.y > w.y && drone.y < w.y + w.h) {
+                    drone.vx += w.fx * dt;
+                    drone.vy += w.fy * dt;
+                    if (Math.random() < 0.35) {
+                        spawnBurst(drone.x, drone.y, 1, 'rgba(125, 211, 252, 0.7)', 40, 100, 0.35, 2.2);
+                    }
+                }
+            }
+
+            // 공기 저항 및 속도 제한
+            drone.vx *= Math.pow(PHYS.dragX, dt * 60);
+            drone.vy *= Math.pow(PHYS.dragY, dt * 60);
+
+            const maxSpeed = isBoosting ? 640 : 440;
+            const curSpeed = Math.hypot(drone.vx, drone.vy);
+            if (curSpeed > maxSpeed) {
+                drone.vx = (drone.vx / curSpeed) * maxSpeed;
+                drone.vy = (drone.vy / curSpeed) * maxSpeed;
+            }
+
+            drone.x += drone.vx * dt;
+            drone.y += drone.vy * dt;
+
+            // 비행 궤적(Trail) 기록
+            drone.trail.push({ x: drone.x, y: drone.y, boost: isBoosting });
+            if (drone.trail.length > 26) drone.trail.shift();
+
+            // 추력 파티클 방출
+            if (drone.thrust > 0.38 && Math.random() < (isBoosting ? 0.92 : 0.45)) {
+                const cos = Math.cos(drone.angle);
+                const sin = Math.sin(drone.angle);
+                [-22, 22].forEach(ox => {
+                    const px = drone.x + ox * cos;
+                    const py = drone.y + ox * sin + 4;
+                    particles.push({
+                        x: px,
+                        y: py,
+                        vx: -sin * 160 + (Math.random() - 0.5) * 35,
+                        vy: cos * 160 + (Math.random() - 0.5) * 35,
+                        color: isBoosting ? (Math.random() > 0.4 ? '#38bdf8' : '#fef08a') : 'rgba(251, 191, 36, 0.65)',
+                        life: isBoosting ? 0.32 : 0.22,
+                        maxLife: isBoosting ? 0.32 : 0.22,
+                        size: isBoosting ? 4.2 : 2.6
+                    });
+                });
+            }
+
+            // 월드 경계 제한
+            const halfW = drone.w * 0.5;
+            const halfH = drone.h * 0.5;
+            if (drone.x < halfW + 20) {
+                drone.x = halfW + 20;
+                drone.vx = Math.abs(drone.vx) * 0.4;
+            } else if (drone.x > worldW - halfW - 20) {
+                drone.x = worldW - halfW - 20;
+                drone.vx = -Math.abs(drone.vx) * 0.4;
+            }
+            if (drone.y < 70) {
+                drone.y = 70;
+                drone.vy = Math.max(0, drone.vy);
+            }
+
+            // 2. 고대 에테르 게이트 통과 판정
+            for (const g of gates) {
+                g.pulse += dt * 3.5;
+                if (!g.passed && Math.hypot(drone.x - g.x, drone.y - g.y) < g.radius + 16) {
+                    g.passed = true;
+                    score += 400;
+                    audio.playGatePass();
+                    spawnBurst(g.x, g.y, 32, theme.gateColor, 70, 230, 0.65, 4);
+                    addCallout(g.x, g.y - 30, '+400 에테르 게이트 개방!', '#67e8f9');
+                    updateMissionUI();
+                }
+            }
+
+            // 3. 에너지 오브 획득
+            for (const orb of orbs) {
+                orb.phase += dt * 3.5;
+                if (!orb.collected && Math.hypot(drone.x - orb.x, drone.y - orb.y) < 36) {
+                    orb.collected = true;
+                    score += 150;
+                    audio.playGatePass();
+                    if (orb.type === 'core') {
+                        drone.core = Math.min(100, drone.core + 45);
+                        spawnBurst(orb.x, orb.y, 18, '#38bdf8', 50, 150, 0.5, 3);
+                        addCallout(orb.x, orb.y - 20, '⚡ 에테르 코어 +45%', '#7dd3fc');
+                    } else {
+                        drone.hp = Math.min(100, drone.hp + 35);
+                        spawnBurst(orb.x, orb.y, 18, '#34d399', 50, 150, 0.5, 3);
+                        addCallout(orb.x, orb.y - 20, '🛡️ 선체 장갑 수복 +35%', '#6ee7b7');
+                    }
+                }
+            }
+
+            // 4. 고대 수호 드론 순찰 & 충돌 판정
+            for (const gd of guardians) {
+                gd.phase += gd.speed * dt;
+                gd.x = gd.startX + Math.sin(gd.phase) * gd.rangeX;
+                gd.y = gd.startY + Math.cos(gd.phase * 1.4) * gd.rangeY;
+
+                if (Math.hypot(drone.x - gd.x, drone.y - gd.y) < gd.radius + 20 && drone.invuln <= 0) {
+                    applyDamage(25, '고대 수호 드론과 충돌했습니다!');
+                    const ang = Math.atan2(drone.y - gd.y, drone.x - gd.x);
+                    drone.vx = Math.cos(ang) * 260;
+                    drone.vy = Math.sin(ang) * 260 - 60;
+                }
+            }
+
+            // 5. 황금 착륙 제단(H) 정밀 착륙 판정
+            let onAltar = false;
+            if (landingAltar) {
+                landingAltar.pulse += dt * 4;
+                const inX = drone.x >= landingAltar.x + 12 && drone.x <= landingAltar.x + landingAltar.w - 12;
+                const footY = drone.y + halfH;
+                const touchY = footY >= landingAltar.y - 2 && footY <= landingAltar.y + 16 && drone.vy >= -12;
+
+                if (inX && touchY) {
+                    const spd = Math.hypot(drone.vx, drone.vy);
+                    if (spd < 210 && Math.abs(drone.angle) < 0.25) {
+                        onAltar = true;
+                        drone.y = landingAltar.y - halfH;
+                        drone.vy = 0;
+                        drone.vx *= 0.82;
+                        drone.angle *= 0.85;
+
+                        const allOpen = gates.every(g => g.passed);
+                        if (allOpen) {
+                            drone.landTimer += dt;
+                            if (drone.landTimer >= 0.45) {
+                                completeChapter();
+                                return;
+                            }
+                        } else if (drone.landTimer === 0) {
+                            drone.landTimer = 0.01;
+                            addCallout(drone.x, drone.y - 38, '먼저 모든 에테르 게이트를 통과하세요!', '#fde047');
+                        }
+                    } else if (drone.invuln <= 0) {
+                        applyDamage(22, '착륙 충격 과다! 감속하여 수평으로 안착하세요.');
+                        drone.y = landingAltar.y - halfH - 5;
+                        drone.vy = -160;
+                    }
+                } else {
+                    drone.landTimer = 0;
+                }
+            }
+
+            // 6. 부유 유적섬 & 협곡 지형 충돌 판정
+            if (!onAltar) {
+                // 부유섬
+                for (const isl of floatingIslands) {
+                    const curY = isl.y + Math.sin(now * 1.8 + isl.bobPhase) * 8;
+                    if (
+                        drone.x + halfW > isl.x &&
+                        drone.x - halfW < isl.x + isl.w &&
+                        drone.y + halfH > curY &&
+                        drone.y - halfH < curY + isl.h
+                    ) {
+                        if (drone.invuln <= 0) applyDamage(22, '천공 부유섬 암반과 충돌!');
+                        if (drone.y < curY + isl.h * 0.5) {
+                            drone.y = curY - halfH - 3;
+                            drone.vy = -150;
+                        } else {
+                            drone.y = curY + isl.h + halfH + 3;
+                            drone.vy = 140;
+                        }
+                    }
+                }
+
+                // 협곡 절벽 지형
+                for (const col of terrainCols) {
+                    if (
+                        drone.x + halfW - 6 > col.x &&
+                        drone.x - halfW + 6 < col.x + col.w &&
+                        drone.y + halfH > col.topY
+                    ) {
+                        const overlapTop = (drone.y + halfH) - col.topY;
+                        if (overlapTop < 22 && drone.vy >= 0) {
+                            if (Math.hypot(drone.vx, drone.vy) > 190 && drone.invuln <= 0) {
+                                applyDamage(20, '협곡 암반 지면에 강하게 충돌!');
+                            }
+                            drone.y = col.topY - halfH;
+                            drone.vy = Math.min(0, -drone.vy * 0.3);
+                            drone.vx *= 0.85;
+                            drone.angle *= 0.85;
+                        } else {
+                            if (drone.invuln <= 0) applyDamage(25, '거대 협곡 절벽과 충돌!');
+                            if (drone.x < col.x + col.w * 0.5) {
+                                drone.x = col.x - halfW - 3;
+                                drone.vx = -Math.abs(drone.vx) * 0.6 - 90;
+                            } else {
+                                drone.x = col.x + col.w + halfW + 3;
+                                drone.vx = Math.abs(drone.vx) * 0.6 + 90;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 7. 파티클 & 콜아웃 갱신
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.life -= dt;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+            for (let i = callouts.length - 1; i >= 0; i--) {
+                const c = callouts[i];
+                c.y -= 36 * dt;
+                c.life -= dt;
+                if (c.life <= 0) callouts.splice(i, 1);
+            }
+
+            // 8. 시네마틱 2D 추적 카메라 부드러운 보간 (진행 방향 선행 시야 포함)
+            const targetCamX = Math.max(0, Math.min(worldW - viewW, drone.x + drone.vx * 0.35 - viewW * 0.42));
+            const targetCamY = Math.max(0, Math.min(worldH - viewH, drone.y + drone.vy * 0.2 - viewH * 0.52));
+            camera.x += (targetCamX - camera.x) * Math.min(1, 5.5 * dt);
+            camera.y += (targetCamY - camera.y) * Math.min(1, 5.5 * dt);
+
+            updateHUDValues();
+        }
+
+        function applyDamage(amount, reason) {
+            drone.hp = Math.max(0, drone.hp - amount);
+            drone.invuln = 0.95;
+            audio.playDamage();
+            shakeScreen(12, 0.32);
+            spawnBurst(drone.x, drone.y, 24, '#fb7185', 60, 200, 0.55, 3.5);
+            addCallout(drone.x, drone.y - 28, `-${amount} 장갑 손상!`, '#fda4af');
+            updateHUDValues();
+
+            if (drone.hp <= 0) {
+                gameState = 'OVER';
+                audio.updateRotor(0, false, false);
+                saveBestScore();
+                document.getElementById('overReason').textContent = reason;
+                document.getElementById('overChapter').textContent = `CHAPTER ${theme.roman} · ${theme.title}`;
+                document.getElementById('overScore').textContent = `${score.toLocaleString()} 점`;
+                document.getElementById('overModal').classList.remove('hidden');
+            }
+        }
+
+        function completeChapter() {
+            gameState = 'CLEAR';
+            audio.updateRotor(0, false, false);
+            audio.playChapterClear();
+
+            const landBonus = 800 + chapter * 200;
+            const coreBonus = Math.round((drone.core + drone.hp) * 3);
+            score += landBonus + coreBonus;
+            saveBestScore();
+            updateHUDValues();
+
+            document.getElementById('clearDesc').textContent = `CHAPTER ${theme.roman} (${theme.title}) 대장정을 완수했습니다!`;
+            document.getElementById('bonusLand').textContent = `+${landBonus}`;
+            document.getElementById('bonusCore').textContent = `+${coreBonus}`;
+            document.getElementById('clearScore').textContent = `${score.toLocaleString()} 점`;
+            document.getElementById('clearModal').classList.remove('hidden');
+        }
+
+        function saveBestScore() {
+            if (score > bestScore) {
+                bestScore = score;
+                SLS.setItem('aetherDrone2DBest', bestScore.toString());
+            }
+            document.getElementById('startBest').textContent = bestScore.toLocaleString();
+        }
+
+        function updateHUDValues() {
+            document.getElementById('hudScore').textContent = score.toLocaleString();
+            document.getElementById('hudDist').textContent = `${Math.max(0, Math.round((drone.x - 180) / 5))}m`;
+
+            const hpPct = Math.round(drone.hp);
+            document.getElementById('hudHpText').textContent = `${hpPct}%`;
+            document.getElementById('hudHpBar').style.width = `${hpPct}%`;
+
+            const corePct = Math.round(drone.core);
+            document.getElementById('hudBatText').textContent = `${corePct}%`;
+            document.getElementById('hudBatBar').style.width = `${corePct}%`;
+        }
+
+        /**
+         * ============================================================================
+         * 7. 시네마틱 2D 다층 패럴랙스(Parallax) & 광원 렌더링 파이프라인
+         * ============================================================================
+         */
+        function render() {
+            const now = performance.now() * 0.001;
+            ctx.save();
+
+            // 1. 웅장한 하늘 그라디언트
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, viewH);
+            skyGrad.addColorStop(0, theme.skyTop);
+            skyGrad.addColorStop(0.55, theme.skyMid);
+            skyGrad.addColorStop(1, theme.skyBot);
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, viewW, viewH);
+
+            // 2. 원경 별빛 (패럴랙스 0.08)
+            for (const s of bgStars) {
+                const sx = ((s.x - camera.x * 0.08) % viewW + viewW) % viewW;
+                const sy = ((s.y - camera.y * 0.08) % (viewH * 0.7) + (viewH * 0.7)) % (viewH * 0.7);
+                const alpha = 0.35 + 0.55 * Math.sin(now * 2.2 + s.phase);
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(sx, sy, s.r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 3. 거대 천체(태양 / 성운 달) & 볼륨메트릭 광원 갓레이(God Rays)
+            const sunX = viewW * 0.72 - camera.x * 0.04;
+            const sunY = viewH * 0.26 - camera.y * 0.04;
+            const sunHalo = ctx.createRadialGradient(sunX, sunY, 18, sunX, sunY, 240);
+            sunHalo.addColorStop(0, theme.sunGlow);
+            sunHalo.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = sunHalo;
+            ctx.beginPath();
+            ctx.arc(sunX, sunY, 240, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = theme.sunColor;
+            ctx.beginPath();
+            ctx.arc(sunX, sunY, 46, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 4. 다층 원경 산맥 실루엣 (Parallax Layer 1 & 2)
+            drawMountainLayer(0.18, theme.farMtn, 0.52, 160, 1.2);
+            drawMountainLayer(0.36, theme.midMtn, 0.66, 130, 2.5);
+
+            // 월드 좌표계 카메라 변환 시작
+            ctx.save();
+            let shakeX = 0;
+            let shakeY = 0;
+            if (camera.shakeTime > 0) {
+                shakeX = (Math.random() - 0.5) * camera.shakePower * 2;
+                shakeY = (Math.random() - 0.5) * camera.shakePower * 2;
+            }
+            ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
+
+            // 5. 대기 부유 빛가루
+            ctx.fillStyle = 'rgba(254, 243, 199, 0.35)';
+            for (const d of bgDust) {
+                if (d.x < camera.x - 20 || d.x > camera.x + viewW + 20) continue;
+                ctx.beginPath();
+                ctx.arc(d.x, d.y, d.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 6. 천공 기류 구역 (Wind Streams)
+            for (const w of windStreams) {
+                const grad = ctx.createLinearGradient(w.x, w.y, w.x, w.y + w.h);
+                grad.addColorStop(0, 'rgba(56, 189, 248, 0.02)');
+                grad.addColorStop(0.5, 'rgba(56, 189, 248, 0.16)');
+                grad.addColorStop(1, 'rgba(56, 189, 248, 0.02)');
+                ctx.fillStyle = grad;
+                ctx.fillRect(w.x, w.y, w.w, w.h);
+
+                ctx.strokeStyle = 'rgba(125, 211, 252, 0.35)';
+                ctx.setLineDash([8, 8]);
+                ctx.strokeRect(w.x, w.y, w.w, w.h);
+                ctx.setLineDash([]);
+
+                ctx.fillStyle = '#bae6fd';
+                ctx.font = 'bold 12px "Noto Sans KR"';
+                ctx.textAlign = 'center';
+                ctx.fillText(`🌪️ ${w.label}`, w.x + w.w * 0.5, w.y - 8);
+            }
+
+            // 7. 천공 부유 유적섬
+            for (const isl of floatingIslands) {
+                const curY = isl.y + Math.sin(now * 1.8 + isl.bobPhase) * 8;
+                // 역삼각 암반 하부
+                ctx.fillStyle = '#1e293b';
+                ctx.beginPath();
+                ctx.moveTo(isl.x + 12, curY + isl.h);
+                ctx.lineTo(isl.x + isl.w - 12, curY + isl.h);
+                ctx.lineTo(isl.x + isl.w * 0.5, curY + isl.h + 52);
+                ctx.closePath();
+                ctx.fill();
+
+                // 상단 유적 석판
+                ctx.fillStyle = theme.terrainFill;
+                ctx.fillRect(isl.x, curY, isl.w, isl.h);
+                ctx.fillStyle = theme.terrainEdge;
+                ctx.fillRect(isl.x, curY, isl.w, 4);
+            }
+
+            // 8. 협곡 절벽 지형 & 고대 유적 기둥
+            for (const col of terrainCols) {
+                if (col.x + col.w < camera.x - 50 || col.x > camera.x + viewW + 50) continue;
+
+                // 고대 유적 석주 실루엣
+                if (col.hasRuins) {
+                    ctx.fillStyle = 'rgba(30, 41, 59, 0.85)';
+                    ctx.fillRect(col.x + 18, col.topY - 75, 16, 75);
+                    ctx.fillRect(col.x + 56, col.topY - 55, 16, 55);
+                    ctx.fillRect(col.x + 12, col.topY - 82, 66, 9);
+                }
+
+                ctx.fillStyle = theme.terrainFill;
+                ctx.fillRect(col.x, col.topY, col.w, worldH - col.topY);
+
+                // 지형 상단 발광 테두리
+                ctx.fillStyle = theme.terrainEdge;
+                ctx.fillRect(col.x, col.topY, col.w, 4);
+            }
+
+            // 9. 최종 성소 황금 착륙 제단 (H)
+            if (landingAltar) {
+                const allOpen = gates.every(g => g.passed);
+                const pulse = 0.5 + 0.5 * Math.sin(landingAltar.pulse);
+
+                const beam = ctx.createLinearGradient(0, landingAltar.y - 140, 0, landingAltar.y);
+                beam.addColorStop(0, 'rgba(52, 211, 153, 0)');
+                beam.addColorStop(1, allOpen ? `rgba(52, 211, 153, ${0.28 * pulse + 0.12})` : 'rgba(251, 191, 36, 0.14)');
+                ctx.fillStyle = beam;
+                ctx.fillRect(landingAltar.x, landingAltar.y - 140, landingAltar.w, 140);
+
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(landingAltar.x, landingAltar.y, landingAltar.w, landingAltar.h);
+                ctx.fillStyle = allOpen ? '#34d399' : '#f59e0b';
+                ctx.fillRect(landingAltar.x, landingAltar.y, landingAltar.w, 5);
+
+                ctx.fillStyle = allOpen ? '#6ee7b7' : '#fde68a';
+                ctx.font = '900 22px Orbitron';
+                ctx.textAlign = 'center';
+                ctx.fillText('H', landingAltar.x + landingAltar.w * 0.5, landingAltar.y - 16);
+
+                ctx.font = 'bold 12px "Noto Sans KR"';
+                ctx.fillText(allOpen ? '성소 착륙 허가됨!' : '성소 착륙 제단', landingAltar.x + landingAltar.w * 0.5, landingAltar.y - 42);
+
+                if (drone.landTimer > 0 && allOpen) {
+                    const r = Math.min(1, drone.landTimer / 0.45);
+                    ctx.fillStyle = '#020617';
+                    ctx.fillRect(landingAltar.x + 20, landingAltar.y - 64, landingAltar.w - 40, 8);
+                    ctx.fillStyle = '#34d399';
+                    ctx.fillRect(landingAltar.x + 20, landingAltar.y - 64, (landingAltar.w - 40) * r, 8);
+                }
+            }
+
+            // 10. 고대 에테르 게이트
+            for (const g of gates) {
+                const sc = 1 + Math.sin(g.pulse) * 0.05;
+                ctx.save();
+                ctx.translate(g.x, g.y);
+                ctx.scale(sc, sc);
+
+                ctx.beginPath();
+                ctx.arc(0, 0, g.radius, 0, Math.PI * 2);
+                ctx.lineWidth = g.passed ? 4 : 7;
+                ctx.strokeStyle = g.passed ? 'rgba(148, 163, 184, 0.4)' : theme.gateColor;
+                if (!g.passed) {
+                    ctx.shadowColor = theme.gateColor;
+                    ctx.shadowBlur = 22;
+                }
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(0, 0, g.radius - 11, 0, Math.PI * 2);
+                ctx.lineWidth = 2;
+                ctx.setLineDash([10, 10]);
+                ctx.strokeStyle = g.passed ? 'rgba(148, 163, 184, 0.25)' : '#ffffff';
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
+            }
+
+            // 11. 에너지 오브
+            for (const orb of orbs) {
+                if (orb.collected) continue;
+                const by = orb.y + Math.sin(orb.phase) * 7;
+                ctx.save();
+                ctx.translate(orb.x, by);
+                ctx.beginPath();
+                ctx.arc(0, 0, 18, 0, Math.PI * 2);
+                ctx.fillStyle = orb.type === 'core' ? 'rgba(56, 189, 248, 0.25)' : 'rgba(52, 211, 153, 0.25)';
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(0, 0, 12, 0, Math.PI * 2);
+                ctx.fillStyle = '#090d16';
+                ctx.lineWidth = 2.5;
+                ctx.strokeStyle = orb.type === 'core' ? '#38bdf8' : '#34d399';
+                ctx.stroke();
+                ctx.fill();
+
+                ctx.font = '13px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(orb.type === 'core' ? '⚡' : '🛡️', 0, 1);
+                ctx.restore();
+            }
+
+            // 12. 고대 수호 드론 (순찰 적기)
+            for (const gd of guardians) {
+                ctx.save();
+                ctx.translate(gd.x, gd.y);
+
+                // 스캔 오라
+                ctx.beginPath();
+                ctx.arc(0, 0, gd.radius + 8, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(244, 63, 94, 0.14)';
+                ctx.fill();
+
+                // 외갑판
+                ctx.fillStyle = '#0f172a';
+                ctx.strokeStyle = '#fb7185';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(0, -18);
+                ctx.lineTo(24, 0);
+                ctx.lineTo(0, 18);
+                ctx.lineTo(-24, 0);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // 붉은 감시 코어
+                ctx.fillStyle = Math.sin(now * 12) > 0 ? '#f43f5e' : '#9f1239';
+                ctx.beginPath();
+                ctx.arc(0, 0, 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // 13. 드론 비행 궤적(Trail) & 파티클
+            if (drone.trail.length > 1) {
+                for (let i = 1; i < drone.trail.length; i++) {
+                    const t0 = drone.trail[i - 1];
+                    const t1 = drone.trail[i];
+                    const alpha = (i / drone.trail.length) * 0.45;
+                    ctx.strokeStyle = t1.boost ? `rgba(56, 189, 248, ${alpha})` : `rgba(251, 191, 36, ${alpha * 0.7})`;
+                    ctx.lineWidth = (i / drone.trail.length) * 5;
+                    ctx.beginPath();
+                    ctx.moveTo(t0.x, t0.y);
+                    ctx.lineTo(t1.x, t1.y);
+                    ctx.stroke();
+                }
+            }
+
+            for (const p of particles) {
+                ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+
+            // 14. 플레이어 에테르 드론 렌더링
+            drawAetherDrone();
+
+            // 15. 시네마틱 플로팅 콜아웃
+            for (const c of callouts) {
+                ctx.globalAlpha = Math.min(1, c.life);
+                ctx.font = 'bold 14px "Noto Sans KR"';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#020617';
+                ctx.fillText(c.text, c.x + 1, c.y + 1);
+                ctx.fillStyle = c.color;
+                ctx.fillText(c.text, c.x, c.y);
+            }
+            ctx.globalAlpha = 1;
+
+            ctx.restore();
+            ctx.restore();
+        }
+
+        function drawMountainLayer(parallax, color, baseRatio, amp, seed) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(0, viewH);
+            const step = 60;
+            for (let sx = 0; sx <= viewW + step; sx += step) {
+                const wx = sx + camera.x * parallax;
+                const h = Math.sin(wx * 0.0022 + seed) * amp + Math.cos(wx * 0.0055 - seed) * (amp * 0.45);
+                const sy = viewH * baseRatio - h - camera.y * parallax * 0.4;
+                ctx.lineTo(sx, sy);
+            }
+            ctx.lineTo(viewW, viewH);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function drawAetherDrone() {
+            if (drone.invuln > 0 && Math.floor(drone.invuln * 16) % 2 === 0) return;
+
+            const isBoosting = keys.boost && drone.core > 0 && (keys.up || keys.left || keys.right);
+
+            ctx.save();
+            ctx.translate(drone.x, drone.y);
+            ctx.rotate(drone.angle);
+
+            // 착륙 스키드
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(-14, 4);
+            ctx.lineTo(-19, 13);
+            ctx.lineTo(-8, 13);
+            ctx.moveTo(14, 4);
+            ctx.lineTo(19, 13);
+            ctx.lineTo(8, 13);
+            ctx.stroke();
+
+            // 로터 암
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 3.5;
+            ctx.beginPath();
+            ctx.moveTo(-28, -3);
+            ctx.lineTo(28, -3);
+            ctx.stroke();
+
+            // 유선형 황금/카본 에테르 선체
+            ctx.fillStyle = '#0f172a';
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-22, 0);
+            ctx.lineTo(-10, -8);
+            ctx.lineTo(10, -8);
+            ctx.lineTo(22, 0);
+            ctx.lineTo(12, 6);
+            ctx.lineTo(-12, 6);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // 중앙 에테르 코어 센서 렌즈
+            ctx.fillStyle = isBoosting ? '#38bdf8' : '#facc15';
+            ctx.beginPath();
+            ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 좌우 프로펠러 블레이드 회전
+            const bladeHalf = 15 * Math.abs(Math.cos(drone.rotorPhase));
+            ctx.strokeStyle = isBoosting ? '#38bdf8' : '#fde68a';
+            ctx.lineWidth = 2.8;
+            ctx.beginPath();
+            ctx.moveTo(-28 - bladeHalf, -8);
+            ctx.lineTo(-28 + bladeHalf, -8);
+            ctx.moveTo(28 - bladeHalf, -8);
+            ctx.lineTo(28 + bladeHalf, -8);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        /**
+         * ============================================================================
+         * 8. 메인 게임 루프 & 입력 바인딩
+         * ============================================================================
+         */
+        let lastTime = 0;
+        function loop(ts) {
+            if (!lastTime) lastTime = ts;
+            const dt = Math.min(0.05, (ts - lastTime) / 1000);
+            lastTime = ts;
+
+            update(dt);
+            render();
+            requestAnimationFrame(loop);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+                e.preventDefault();
+            }
+            const k = e.key ? e.key.toLowerCase() : '';
+            if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'KeyZ' || k === 'z') keys.up = true;
+            if (e.code === 'ArrowDown' || e.code === 'KeyS' || e.code === 'KeyX' || k === 'x') keys.down = true;
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+            if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.boost = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            const k = e.key ? e.key.toLowerCase() : '';
+            if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'KeyZ' || k === 'z') keys.up = false;
+            if (e.code === 'ArrowDown' || e.code === 'KeyS' || e.code === 'KeyX' || k === 'x') keys.down = false;
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+            if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.boost = false;
+        });
+
+        function bindPad(id, key) {
+            const el = document.getElementById(id);
+            const set = (v) => {
+                keys[key] = v;
+                el.classList.toggle('active', v);
+            };
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); set(true); }, { passive: false });
+            el.addEventListener('touchend', (e) => { e.preventDefault(); set(false); }, { passive: false });
+            el.addEventListener('mousedown', () => set(true));
+            el.addEventListener('mouseup', () => set(false));
+            el.addEventListener('mouseleave', () => set(false));
+        }
+        bindPad('tLeft', 'left');
+        bindPad('tRight', 'right');
+        bindPad('tThrust', 'up');
+        bindPad('tBoost', 'boost');
+
+        function startNewOdyssey() {
+            audio.init();
+            audio.resume();
+
+            chapter = 1;
+            score = 0;
+            drone.hp = 100;
+            drone.core = 100;
+
+            document.getElementById('startModal').classList.add('hidden');
+            document.getElementById('overModal').classList.add('hidden');
+            document.getElementById('clearModal').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+            document.getElementById('touchPad').classList.remove('hidden');
+
+            buildChapter(chapter);
+            updateHUDValues();
+            gameState = 'PLAYING';
+        }
+
+        document.getElementById('btnStart').addEventListener('click', startNewOdyssey);
+        document.getElementById('btnRetry').addEventListener('click', startNewOdyssey);
+
+        document.getElementById('btnNextChapter').addEventListener('click', () => {
+            audio.resume();
+            chapter += 1;
+            drone.core = Math.min(100, drone.core + 50);
+            drone.hp = Math.min(100, drone.hp + 30);
+
+            document.getElementById('clearModal').classList.add('hidden');
+            buildChapter(chapter);
+            updateHUDValues();
+            gameState = 'PLAYING';
+        });
+
+        document.getElementById('btnAudio').addEventListener('click', () => {
+            audio.init();
+            const muted = audio.toggleMute();
+            document.getElementById('audioIcon').textContent = muted ? '🔇' : '🔊';
+        });
+
+        window.onload = function () {
+            resizeCanvas();
+            initAtmosphere();
+            saveBestScore();
+            buildChapter(1);
+            requestAnimationFrame(loop);
+        };
+    </script>
+</body>
+</html>

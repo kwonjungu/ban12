@@ -1,0 +1,3275 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>전술 전투기: 공군기지 복귀 작전 (TACTICAL FIGHTER: RETURN TO AIRBASE)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Black Han Sans & Noto Sans KR & Share Tech Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --hud-green: #22c55e;
+            --hud-green-dim: rgba(34, 197, 94, 0.2);
+            --hud-amber: #f59e0b;
+            --hud-red: #ef4444;
+            --bg-dark: #060b0e;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-dark);
+            color: #d1fae5;
+            font-family: 'Noto Sans KR', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .font-mono-tech {
+            font-family: 'Share Tech Mono', 'Noto Sans KR', monospace;
+        }
+
+        .font-title {
+            font-family: 'Black Han Sans', sans-serif;
+        }
+
+        /* CRT & Tactical Avionics Scanline Overlay */
+        .crt-overlay {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.24) 50%),
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.025), rgba(0, 255, 0, 0.01), rgba(0, 120, 255, 0.025));
+            background-size: 100% 3px, 6px 100%;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        .vignette {
+            position: fixed;
+            inset: 0;
+            box-shadow: inset 0 0 85px rgba(0, 0, 0, 0.85);
+            pointer-events: none;
+            z-index: 49;
+        }
+
+        /* Tactical Borders & Glows */
+        .hud-panel {
+            background: rgba(8, 20, 22, 0.86);
+            border: 1px solid rgba(34, 197, 94, 0.45);
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.15), inset 0 0 10px rgba(34, 197, 94, 0.08);
+            backdrop-filter: blur(4px);
+        }
+
+        .hud-btn {
+            background: linear-gradient(180deg, rgba(20, 46, 44, 0.92) 0%, rgba(10, 24, 25, 0.96) 100%);
+            border: 1.5px solid #22c55e;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6), 0 0 10px rgba(34, 197, 94, 0.3);
+            transition: all 0.12s ease;
+        }
+
+        .hud-btn:hover {
+            background: linear-gradient(180deg, rgba(34, 197, 94, 0.35) 0%, rgba(16, 42, 38, 0.95) 100%);
+            box-shadow: 0 0 18px rgba(34, 197, 94, 0.6);
+            transform: translateY(-1px);
+        }
+
+        .hud-btn:active, .hud-btn.active-press {
+            transform: scale(0.94);
+            background: rgba(34, 197, 94, 0.45);
+            box-shadow: 0 0 22px rgba(34, 197, 94, 0.85);
+        }
+
+        .hud-btn-amber {
+            border-color: #f59e0b;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6), 0 0 10px rgba(245, 158, 11, 0.3);
+        }
+
+        .hud-btn-amber:active, .hud-btn-amber.active-press {
+            background: rgba(245, 158, 11, 0.4);
+            box-shadow: 0 0 22px rgba(245, 158, 11, 0.85);
+        }
+
+        /* Radar Sweep Animation */
+        @keyframes radarSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .radar-sweep {
+            background: conic-gradient(from 0deg, rgba(34, 197, 94, 0.45) 0deg, rgba(34, 197, 94, 0.05) 65deg, transparent 90deg);
+            animation: radarSpin 3.2s linear infinite;
+        }
+
+        @keyframes pulseBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.35; }
+        }
+
+        .blink-alert {
+            animation: pulseBlink 0.85s infinite;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <!-- CRT Scanline & Vignette Effects -->
+    <div class="crt-overlay"></div>
+    <div class="vignette"></div>
+
+    <!-- Top Tactical Avionics HUD Bar -->
+    <header class="w-full px-2.5 py-2 sm:px-4 sm:py-2 hud-panel border-t-0 border-x-0 flex flex-wrap items-center justify-between gap-2 z-30 shrink-0">
+        <!-- Left: Callsign, Telemetry & Mission Status -->
+        <div class="flex items-center gap-2">
+            <div class="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-green-500/70 flex items-center justify-center overflow-hidden bg-emerald-950/60 shrink-0">
+                <div class="absolute inset-0 radar-sweep"></div>
+                <div class="w-1.5 h-1.5 rounded-full bg-green-400 z-10"></div>
+            </div>
+            <div>
+                <div class="flex items-center gap-1.5">
+                    <span class="text-[10px] sm:text-xs font-mono-tech px-1.5 py-0.5 bg-green-500/20 border border-green-500/50 text-green-300 rounded">KF-21 BORAMAE</span>
+                    <span id="hud-alert-badge" class="hidden text-[10px] sm:text-xs font-bold px-1.5 py-0.5 bg-red-600/85 text-white rounded blink-alert">경고: 위험 구역</span>
+                </div>
+                <div class="flex items-center gap-2 text-[10px] sm:text-xs font-mono-tech text-cyan-300 mt-0.5">
+                    <span>ALT: <strong id="hud-alt" class="text-green-400">3,500ft</strong></span>
+                    <span class="text-green-600">|</span>
+                    <span>SPD: <strong id="hud-spd" class="text-amber-300">M 0.85</strong></span>
+                    <span class="text-green-600 hidden lg:inline">|</span>
+                    <span class="hidden lg:inline">기류: <strong id="hud-wind" class="text-cyan-200">안정</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center: Distance Progress Bar to Airbase Runway -->
+        <div class="flex-1 min-w-[155px] max-w-sm mx-1 sm:mx-2">
+            <div class="flex justify-between text-[10px] sm:text-xs font-mono-tech mb-1">
+                <span class="text-green-300">작전공역</span>
+                <span id="hud-distance-text" class="text-amber-400 font-bold">활주로까지: 2,500m</span>
+                <span class="text-cyan-300 font-bold">공군기지</span>
+            </div>
+            <div class="w-full h-2.5 sm:h-3 bg-black/80 border border-green-500/50 rounded-full p-0.5 relative overflow-hidden">
+                <div id="hud-progress-bar" class="h-full bg-gradient-to-r from-emerald-500 via-cyan-400 to-amber-400 rounded-full transition-all duration-100" style="width: 0%;"></div>
+            </div>
+        </div>
+
+        <!-- Right: Fuel, Hull, Flare, Gun Heat, Missiles, Kills & Sound Controls -->
+        <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+            <!-- Fuel Gauge -->
+            <div class="bg-black/65 border border-green-500/40 rounded-lg px-2 py-1 min-w-[66px] sm:min-w-[76px]">
+                <div class="flex justify-between items-center text-[9px] sm:text-[10px] text-green-300 font-mono-tech">
+                    <span>FUEL</span>
+                    <span id="hud-fuel-text" class="font-bold text-green-400">100%</span>
+                </div>
+                <div class="w-full h-1.5 bg-gray-900 rounded-full mt-0.5 overflow-hidden">
+                    <div id="hud-fuel-bar" class="h-full bg-green-400 transition-all duration-100" style="width: 100%;"></div>
+                </div>
+            </div>
+
+            <!-- Hull Integrity -->
+            <div class="bg-black/65 border border-green-500/40 rounded-lg px-2 py-1 min-w-[66px] sm:min-w-[76px]">
+                <div class="flex justify-between items-center text-[9px] sm:text-[10px] text-green-300 font-mono-tech">
+                    <span>HULL</span>
+                    <span id="hud-hp-text" class="font-bold text-emerald-400">100%</span>
+                </div>
+                <div class="w-full h-1.5 bg-gray-900 rounded-full mt-0.5 overflow-hidden">
+                    <div id="hud-hp-bar" class="h-full bg-emerald-400 transition-all duration-100" style="width: 100%;"></div>
+                </div>
+            </div>
+
+            <!-- Flare / ECM Readiness Gauge -->
+            <div class="bg-black/65 border border-cyan-500/45 rounded-lg px-2 py-1 min-w-[64px] sm:min-w-[74px]">
+                <div class="flex justify-between items-center text-[9px] sm:text-[10px] text-cyan-300 font-mono-tech">
+                    <span>FLARE</span>
+                    <span id="hud-flare-text" class="font-bold text-cyan-400">READY</span>
+                </div>
+                <div class="w-full h-1.5 bg-gray-900 rounded-full mt-0.5 overflow-hidden">
+                    <div id="hud-flare-bar" class="h-full bg-cyan-400 transition-all duration-75" style="width: 100%;"></div>
+                </div>
+            </div>
+
+            <!-- Vulcan Gun Heat, AIM-9X MSL & KILLS -->
+            <div class="flex items-center gap-1.5 sm:gap-2 bg-black/65 border border-rose-500/45 rounded-lg px-2 py-1">
+                <div class="min-w-[58px] sm:min-w-[66px]">
+                    <div class="flex justify-between items-center text-[9px] sm:text-[10px] text-rose-300 font-mono-tech">
+                        <span>GUN</span>
+                        <span id="hud-gun-text" class="font-bold text-amber-300">0%</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-gray-900 rounded-full mt-0.5 overflow-hidden">
+                        <div id="hud-gun-bar" class="h-full bg-amber-400 transition-all duration-75" style="width: 0%;"></div>
+                    </div>
+                </div>
+                <div class="border-l border-green-500/30 pl-1.5 text-center font-mono-tech">
+                    <div class="text-[9px] text-cyan-300">MSL</div>
+                    <div id="hud-missile-text" class="text-[11px] sm:text-xs font-bold text-amber-300">6발</div>
+                </div>
+                <div class="border-l border-green-500/30 pl-1.5 text-center font-mono-tech">
+                    <div class="text-[9px] text-green-300">KILLS</div>
+                    <div id="hud-kills-text" class="text-[11px] sm:text-xs font-bold text-rose-400">0</div>
+                </div>
+            </div>
+
+            <!-- Sound & Volume Controls -->
+            <div class="flex items-center gap-1.5 bg-black/65 border border-green-500/40 rounded-lg px-2 py-1">
+                <button id="btn-sound" class="hud-btn px-2 py-1 rounded text-green-300 hover:text-white flex items-center gap-1 cursor-pointer" title="음향 효과 켜기/끄기">
+                    <svg id="icon-sound-on" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
+                    </svg>
+                    <svg id="icon-sound-off" class="w-4 h-4 shrink-0 hidden text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path>
+                    </svg>
+                    <span id="sound-status-text" class="hidden md:inline text-[10px] font-mono-tech font-bold">SOUND ON</span>
+                </button>
+                <input id="volume-slider" type="range" min="0" max="100" value="75" class="w-12 sm:w-14 h-1.5 bg-green-950 rounded-lg appearance-none cursor-pointer accent-green-400" title="마스터 볼륨 조절">
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Game Canvas Area -->
+    <main class="relative flex-1 w-full overflow-hidden flex items-center justify-center">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Floating Radio Message Box -->
+        <div id="radio-comms" class="absolute top-3 left-1/2 -translate-x-1/2 hud-panel px-4 py-2 rounded-xl border-amber-500/60 bg-black/85 flex items-center gap-2.5 transition-all duration-300 opacity-0 pointer-events-none z-20 max-w-[92vw]">
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping shrink-0"></span>
+            <span id="radio-text" class="text-xs sm:text-sm font-medium text-amber-200 truncate">중앙방공통제소(MCRC): 전방 산악 협곡 및 대공 레이더 주의!</span>
+        </div>
+
+        <!-- START SCREEN OVERLAY (Mission Briefing) -->
+        <div id="screen-start" class="absolute inset-0 bg-black/82 backdrop-blur-sm flex items-center justify-center p-4 z-30">
+            <div class="hud-panel max-w-lg w-full rounded-2xl p-5 sm:p-7 border-2 border-green-500/70 relative overflow-hidden">
+                <div class="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-green-400"></div>
+                <div class="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-green-400"></div>
+                <div class="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-green-400"></div>
+                <div class="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-green-400"></div>
+
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-mono-tech px-2.5 py-1 rounded bg-green-500/20 text-green-300 border border-green-500/40">TOP SECRET // 작전 지시서</span>
+                    <span class="text-xs font-mono-tech text-amber-400">ROKAF-KF21-OPS</span>
+                </div>
+
+                <h2 class="text-2xl sm:text-3xl font-title text-green-400 tracking-wider mb-1">전술 전투기: 공군기지 복귀 작전</h2>
+                <p class="text-xs sm:text-sm text-cyan-200/85 mb-4">초음속 스텔스 전투기를 조종해 적 방공망을 격파하고 공군기지 활주로에 귀환하십시오!</p>
+
+                <div class="bg-black/65 border border-green-500/30 rounded-xl p-3.5 mb-4 space-y-2 text-xs sm:text-sm">
+                    <div class="flex items-start gap-2">
+                        <span class="text-green-400 font-bold shrink-0">[임무 목표]</span>
+                        <span class="text-gray-200">험준한 산악 협곡, <strong class="text-red-400">적 요격기·지대공 유도 미사일(SAM)·대공포 플랙·기상 기뢰·ECM 재밍</strong>을 돌파해 <strong class="text-amber-400">2,500m 전방의 공군기지 활주로</strong>에 착륙하라!</span>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="text-amber-400 font-bold shrink-0">[공중 보급]</span>
+                        <span class="text-gray-200">공중 투하된 <strong class="text-green-400">FUEL 항공유</strong>, <strong class="text-cyan-400">REPAIR 기체 수리</strong>, <strong class="text-orange-400">AMMO 무장 상자</strong>를 확보해 전투력을 유지하십시오.</span>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="text-cyan-400 font-bold shrink-0">[조종·무장]</span>
+                        <span class="text-gray-200">방향키/WASD 기동, <strong class="text-amber-300">SPACE 애프터버너</strong>, <strong class="text-cyan-300">E/SHIFT 플레어</strong>, <strong class="text-rose-400">F/Z/좌클릭 20mm 발칸포</strong>, <strong class="text-orange-400">C/X/우클릭 사이드와인더</strong>!</span>
+                    </div>
+                </div>
+
+                <button id="btn-start-game" class="w-full py-3.5 px-6 rounded-xl hud-btn text-green-300 hover:text-white font-title text-lg sm:text-xl tracking-wider cursor-pointer flex items-center justify-center gap-2">
+                    <span>▶ 출격 개시 (ENTER / SPACE)</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- GAME OVER OVERLAY -->
+        <div id="screen-gameover" class="hidden absolute inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 z-30">
+            <div class="hud-panel max-w-md w-full rounded-2xl p-6 border-2 border-red-500/80 text-center">
+                <div class="inline-block px-3 py-1 rounded bg-red-500/20 border border-red-500/50 text-red-400 text-xs font-mono-tech mb-2">MAYDAY // 작전 실패</div>
+                <h2 id="gameover-title" class="text-2xl sm:text-3xl font-title text-red-400 mb-2">기체 파손 한계 초과!</h2>
+                <p id="gameover-reason" class="text-xs sm:text-sm text-gray-300 mb-5">적 대공망에 의해 기체가 손상되었습니다.</p>
+
+                <div class="grid grid-cols-3 gap-2.5 bg-black/60 border border-red-500/30 rounded-xl p-3 mb-5 font-mono-tech text-xs">
+                    <div>
+                        <div class="text-gray-400">돌파 거리</div>
+                        <div id="fail-distance" class="text-sm sm:text-base font-bold text-amber-400 mt-0.5">0m</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-400">공중 격추</div>
+                        <div id="fail-kills" class="text-sm sm:text-base font-bold text-rose-400 mt-0.5">0기</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-400">작전 시간</div>
+                        <div id="fail-time" class="text-sm sm:text-base font-bold text-cyan-400 mt-0.5">0.0초</div>
+                    </div>
+                </div>
+
+                <button id="btn-retry-game" class="w-full py-3 px-6 rounded-xl hud-btn border-red-500 text-red-300 hover:text-white font-title text-lg tracking-wider cursor-pointer">
+                    ↺ 긴급 재출격 (ENTER / SPACE)
+                </button>
+            </div>
+        </div>
+
+        <!-- VICTORY / HARDWORKING AIRBASE ENDING OVERLAY -->
+        <div id="screen-ending" class="hidden absolute inset-0 bg-black/88 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 z-30 overflow-y-auto">
+            <div class="hud-panel max-w-2xl w-full rounded-2xl p-4 sm:p-6 border-2 border-amber-400/80 my-auto">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <span class="text-xs font-mono-tech px-2.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/60 text-amber-300">MISSION ACCOMPLISHED // 귀환 성공</span>
+                    <span id="ending-rank-badge" class="text-xs font-bold px-2.5 py-0.5 rounded bg-green-500/20 border border-green-400/60 text-green-300">등급: 최우수 탑건 전술기</span>
+                </div>
+
+                <h2 class="text-xl sm:text-2xl font-title text-amber-400 mb-3">엔딩: 공군기지에서 열일하는 전투기!</h2>
+
+                <!-- Animated Airbase Epilogue Canvas -->
+                <div class="w-full h-44 sm:h-52 bg-slate-950 border border-green-500/50 rounded-xl overflow-hidden mb-3 relative">
+                    <canvas id="endingCanvas"></canvas>
+                </div>
+
+                <!-- 4 Interactive Airbase Duty Tabs -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-3">
+                    <button class="duty-tab px-2.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold bg-green-600 text-white border border-green-300 cursor-pointer" data-duty="0">① 영공 초계 출격</button>
+                    <button class="duty-tab px-2.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold bg-black/80 text-green-300 border border-green-500/50 hover:bg-green-900/60 cursor-pointer" data-duty="1">② 격납고 정비·세차</button>
+                    <button class="duty-tab px-2.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold bg-black/80 text-green-300 border border-green-500/50 hover:bg-green-900/60 cursor-pointer" data-duty="2">③ 국군의 날 에어쇼</button>
+                    <button class="duty-tab px-2.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold bg-black/80 text-green-300 border border-green-500/50 hover:bg-green-900/60 cursor-pointer" data-duty="3">④ 총장 표창장 수여</button>
+                </div>
+
+                <!-- Duty Story Description -->
+                <div class="bg-black/65 border border-green-500/40 rounded-xl p-3 mb-3">
+                    <div id="ending-scene-title" class="text-xs sm:text-sm font-bold text-green-400 mb-1">[임무 01] 24시간 불철주야 영공 초계 비상 출격(스크램블)!</div>
+                    <p id="ending-scene-desc" class="text-xs text-gray-200 leading-relaxed">"스크램블! 비상 발진!" 비상벨이 울리자마자 3분 만에 애프터버너를 점화해 성층권으로 솟구치는 성실한 보라매! 대한민국 영공 방위 이상 무!</p>
+                </div>
+
+                <!-- Final Mission Stats -->
+                <div class="grid grid-cols-4 gap-2 bg-black/50 border border-amber-500/30 rounded-xl p-2.5 mb-4 text-center font-mono-tech text-xs">
+                    <div>
+                        <div class="text-gray-400 text-[10px]">잔여 항공유</div>
+                        <div id="end-stat-fuel" class="font-bold text-green-400">100%</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-400 text-[10px]">공중 격추</div>
+                        <div id="end-stat-kills" class="font-bold text-rose-400">0기</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-400 text-[10px]">비행 기록</div>
+                        <div id="end-stat-time" class="font-bold text-cyan-400">0.0초</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-400 text-[10px]">수여 훈장</div>
+                        <div id="end-stat-medal" class="font-bold text-amber-400">공군참모총장 표창</div>
+                    </div>
+                </div>
+
+                <button id="btn-replay-ending" class="w-full py-3 px-6 rounded-xl hud-btn hud-btn-amber text-amber-300 hover:text-white font-title text-base sm:text-lg tracking-wider cursor-pointer">
+                    ▶ 새 작전 출격하기 (ENTER / SPACE)
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Bottom Tactical Flight Deck & Touch Controls -->
+    <footer class="w-full px-2.5 py-2 sm:px-5 sm:py-2.5 hud-panel border-b-0 border-x-0 flex items-center justify-between gap-2 z-30 shrink-0">
+        <!-- Left: Directional Flight Stick Pad -->
+        <div class="flex items-center gap-1 sm:gap-1.5">
+            <button id="ctrl-left" class="hud-btn w-10 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-green-300 font-bold text-base cursor-pointer" title="감속 / 후진 (A / ←)">◀</button>
+            <div class="flex flex-col gap-1">
+                <button id="ctrl-up" class="hud-btn w-11 h-7 sm:w-14 sm:h-8 rounded-lg flex items-center justify-center text-green-300 font-bold text-xs cursor-pointer" title="기수 상승 (W / ↑)">▲ 상승</button>
+                <button id="ctrl-down" class="hud-btn w-11 h-7 sm:w-14 sm:h-8 rounded-lg flex items-center justify-center text-green-300 font-bold text-xs cursor-pointer" title="기수 하강 (S / ↓)">▼ 하강</button>
+            </div>
+            <button id="ctrl-right" class="hud-btn w-10 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-green-300 font-bold text-base cursor-pointer" title="가속 / 전진 (D / →)">▶</button>
+        </div>
+
+        <!-- Right: Vulcan Cannon, AIM-9X Missile, Flare & Afterburner Action Buttons -->
+        <div class="flex items-center gap-1 sm:gap-2">
+            <button id="ctrl-fire" class="hud-btn px-2 sm:px-3.5 h-11 sm:h-12 rounded-xl flex flex-col items-center justify-center text-rose-300 border-rose-500/80 cursor-pointer">
+                <span class="text-[11px] sm:text-sm font-bold">발칸포</span>
+                <span class="text-[8px] sm:text-[9px] font-mono-tech text-rose-200/80">[F / 좌클릭]</span>
+            </button>
+            <button id="ctrl-missile" class="hud-btn px-2 sm:px-3.5 h-11 sm:h-12 rounded-xl flex flex-col items-center justify-center text-orange-300 border-orange-500/80 cursor-pointer">
+                <span class="text-[11px] sm:text-sm font-bold">미사일</span>
+                <span class="text-[8px] sm:text-[9px] font-mono-tech text-orange-200/80">[C / 우클릭]</span>
+            </button>
+            <button id="ctrl-scan" class="hud-btn px-2 sm:px-3 h-11 sm:h-12 rounded-xl flex flex-col items-center justify-center text-cyan-300 border-cyan-500/70 cursor-pointer">
+                <span class="text-[11px] sm:text-sm font-bold">플레어</span>
+                <span class="text-[8px] sm:text-[9px] font-mono-tech text-cyan-200/80">[E / SHIFT]</span>
+            </button>
+            <button id="ctrl-boost" class="hud-btn hud-btn-amber px-2 sm:px-3.5 h-11 sm:h-12 rounded-xl flex flex-col items-center justify-center text-amber-300 cursor-pointer">
+                <span class="text-[11px] sm:text-sm font-bold">애프터버너</span>
+                <span class="text-[8px] sm:text-[9px] font-mono-tech text-amber-200/80">[SPACE]</span>
+            </button>
+        </div>
+    </footer>
+
+    <script>
+        /**
+         * 전술 전투기: 공군기지 복귀 작전 (TACTICAL FIGHTER: RETURN TO AIRBASE)
+         * Complete Single-File HTML5 Canvas 2D Supersonic Stealth Fighter Game
+         * Features: M61A2 20mm Vulcan Cannon, AIM-9X Sidewinder Missiles, Dual-Spool Turbofan & Sonic Boom Web Audio
+         */
+
+        // ==========================================
+        // 1. REAL-TIME WEB AUDIO API SOUND ENGINE
+        // ==========================================
+        class TacticalJetAudio {
+            constructor() {
+                this.ctx = null;
+                this.masterGain = null;
+                this.enabled = true;
+                this.volume = 0.75;
+                this.initialized = false;
+
+                // Dual-Spool Turbofan Core + Sub-Bass + High-Pressure Exhaust Nodes
+                this.engineRunning = false;
+                this.turbineCoreOsc = null;
+                this.subBassOsc = null;
+                this.compressorOsc = null;
+                this.n1HarmonicOsc = null;
+                this.turbineFilter = null;
+                this.turbineGain = null;
+
+                this.exhaustNoiseNode = null;
+                this.exhaustFilter = null;
+                this.exhaustGain = null;
+
+                this.afterburnerNoiseNode = null;
+                this.afterburnerFilter = null;
+                this.afterburnerGain = null;
+
+                // Warning & Sonic Boom Timers
+                this.lastHazardBeepTime = 0;
+                this.lastRWRTime = 0;
+                this.lastLowAlertTime = 0;
+                this.lastSidewinderToneTime = 0;
+                this.wasBoosting = false;
+                this.sonicBoomPlayedThisBoost = false;
+            }
+
+            async init() {
+                if (!this.initialized) {
+                    try {
+                        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                        this.ctx = new AudioCtx();
+                        this.masterGain = this.ctx.createGain();
+                        this.masterGain.gain.value = this.enabled ? this.volume : 0;
+                        this.masterGain.connect(this.ctx.destination);
+
+                        // Pre-generate pink noise buffer for realistic jet exhaust & explosions
+                        this.noiseBuffer = this.createPinkNoiseBuffer(2.5);
+                        this.initialized = true;
+                    } catch (e) {
+                        console.warn("Web Audio API init failed:", e);
+                    }
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    await this.ctx.resume();
+                }
+            }
+
+            createPinkNoiseBuffer(seconds) {
+                const sampleRate = this.ctx.sampleRate;
+                const length = sampleRate * seconds;
+                const buffer = this.ctx.createBuffer(1, length, sampleRate);
+                const data = buffer.getChannelData(0);
+                let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+                for (let i = 0; i < length; i++) {
+                    const white = Math.random() * 2 - 1;
+                    b0 = 0.99886 * b0 + white * 0.0555179;
+                    b1 = 0.99332 * b1 + white * 0.0750759;
+                    b2 = 0.96900 * b2 + white * 0.1538520;
+                    b3 = 0.86650 * b3 + white * 0.3104856;
+                    b4 = 0.55000 * b4 + white * 0.5329522;
+                    b5 = -0.7616 * b5 - white * 0.0168980;
+                    data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.18;
+                    b6 = white * 0.115926;
+                }
+                return buffer;
+            }
+
+            setVolume(val) {
+                this.volume = Math.max(0, Math.min(1, val));
+                if (this.masterGain && this.ctx) {
+                    this.masterGain.gain.setTargetAtTime(this.enabled ? this.volume : 0, this.ctx.currentTime, 0.03);
+                }
+            }
+
+            toggle() {
+                this.enabled = !this.enabled;
+                const onIcon = document.getElementById('icon-sound-on');
+                const offIcon = document.getElementById('icon-sound-off');
+                const statusText = document.getElementById('sound-status-text');
+
+                if (this.enabled) {
+                    onIcon.classList.remove('hidden');
+                    offIcon.classList.add('hidden');
+                    if (statusText) {
+                        statusText.textContent = 'SOUND ON';
+                        statusText.classList.remove('text-red-400');
+                    }
+                    if (this.masterGain && this.ctx) {
+                        this.masterGain.gain.setTargetAtTime(this.volume, this.ctx.currentTime, 0.03);
+                    }
+                    this.playBeep(980, 0.07, 'triangle', 0.25);
+                } else {
+                    onIcon.classList.add('hidden');
+                    offIcon.classList.add('hidden');
+                    offIcon.classList.remove('hidden');
+                    if (statusText) {
+                        statusText.textContent = 'MUTE';
+                        statusText.classList.add('text-red-400');
+                    }
+                    if (this.masterGain && this.ctx) {
+                        this.masterGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.03);
+                    }
+                }
+            }
+
+            // Dual-Spool Turbofan + Afterburner Jet Engine
+            startJetEngine() {
+                if (!this.initialized || this.engineRunning) return;
+                const now = this.ctx.currentTime;
+
+                this.turbineCoreOsc = this.ctx.createOscillator();
+                this.subBassOsc = this.ctx.createOscillator();
+                this.compressorOsc = this.ctx.createOscillator();
+                this.n1HarmonicOsc = this.ctx.createOscillator();
+
+                this.turbineCoreOsc.type = 'sawtooth';
+                this.subBassOsc.type = 'triangle';
+                this.compressorOsc.type = 'sine';
+                this.n1HarmonicOsc.type = 'triangle';
+
+                this.turbineCoreOsc.frequency.setValueAtTime(58, now);
+                this.subBassOsc.frequency.setValueAtTime(34, now);
+                this.compressorOsc.frequency.setValueAtTime(410, now);
+                this.n1HarmonicOsc.frequency.setValueAtTime(820, now);
+
+                this.turbineFilter = this.ctx.createBiquadFilter();
+                this.turbineFilter.type = 'lowpass';
+                this.turbineFilter.frequency.setValueAtTime(360, now);
+                this.turbineFilter.Q.setValueAtTime(2.6, now);
+
+                this.turbineGain = this.ctx.createGain();
+                this.turbineGain.gain.setValueAtTime(0.01, now);
+
+                this.turbineCoreOsc.frequency.exponentialRampToValueAtTime(106, now + 0.7);
+                this.subBassOsc.frequency.exponentialRampToValueAtTime(53, now + 0.7);
+                this.compressorOsc.frequency.exponentialRampToValueAtTime(750, now + 0.7);
+                this.n1HarmonicOsc.frequency.exponentialRampToValueAtTime(1480, now + 0.7);
+                this.turbineGain.gain.linearRampToValueAtTime(0.15, now + 0.6);
+
+                this.turbineCoreOsc.connect(this.turbineFilter);
+                this.subBassOsc.connect(this.turbineFilter);
+                this.compressorOsc.connect(this.turbineFilter);
+                this.n1HarmonicOsc.connect(this.turbineFilter);
+                this.turbineFilter.connect(this.turbineGain);
+                this.turbineGain.connect(this.masterGain);
+
+                // Continuous High-Pressure Jet Exhaust Roar
+                this.exhaustNoiseNode = this.ctx.createBufferSource();
+                this.exhaustNoiseNode.buffer = this.noiseBuffer;
+                this.exhaustNoiseNode.loop = true;
+
+                this.exhaustFilter = this.ctx.createBiquadFilter();
+                this.exhaustFilter.type = 'bandpass';
+                this.exhaustFilter.frequency.setValueAtTime(380, now);
+                this.exhaustFilter.Q.setValueAtTime(0.8, now);
+
+                this.exhaustGain = this.ctx.createGain();
+                this.exhaustGain.gain.setValueAtTime(0.02, now);
+                this.exhaustGain.gain.linearRampToValueAtTime(0.18, now + 0.6);
+
+                this.exhaustNoiseNode.connect(this.exhaustFilter);
+                this.exhaustFilter.connect(this.exhaustGain);
+                this.exhaustGain.connect(this.masterGain);
+
+                // Afterburner & Supersonic Shockwave Channel
+                this.afterburnerNoiseNode = this.ctx.createBufferSource();
+                this.afterburnerNoiseNode.buffer = this.noiseBuffer;
+                this.afterburnerNoiseNode.loop = true;
+
+                this.afterburnerFilter = this.ctx.createBiquadFilter();
+                this.afterburnerFilter.type = 'lowpass';
+                this.afterburnerFilter.frequency.setValueAtTime(170, now);
+                this.afterburnerFilter.Q.setValueAtTime(1.9, now);
+
+                this.afterburnerGain = this.ctx.createGain();
+                this.afterburnerGain.gain.setValueAtTime(0.001, now);
+
+                this.afterburnerNoiseNode.connect(this.afterburnerFilter);
+                this.afterburnerFilter.connect(this.afterburnerGain);
+                this.afterburnerGain.connect(this.masterGain);
+
+                this.turbineCoreOsc.start(now);
+                this.subBassOsc.start(now);
+                this.compressorOsc.start(now);
+                this.n1HarmonicOsc.start(now);
+                this.exhaustNoiseNode.start(now);
+                this.afterburnerNoiseNode.start(now);
+
+                this.engineRunning = true;
+                this.wasBoosting = false;
+                this.sonicBoomPlayedThisBoost = false;
+            }
+
+            updateJetEngine(speedRatio, altitudeRatio, isBoosting, isJammed, machNumber = 0.85) {
+                if (!this.initialized || !this.engineRunning) return;
+                const now = this.ctx.currentTime;
+
+                if (isBoosting && !this.wasBoosting) {
+                    this.playAfterburnerIgnite();
+                    this.sonicBoomPlayedThisBoost = false;
+                }
+                if (!isBoosting) {
+                    this.sonicBoomPlayedThisBoost = false;
+                }
+                // Supersonic N-wave Sonic Boom when exceeding Mach 1.05
+                if (isBoosting && machNumber >= 1.05 && !this.sonicBoomPlayedThisBoost) {
+                    this.playSonicBoom();
+                    this.sonicBoomPlayedThisBoost = true;
+                }
+                this.wasBoosting = isBoosting;
+
+                const boostThrust = isBoosting ? 64 : 0;
+                const jamFluctuation = isJammed ? Math.sin(now * 44) * 22 : 0;
+                const coreFreq = 104 + speedRatio * 40 + altitudeRatio * 20 + boostThrust + jamFluctuation;
+
+                this.turbineCoreOsc.frequency.setTargetAtTime(coreFreq, now, 0.06);
+                this.subBassOsc.frequency.setTargetAtTime(coreFreq * 0.5, now, 0.06);
+                this.compressorOsc.frequency.setTargetAtTime(coreFreq * 6.9, now, 0.06);
+                this.n1HarmonicOsc.frequency.setTargetAtTime(coreFreq * 13.5, now, 0.06);
+
+                this.turbineFilter.frequency.setTargetAtTime(isBoosting ? 980 : 390 + speedRatio * 230, now, 0.07);
+                this.turbineGain.gain.setTargetAtTime(isBoosting ? 0.22 : 0.13 + speedRatio * 0.04, now, 0.06);
+
+                this.exhaustFilter.frequency.setTargetAtTime(isBoosting ? 860 : 390 + speedRatio * 260, now, 0.07);
+                this.exhaustGain.gain.setTargetAtTime(isBoosting ? 0.30 : 0.16 + speedRatio * 0.05, now, 0.06);
+
+                this.afterburnerFilter.frequency.setTargetAtTime(isBoosting ? 330 : 120, now, 0.05);
+                this.afterburnerGain.gain.setTargetAtTime(isBoosting ? 0.38 : 0.001, now, 0.05);
+            }
+
+            playAfterburnerIgnite() {
+                if (!this.initialized) return;
+                this.playNoiseBurst(0.26, 'lowpass', 310, 0.42, 0);
+                this.playNoiseBurst(0.14, 'bandpass', 1650, 0.20, 0.02);
+            }
+
+            playSonicBoom() {
+                if (!this.initialized) return;
+                this.playNoiseBurst(0.18, 'lowpass', 240, 0.48, 0);
+                this.playNoiseBurst(0.11, 'bandpass', 1850, 0.28, 0.01);
+                this.playNoiseBurst(0.22, 'lowpass', 210, 0.44, 0.085);
+            }
+
+            stopJetEngine(powerDown = false) {
+                if (!this.initialized || !this.engineRunning) return;
+                const now = this.ctx.currentTime;
+
+                if (powerDown) {
+                    this.turbineCoreOsc.frequency.exponentialRampToValueAtTime(22, now + 0.95);
+                    this.subBassOsc.frequency.exponentialRampToValueAtTime(14, now + 0.95);
+                    this.compressorOsc.frequency.exponentialRampToValueAtTime(85, now + 0.95);
+                    this.n1HarmonicOsc.frequency.exponentialRampToValueAtTime(150, now + 0.95);
+                    this.turbineGain.gain.linearRampToValueAtTime(0.0001, now + 1.0);
+                    this.exhaustGain.gain.linearRampToValueAtTime(0.0001, now + 0.85);
+                    this.afterburnerGain.gain.linearRampToValueAtTime(0.0001, now + 0.4);
+                } else {
+                    this.turbineGain.gain.setTargetAtTime(0.0001, now, 0.08);
+                    this.exhaustGain.gain.setTargetAtTime(0.0001, now, 0.08);
+                    this.afterburnerGain.gain.setTargetAtTime(0.0001, now, 0.08);
+                }
+
+                const stopDelay = powerDown ? 1.05 : 0.25;
+                const nodes = [
+                    this.turbineCoreOsc, this.subBassOsc, this.compressorOsc,
+                    this.n1HarmonicOsc, this.exhaustNoiseNode, this.afterburnerNoiseNode
+                ];
+                setTimeout(() => {
+                    nodes.forEach(n => {
+                        try { n.stop(); n.disconnect(); } catch (e) {}
+                    });
+                }, stopDelay * 1000);
+
+                this.engineRunning = false;
+                this.wasBoosting = false;
+                this.sonicBoomPlayedThisBoost = false;
+            }
+
+            playBeep(freq = 720, duration = 0.08, type = 'sine', vol = 0.25, delay = 0) {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime + delay;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, now);
+                gain.gain.setValueAtTime(vol, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start(now);
+                osc.stop(now + duration + 0.01);
+            }
+
+            playNoiseBurst(duration = 0.18, filterType = 'bandpass', freq = 1200, vol = 0.25, delay = 0) {
+                if (!this.initialized || !this.noiseBuffer) return;
+                const now = this.ctx.currentTime + delay;
+                const src = this.ctx.createBufferSource();
+                src.buffer = this.noiseBuffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = filterType;
+                filter.frequency.setValueAtTime(freq, now);
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(vol, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+                src.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.masterGain);
+                src.start(now);
+                src.stop(now + duration + 0.01);
+            }
+
+            playFlareECMDeploy() {
+                if (!this.initialized) return;
+                this.playNoiseBurst(0.08, 'lowpass', 520, 0.34, 0);
+                this.playNoiseBurst(0.28, 'highpass', 2800, 0.26, 0.03);
+                this.playNoiseBurst(0.28, 'highpass', 2600, 0.22, 0.11);
+
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1520, now);
+                osc.frequency.exponentialRampToValueAtTime(920, now + 0.45);
+                gain.gain.setValueAtTime(0.28, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start(now);
+                osc.stop(now + 0.52);
+            }
+
+            playMissileLaunch() {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime;
+                this.playNoiseBurst(0.32, 'bandpass', 1350, 0.28, 0);
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(420, now);
+                osc.frequency.exponentialRampToValueAtTime(1180, now + 0.30);
+                gain.gain.setValueAtTime(0.14, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start(now);
+                osc.stop(now + 0.34);
+            }
+
+            playRWRLock(urgent = false) {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime;
+                const interval = urgent ? 0.28 : 0.48;
+                if (now - this.lastRWRTime < interval) return;
+                this.lastRWRTime = now;
+
+                this.playBeep(1420, 0.05, 'square', 0.18, 0);
+                this.playBeep(1760, 0.05, 'square', 0.18, 0.07);
+                if (urgent) {
+                    this.playBeep(1420, 0.05, 'square', 0.20, 0.14);
+                }
+            }
+
+            playPickup(type = 'FUEL') {
+                if (!this.initialized) return;
+                this.playNoiseBurst(0.05, 'highpass', 2500, 0.12, 0);
+                if (type === 'FUEL') {
+                    this.playBeep(659.25, 0.08, 'triangle', 0.28, 0.03);
+                    this.playBeep(987.77, 0.10, 'triangle', 0.30, 0.10);
+                    this.playBeep(1318.51, 0.14, 'sine', 0.28, 0.18);
+                } else {
+                    this.playBeep(523.25, 0.08, 'square', 0.18, 0.03);
+                    this.playBeep(783.99, 0.08, 'square', 0.18, 0.10);
+                    this.playBeep(1046.50, 0.15, 'triangle', 0.28, 0.17);
+                }
+            }
+
+            playHazardAlert(isJammer = false) {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime;
+                if (now - this.lastHazardBeepTime < 0.45) return;
+                this.lastHazardBeepTime = now;
+
+                if (isJammer) {
+                    this.playNoiseBurst(0.22, 'bandpass', 2100, 0.28, 0);
+                    this.playBeep(330, 0.12, 'sawtooth', 0.16, 0.04);
+                } else {
+                    this.playRWRLock(false);
+                }
+            }
+
+            playLowWarning() {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime;
+                if (now - this.lastLowAlertTime < 1.3) return;
+                this.lastLowAlertTime = now;
+
+                this.playBeep(1180, 0.09, 'square', 0.19, 0);
+                this.playBeep(1180, 0.09, 'square', 0.19, 0.14);
+            }
+
+            playExplosion(volumeScale = 1.0) {
+                if (!this.initialized) return;
+                this.playNoiseBurst(0.36, 'lowpass', 580, 0.48 * volumeScale, 0);
+                this.playNoiseBurst(0.16, 'bandpass', 2200, 0.26 * volumeScale, 0);
+
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(155, now);
+                osc.frequency.exponentialRampToValueAtTime(28, now + 0.36);
+                gain.gain.setValueAtTime(0.42 * volumeScale, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.37);
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start(now);
+                osc.stop(now + 0.38);
+            }
+
+            playVulcanShot() {
+                if (!this.initialized) return;
+                this.playNoiseBurst(0.055, 'bandpass', 1950, 0.25, 0);
+                this.playNoiseBurst(0.035, 'lowpass', 420, 0.24, 0);
+                this.playBeep(240 + Math.random() * 35, 0.045, 'sawtooth', 0.18, 0);
+                if (Math.random() < 0.45) {
+                    this.playBeep(3400 + Math.random() * 600, 0.025, 'sine', 0.06, 0.02);
+                }
+            }
+
+            playGunOverheat() {
+                if (!this.initialized) return;
+                this.playNoiseBurst(0.32, 'highpass', 3100, 0.24, 0);
+                this.playBeep(1560, 0.07, 'square', 0.20, 0);
+                this.playBeep(1240, 0.07, 'square', 0.20, 0.09);
+                this.playBeep(980, 0.11, 'square', 0.20, 0.18);
+            }
+
+            playSidewinderTone(locked = false) {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime;
+                const minGap = locked ? 0.24 : 0.75;
+                if (now - this.lastSidewinderToneTime < minGap) return;
+                this.lastSidewinderToneTime = now;
+
+                if (locked) {
+                    this.playBeep(1880, 0.05, 'sawtooth', 0.13, 0);
+                    this.playBeep(2120, 0.05, 'sawtooth', 0.13, 0.07);
+                } else {
+                    this.playBeep(680, 0.08, 'triangle', 0.07, 0);
+                }
+            }
+
+            playSidewinderLaunch() {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime;
+                this.playNoiseBurst(0.38, 'bandpass', 1550, 0.34, 0);
+                this.playNoiseBurst(0.22, 'lowpass', 360, 0.32, 0);
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(520, now);
+                osc.frequency.exponentialRampToValueAtTime(1480, now + 0.34);
+                gain.gain.setValueAtTime(0.18, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.36);
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start(now);
+                osc.stop(now + 0.38);
+            }
+
+            playVictory() {
+                if (!this.initialized) return;
+                // Runway Touchdown Tire Screech + Reverse Thruster Roar
+                this.playBeep(2450, 0.09, 'sine', 0.18, 0);
+                this.playBeep(2180, 0.11, 'sine', 0.16, 0.07);
+                this.playNoiseBurst(0.55, 'lowpass', 420, 0.36, 0.05);
+
+                // Tower Radio Sign-off
+                this.playNoiseBurst(0.07, 'bandpass', 2200, 0.16, 0.45);
+                this.playBeep(1280, 0.06, 'sine', 0.20, 0.50);
+
+                // Air Force Brass Fanfare Melody
+                const fanfare = [
+                    { f: 523.25, d: 0.13, t: 0.65 },
+                    { f: 523.25, d: 0.13, t: 0.80 },
+                    { f: 523.25, d: 0.13, t: 0.95 },
+                    { f: 659.25, d: 0.26, t: 1.11 },
+                    { f: 587.33, d: 0.14, t: 1.40 },
+                    { f: 659.25, d: 0.14, t: 1.56 },
+                    { f: 783.99, d: 0.34, t: 1.73 },
+                    { f: 1046.50, d: 0.55, t: 2.11 }
+                ];
+                fanfare.forEach(n => {
+                    this.playBeep(n.f, n.d, 'triangle', 0.32, n.t);
+                    this.playBeep(n.f * 0.5, n.d, 'sawtooth', 0.14, n.t);
+                });
+            }
+
+            playEndingDutySfx(dutyIdx) {
+                if (!this.initialized) return;
+                if (dutyIdx === 0) {
+                    const now = this.ctx.currentTime;
+                    this.playNoiseBurst(0.55, 'bandpass', 720, 0.34, 0);
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(140, now);
+                    osc.frequency.exponentialRampToValueAtTime(420, now + 0.22);
+                    osc.frequency.exponentialRampToValueAtTime(95, now + 0.55);
+                    gain.gain.setValueAtTime(0.22, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.56);
+                    osc.connect(gain);
+                    gain.connect(this.masterGain);
+                    osc.start(now);
+                    osc.stop(now + 0.57);
+                } else if (dutyIdx === 1) {
+                    this.playBeep(920, 0.05, 'square', 0.16, 0);
+                    this.playBeep(920, 0.05, 'square', 0.16, 0.08);
+                    this.playNoiseBurst(0.25, 'highpass', 3200, 0.18, 0.16);
+                    this.playBeep(1318.51, 0.18, 'sine', 0.24, 0.35);
+                } else if (dutyIdx === 2) {
+                    this.playNoiseBurst(0.6, 'bandpass', 1250, 0.26, 0);
+                    this.playBeep(659.25, 0.12, 'triangle', 0.24, 0.05);
+                    this.playBeep(880.00, 0.12, 'triangle', 0.24, 0.17);
+                    this.playBeep(1174.66, 0.28, 'triangle', 0.28, 0.29);
+                } else if (dutyIdx === 3) {
+                    this.playNoiseBurst(0.65, 'bandpass', 1400, 0.22, 0);
+                    this.playBeep(587.33, 0.12, 'triangle', 0.28, 0.05);
+                    this.playBeep(739.99, 0.12, 'triangle', 0.28, 0.18);
+                    this.playBeep(880.00, 0.12, 'triangle', 0.28, 0.31);
+                    this.playBeep(1174.66, 0.36, 'triangle', 0.32, 0.44);
+                }
+            }
+        }
+
+        const audio = new TacticalJetAudio();
+
+        // ==========================================
+        // 2. GAME STATE & CONFIGURATION
+        // ==========================================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const endingCanvas = document.getElementById('endingCanvas');
+        const eCtx = endingCanvas.getContext('2d');
+
+        const TARGET_DISTANCE = 2500; // meters to airbase runway
+        const FLARE_MAX_COOLDOWN = 3.2;
+        let gameState = 'START'; // START, PLAYING, GAMEOVER, ENDING
+        let lastTime = 0;
+        let elapsedTime = 0;
+        let distanceTraveled = 0;
+        let worldScrollX = 0;
+        let screenShake = 0;
+        let radarPulseRadius = 0;
+        let radarPulseActive = false;
+        let radarPulseCooldown = 0;
+        let currentMach = 0.85;
+
+        // Jet Stream / Turbulence state
+        let windForceY = 0;
+        let windTimer = 0;
+
+        // Input tracking
+        const keys = {
+            up: false,
+            down: false,
+            left: false,
+            right: false,
+            boost: false,
+            fire: false
+        };
+
+        // Supersonic Stealth Fighter Entity
+        const fighter = {
+            x: 145,
+            y: 220,
+            vx: 0,
+            vy: 0,
+            width: 68,
+            height: 24,
+            pitch: 0,
+            fuel: 100,
+            hp: 100,
+            invulnTimer: 0,
+            jammedTimer: 0,
+            fireCooldown: 0,
+            gunHeat: 0,
+            gunOverheated: false,
+            muzzleFlashTimer: 0,
+            recoilOffset: 0,
+            missiles: 6,
+            missileCooldown: 0,
+            kills: 0
+        };
+
+        // World Entities
+        let terrainTop = [];
+        let terrainBottom = [];
+        let obstacles = [];        // SAM_SITE, FLAK_ZONE, INTERCEPTOR, BALLOON_MINE, SEARCHLIGHT, JAMMER
+        let activeMissiles = [];   // Guided Surface-to-Air Missiles
+        let playerMissiles = [];   // Player AIM-9X Sidewinder Heat-Seeking Missiles
+        let vulcanBullets = [];    // Player M61A2 20mm Vulcan Tracer Rounds
+        let enemyBullets = [];     // Enemy Interceptor Cannon Rounds
+        let hitMarkers = [];       // Tactical 'X' Hit Confirmation Markers
+        let lockedTarget = null;   // Current Fire-Control Radar Lock Target
+        let pickups = [];          // JP-8 Fuel Pods, Repair Kits, Ammo Crates
+        let particles = [];        // Afterburner flames, flares, shell casings, flak smoke, sparks
+
+        // Radio Comms Toast
+        let radioTimeout = null;
+        function showRadioMessage(msg) {
+            const box = document.getElementById('radio-comms');
+            const txt = document.getElementById('radio-text');
+            txt.textContent = msg;
+            box.classList.remove('opacity-0');
+            box.classList.add('opacity-100');
+            clearTimeout(radioTimeout);
+            radioTimeout = setTimeout(() => {
+                box.classList.remove('opacity-100');
+                box.classList.add('opacity-0');
+            }, 3200);
+        }
+
+        // ==========================================
+        // 3. CANVAS RESIZING & RESPONSIVENESS
+        // ==========================================
+        function resizeCanvases() {
+            const mainRect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = mainRect.width;
+            canvas.height = mainRect.height;
+
+            if (endingCanvas && endingCanvas.parentElement) {
+                const endRect = endingCanvas.parentElement.getBoundingClientRect();
+                if (endRect.width > 0 && endRect.height > 0) {
+                    endingCanvas.width = endRect.width;
+                    endingCanvas.height = endRect.height;
+                }
+            }
+
+            if (fighter.y > canvas.height - 40) fighter.y = canvas.height * 0.5;
+            if (fighter.x > canvas.width * 0.6) fighter.x = canvas.width * 0.25;
+        }
+
+        window.addEventListener('resize', resizeCanvases);
+
+        // ==========================================
+        // 4. PROCEDURAL TERRAIN & OBSTACLES
+        // ==========================================
+        function resetGameWorld() {
+            resizeCanvases();
+            elapsedTime = 0;
+            distanceTraveled = 0;
+            worldScrollX = 0;
+            screenShake = 0;
+            windForceY = 0;
+            windTimer = 4;
+            radarPulseActive = false;
+            radarPulseCooldown = 0;
+            currentMach = 0.85;
+
+            fighter.x = Math.min(145, canvas.width * 0.22);
+            fighter.y = canvas.height * 0.45;
+            fighter.vx = 0;
+            fighter.vy = 0;
+            fighter.pitch = 0;
+            fighter.fuel = 100;
+            fighter.hp = 100;
+            fighter.invulnTimer = 0;
+            fighter.jammedTimer = 0;
+            fighter.gunHeat = 0;
+            fighter.gunOverheated = false;
+            fighter.muzzleFlashTimer = 0;
+            fighter.recoilOffset = 0;
+            fighter.missiles = 6;
+            fighter.missileCooldown = 0;
+            fighter.kills = 0;
+
+            terrainTop = [];
+            terrainBottom = [];
+            obstacles = [];
+            activeMissiles = [];
+            playerMissiles = [];
+            vulcanBullets = [];
+            enemyBullets = [];
+            hitMarkers = [];
+            lockedTarget = null;
+            pickups = [];
+            particles = [];
+            fighter.fireCooldown = 0;
+
+            // Generate jagged mountain peaks & safe air corridor
+            const step = 60;
+            const totalSegments = 160;
+            for (let i = 0; i <= totalSegments; i++) {
+                const wx = i * step;
+                const progress = i / totalSegments;
+
+                if (i < 8) {
+                    terrainTop.push({ x: wx, y: 24 });
+                    terrainBottom.push({ x: wx, y: canvas.height - 30 });
+                } else if (i > totalSegments - 11) {
+                    terrainTop.push({ x: wx, y: 18 });
+                    terrainBottom.push({ x: wx, y: canvas.height - 48 });
+                } else {
+                    const difficulty = Math.min(1, progress * 1.3);
+                    const minGap = Math.max(165, canvas.height * (0.50 - difficulty * 0.14));
+
+                    const jaggedTop = (i % 2 === 0 ? 14 : 0) * difficulty;
+                    const jaggedBot = (i % 2 === 1 ? 18 : 0) * difficulty;
+
+                    const topH = 22 + (Math.abs(Math.sin(i * 0.29) * 52 + Math.cos(i * 0.15) * 32) + jaggedTop) * difficulty;
+                    let botH = 32 + (Math.abs(Math.cos(i * 0.24) * 72 + Math.sin(i * 0.19) * 42) + jaggedBot) * difficulty;
+
+                    if (canvas.height - topH - botH < minGap) {
+                        botH = Math.max(30, canvas.height - topH - minGap);
+                    }
+
+                    terrainTop.push({ x: wx, y: topH });
+                    terrainBottom.push({ x: wx, y: canvas.height - botH });
+                }
+            }
+
+            // Populate 6 Diverse Aerial & Anti-Aircraft Obstacles + Supply Pods
+            const coursePixelLength = (totalSegments - 13) * step;
+            for (let wx = 560; wx < coursePixelLength; wx += 280) {
+                const ratio = wx / coursePixelLength;
+                const safeY = getCorridorCenterY(wx);
+                const groundY = getGroundYAt(wx);
+                const ceilingY = getCeilingYAt(wx);
+
+                // Spawn JP-8 Aviation Fuel Pod, Airframe Repair Kit, or AIM-9X Ammo Crate
+                if (Math.random() < 0.82) {
+                    const pRoll = Math.random();
+                    const pType = pRoll < 0.50 ? 'FUEL' : pRoll < 0.76 ? 'REPAIR' : 'AMMO';
+                    pickups.push({
+                        x: wx + 135,
+                        y: safeY + (Math.random() - 0.5) * 90,
+                        type: pType,
+                        collected: false,
+                        bobPhase: Math.random() * Math.PI * 2
+                    });
+                }
+
+                // Balanced rotation across 6 distinct tactical hazards
+                const roll = Math.random();
+                if (roll < 0.20) {
+                    obstacles.push({
+                        type: 'SAM_SITE',
+                        x: wx,
+                        y: groundY,
+                        launched: false,
+                        lockTimer: 0
+                    });
+                } else if (roll < 0.38) {
+                    obstacles.push({
+                        type: 'FLAK_ZONE',
+                        x: wx,
+                        y: safeY + (Math.random() - 0.5) * 75,
+                        cycleTimer: Math.random() * 1.8,
+                        detonated: false,
+                        blastRadius: 46 + ratio * 12
+                    });
+                } else if (roll < 0.56) {
+                    obstacles.push({
+                        type: 'INTERCEPTOR',
+                        x: wx,
+                        baseY: safeY,
+                        y: safeY,
+                        hp: 2,
+                        fireTimer: 0.7 + Math.random() * 0.9,
+                        amp: 48 + Math.random() * 34,
+                        freq: 2.3 + Math.random(),
+                        phase: Math.random() * Math.PI * 2,
+                        speedOffset: 45 + ratio * 35
+                    });
+                } else if (roll < 0.72) {
+                    obstacles.push({
+                        type: 'BALLOON_MINE',
+                        x: wx,
+                        baseY: Math.max(ceilingY + 55, safeY - 35),
+                        y: safeY - 35,
+                        hp: 2,
+                        bobPhase: Math.random() * Math.PI * 2,
+                        radius: 22
+                    });
+                } else if (roll < 0.87) {
+                    obstacles.push({
+                        type: 'SEARCHLIGHT',
+                        x: wx,
+                        y: groundY,
+                        angle: -Math.PI / 2,
+                        sweepSpeed: 1.35 + ratio * 0.75,
+                        sweepPhase: Math.random() * Math.PI * 2,
+                        beamLength: Math.min(265, canvas.height * 0.56)
+                    });
+                } else {
+                    obstacles.push({
+                        type: 'JAMMER',
+                        x: wx,
+                        y: safeY + (Math.random() - 0.5) * 75,
+                        radius: 46 + ratio * 16,
+                        pulsePhase: Math.random() * Math.PI * 2
+                    });
+                }
+            }
+        }
+
+        function getGroundYAt(wx) {
+            const step = 60;
+            const idx = Math.floor(wx / step);
+            if (idx < 0) return canvas.height - 30;
+            if (idx >= terrainBottom.length - 1) return canvas.height - 48;
+            const t = (wx - idx * step) / step;
+            return terrainBottom[idx].y * (1 - t) + terrainBottom[idx + 1].y * t;
+        }
+
+        function getCeilingYAt(wx) {
+            const step = 60;
+            const idx = Math.floor(wx / step);
+            if (idx < 0) return 24;
+            if (idx >= terrainTop.length - 1) return 18;
+            const t = (wx - idx * step) / step;
+            return terrainTop[idx].y * (1 - t) + terrainTop[idx + 1].y * t;
+        }
+
+        function getCorridorCenterY(wx) {
+            return (getCeilingYAt(wx) + getGroundYAt(wx)) * 0.5;
+        }
+
+        // ==========================================
+        // 5. INPUT HANDLING (KEYBOARD + TOUCH/MOUSE)
+        // ==========================================
+        window.addEventListener('keydown', (e) => {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Enter'].includes(e.code)) {
+                e.preventDefault();
+            }
+            if (gameState !== 'PLAYING' && (e.code === 'Enter' || e.code === 'Space')) {
+                startNewMission();
+                return;
+            }
+            if (e.code === 'ArrowUp' || e.code === 'KeyW') keys.up = true;
+            if (e.code === 'ArrowDown' || e.code === 'KeyS') keys.down = true;
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+            if (e.code === 'Space') keys.boost = true;
+            if (e.code === 'KeyF' || e.code === 'KeyZ') keys.fire = true;
+            if (e.code === 'KeyC' || e.code === 'KeyX') {
+                fireSidewinderMissile();
+            }
+            if (e.code === 'KeyE' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+                triggerFlareAndRadarPulse();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'ArrowUp' || e.code === 'KeyW') keys.up = false;
+            if (e.code === 'ArrowDown' || e.code === 'KeyS') keys.down = false;
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+            if (e.code === 'Space') keys.boost = false;
+            if (e.code === 'KeyF' || e.code === 'KeyZ') keys.fire = false;
+        });
+
+        function bindControlButton(id, keyName) {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+
+            const press = (e) => {
+                e.preventDefault();
+                keys[keyName] = true;
+                btn.classList.add('active-press');
+            };
+            const release = (e) => {
+                e.preventDefault();
+                keys[keyName] = false;
+                btn.classList.remove('active-press');
+            };
+
+            btn.addEventListener('mousedown', press);
+            btn.addEventListener('mouseup', release);
+            btn.addEventListener('mouseleave', release);
+            btn.addEventListener('touchstart', press, { passive: false });
+            btn.addEventListener('touchend', release, { passive: false });
+            btn.addEventListener('touchcancel', release, { passive: false });
+        }
+
+        bindControlButton('ctrl-up', 'up');
+        bindControlButton('ctrl-down', 'down');
+        bindControlButton('ctrl-left', 'left');
+        bindControlButton('ctrl-right', 'right');
+        bindControlButton('ctrl-boost', 'boost');
+        bindControlButton('ctrl-fire', 'fire');
+
+        // Canvas Mouse Left-Click (Vulcan Cannon) & Right-Click (AIM-9X Sidewinder Missile)
+        canvas.addEventListener('mousedown', (e) => {
+            if (gameState !== 'PLAYING') return;
+            if (e.button === 0) {
+                keys.fire = true;
+            } else if (e.button === 2) {
+                e.preventDefault();
+                fireSidewinderMissile();
+            }
+        });
+        window.addEventListener('mouseup', (e) => {
+            if (e.button === 0) keys.fire = false;
+        });
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        const missileBtn = document.getElementById('ctrl-missile');
+        if (missileBtn) {
+            missileBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                fireSidewinderMissile();
+            });
+            missileBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                fireSidewinderMissile();
+            }, { passive: false });
+        }
+
+        const scanBtn = document.getElementById('ctrl-scan');
+        scanBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            triggerFlareAndRadarPulse();
+        });
+        scanBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            triggerFlareAndRadarPulse();
+        }, { passive: false });
+
+        function triggerFlareAndRadarPulse() {
+            if (gameState !== 'PLAYING' || radarPulseCooldown > 0) return;
+            radarPulseActive = true;
+            radarPulseRadius = 10;
+            radarPulseCooldown = FLARE_MAX_COOLDOWN;
+            fighter.fuel = Math.max(0, fighter.fuel - 3);
+            audio.playFlareECMDeploy();
+
+            for (let f = 0; f < 10; f++) {
+                particles.push({
+                    type: 'FLARE',
+                    x: fighter.x - 24,
+                    y: fighter.y + 4,
+                    vx: -110 - Math.random() * 140,
+                    vy: 55 + Math.random() * 130,
+                    life: 0.95,
+                    maxLife: 0.95,
+                    color: f % 2 === 0 ? '#fef08a' : '#fb923c',
+                    size: 4.2
+                });
+            }
+
+            let spoofedCount = 0;
+            activeMissiles.forEach(m => {
+                if (!m.spoofed) {
+                    m.spoofed = true;
+                    m.vy += (Math.random() < 0.5 ? -180 : 180);
+                    spoofedCount++;
+                }
+            });
+
+            if (spoofedCount > 0) {
+                showRadioMessage(`플레어 & ECM 기만기 사출! 적 지대공 유도 미사일 ${spoofedCount}발 록온 해제 완료!`);
+            } else {
+                showRadioMessage("플레어 사출 & AESA 전술 레이더 스캔! 전방 보급 및 방공망 식별.");
+            }
+        }
+
+        function findBestAirTarget() {
+            let best = null;
+            let bestScore = Infinity;
+
+            obstacles.forEach(obs => {
+                if (obs.type !== 'INTERCEPTOR' && obs.type !== 'BALLOON_MINE') return;
+                const sx = obs.x - worldScrollX;
+                if (sx > fighter.x + 25 && sx < canvas.width + 60) {
+                    const dx = sx - fighter.x;
+                    const dy = Math.abs(obs.y - fighter.y);
+                    const score = dx * 0.55 + dy * 1.4;
+                    if (score < bestScore) {
+                        bestScore = score;
+                        best = { kind: 'OBSTACLE', ref: obs, x: sx, y: obs.y, label: obs.type === 'INTERCEPTOR' ? '적 요격기' : '기상 기뢰' };
+                    }
+                }
+            });
+
+            activeMissiles.forEach(m => {
+                if (m.x > fighter.x + 20 && m.x < canvas.width + 40) {
+                    const dx = m.x - fighter.x;
+                    const dy = Math.abs(m.y - fighter.y);
+                    const score = dx * 0.5 + dy * 1.3;
+                    if (score < bestScore) {
+                        bestScore = score;
+                        best = { kind: 'MISSILE', ref: m, x: m.x, y: m.y, label: '적 유도탄' };
+                    }
+                }
+            });
+
+            return best;
+        }
+
+        function fireSidewinderMissile() {
+            if (gameState !== 'PLAYING' || fighter.missileCooldown > 0) return;
+            if (fighter.missiles <= 0) {
+                audio.playBeep(360, 0.09, 'square', 0.18, 0);
+                showRadioMessage("무장 경보: AIM-9X 사이드와인더 잔탄 소진! 주황색 [AMMO] 상자를 확보하십시오.");
+                return;
+            }
+
+            fighter.missiles -= 1;
+            fighter.missileCooldown = 0.45;
+            fighter.recoilOffset = 4.5;
+
+            const cosP = Math.cos(fighter.pitch);
+            const sinP = Math.sin(fighter.pitch);
+            const launchX = fighter.x + 8 * cosP;
+            const launchY = fighter.y + 11;
+
+            const target = findBestAirTarget();
+            playerMissiles.push({
+                x: launchX,
+                y: launchY,
+                vx: 540 * cosP,
+                vy: 540 * sinP,
+                target: target,
+                life: 2.6
+            });
+
+            audio.playSidewinderLaunch();
+            showRadioMessage(target
+                ? `FOX-2! AIM-9X 사이드와인더 발사! [${target.label}] 열추적 유도 개시!`
+                : "FOX-2! AIM-9X 사이드와인더 전방 직진 발사!");
+        }
+
+        function registerAirKill(x, y, label, isMissileKill = false) {
+            fighter.kills += 1;
+            fighter.fuel = Math.min(100, fighter.fuel + (isMissileKill ? 8 : 5));
+            fighter.hp = Math.min(100, fighter.hp + 3);
+            screenShake = Math.max(screenShake, isMissileKill ? 8 : 5);
+            audio.playExplosion(isMissileKill ? 0.85 : 0.65);
+
+            hitMarkers.push({ x, y, life: 0.45, maxLife: 0.45 });
+            showRadioMessage(`SPLASH! [${label}] 격추 확인! (누적 ${fighter.kills}기 격추 · 전리품 연료 보충)`);
+
+            const count = isMissileKill ? 22 : 15;
+            for (let s = 0; s < count; s++) {
+                particles.push({
+                    type: 'SPARK',
+                    x,
+                    y,
+                    vx: (Math.random() - 0.5) * 280,
+                    vy: (Math.random() - 0.5) * 280,
+                    life: 0.55,
+                    maxLife: 0.55,
+                    color: s % 3 === 0 ? '#fef08a' : s % 3 === 1 ? '#f97316' : '#ef4444',
+                    size: 3.2 + Math.random() * 2.5
+                });
+            }
+        }
+
+        // ==========================================
+        // 6. GAME LOGIC & SUPERSONIC FLIGHT PHYSICS
+        // ==========================================
+        function updateGame(dt) {
+            if (gameState !== 'PLAYING') return;
+
+            elapsedTime += dt;
+            if (screenShake > 0) screenShake = Math.max(0, screenShake - dt * 25);
+            if (fighter.invulnTimer > 0) fighter.invulnTimer = Math.max(0, fighter.invulnTimer - dt);
+            if (fighter.jammedTimer > 0) fighter.jammedTimer = Math.max(0, fighter.jammedTimer - dt);
+            if (fighter.fireCooldown > 0) fighter.fireCooldown = Math.max(0, fighter.fireCooldown - dt);
+            if (fighter.missileCooldown > 0) fighter.missileCooldown = Math.max(0, fighter.missileCooldown - dt);
+            if (fighter.muzzleFlashTimer > 0) fighter.muzzleFlashTimer = Math.max(0, fighter.muzzleFlashTimer - dt);
+            if (fighter.recoilOffset > 0) fighter.recoilOffset = Math.max(0, fighter.recoilOffset - dt * 32);
+            if (radarPulseCooldown > 0) radarPulseCooldown = Math.max(0, radarPulseCooldown - dt);
+
+            // Fire-Control Target Lock & Sidewinder IR Seeker Tone
+            lockedTarget = findBestAirTarget();
+            if (lockedTarget && fighter.missiles > 0) {
+                audio.playSidewinderTone(true);
+            }
+
+            // Cool down M61A2 Vulcan Barrel Heat
+            const coolRate = fighter.gunOverheated ? 34 : 26;
+            fighter.gunHeat = Math.max(0, fighter.gunHeat - coolRate * dt);
+            if (fighter.gunOverheated && fighter.gunHeat <= 15) {
+                fighter.gunOverheated = false;
+                showRadioMessage("M61A2 발칸포 포신 냉각 완료! 사격 통제 정상 복구.");
+            }
+
+            // Fire M61A2 20mm Vulcan Cannon Rounds from Fighter Nose Gun Port
+            if (keys.fire && !fighter.gunOverheated && fighter.fireCooldown <= 0) {
+                fighter.fireCooldown = 0.062;
+                fighter.muzzleFlashTimer = 0.045;
+                fighter.recoilOffset = 2.6;
+                fighter.gunHeat = Math.min(100, fighter.gunHeat + 5.8);
+
+                if (fighter.gunHeat >= 100) {
+                    fighter.gunOverheated = true;
+                    audio.playGunOverheat();
+                    showRadioMessage("경고: M61A2 발칸포 포신 과열(OVERHEAT)! 냉각 대기 중!");
+                }
+
+                const cosP = Math.cos(fighter.pitch);
+                const sinP = Math.sin(fighter.pitch);
+                const spread = (Math.random() - 0.5) * 0.035;
+                const shotAngle = fighter.pitch + spread;
+                const muzzleX = fighter.x + 38 * cosP;
+                const muzzleY = fighter.y + 38 * sinP + 1;
+
+                vulcanBullets.push({
+                    x: muzzleX,
+                    y: muzzleY,
+                    vx: 840 * Math.cos(shotAngle),
+                    vy: 840 * Math.sin(shotAngle),
+                    life: 1.15
+                });
+
+                particles.push({
+                    type: 'CASING',
+                    x: fighter.x + 4 * cosP,
+                    y: fighter.y + 7,
+                    vx: -65 - Math.random() * 45,
+                    vy: 65 + Math.random() * 55,
+                    life: 0.55,
+                    maxLife: 0.55,
+                    color: '#fbbf24',
+                    size: 2.3
+                });
+
+                audio.playVulcanShot();
+            }
+
+            if (radarPulseActive) {
+                radarPulseRadius += dt * 780;
+                if (radarPulseRadius > Math.max(canvas.width, canvas.height) * 1.1) {
+                    radarPulseActive = false;
+                }
+            }
+
+            // Dynamic Jet Stream / Turbulence
+            windTimer -= dt;
+            if (windTimer <= 0) {
+                windTimer = 5 + Math.random() * 4;
+                const gustRoll = Math.random();
+                if (gustRoll < 0.35) {
+                    windForceY = -55;
+                    showRadioMessage("기상 경보: 상층 제트 기류(상승 난기류) 진입! 조종간을 안정화하십시오.");
+                } else if (gustRoll < 0.70) {
+                    windForceY = 55;
+                    showRadioMessage("기상 경보: 하강 기류(윈드시어) 발생! 기수를 들어 올리십시오.");
+                } else {
+                    windForceY = 0;
+                }
+            }
+
+            // Supersonic Cruise & Afterburner Boost
+            const isBoosting = keys.boost && fighter.fuel > 2;
+            const targetMach = isBoosting ? 1.65 : 0.85;
+            currentMach += (targetMach - currentMach) * 4.2 * dt;
+
+            const baseForwardSpeed = 205;
+            const boostMultiplier = isBoosting ? 1.8 : 1.0;
+            const currentScrollSpeed = baseForwardSpeed * boostMultiplier;
+
+            worldScrollX += currentScrollSpeed * dt;
+            const totalCoursePx = (terrainBottom.length - 11) * 60;
+            distanceTraveled = Math.min(TARGET_DISTANCE, (worldScrollX / totalCoursePx) * TARGET_DISTANCE);
+
+            // Aviation Fuel Consumption
+            const drainRate = isBoosting ? 4.8 : 1.7;
+            fighter.fuel = Math.max(0, fighter.fuel - drainRate * dt);
+
+            if (fighter.fuel <= 0) {
+                triggerGameOver("연료 완전 고갈 (BINGO FUEL)!", "연료가 소진되어 엔진이 정지했습니다. 공중 급유 포드를 확보하십시오.");
+                return;
+            }
+
+            // Fighter Flight Controls
+            const accel = 800;
+            const jamInvert = fighter.jammedTimer > 0 ? -0.65 : 1.0;
+
+            if (keys.up) fighter.vy -= accel * dt * jamInvert;
+            if (keys.down) fighter.vy += accel * dt * jamInvert;
+            if (keys.left) fighter.vx -= accel * 0.85 * dt;
+            if (keys.right) fighter.vx += accel * 0.85 * dt;
+
+            fighter.vy += (24 + windForceY) * dt;
+            fighter.vx *= Math.pow(0.06, dt);
+            fighter.vy *= Math.pow(0.06, dt);
+
+            fighter.x += fighter.vx * dt;
+            fighter.y += fighter.vy * dt;
+
+            // Update Real-time Multi-Stage Turbofan & Sonic Boom Audio
+            const moveSpeedRatio = Math.min(1, Math.hypot(fighter.vx, fighter.vy) / 380);
+            const altRatio = Math.max(0, Math.min(1, 1 - (fighter.y / canvas.height)));
+            audio.updateJetEngine(moveSpeedRatio, altRatio, isBoosting, fighter.jammedTimer > 0, currentMach);
+
+            const minX = 54;
+            const maxX = canvas.width * 0.68;
+            fighter.x = Math.max(minX, Math.min(maxX, fighter.x));
+            fighter.y = Math.max(18, Math.min(canvas.height - 18, fighter.y));
+
+            const targetPitch = Math.max(-0.42, Math.min(0.42, fighter.vy * 0.0014));
+            fighter.pitch += (targetPitch - fighter.pitch) * 12 * dt;
+
+            // Afterburner Exhaust Flame & Shock Diamond Particles
+            const cosP = Math.cos(fighter.pitch);
+            const sinP = Math.sin(fighter.pitch);
+            const nozzleX = fighter.x - 32 * cosP;
+            const nozzleY = fighter.y - 32 * sinP;
+
+            if (Math.random() < (isBoosting ? 0.98 : 0.65)) {
+                particles.push({
+                    type: 'EXHAUST',
+                    x: nozzleX,
+                    y: nozzleY + (Math.random() - 0.5) * 4,
+                    vx: -(isBoosting ? 240 : 140) - Math.random() * 90,
+                    vy: -sinP * 110 + (Math.random() - 0.5) * 18,
+                    life: isBoosting ? 0.34 : 0.24,
+                    maxLife: isBoosting ? 0.34 : 0.24,
+                    color: isBoosting ? (Math.random() < 0.55 ? '#f59e0b' : '#38bdf8') : '#38bdf8',
+                    size: isBoosting ? 5.2 : 2.8
+                });
+            }
+
+            if (isBoosting) {
+                if (Math.random() < 0.75) {
+                    particles.push({
+                        type: 'CONTRAIL',
+                        x: fighter.x - 16 * cosP,
+                        y: fighter.y - 16 * sinP + (Math.random() < 0.5 ? -9 : 9),
+                        vx: -210,
+                        vy: 0,
+                        life: 0.45,
+                        maxLife: 0.45,
+                        color: 'rgba(224, 242, 254, 0.45)',
+                        size: 2.0
+                    });
+                }
+                if (Math.random() < 0.14) {
+                    particles.push({
+                        type: 'VAPOR_CONE',
+                        x: fighter.x + 6 * cosP,
+                        y: fighter.y + 6 * sinP,
+                        vx: -95,
+                        vy: 0,
+                        life: 0.28,
+                        maxLife: 0.28,
+                        color: 'rgba(186, 230, 253, 0.55)',
+                        size: 14
+                    });
+                }
+            }
+
+            if (windForceY !== 0 && Math.random() < 0.35) {
+                particles.push({
+                    type: 'WIND',
+                    x: Math.random() * canvas.width,
+                    y: windForceY > 0 ? 0 : canvas.height,
+                    vx: -220,
+                    vy: windForceY * 3.5,
+                    life: 0.75,
+                    maxLife: 0.75,
+                    color: 'rgba(103, 232, 249, 0.35)',
+                    size: 2
+                });
+            }
+
+            // Update Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                if (p.type === 'VAPOR_CONE') p.size += 55 * dt;
+                if (p.type === 'FLARE') p.vy += 85 * dt;
+                if (p.type === 'CASING') p.vy += 260 * dt;
+                p.life -= dt;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+
+            // Update Hit Confirmation Markers
+            for (let h = hitMarkers.length - 1; h >= 0; h--) {
+                hitMarkers[h].life -= dt;
+                if (hitMarkers[h].life <= 0) hitMarkers.splice(h, 1);
+            }
+
+            // Update Player AIM-9X Sidewinder Heat-Seeking Missiles
+            for (let pm = playerMissiles.length - 1; pm >= 0; pm--) {
+                const sm = playerMissiles[pm];
+                sm.life -= dt;
+
+                if (sm.target) {
+                    let tx = null, ty = null;
+                    if (sm.target.kind === 'OBSTACLE' && obstacles.includes(sm.target.ref)) {
+                        tx = sm.target.ref.x - worldScrollX;
+                        ty = sm.target.ref.y;
+                    } else if (sm.target.kind === 'MISSILE' && activeMissiles.includes(sm.target.ref)) {
+                        tx = sm.target.ref.x;
+                        ty = sm.target.ref.y;
+                    }
+
+                    if (tx !== null && tx > sm.x - 40) {
+                        const desired = Math.atan2(ty - sm.y, tx - sm.x);
+                        const current = Math.atan2(sm.vy, sm.vx);
+                        let diff = desired - current;
+                        while (diff > Math.PI) diff -= Math.PI * 2;
+                        while (diff < -Math.PI) diff += Math.PI * 2;
+                        const maxTurn = 4.6 * dt;
+                        const nextAng = current + Math.max(-maxTurn, Math.min(maxTurn, diff));
+                        const spd = Math.hypot(sm.vx, sm.vy);
+                        sm.vx = Math.cos(nextAng) * spd;
+                        sm.vy = Math.sin(nextAng) * spd;
+                    }
+                }
+
+                sm.x += sm.vx * dt;
+                sm.y += sm.vy * dt;
+
+                if (Math.random() < 0.9) {
+                    particles.push({
+                        type: 'MISSILE_SMOKE',
+                        x: sm.x - 10,
+                        y: sm.y,
+                        vx: -55,
+                        vy: (Math.random() - 0.5) * 14,
+                        life: 0.36,
+                        maxLife: 0.36,
+                        color: 'rgba(224, 242, 254, 0.72)',
+                        size: 3.0
+                    });
+                }
+
+                let impacted = false;
+                for (let o = obstacles.length - 1; o >= 0; o--) {
+                    const obs = obstacles[o];
+                    if (obs.type !== 'INTERCEPTOR' && obs.type !== 'BALLOON_MINE') continue;
+                    const ox = obs.x - worldScrollX;
+                    if (Math.hypot(sm.x - ox, sm.y - obs.y) < 34) {
+                        obstacles.splice(o, 1);
+                        impacted = true;
+                        registerAirKill(ox, obs.y, obs.type === 'INTERCEPTOR' ? '적 요격기 (AIM-9X 명중)' : '기상 기뢰 (AIM-9X 명중)', true);
+                        break;
+                    }
+                }
+
+                if (!impacted) {
+                    for (let m = activeMissiles.length - 1; m >= 0; m--) {
+                        const em = activeMissiles[m];
+                        if (Math.hypot(sm.x - em.x, sm.y - em.y) < 28) {
+                            activeMissiles.splice(m, 1);
+                            impacted = true;
+                            registerAirKill(em.x, em.y, '지대공 유도 미사일 공중 요격', true);
+                            break;
+                        }
+                    }
+                }
+
+                if (impacted || sm.life <= 0 || sm.x > canvas.width + 80 || sm.y < -60 || sm.y > canvas.height + 60) {
+                    playerMissiles.splice(pm, 1);
+                }
+            }
+
+            // Update Vulcan Cannon Bullets
+            for (let b = vulcanBullets.length - 1; b >= 0; b--) {
+                const bullet = vulcanBullets[b];
+                bullet.x += bullet.vx * dt;
+                bullet.y += bullet.vy * dt;
+                bullet.life -= dt;
+
+                let hit = false;
+                for (let o = obstacles.length - 1; o >= 0; o--) {
+                    const obs = obstacles[o];
+                    if (obs.type !== 'INTERCEPTOR' && obs.type !== 'BALLOON_MINE') continue;
+                    const ox = obs.x - worldScrollX;
+                    if (Math.hypot(bullet.x - ox, bullet.y - obs.y) < 28) {
+                        hit = true;
+                        obs.hp = (obs.hp || 1) - 1;
+                        hitMarkers.push({ x: bullet.x, y: bullet.y, life: 0.22, maxLife: 0.22 });
+
+                        if (obs.hp <= 0) {
+                            obstacles.splice(o, 1);
+                            registerAirKill(ox, obs.y, obs.type === 'INTERCEPTOR' ? '적 요격기 (발칸포 격추)' : '고고도 기상 기뢰', false);
+                        } else {
+                            audio.playBeep(1150, 0.04, 'square', 0.16, 0);
+                            for (let s = 0; s < 6; s++) {
+                                particles.push({
+                                    type: 'SPARK',
+                                    x: bullet.x,
+                                    y: bullet.y,
+                                    vx: (Math.random() - 0.5) * 160,
+                                    vy: (Math.random() - 0.5) * 160,
+                                    life: 0.25,
+                                    maxLife: 0.25,
+                                    color: '#fef08a',
+                                    size: 2.6
+                                });
+                            }
+                        }
+                        break;
+                    }
+                }
+
+                if (!hit) {
+                    for (let m = activeMissiles.length - 1; m >= 0; m--) {
+                        const missile = activeMissiles[m];
+                        if (Math.hypot(bullet.x - missile.x, bullet.y - missile.y) < 20) {
+                            activeMissiles.splice(m, 1);
+                            hit = true;
+                            registerAirKill(missile.x, missile.y, '적 유도 미사일 발칸 요격', false);
+                            break;
+                        }
+                    }
+                }
+
+                if (hit || bullet.life <= 0 || bullet.x > canvas.width + 60) {
+                    vulcanBullets.splice(b, 1);
+                }
+            }
+
+            // Update Enemy Interceptor Cannon Rounds
+            for (let eb = enemyBullets.length - 1; eb >= 0; eb--) {
+                const eBullet = enemyBullets[eb];
+                eBullet.x += eBullet.vx * dt;
+                eBullet.y += eBullet.vy * dt;
+                eBullet.life -= dt;
+
+                if (Math.hypot(eBullet.x - fighter.x, eBullet.y - fighter.y) < 20) {
+                    enemyBullets.splice(eb, 1);
+                    damageFighter(14, "적 요격기 23mm 기관포탄에 동체 피격!");
+                    continue;
+                }
+
+                if (eBullet.life <= 0 || eBullet.x < -50) {
+                    enemyBullets.splice(eb, 1);
+                }
+            }
+
+            // Terrain Collision Check
+            const fighterWorldX = worldScrollX + fighter.x;
+            const ceilingY = getCeilingYAt(fighterWorldX);
+            const groundY = getGroundYAt(fighterWorldX);
+
+            if (fighter.y - 11 < ceilingY || fighter.y + 11 > groundY) {
+                damageFighter(34, "산악 암벽 지형에 기체 충돌!");
+                fighter.vy = fighter.y - 11 < ceilingY ? 160 : -160;
+            }
+
+            // Pickups Collision
+            pickups.forEach(item => {
+                if (item.collected) return;
+                item.bobPhase += dt * 4;
+                const screenX = item.x - worldScrollX;
+                const screenY = item.y + Math.sin(item.bobPhase) * 6;
+
+                const dist = Math.hypot(fighter.x - screenX, fighter.y - screenY);
+                if (dist < 38) {
+                    item.collected = true;
+                    audio.playPickup(item.type);
+                    if (item.type === 'FUEL') {
+                        fighter.fuel = Math.min(100, fighter.fuel + 34);
+                        showRadioMessage("공중 급유 완료: JP-8 항공유 +34% 보급!");
+                    } else if (item.type === 'REPAIR') {
+                        fighter.hp = Math.min(100, fighter.hp + 30);
+                        showRadioMessage("긴급 정비 완료: 스텔스 외장 및 기체 내구 +30% 복구!");
+                    } else {
+                        fighter.missiles = Math.min(8, fighter.missiles + 3);
+                        fighter.gunHeat = 0;
+                        fighter.gunOverheated = false;
+                        showRadioMessage("무장 재보급 완료: AIM-9X 사이드와인더 +3발 & 발칸포 냉각!");
+                    }
+                    const sparkCol = item.type === 'FUEL' ? '#4ade80' : item.type === 'REPAIR' ? '#38bdf8' : '#fb923c';
+                    for (let k = 0; k < 12; k++) {
+                        particles.push({
+                            type: 'SPARK',
+                            x: screenX,
+                            y: screenY,
+                            vx: (Math.random() - 0.5) * 180,
+                            vy: (Math.random() - 0.5) * 180,
+                            life: 0.45,
+                            maxLife: 0.45,
+                            color: sparkCol,
+                            size: 3.5
+                        });
+                    }
+                }
+            });
+
+            // Diverse Air Defense Obstacles Update & Collision
+            let anyDanger = false;
+            obstacles.forEach(obs => {
+                const screenX = obs.x - worldScrollX;
+                if (screenX < -280 || screenX > canvas.width + 320) return;
+
+                if (obs.type === 'SAM_SITE') {
+                    if (!obs.launched && screenX < canvas.width * 0.94 && screenX > fighter.x + 140) {
+                        obs.launched = true;
+                        const dx = fighter.x - screenX;
+                        const dy = (fighter.y - 25) - (obs.y - 16);
+                        const dist = Math.max(1, Math.hypot(dx, dy));
+                        const missileSpeed = 355;
+
+                        activeMissiles.push({
+                            x: screenX,
+                            y: obs.y - 18,
+                            vx: (dx / dist) * missileSpeed,
+                            vy: (dy / dist) * missileSpeed,
+                            trackTimer: 1.05,
+                            spoofed: false,
+                            life: 4.5
+                        });
+
+                        audio.playMissileLaunch();
+                        audio.playRWRLock(true);
+                        showRadioMessage("RWR 경보! 지대공 유도 미사일(SAM) 발사 포착! 급기동 또는 [E] 플레어 사출!");
+                    }
+                } else if (obs.type === 'FLAK_ZONE') {
+                    obs.cycleTimer += dt;
+                    if (obs.cycleTimer >= 2.2) {
+                        obs.cycleTimer = 0;
+                        obs.detonated = !obs.detonated;
+                        if (obs.detonated && screenX > -50 && screenX < canvas.width + 50) {
+                            const distToJet = Math.hypot(fighter.x - screenX, fighter.y - obs.y);
+                            if (distToJet < 420) {
+                                audio.playExplosion(0.45);
+                            }
+                            for (let s = 0; s < 14; s++) {
+                                const ang = Math.random() * Math.PI * 2;
+                                const spd = 30 + Math.random() * 85;
+                                particles.push({
+                                    type: 'FLAK_SMOKE',
+                                    x: screenX,
+                                    y: obs.y,
+                                    vx: Math.cos(ang) * spd - 60,
+                                    vy: Math.sin(ang) * spd,
+                                    life: 0.75,
+                                    maxLife: 0.75,
+                                    color: s % 3 === 0 ? '#f97316' : '#334155',
+                                    size: 6 + Math.random() * 6
+                                });
+                            }
+                        }
+                    }
+
+                    if (obs.detonated) {
+                        const dist = Math.hypot(fighter.x - screenX, fighter.y - obs.y);
+                        if (dist < obs.blastRadius + 10) {
+                            damageFighter(24, "대공포(AAA) 플랙 폭발 파편에 피격!");
+                        }
+                    }
+                } else if (obs.type === 'INTERCEPTOR') {
+                    obs.x -= obs.speedOffset * dt;
+                    obs.phase += obs.freq * dt;
+                    obs.y = obs.baseY + Math.sin(obs.phase) * obs.amp;
+
+                    const updatedScreenX = obs.x - worldScrollX;
+                    const dist = Math.hypot(fighter.x - updatedScreenX, fighter.y - obs.y);
+                    if (dist < 320 && updatedScreenX > fighter.x + 80) {
+                        anyDanger = true;
+                        audio.playRWRLock(false);
+
+                        obs.fireTimer -= dt;
+                        if (obs.fireTimer <= 0) {
+                            obs.fireTimer = 1.35 + Math.random() * 0.6;
+                            const aimAngle = Math.atan2(fighter.y - obs.y, fighter.x - updatedScreenX);
+                            enemyBullets.push({
+                                x: updatedScreenX - 24,
+                                y: obs.y,
+                                vx: Math.cos(aimAngle) * 430,
+                                vy: Math.sin(aimAngle) * 430,
+                                life: 2.2
+                            });
+                            audio.playBeep(420, 0.04, 'sawtooth', 0.11, 0);
+                        }
+                    }
+                    if (dist < 32) {
+                        damageFighter(26, "적 요격 편대기와 공중 충돌!");
+                    }
+                } else if (obs.type === 'BALLOON_MINE') {
+                    obs.bobPhase += dt * 2.2;
+                    obs.y = obs.baseY + Math.sin(obs.bobPhase) * 14;
+                    const dist = Math.hypot(fighter.x - screenX, fighter.y - obs.y);
+                    if (dist < obs.radius + 16) {
+                        damageFighter(26, "고고도 기상 기뢰(스파이 풍선) 충돌 폭발!");
+                    }
+                } else if (obs.type === 'SEARCHLIGHT') {
+                    obs.sweepPhase += obs.sweepSpeed * dt;
+                    obs.angle = -Math.PI / 2 + Math.sin(obs.sweepPhase) * 0.65;
+
+                    const dx = fighter.x - screenX;
+                    const dy = fighter.y - obs.y;
+                    const dist = Math.hypot(dx, dy);
+                    if (dist < obs.beamLength) {
+                        const angleToFighter = Math.atan2(dy, dx);
+                        const angleDiff = Math.abs(angleToFighter - obs.angle);
+                        if (angleDiff < 0.14) {
+                            anyDanger = true;
+                            fighter.fuel = Math.max(0, fighter.fuel - 14 * dt);
+                            audio.playHazardAlert(false);
+                            if (Math.random() < 0.08) {
+                                showRadioMessage("RWR 경보! 대공 레이더 탐조등 록온! 회피 기동으로 연료 급속 소모 중!");
+                            }
+                        }
+                    }
+                } else if (obs.type === 'JAMMER') {
+                    obs.pulsePhase += dt * 3;
+                    const dist = Math.hypot(fighter.x - screenX, fighter.y - obs.y);
+                    if (dist < obs.radius + 15) {
+                        anyDanger = true;
+                        fighter.jammedTimer = 0.35;
+                        audio.playHazardAlert(true);
+                        if (Math.random() < 0.06) {
+                            showRadioMessage("주의! 적 전자전(ECM) 재밍 구역 진입! 플라이-바이-와이어 조종 간섭!");
+                        }
+                    }
+                }
+            });
+
+            // Update Active Guided Surface-to-Air Missiles (SAM)
+            for (let i = activeMissiles.length - 1; i >= 0; i--) {
+                const m = activeMissiles[i];
+                m.life -= dt;
+
+                if (!m.spoofed && m.trackTimer > 0 && m.x > fighter.x + 40) {
+                    m.trackTimer -= dt;
+                    const dx = fighter.x - m.x;
+                    const dy = fighter.y - m.y;
+                    const desiredAngle = Math.atan2(dy, dx);
+                    const currentAngle = Math.atan2(m.vy, m.vx);
+                    const turnRate = 1.65 * dt;
+                    let diff = desiredAngle - currentAngle;
+                    while (diff > Math.PI) diff -= Math.PI * 2;
+                    while (diff < -Math.PI) diff += Math.PI * 2;
+                    const newAngle = currentAngle + Math.max(-turnRate, Math.min(turnRate, diff));
+                    const spd = Math.hypot(m.vx, m.vy);
+                    m.vx = Math.cos(newAngle) * spd;
+                    m.vy = Math.sin(newAngle) * spd;
+                }
+
+                m.x += m.vx * dt;
+                m.y += m.vy * dt;
+
+                if (Math.random() < 0.85) {
+                    particles.push({
+                        type: 'MISSILE_SMOKE',
+                        x: m.x,
+                        y: m.y,
+                        vx: -40,
+                        vy: (Math.random() - 0.5) * 15,
+                        life: 0.42,
+                        maxLife: 0.42,
+                        color: m.spoofed ? 'rgba(250, 204, 21, 0.55)' : 'rgba(248, 250, 252, 0.65)',
+                        size: 3.4
+                    });
+                }
+
+                const distToJet = Math.hypot(fighter.x - m.x, fighter.y - m.y);
+                if (!m.spoofed && distToJet < 230) {
+                    anyDanger = true;
+                    audio.playRWRLock(true);
+                }
+
+                if (distToJet < 26) {
+                    activeMissiles.splice(i, 1);
+                    damageFighter(30, "지대공 유도 미사일(SAM) 근접 신관 폭발 피격!");
+                    continue;
+                }
+
+                if (m.life <= 0 || m.x < -80 || m.y < -80 || m.y > canvas.height + 80) {
+                    activeMissiles.splice(i, 1);
+                }
+            }
+
+            // Toggle HUD Alert Badge & Master Caution Warning Beep
+            const alertBadge = document.getElementById('hud-alert-badge');
+            if (anyDanger || fighter.fuel < 25 || fighter.hp < 30) {
+                alertBadge.classList.remove('hidden');
+                if (fighter.fuel < 25 || fighter.hp < 30) {
+                    audio.playLowWarning();
+                }
+            } else {
+                alertBadge.classList.add('hidden');
+            }
+
+            updateHUD();
+
+            if (distanceTraveled >= TARGET_DISTANCE) {
+                triggerAirbaseEnding();
+            }
+        }
+
+        function damageFighter(amount, reasonMsg) {
+            if (fighter.invulnTimer > 0) return;
+            fighter.hp = Math.max(0, fighter.hp - amount);
+            fighter.invulnTimer = 1.1;
+            screenShake = 11;
+            audio.playExplosion(1.0);
+            showRadioMessage(reasonMsg);
+
+            for (let i = 0; i < 16; i++) {
+                particles.push({
+                    type: 'SPARK',
+                    x: fighter.x,
+                    y: fighter.y,
+                    vx: (Math.random() - 0.5) * 240,
+                    vy: (Math.random() - 0.5) * 240,
+                    life: 0.5,
+                    maxLife: 0.5,
+                    color: '#ef4444',
+                    size: 3.8
+                });
+            }
+
+            if (fighter.hp <= 0) {
+                triggerGameOver("기체 파손 한계 초과!", reasonMsg);
+            }
+        }
+
+        function updateHUD() {
+            const remDist = Math.max(0, Math.round(TARGET_DISTANCE - distanceTraveled));
+            const pct = Math.min(100, (distanceTraveled / TARGET_DISTANCE) * 100);
+
+            document.getElementById('hud-distance-text').textContent = `활주로까지: ${remDist.toLocaleString()}m`;
+            document.getElementById('hud-progress-bar').style.width = `${pct}%`;
+
+            const fuel = Math.round(fighter.fuel);
+            const fuelText = document.getElementById('hud-fuel-text');
+            const fuelBar = document.getElementById('hud-fuel-bar');
+            fuelText.textContent = `${fuel}%`;
+            fuelBar.style.width = `${fuel}%`;
+            fuelBar.className = `h-full transition-all duration-100 ${fuel < 25 ? 'bg-red-500' : fuel < 50 ? 'bg-amber-400' : 'bg-green-400'}`;
+
+            const hp = Math.round(fighter.hp);
+            const hpText = document.getElementById('hud-hp-text');
+            const hpBar = document.getElementById('hud-hp-bar');
+            hpText.textContent = `${hp}%`;
+            hpBar.style.width = `${hp}%`;
+            hpBar.className = `h-full transition-all duration-100 ${hp < 30 ? 'bg-red-500' : 'bg-emerald-400'}`;
+
+            // Flare / ECM Gauge
+            const flareText = document.getElementById('hud-flare-text');
+            const flareBar = document.getElementById('hud-flare-bar');
+            if (flareText && flareBar) {
+                const flareReadyPct = Math.round(Math.max(0, Math.min(100, (1 - radarPulseCooldown / FLARE_MAX_COOLDOWN) * 100)));
+                flareText.textContent = flareReadyPct >= 100 ? 'READY' : `${flareReadyPct}%`;
+                flareBar.style.width = `${flareReadyPct}%`;
+                flareBar.className = `h-full transition-all duration-75 ${flareReadyPct >= 100 ? 'bg-cyan-400' : 'bg-amber-400'}`;
+            }
+
+            // Gun Heat, AIM-9X Missiles & Air Kills HUD
+            const gunText = document.getElementById('hud-gun-text');
+            const gunBar = document.getElementById('hud-gun-bar');
+            const missileText = document.getElementById('hud-missile-text');
+            const killsText = document.getElementById('hud-kills-text');
+            if (gunText && gunBar) {
+                const heatPct = Math.round(fighter.gunHeat);
+                gunText.textContent = fighter.gunOverheated ? '과열!' : `${heatPct}%`;
+                gunBar.style.width = `${heatPct}%`;
+                gunBar.className = `h-full transition-all duration-75 ${fighter.gunOverheated || heatPct > 75 ? 'bg-red-500' : 'bg-amber-400'}`;
+            }
+            if (missileText) missileText.textContent = `${fighter.missiles}발`;
+            if (killsText) killsText.textContent = `${fighter.kills}`;
+
+            // Supersonic Telemetry Readouts
+            const altEl = document.getElementById('hud-alt');
+            const spdEl = document.getElementById('hud-spd');
+            const windEl = document.getElementById('hud-wind');
+            if (altEl) {
+                const altFeet = Math.max(150, Math.round((canvas.height - fighter.y) * 8.5));
+                altEl.textContent = `${altFeet.toLocaleString()}ft`;
+                spdEl.textContent = currentMach >= 1.0 ? `M ${currentMach.toFixed(2)}` : `M ${currentMach.toFixed(2)}`;
+                if (windEl) {
+                    windEl.textContent = windForceY < 0 ? '상승 기류 ↑' : windForceY > 0 ? '하강 기류 ↓' : '안정';
+                }
+            }
+        }
+
+        // ==========================================
+        // 7. TACTICAL AVIONICS HUD & WORLD RENDERING
+        // ==========================================
+        function drawGame() {
+            ctx.save();
+            if (screenShake > 0) {
+                const sx = (Math.random() - 0.5) * screenShake;
+                const sy = (Math.random() - 0.5) * screenShake;
+                ctx.translate(sx, sy);
+            }
+
+            // 1. Tactical Night-Sky / Radar Background
+            ctx.fillStyle = '#060d12';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 2. Avionics HUD Grid Lines
+            const gridSize = 55;
+            const offsetX = -(worldScrollX * 0.35) % gridSize;
+            ctx.strokeStyle = 'rgba(34, 197, 94, 0.11)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let x = offsetX; x < canvas.width; x += gridSize) {
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+            }
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+            }
+            ctx.stroke();
+
+            // Distant AESA Radar Range Arcs
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)';
+            ctx.beginPath();
+            ctx.arc(canvas.width * 0.5, canvas.height * 0.5, 165, 0, Math.PI * 2);
+            ctx.arc(canvas.width * 0.5, canvas.height * 0.5, 320, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // 3. Mountain Canyon Terrain
+            drawTerrainLayer();
+
+            // 4. ROKAF Airbase Runway & Hangar at End of Course
+            const baseWorldX = (terrainBottom.length - 8) * 60;
+            const baseScreenX = baseWorldX - worldScrollX;
+            if (baseScreenX < canvas.width + 240) {
+                drawAirbaseRunway(baseScreenX, canvas.height - 48);
+            }
+
+            // 5. Diverse Air Defense Obstacles Rendering
+            obstacles.forEach(obs => {
+                const screenX = obs.x - worldScrollX;
+                if (screenX < -280 || screenX > canvas.width + 320) return;
+
+                if (obs.type === 'SAM_SITE') {
+                    ctx.save();
+                    ctx.translate(screenX, obs.y);
+                    ctx.fillStyle = '#3f2e21';
+                    ctx.strokeStyle = '#ef4444';
+                    ctx.lineWidth = 1.6;
+                    ctx.fillRect(-15, -12, 30, 12);
+                    ctx.strokeRect(-15, -12, 30, 12);
+
+                    ctx.save();
+                    ctx.translate(0, -12);
+                    ctx.rotate(-0.65);
+                    ctx.fillStyle = '#7f1d1d';
+                    ctx.fillRect(-4, -14, 8, 16);
+                    ctx.strokeRect(-4, -14, 8, 16);
+                    ctx.restore();
+
+                    ctx.fillStyle = '#fca5a5';
+                    ctx.font = 'bold 9px "Share Tech Mono"';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('SAM', 0, -24);
+                    ctx.restore();
+                } else if (obs.type === 'FLAK_ZONE') {
+                    ctx.save();
+                    ctx.translate(screenX, obs.y);
+                    if (!obs.detonated) {
+                        const pulse = (obs.cycleTimer / 2.2);
+                        ctx.strokeStyle = `rgba(249, 115, 22, ${0.4 + pulse * 0.6})`;
+                        ctx.lineWidth = 1.8;
+                        ctx.setLineDash([5, 4]);
+                        ctx.beginPath();
+                        ctx.arc(0, 0, obs.blastRadius * (1.25 - pulse * 0.25), 0, Math.PI * 2);
+                        ctx.stroke();
+
+                        ctx.setLineDash([]);
+                        ctx.beginPath();
+                        ctx.moveTo(-12, 0); ctx.lineTo(12, 0);
+                        ctx.moveTo(0, -12); ctx.lineTo(0, 12);
+                        ctx.stroke();
+
+                        ctx.fillStyle = '#fdba74';
+                        ctx.font = 'bold 9px "Noto Sans KR"';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('대공포 조준', 0, -obs.blastRadius - 6);
+                    } else {
+                        const blastGrad = ctx.createRadialGradient(0, 0, 5, 0, 0, obs.blastRadius);
+                        blastGrad.addColorStop(0, 'rgba(251, 146, 60, 0.85)');
+                        blastGrad.addColorStop(0.55, 'rgba(71, 85, 105, 0.72)');
+                        blastGrad.addColorStop(1, 'rgba(15, 23, 42, 0)');
+                        ctx.fillStyle = blastGrad;
+                        ctx.beginPath();
+                        ctx.arc(0, 0, obs.blastRadius, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        ctx.fillStyle = '#fef08a';
+                        ctx.font = 'bold 10px "Noto Sans KR"';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('FLAK 폭발!', 0, 3);
+                    }
+                    ctx.restore();
+                } else if (obs.type === 'INTERCEPTOR') {
+                    ctx.save();
+                    ctx.translate(screenX, obs.y);
+
+                    if (screenX > canvas.width * 0.78) {
+                        ctx.fillStyle = '#ef4444';
+                        ctx.font = 'bold 10px "Noto Sans KR"';
+                        ctx.textAlign = 'right';
+                        ctx.fillText('◀ 적 요격기 접근', -26, 4);
+                    }
+
+                    ctx.fillStyle = '#991b1b';
+                    ctx.strokeStyle = '#fca5a5';
+                    ctx.lineWidth = 1.6;
+                    ctx.beginPath();
+                    ctx.moveTo(-25, 0);
+                    ctx.lineTo(5, -7);
+                    ctx.lineTo(20, -13);
+                    ctx.lineTo(15, 0);
+                    ctx.lineTo(20, 8);
+                    ctx.lineTo(5, 5);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#fef08a';
+                    ctx.beginPath();
+                    ctx.ellipse(-7, -2, 5.5, 2.2, -0.15, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#fb923c';
+                    ctx.beginPath();
+                    ctx.arc(18, 0, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                } else if (obs.type === 'BALLOON_MINE') {
+                    ctx.save();
+                    ctx.translate(screenX, obs.y);
+
+                    ctx.strokeStyle = 'rgba(148, 163, 184, 0.6)';
+                    ctx.lineWidth = 1.2;
+                    ctx.beginPath();
+                    ctx.moveTo(-6, obs.radius - 2);
+                    ctx.lineTo(-9, obs.radius + 22);
+                    ctx.moveTo(6, obs.radius - 2);
+                    ctx.lineTo(9, obs.radius + 22);
+                    ctx.stroke();
+
+                    const bGrad = ctx.createRadialGradient(-6, -6, 3, 0, 0, obs.radius);
+                    bGrad.addColorStop(0, '#cbd5e1');
+                    bGrad.addColorStop(0.7, '#475569');
+                    bGrad.addColorStop(1, '#1e293b');
+                    ctx.fillStyle = bGrad;
+                    ctx.strokeStyle = '#f59e0b';
+                    ctx.lineWidth = 1.6;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, obs.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    const blink = Math.floor(Date.now() / 220) % 2 === 0;
+                    ctx.fillStyle = blink ? '#ef4444' : '#7f1d1d';
+                    ctx.beginPath();
+                    ctx.arc(0, -obs.radius - 3, 3.5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#fde68a';
+                    ctx.font = 'bold 9px "Noto Sans KR"';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('기상 기뢰', 0, -obs.radius - 10);
+                    ctx.restore();
+                } else if (obs.type === 'SEARCHLIGHT') {
+                    ctx.save();
+                    ctx.translate(screenX, obs.y);
+                    const grad = ctx.createRadialGradient(0, 0, 10, 0, 0, obs.beamLength);
+                    grad.addColorStop(0, 'rgba(250, 204, 21, 0.55)');
+                    grad.addColorStop(1, 'rgba(250, 204, 21, 0.0)');
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.arc(0, 0, obs.beamLength, obs.angle - 0.14, obs.angle + 0.14);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.fillStyle = '#334155';
+                    ctx.strokeStyle = '#f59e0b';
+                    ctx.lineWidth = 1.5;
+                    ctx.fillRect(-11, -14, 22, 14);
+                    ctx.strokeRect(-11, -14, 22, 14);
+                    ctx.restore();
+                } else if (obs.type === 'JAMMER') {
+                    const pulse = Math.sin(obs.pulsePhase) * 5;
+                    ctx.save();
+                    ctx.translate(screenX, obs.y);
+                    ctx.fillStyle = 'rgba(239, 68, 68, 0.14)';
+                    ctx.strokeStyle = 'rgba(239, 68, 68, 0.72)';
+                    ctx.setLineDash([6, 4]);
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, obs.radius + pulse, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    ctx.setLineDash([]);
+                    ctx.fillStyle = '#ef4444';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 7, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#fca5a5';
+                    ctx.font = 'bold 10px "Noto Sans KR"';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('ECM 재밍', 0, -12);
+                    ctx.restore();
+                }
+            });
+
+            // 5.5 Render Active Guided Surface-to-Air Missiles (SAM)
+            activeMissiles.forEach(m => {
+                const angle = Math.atan2(m.vy, m.vx);
+                ctx.save();
+                ctx.translate(m.x, m.y);
+                ctx.rotate(angle);
+
+                if (!m.spoofed && m.trackTimer > 0) {
+                    ctx.strokeStyle = 'rgba(239, 68, 68, 0.38)';
+                    ctx.setLineDash([4, 4]);
+                    ctx.lineWidth = 1.2;
+                    ctx.beginPath();
+                    ctx.moveTo(12, 0);
+                    ctx.lineTo(140, 0);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                ctx.fillStyle = m.spoofed ? '#facc15' : '#ef4444';
+                ctx.fillRect(-10, -2.5, 20, 5);
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.moveTo(10, -2.5);
+                ctx.lineTo(15, 0);
+                ctx.lineTo(10, 2.5);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.fillStyle = '#fb923c';
+                ctx.beginPath();
+                ctx.arc(-12, 0, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // 6. Aerial Pickups (JP-8 Fuel Pod, Airframe Repair Kit & AIM-9X Ammo Crate)
+            pickups.forEach(item => {
+                if (item.collected) return;
+                const screenX = item.x - worldScrollX;
+                if (screenX < -50 || screenX > canvas.width + 50) return;
+                const screenY = item.y + Math.sin(item.bobPhase) * 6;
+
+                ctx.save();
+                ctx.translate(screenX, screenY);
+
+                const isFuel = item.type === 'FUEL';
+                const isRepair = item.type === 'REPAIR';
+                const glowColor = isFuel ? 'rgba(34, 197, 94, 0.35)' : isRepair ? 'rgba(56, 189, 248, 0.35)' : 'rgba(251, 146, 60, 0.38)';
+                const mainColor = isFuel ? '#22c55e' : isRepair ? '#38bdf8' : '#fb923c';
+
+                ctx.fillStyle = glowColor;
+                ctx.beginPath();
+                ctx.arc(0, 0, 21, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (isFuel) {
+                    ctx.fillStyle = '#052e16';
+                    ctx.strokeStyle = mainColor;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.roundRect(-14, -8, 28, 16, 8);
+                    ctx.fill();
+                    ctx.stroke();
+                } else {
+                    ctx.fillStyle = isRepair ? '#082f49' : '#431407';
+                    ctx.strokeStyle = mainColor;
+                    ctx.lineWidth = 2;
+                    ctx.fillRect(-12, -11, 24, 22);
+                    ctx.strokeRect(-12, -11, 24, 22);
+                }
+
+                ctx.fillStyle = mainColor;
+                ctx.font = 'bold 10px "Share Tech Mono"';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(isFuel ? 'FUEL' : isRepair ? '+' : 'AMMO', 0, 1);
+
+                ctx.font = 'bold 10px "Noto Sans KR"';
+                ctx.fillText(isFuel ? '항공유' : isRepair ? '기체수리' : '무장보급', 0, -18);
+                ctx.restore();
+            });
+
+            // 6.5 Fire-Control Radar Target Lock Diamond & Guidance Line
+            if (lockedTarget) {
+                ctx.save();
+                const lx = lockedTarget.x;
+                const ly = lockedTarget.y;
+                const pulse = 22 + Math.sin(Date.now() * 0.018) * 3;
+
+                ctx.strokeStyle = 'rgba(251, 146, 60, 0.35)';
+                ctx.setLineDash([5, 5]);
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.moveTo(fighter.x + 36, fighter.y);
+                ctx.lineTo(lx, ly);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                ctx.translate(lx, ly);
+                ctx.strokeStyle = fighter.missiles > 0 ? '#fb923c' : '#22c55e';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, -pulse);
+                ctx.lineTo(pulse, 0);
+                ctx.lineTo(0, pulse);
+                ctx.lineTo(-pulse, 0);
+                ctx.closePath();
+                ctx.stroke();
+
+                ctx.fillStyle = '#fdba74';
+                ctx.font = 'bold 9px "Share Tech Mono"';
+                ctx.textAlign = 'center';
+                ctx.fillText(fighter.missiles > 0 ? 'LOCK [C]' : 'GUN TGT', 0, -pulse - 5);
+                ctx.restore();
+            }
+
+            // 7. Active AESA Radar & Flare Pulse Ring
+            if (radarPulseActive) {
+                ctx.save();
+                ctx.strokeStyle = `rgba(56, 189, 248, ${Math.max(0, 1 - radarPulseRadius / 700)})`;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(fighter.x, fighter.y, radarPulseRadius, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // 8. Particles (Afterburner, Contrails, Flares, Shell Casings, Flak Smoke, Vapor Cones)
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+                if (p.type === 'VAPOR_CONE') {
+                    ctx.strokeStyle = p.color;
+                    ctx.lineWidth = 2.2;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, -Math.PI * 0.42, Math.PI * 0.42);
+                    ctx.stroke();
+                } else if (p.type === 'FLARE') {
+                    ctx.fillStyle = p.color;
+                    ctx.shadowColor = '#f59e0b';
+                    ctx.shadowBlur = 10;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (p.type === 'CASING') {
+                    ctx.fillStyle = p.color;
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate(p.life * 28);
+                    ctx.fillRect(-2.2, -1, 4.4, 2);
+                } else {
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            });
+
+            // 8.5 Player Vulcan 20mm Tracer Rounds, AIM-9X Missiles & Enemy Cannon Rounds
+            vulcanBullets.forEach(b => {
+                ctx.save();
+                ctx.strokeStyle = 'rgba(249, 115, 22, 0.55)';
+                ctx.lineWidth = 4.5;
+                ctx.beginPath();
+                ctx.moveTo(b.x - b.vx * 0.032, b.y - b.vy * 0.032);
+                ctx.lineTo(b.x, b.y);
+                ctx.stroke();
+
+                ctx.strokeStyle = '#fef08a';
+                ctx.lineWidth = 2.0;
+                ctx.beginPath();
+                ctx.moveTo(b.x - b.vx * 0.024, b.y - b.vy * 0.024);
+                ctx.lineTo(b.x, b.y);
+                ctx.stroke();
+                ctx.restore();
+            });
+
+            playerMissiles.forEach(sm => {
+                const angle = Math.atan2(sm.vy, sm.vx);
+                ctx.save();
+                ctx.translate(sm.x, sm.y);
+                ctx.rotate(angle);
+
+                ctx.fillStyle = '#38bdf8';
+                ctx.beginPath();
+                ctx.moveTo(-12, -2.5);
+                ctx.lineTo(-24 - Math.random() * 6, 0);
+                ctx.lineTo(-12, 2.5);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.fillStyle = '#f8fafc';
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 1.2;
+                ctx.fillRect(-12, -2.0, 22, 4.0);
+                ctx.strokeRect(-12, -2.0, 22, 4.0);
+
+                ctx.fillStyle = '#fb923c';
+                ctx.beginPath();
+                ctx.moveTo(10, -2.2);
+                ctx.lineTo(16, 0);
+                ctx.lineTo(10, 2.2);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            });
+
+            enemyBullets.forEach(eb => {
+                ctx.save();
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 2.6;
+                ctx.beginPath();
+                ctx.moveTo(eb.x - eb.vx * 0.03, eb.y - eb.vy * 0.03);
+                ctx.lineTo(eb.x, eb.y);
+                ctx.stroke();
+                ctx.restore();
+            });
+
+            hitMarkers.forEach(hm => {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, hm.life / hm.maxLife);
+                ctx.strokeStyle = '#fef08a';
+                ctx.lineWidth = 2.4;
+                ctx.translate(hm.x, hm.y);
+                ctx.beginPath();
+                ctx.moveTo(-8, -8); ctx.lineTo(8, 8);
+                ctx.moveTo(8, -8); ctx.lineTo(-8, 8);
+                ctx.stroke();
+                ctx.restore();
+            });
+
+            // 9. Player Supersonic Stealth Fighter (KF-21 Boramae)
+            drawStealthFighter();
+
+            ctx.restore();
+        }
+
+        function drawTerrainLayer() {
+            const step = 60;
+            const startIdx = Math.max(0, Math.floor(worldScrollX / step) - 1);
+            const endIdx = Math.min(terrainBottom.length - 1, startIdx + Math.ceil(canvas.width / step) + 3);
+
+            ctx.fillStyle = '#0c1d24';
+            ctx.strokeStyle = '#22c55e';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            for (let i = startIdx; i <= endIdx; i++) {
+                const sx = terrainTop[i].x - worldScrollX;
+                ctx.lineTo(sx, terrainTop[i].y);
+            }
+            ctx.lineTo(canvas.width, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#0d2226';
+            ctx.strokeStyle = '#22c55e';
+            ctx.lineWidth = 2.2;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height);
+            for (let i = startIdx; i <= endIdx; i++) {
+                const sx = terrainBottom[i].x - worldScrollX;
+                ctx.lineTo(sx, terrainBottom[i].y);
+            }
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        function drawAirbaseRunway(x, groundY) {
+            ctx.save();
+            ctx.translate(x, groundY);
+
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2.5;
+            ctx.fillRect(-45, -8, 220, 8);
+            ctx.strokeRect(-45, -8, 220, 8);
+
+            ctx.fillStyle = '#f8fafc';
+            for (let rx = -30; rx < 155; rx += 26) {
+                ctx.fillRect(rx, -5, 14, 2);
+            }
+
+            ctx.fillStyle = '#1e3a2f';
+            ctx.strokeStyle = '#4ade80';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(55, -8, 42, Math.PI, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#0f172a';
+            ctx.strokeStyle = '#38bdf8';
+            ctx.fillRect(115, -62, 18, 54);
+            ctx.strokeRect(115, -62, 18, 54);
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillRect(110, -72, 28, 10);
+
+            ctx.fillStyle = '#f59e0b';
+            ctx.font = 'bold 13px "Noto Sans KR"';
+            ctx.textAlign = 'center';
+            ctx.fillText('★ 공군 제1전투비행단 활주로 ★', 65, -88);
+
+            const blink = Math.floor(Date.now() / 200) % 2 === 0;
+            ctx.fillStyle = blink ? '#f59e0b' : '#38bdf8';
+            ctx.beginPath();
+            ctx.arc(-38, -12, 4, 0, Math.PI * 2);
+            ctx.arc(165, -12, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawStealthFighter() {
+            if (fighter.invulnTimer > 0 && Math.floor(fighter.invulnTimer * 16) % 2 === 0) return;
+
+            const isBoosting = keys.boost && fighter.fuel > 2;
+
+            ctx.save();
+            const recoilX = -Math.cos(fighter.pitch) * fighter.recoilOffset;
+            const recoilY = -Math.sin(fighter.pitch) * fighter.recoilOffset;
+            ctx.translate(fighter.x + recoilX, fighter.y + recoilY);
+            ctx.rotate(fighter.pitch);
+
+            if (fighter.jammedTimer > 0) {
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(-42, -20, 84, 40);
+            }
+
+            // HUD Flight Path Reticle
+            ctx.strokeStyle = 'rgba(34, 197, 94, 0.35)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(0, 0, 40, -0.35, 0.35);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(0, 0, 40, Math.PI - 0.35, Math.PI + 0.35);
+            ctx.stroke();
+
+            // 1. Afterburner Exhaust Flame Cone
+            const flicker = 0.85 + Math.random() * 0.35;
+            const flameLen = (isBoosting ? 46 : 20) * flicker;
+            const flameHeight = isBoosting ? 7.5 : 4.2;
+
+            const flameGrad = ctx.createLinearGradient(-30, 0, -30 - flameLen, 0);
+            flameGrad.addColorStop(0, '#ffffff');
+            flameGrad.addColorStop(0.25, isBoosting ? '#38bdf8' : '#0284c7');
+            flameGrad.addColorStop(0.65, isBoosting ? '#f59e0b' : 'rgba(56, 189, 248, 0.45)');
+            flameGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+
+            ctx.fillStyle = flameGrad;
+            ctx.beginPath();
+            ctx.moveTo(-30, -flameHeight);
+            ctx.lineTo(-30 - flameLen, 0);
+            ctx.lineTo(-30, flameHeight);
+            ctx.closePath();
+            ctx.fill();
+
+            if (isBoosting) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+                for (let d = 10; d < flameLen - 8; d += 12) {
+                    ctx.beginPath();
+                    ctx.moveTo(-30 - d, 0);
+                    ctx.lineTo(-30 - d - 4, -2.5);
+                    ctx.lineTo(-30 - d - 8, 0);
+                    ctx.lineTo(-30 - d - 4, 2.5);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
+
+            // 2. Twin Canted Vertical Stabilizers (Tail Fins)
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = '#4ade80';
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.moveTo(-26, -3);
+            ctx.lineTo(-33, -16);
+            ctx.lineTo(-21, -16);
+            ctx.lineTo(-12, -3);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // 3. Engine Exhaust Nozzle
+            ctx.fillStyle = '#0f172a';
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 1.4;
+            ctx.fillRect(-31, -4.5, 6, 9);
+            ctx.strokeRect(-31, -4.5, 6, 9);
+
+            // 4. Faceted Stealth Fuselage Body (KF-21 Boramae Profile)
+            const bodyGrad = ctx.createLinearGradient(0, -10, 0, 10);
+            bodyGrad.addColorStop(0, '#475569');
+            bodyGrad.addColorStop(0.5, '#334155');
+            bodyGrad.addColorStop(1, '#1e293b');
+
+            ctx.fillStyle = bodyGrad;
+            ctx.strokeStyle = '#4ade80';
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            ctx.moveTo(36, 1);
+            ctx.lineTo(14, -5);
+            ctx.lineTo(-8, -6);
+            ctx.lineTo(-27, -4);
+            ctx.lineTo(-27, 5);
+            ctx.lineTo(8, 6);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // 5. Nose Pitot Tube Needle & M61A2 Vulcan Muzzle Flash
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.moveTo(36, 1);
+            ctx.lineTo(44, 1);
+            ctx.stroke();
+
+            if (fighter.muzzleFlashTimer > 0) {
+                ctx.save();
+                ctx.translate(39, 1);
+                const flashScale = 0.8 + Math.random() * 0.5;
+                ctx.scale(flashScale, flashScale);
+
+                const mGrad = ctx.createRadialGradient(4, 0, 1, 6, 0, 18);
+                mGrad.addColorStop(0, '#ffffff');
+                mGrad.addColorStop(0.4, '#fef08a');
+                mGrad.addColorStop(0.8, 'rgba(249, 115, 22, 0.7)');
+                mGrad.addColorStop(1, 'rgba(249, 115, 22, 0)');
+                ctx.fillStyle = mGrad;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(22, -4);
+                ctx.lineTo(13, 0);
+                ctx.lineTo(22, 4);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.moveTo(4, -10);
+                ctx.lineTo(6, 0);
+                ctx.lineTo(4, 10);
+                ctx.lineTo(2, 0);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // 6. Gold-Tinted Stealth Bubble Canopy
+            const canopyGrad = ctx.createLinearGradient(4, -10, 16, -2);
+            canopyGrad.addColorStop(0, '#fde047');
+            canopyGrad.addColorStop(0.5, '#f59e0b');
+            canopyGrad.addColorStop(1, '#78350f');
+
+            ctx.fillStyle = canopyGrad;
+            ctx.strokeStyle = '#fef08a';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(-2, -5);
+            ctx.quadraticCurveTo(8, -12, 18, -4);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(3, -8);
+            ctx.lineTo(11, -6.5);
+            ctx.stroke();
+
+            // 7. Cropped Delta Main Wing & Wingtip Navigation Strobe
+            ctx.fillStyle = '#273649';
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.moveTo(6, 1);
+            ctx.lineTo(-18, 12);
+            ctx.lineTo(-24, 10);
+            ctx.lineTo(-14, 1);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(-6, 1, 2.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            const navBlink = Math.floor(Date.now() / 180) % 2 === 0;
+            ctx.fillStyle = navBlink ? '#ef4444' : '#22c55e';
+            ctx.beginPath();
+            ctx.arc(-21, 11, 2.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // ==========================================
+        // 8. GAME OVER & HARDWORKING AIRBASE ENDING SCENE
+        // ==========================================
+        function triggerGameOver(title, reason) {
+            gameState = 'GAMEOVER';
+            audio.stopJetEngine(true);
+            document.getElementById('gameover-title').textContent = title;
+            document.getElementById('gameover-reason').textContent = reason;
+            document.getElementById('fail-distance').textContent = `${Math.round(distanceTraveled).toLocaleString()}m`;
+            document.getElementById('fail-kills').textContent = `${fighter.kills}기`;
+            document.getElementById('fail-time').textContent = `${elapsedTime.toFixed(1)}초`;
+            document.getElementById('screen-gameover').classList.remove('hidden');
+        }
+
+        let currentDutyIndex = 0;
+        let endingAnimTime = 0;
+
+        const ENDING_DUTIES = [
+            {
+                title: "[임무 01] 24시간 불철주야 영공 초계 비상 출격(스크램블)!",
+                desc: "\"스크램블! 비상 발진!\" 비상벨이 울리자마자 3분 만에 애프터버너를 점화해 성층권으로 솟구치는 성실한 보라매! 대한민국 영공 방위 이상 무!"
+            },
+            {
+                title: "[임무 02] 격납고 정밀 정비 & 반짝반짝 스텔스 동체 세차!",
+                desc: "비행을 마치고 격납고로 들어와 정비병들과 함께 고압 세척과 레이더 도료 점검을 받는 중! \"오늘도 흠집 하나 없이 완벽합니다, 필승!\""
+            },
+            {
+                title: "[임무 03] 국군의 날 기념 공중 곡예 에어쇼 시범 비행!",
+                desc: "국민들과 장병들을 위해 하늘 높이 솟아올라 화려한 삼색 연막(적·백·청)을 뿜으며 360도 루프 비행을 선보이는 공군 최고의 슈퍼스타!"
+            },
+            {
+                title: "[임무 04] 공군참모총장 특별 표창 & 최우수 탑건 기체 선정!",
+                desc: "투철한 영공 수호 정신과 완벽한 활주로 귀환 실력을 인정받아 레드카펫 위에서 공군참모총장 표창과 탑건 훈장을 수여받았습니다! 필승!"
+            }
+        ];
+
+        function triggerAirbaseEnding() {
+            gameState = 'ENDING';
+            audio.stopJetEngine(false);
+            audio.playVictory();
+
+            const fuelLeft = Math.round(fighter.fuel);
+            let rankLabel = "등급: 모범 전술 전투기";
+            let medalName = "모범 공군기 표창";
+
+            if ((fuelLeft >= 45 || fighter.kills >= 4) && elapsedTime < 48) {
+                rankLabel = "등급: S급 최우수 탑건 전술기";
+                medalName = "공군참모총장 표창";
+            } else if (fuelLeft >= 20 || fighter.kills >= 2) {
+                rankLabel = "등급: A급 우수 영공방위기";
+                medalName = "우수 비행 훈장";
+            }
+
+            document.getElementById('ending-rank-badge').textContent = rankLabel;
+            document.getElementById('end-stat-fuel').textContent = `${fuelLeft}%`;
+            document.getElementById('end-stat-kills').textContent = `${fighter.kills}기`;
+            document.getElementById('end-stat-time').textContent = `${elapsedTime.toFixed(1)}초`;
+            document.getElementById('end-stat-medal').textContent = medalName;
+
+            document.getElementById('screen-ending').classList.remove('hidden');
+            resizeCanvases();
+            selectEndingDuty(0, true);
+        }
+
+        function selectEndingDuty(idx, silent = false) {
+            currentDutyIndex = idx;
+            const duty = ENDING_DUTIES[idx];
+            document.getElementById('ending-scene-title').textContent = duty.title;
+            document.getElementById('ending-scene-desc').textContent = duty.desc;
+
+            document.querySelectorAll('.duty-tab').forEach((btn, i) => {
+                if (i === idx) {
+                    btn.className = "duty-tab px-2.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold bg-green-600 text-white border border-green-300 cursor-pointer";
+                } else {
+                    btn.className = "duty-tab px-2.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold bg-black/80 text-green-300 border border-green-500/50 hover:bg-green-900/60 cursor-pointer";
+                }
+            });
+            if (!silent) {
+                audio.playEndingDutySfx(idx);
+            }
+        }
+
+        document.querySelectorAll('.duty-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.getAttribute('data-duty'), 10);
+                selectEndingDuty(idx);
+            });
+        });
+
+        function drawEndingCutscene(dt) {
+            if (gameState !== 'ENDING') return;
+            endingAnimTime += dt;
+
+            const w = endingCanvas.width;
+            const h = endingCanvas.height;
+            eCtx.clearRect(0, 0, w, h);
+
+            eCtx.fillStyle = currentDutyIndex === 2 ? '#0c2d48' : '#081822';
+            eCtx.fillRect(0, 0, w, h);
+
+            eCtx.fillStyle = '#1e293b';
+            eCtx.fillRect(0, h - 42, w, 42);
+            eCtx.strokeStyle = '#38bdf8';
+            eCtx.lineWidth = 2;
+            eCtx.beginPath();
+            eCtx.moveTo(0, h - 42);
+            eCtx.lineTo(w, h - 42);
+            eCtx.stroke();
+
+            eCtx.fillStyle = '#cbd5e1';
+            for (let rx = 20; rx < w - 20; rx += 40) {
+                eCtx.fillRect(rx, h - 22, 20, 3);
+            }
+
+            eCtx.fillStyle = '#1e3a2f';
+            eCtx.strokeStyle = '#4ade80';
+            eCtx.lineWidth = 1.8;
+            eCtx.beginPath();
+            eCtx.arc(82, h - 42, 54, Math.PI, 0);
+            eCtx.closePath();
+            eCtx.fill();
+            eCtx.stroke();
+            eCtx.fillStyle = '#4ade80';
+            eCtx.font = 'bold 11px "Noto Sans KR"';
+            eCtx.fillText('제1전투비행단 격납고', 32, h - 55);
+
+            let jetX = w * 0.50;
+            let jetY = h - 62;
+            let jetAngle = 0;
+
+            if (currentDutyIndex === 0) {
+                const cycle = (endingAnimTime * 0.55) % 1;
+                jetX = w * 0.25 + cycle * (w * 0.58);
+                jetY = (h - 58) - Math.pow(cycle, 1.5) * (h * 0.55);
+                jetAngle = -0.35 * Math.min(1, cycle * 2);
+
+                eCtx.save();
+                eCtx.translate(jetX, jetY);
+                eCtx.rotate(jetAngle);
+                eCtx.fillStyle = '#f59e0b';
+                eCtx.beginPath();
+                eCtx.moveTo(-32, -5);
+                eCtx.lineTo(-65 - Math.random() * 15, 0);
+                eCtx.lineTo(-32, 5);
+                eCtx.closePath();
+                eCtx.fill();
+                eCtx.restore();
+            } else if (currentDutyIndex === 1) {
+                jetX = w * 0.46;
+                jetY = h - 58;
+                for (let b = 0; b < 6; b++) {
+                    const bx = jetX - 35 + ((endingAnimTime * 35 + b * 23) % 75);
+                    const by = jetY - 10 - Math.abs(Math.sin(endingAnimTime * 3 + b)) * 28;
+                    eCtx.strokeStyle = 'rgba(125, 211, 252, 0.85)';
+                    eCtx.beginPath();
+                    eCtx.arc(bx, by, 4 + (b % 3), 0, Math.PI * 2);
+                    eCtx.stroke();
+                }
+            } else if (currentDutyIndex === 2) {
+                const loopAngle = endingAnimTime * 2.2;
+                jetX = w * 0.50 + Math.cos(loopAngle) * 75;
+                jetY = h * 0.40 + Math.sin(loopAngle) * 42;
+                jetAngle = loopAngle + Math.PI / 2;
+
+                const colors = ['#ef4444', '#ffffff', '#3b82f6'];
+                colors.forEach((col, ci) => {
+                    eCtx.strokeStyle = col;
+                    eCtx.lineWidth = 3;
+                    eCtx.beginPath();
+                    for (let s = 0; s < 14; s++) {
+                        const a = loopAngle - s * 0.08;
+                        const sx = w * 0.50 + Math.cos(a) * (75 + (ci - 1) * 4);
+                        const sy = h * 0.40 + Math.sin(a) * (42 + (ci - 1) * 4);
+                        if (s === 0) eCtx.moveTo(sx, sy);
+                        else eCtx.lineTo(sx, sy);
+                    }
+                    eCtx.stroke();
+                });
+            } else if (currentDutyIndex === 3) {
+                jetX = w * 0.46;
+                jetY = h - 58;
+                eCtx.fillStyle = '#dc2626';
+                eCtx.fillRect(jetX - 55, h - 42, 165, 6);
+
+                eCtx.fillStyle = 'rgba(250, 204, 21, 0.22)';
+                eCtx.beginPath();
+                eCtx.arc(jetX, jetY - 6, 48 + Math.sin(endingAnimTime * 5) * 4, 0, Math.PI * 2);
+                eCtx.fill();
+
+                eCtx.fillStyle = '#facc15';
+                eCtx.beginPath();
+                eCtx.arc(jetX + 6, jetY + 14, 7, 0, Math.PI * 2);
+                eCtx.fill();
+            }
+
+            const crewX = w * 0.78;
+            const crewY = h - 42;
+            eCtx.fillStyle = currentDutyIndex === 1 ? '#0284c7' : '#365314';
+            eCtx.fillRect(crewX - 8, crewY - 28, 16, 28);
+            eCtx.fillStyle = '#fde68a';
+            eCtx.beginPath();
+            eCtx.arc(crewX, crewY - 35, 7, 0, Math.PI * 2);
+            eCtx.fill();
+            eCtx.fillStyle = '#1e293b';
+            eCtx.fillRect(crewX - 8, crewY - 42, 16, 5);
+            eCtx.fillStyle = '#86efac';
+            eCtx.font = 'bold 11px "Noto Sans KR"';
+            eCtx.fillText(currentDutyIndex === 1 ? '광택 작업 완료!' : '필승! 대한민국 영공 수호!', crewX - 56, crewY - 50);
+
+            eCtx.save();
+            eCtx.translate(jetX, jetY);
+            eCtx.rotate(jetAngle);
+
+            if (currentDutyIndex === 1 || currentDutyIndex === 3) {
+                eCtx.strokeStyle = '#94a3b8';
+                eCtx.lineWidth = 2;
+                eCtx.beginPath();
+                eCtx.moveTo(16, 5);
+                eCtx.lineTo(18, 14);
+                eCtx.moveTo(-14, 5);
+                eCtx.lineTo(-14, 14);
+                eCtx.stroke();
+                eCtx.fillStyle = '#0f172a';
+                eCtx.beginPath();
+                eCtx.arc(18, 14, 3.2, 0, Math.PI * 2);
+                eCtx.arc(-14, 14, 3.2, 0, Math.PI * 2);
+                eCtx.fill();
+            }
+
+            eCtx.fillStyle = '#1e293b';
+            eCtx.strokeStyle = '#4ade80';
+            eCtx.lineWidth = 1.6;
+            eCtx.beginPath();
+            eCtx.moveTo(-26, -3);
+            eCtx.lineTo(-33, -16);
+            eCtx.lineTo(-21, -16);
+            eCtx.lineTo(-12, -3);
+            eCtx.closePath();
+            eCtx.fill();
+            eCtx.stroke();
+
+            eCtx.fillStyle = '#334155';
+            eCtx.strokeStyle = '#4ade80';
+            eCtx.lineWidth = 1.8;
+            eCtx.beginPath();
+            eCtx.moveTo(36, 1);
+            eCtx.lineTo(14, -5);
+            eCtx.lineTo(-8, -6);
+            eCtx.lineTo(-27, -4);
+            eCtx.lineTo(-27, 5);
+            eCtx.lineTo(8, 6);
+            eCtx.closePath();
+            eCtx.fill();
+            eCtx.stroke();
+
+            eCtx.fillStyle = '#f59e0b';
+            eCtx.beginPath();
+            eCtx.moveTo(-2, -5);
+            eCtx.quadraticCurveTo(8, -12, 18, -4);
+            eCtx.closePath();
+            eCtx.fill();
+
+            eCtx.strokeStyle = '#fef08a';
+            eCtx.lineWidth = 1.5;
+            eCtx.beginPath();
+            eCtx.moveTo(5, -6);
+            eCtx.lineTo(8, -9);
+            eCtx.lineTo(11, -6);
+            eCtx.stroke();
+
+            eCtx.fillStyle = '#273649';
+            eCtx.strokeStyle = '#38bdf8';
+            eCtx.beginPath();
+            eCtx.moveTo(6, 1);
+            eCtx.lineTo(-18, 12);
+            eCtx.lineTo(-24, 10);
+            eCtx.lineTo(-14, 1);
+            eCtx.closePath();
+            eCtx.fill();
+            eCtx.stroke();
+
+            eCtx.restore();
+        }
+
+        // ==========================================
+        // 9. MAIN ANIMATION LOOP & BUTTON EVENTS
+        // ==========================================
+        function mainLoop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const dt = Math.min(0.05, (timestamp - lastTime) / 1000);
+            lastTime = timestamp;
+
+            if (gameState === 'PLAYING') {
+                updateGame(dt);
+                drawGame();
+            } else if (gameState === 'START') {
+                drawGame();
+            } else if (gameState === 'ENDING') {
+                drawEndingCutscene(dt);
+            }
+
+            requestAnimationFrame(mainLoop);
+        }
+
+        async function startNewMission() {
+            await audio.init();
+            audio.stopJetEngine(false);
+            audio.playBeep(980, 0.08, 'triangle', 0.25);
+            document.getElementById('screen-start').classList.add('hidden');
+            document.getElementById('screen-gameover').classList.add('hidden');
+            document.getElementById('screen-ending').classList.add('hidden');
+            resetGameWorld();
+            gameState = 'PLAYING';
+            audio.startJetEngine();
+            showRadioMessage("관제탑 통신: 스크램블 이륙 완료! 전방 2,500m 공군 제1전투비행단 활주로까지 무사 귀환하십시오!");
+        }
+
+        document.getElementById('btn-start-game').addEventListener('click', startNewMission);
+        document.getElementById('btn-retry-game').addEventListener('click', startNewMission);
+        document.getElementById('btn-replay-ending').addEventListener('click', startNewMission);
+        document.getElementById('btn-sound').addEventListener('click', async () => {
+            await audio.init();
+            audio.toggle();
+        });
+        document.getElementById('volume-slider').addEventListener('input', async (e) => {
+            await audio.init();
+            audio.setVolume(parseInt(e.target.value, 10) / 100);
+        });
+
+        window.onload = function () {
+            resetGameWorld();
+            requestAnimationFrame(mainLoop);
+        };
+    </script>
+</body>
+</html>

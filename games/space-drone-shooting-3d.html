@@ -1,0 +1,1641 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>꼬마 친구들 3D 우주 드론 슈팅 대작전!</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@500;700;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Jua', 'Noto Sans KR', sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #game-wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      max-width: 540px;
+      max-height: 920px;
+      background: #030712;
+      border-radius: 22px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 0 4px rgba(125, 211, 252, 0.25);
+      overflow: hidden;
+    }
+    @media (max-width: 600px) {
+      #game-wrapper {
+        max-width: 100%;
+        max-height: 100%;
+        border-radius: 0;
+        box-shadow: none;
+      }
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .game-btn {
+      background: linear-gradient(180deg, #ffb703 0%, #fb8500 100%);
+      border: 3px solid #ffffff;
+      box-shadow: 0 6px 0 #b45309, 0 10px 20px rgba(0,0,0,0.3);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+    .game-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 0 #b45309, 0 14px 24px rgba(0,0,0,0.35);
+    }
+    .game-btn:active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 #b45309, 0 4px 10px rgba(0,0,0,0.3);
+    }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.72);
+      backdrop-filter: blur(8px);
+      border: 2px solid rgba(255, 255, 255, 0.25);
+    }
+    @keyframes floatAnim {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+    }
+    .floating {
+      animation: floatAnim 2.5s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-wrapper">
+    <!-- 메인 게임 캔버스 -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- 상단 HUD 오버레이 -->
+    <div id="hud" class="hidden absolute top-0 left-0 w-full p-3 sm:p-4 pointer-events-none flex flex-col gap-2 z-10">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <!-- 플레이어 상태 카드 -->
+        <div class="glass-panel rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 text-white flex items-center gap-3 shadow-lg">
+          <div class="flex -space-x-2">
+            <span class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center text-xs sm:text-sm font-bold" title="펭펭이">뽀</span>
+            <span class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-purple-500 border-2 border-white flex items-center justify-center text-xs sm:text-sm font-bold" title="파랑새">패</span>
+            <span class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-green-500 border-2 border-white flex items-center justify-center text-xs sm:text-sm font-bold" title="아기공룡">크</span>
+          </div>
+          <div class="flex flex-col min-w-[140px] sm:min-w-[190px]">
+            <div class="flex justify-between items-center text-xs sm:text-sm mb-1">
+              <span class="text-yellow-300 font-bold">드론 HP</span>
+              <span id="player-hp-text" class="font-bold tracking-wider">1000 / 1000</span>
+            </div>
+            <div class="w-full h-3.5 sm:h-4 bg-slate-800 rounded-full overflow-hidden border border-white/30 p-0.5">
+              <div id="player-hp-bar" class="h-full bg-gradient-to-r from-emerald-400 to-lime-400 rounded-full transition-all duration-150" style="width: 100%;"></div>
+            </div>
+            <div class="flex justify-between items-center text-[11px] sm:text-xs text-sky-200 mt-1">
+              <span>공격력: <strong class="text-amber-300">100</strong></span>
+              <span id="auto-fire-badge" class="bg-amber-500/80 text-white px-1.5 py-0.2 rounded text-[10px]">자동사격 ON</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 웨이브 & 점수 & 컨트롤 버튼 -->
+        <div class="flex items-center gap-2 pointer-events-auto">
+          <div class="glass-panel rounded-2xl px-3 py-2 sm:px-4 sm:py-2 text-white text-right shadow-lg">
+            <div id="wave-label" class="text-xs sm:text-sm text-amber-300">WAVE 1 / 3</div>
+            <div class="text-base sm:text-xl font-bold tracking-wide">점수: <span id="score-text" class="text-white">0</span></div>
+          </div>
+
+          <button id="toggle-autofire-btn" class="glass-panel hover:bg-slate-800/90 text-white rounded-2xl p-2.5 sm:p-3 text-xs sm:text-sm font-bold shadow-lg active:scale-95 transition" title="자동 발사 전환">
+            🔫 자동
+          </button>
+
+          <button id="mute-btn" class="glass-panel hover:bg-slate-800/90 text-white rounded-2xl p-2.5 sm:p-3 text-base sm:text-lg shadow-lg active:scale-95 transition" title="소리 켜기/끄기">
+            🔊
+          </button>
+        </div>
+      </div>
+
+      <!-- 보스 대형 체력바 (보스 등장 시 활성화) -->
+      <div id="boss-hud" class="hidden w-full max-w-2xl mx-auto mt-1 glass-panel rounded-2xl p-2.5 sm:p-3 border-2 border-red-400/70 shadow-2xl">
+        <div class="flex justify-between items-center text-white text-sm sm:text-base mb-1 px-1">
+          <span class="flex items-center gap-2 text-red-300 font-bold">
+            👑 최종 보스 : 거대 큰 고릴라 (공격력 100)
+          </span>
+          <span id="boss-hp-text" class="font-bold text-amber-300">10000 / 10000</span>
+        </div>
+        <div class="w-full h-4 sm:h-5 bg-slate-900 rounded-full overflow-hidden border border-red-300/40 p-0.5">
+          <div id="boss-hp-bar" class="h-full bg-gradient-to-r from-red-600 via-orange-500 to-yellow-400 rounded-full transition-all duration-100" style="width: 100%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 웨이브 알림 배너 -->
+    <div id="wave-banner" class="hidden absolute inset-x-0 top-1/3 pointer-events-none flex justify-center z-20">
+      <div class="glass-panel border-2 border-amber-300 rounded-3xl px-8 py-4 text-center shadow-2xl transform scale-100 transition-all">
+        <div id="wave-banner-sub" class="text-amber-300 text-sm sm:text-lg mb-1">STAGE 1</div>
+        <div id="wave-banner-title" class="text-white text-2xl sm:text-4xl font-bold drop-shadow">고릴라 부대 출현!</div>
+      </div>
+    </div>
+
+    <!-- 시작 화면 오버레이 -->
+    <div id="start-screen" class="absolute inset-0 bg-slate-950/75 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-30 text-center">
+      <div class="bg-slate-900/95 text-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border-4 border-sky-400">
+        <div class="inline-block bg-sky-900/80 text-sky-300 px-4 py-1 rounded-full text-sm sm:text-base mb-2 border border-sky-400/50">
+          🌌 3D 은하계 우주 방어전!
+        </div>
+        <h1 class="text-3xl sm:text-4xl text-white mb-2 leading-tight">
+          꼬마 친구들<br><span class="text-sky-400">3D 우주 드론 슈팅 대작전</span>
+        </h1>
+        <p class="text-slate-300 text-sm sm:text-base mb-5">
+          입체 3D 우주 공간에서 유리 돔 슈퍼 드론을 조종해<br>정면으로 내려오는 고릴라와 킹콩, 거대 우주 고릴라를 물리치세요!
+        </p>
+
+        <!-- 스펙 요약 카드 -->
+        <div class="grid grid-cols-2 gap-2.5 text-left text-xs sm:text-sm mb-6 bg-slate-800/90 p-3.5 rounded-2xl border border-slate-700">
+          <div class="bg-slate-900/90 p-2.5 rounded-xl border border-sky-500/40">
+            <div class="text-sky-400 font-bold mb-0.5">🛸 친구들 우주 드론</div>
+            <div class="text-slate-200">체력: <b>1000</b> / 공격: <b>100</b></div>
+          </div>
+          <div class="bg-slate-900/90 p-2.5 rounded-xl border border-stone-500/40">
+            <div class="text-stone-300 font-bold mb-0.5">🦍 실버백 고릴라</div>
+            <div class="text-slate-300">체력: <b>1000</b> / 공격: <b>30</b></div>
+          </div>
+          <div class="bg-slate-900/90 p-2.5 rounded-xl border border-amber-500/40">
+            <div class="text-amber-400 font-bold mb-0.5">👑 제왕 킹콩 (4배 체력)</div>
+            <div class="text-slate-300">체력: <b>4000</b> / 공격: <b>50</b></div>
+          </div>
+          <div class="bg-slate-900/90 p-2.5 rounded-xl border border-red-500/40">
+            <div class="text-red-400 font-bold mb-0.5">👹 보스 큰 고릴라</div>
+            <div class="text-slate-300">체력: <b>10000</b> / 공격: <b>100</b></div>
+          </div>
+        </div>
+
+        <div class="text-xs sm:text-sm text-sky-200 mb-5 bg-sky-950/80 border border-sky-700/50 py-2 px-3 rounded-xl">
+          🎮 <b>조작법:</b> 방향키 / WASD 이동 · 스페이스바 발사 (터치/마우스 드래그 지원)
+        </div>
+
+        <button id="start-btn" class="game-btn w-full py-3.5 sm:py-4 rounded-2xl text-white text-xl sm:text-2xl tracking-wide cursor-pointer">
+          우주 출격하기! 🚀
+        </button>
+      </div>
+    </div>
+
+    <!-- 게임 종료 (승리 / 패배) 오버레이 -->
+    <div id="end-screen" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-30 text-center">
+      <div class="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border-4 border-amber-400">
+        <div id="end-emoji" class="text-6xl mb-3 floating">🏆</div>
+        <h2 id="end-title" class="text-3xl sm:text-4xl text-sky-400 mb-2">임무 완수!</h2>
+        <p id="end-desc" class="text-slate-300 text-base sm:text-lg mb-5">
+          펭펭이와 친구들이 은하계의 평화를 지켜냈어요!
+        </p>
+
+        <div class="bg-slate-800 rounded-2xl p-4 mb-6 border border-slate-700 flex justify-around">
+          <div>
+            <div class="text-xs text-slate-400">최종 점수</div>
+            <div id="final-score" class="text-2xl text-sky-400 font-bold">0</div>
+          </div>
+          <div class="w-px bg-slate-600"></div>
+          <div>
+            <div class="text-xs text-slate-400">물리친 적</div>
+            <div id="final-kills" class="text-2xl text-emerald-400 font-bold">0마리</div>
+          </div>
+        </div>
+
+        <button id="restart-btn" class="game-btn w-full py-3.5 rounded-2xl text-white text-xl tracking-wide cursor-pointer">
+          다시 플레이하기 🔄
+        </button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/**
+ * ============================================================================
+ * 꼬마 친구들 3D 드론 슈팅 아케이드 게임 (Three.js Single-File Engine)
+ * ============================================================================
+ * [밸런스 스펙]
+ * - 플레이어 드론: HP 1000, ATK 100
+ * - 일반 고릴라: HP 1000, ATK 30
+ * - 중간 보스 킹콩: HP 4000 (고릴라의 4배), ATK 50
+ * - 최종 보스 큰 고릴라: HP 10000, ATK 100
+ */
+
+(() => {
+  // 캔버스 및 DOM 요소 참조
+  const canvas = document.getElementById('gameCanvas');
+  const wrapper = document.getElementById('game-wrapper');
+
+  const hudEl = document.getElementById('hud');
+  const playerHpText = document.getElementById('player-hp-text');
+  const playerHpBar = document.getElementById('player-hp-bar');
+  const waveLabel = document.getElementById('wave-label');
+  const scoreText = document.getElementById('score-text');
+  const bossHud = document.getElementById('boss-hud');
+  const bossHpText = document.getElementById('boss-hp-text');
+  const bossHpBar = document.getElementById('boss-hp-bar');
+
+  const waveBanner = document.getElementById('wave-banner');
+  const waveBannerSub = document.getElementById('wave-banner-sub');
+  const waveBannerTitle = document.getElementById('wave-banner-title');
+
+  const startScreen = document.getElementById('start-screen');
+  const endScreen = document.getElementById('end-screen');
+  const endEmoji = document.getElementById('end-emoji');
+  const endTitle = document.getElementById('end-title');
+  const endDesc = document.getElementById('end-desc');
+  const finalScoreEl = document.getElementById('final-score');
+  const finalKillsEl = document.getElementById('final-kills');
+
+  const startBtn = document.getElementById('start-btn');
+  const restartBtn = document.getElementById('restart-btn');
+  const muteBtn = document.getElementById('mute-btn');
+  const toggleAutofireBtn = document.getElementById('toggle-autofire-btn');
+  const autoFireBadge = document.getElementById('auto-fire-badge');
+
+  // 게임 논리 해상도 (세로형 반응형 스케일링)
+  let width = 520;
+  let height = 840;
+
+  // ============================================================================
+  // Web Audio API 효과음 합성기 (외부 파일 없이 실시간 사운드 생성)
+  // ============================================================================
+  const sfx = {
+    ctx: null,
+    muted: false,
+    init() {
+      if (!this.ctx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) this.ctx = new AudioCtx();
+      }
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume();
+      }
+    },
+    playTone(freq, endFreq, duration, type = 'sine', vol = 0.12) {
+      if (this.muted || !this.ctx) return;
+      try {
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+        if (endFreq) osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), now + duration);
+        gain.gain.setValueAtTime(vol, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + duration);
+      } catch (e) {}
+    },
+    playShoot() {
+      this.playTone(880, 320, 0.09, 'triangle', 0.08);
+    },
+    playHit() {
+      this.playTone(260, 120, 0.07, 'square', 0.07);
+    },
+    playExplosion(big = false) {
+      this.playTone(big ? 140 : 210, 32, big ? 0.55 : 0.28, 'sawtooth', big ? 0.22 : 0.14);
+    },
+    playPlayerHurt() {
+      this.playTone(190, 65, 0.25, 'sawtooth', 0.18);
+    },
+    playVictory() {
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, idx) => {
+        setTimeout(() => this.playTone(f, f * 1.02, 0.22, 'triangle', 0.14), idx * 110);
+      });
+    }
+  };
+
+  // ============================================================================
+  // 게임 상태 및 전역 변수 선언
+  // ============================================================================
+  const GAME_STATE = {
+    START: 'START',
+    PLAYING: 'PLAYING',
+    VICTORY: 'VICTORY',
+    GAMEOVER: 'GAMEOVER'
+  };
+
+  let state = GAME_STATE.START;
+  let score = 0;
+  let kills = 0;
+  let currentWave = 1;
+  let waveQueue = [];
+  let spawnTimer = 0;
+  let waveClearedDelay = 0;
+  let autoFire = true;
+  let screenShake = 0;
+  let animPropeller = 0;
+  let lastTime = 0;
+
+  // 입력 상태 변수
+  const keys = {};
+  let pointerActive = false;
+  const pointerTarget = { x: 260, y: 700 };
+
+  // 플레이어 드론 상태 객체 (체력 1000 / 공격력 100)
+  const player = {
+    x: 260,
+    y: 700,
+    hp: 1000,
+    maxHp: 1000,
+    atk: 100,
+    speed: 440,
+    fireCooldown: 0,
+    fireInterval: 0.18,
+    invulnTimer: 0,
+    tilt: 0,
+    mesh: null,
+    rotors: [],
+    flames: []
+  };
+
+  // 엔티티 배열
+  let playerBullets = [];
+  let enemyBullets = [];
+  let enemies = [];
+  let particles = [];
+  let spaceStars = null;
+  let spacePlanets = [];
+  let spaceGrid = null;
+
+  // ============================================================================
+  // Three.js 3D 씬, 백뷰 원근 카메라, 렌더러 및 우주 공간 초기화
+  // ============================================================================
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x030712, 0.00055);
+
+  const camera = new THREE.PerspectiveCamera(56, width / height, 1, 3000);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setClearColor(0x030712, 1);
+
+  // 입체 조명 설정
+  const ambientLight = new THREE.AmbientLight(0xcbd5e1, 0.85);
+  scene.add(ambientLight);
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.15);
+  dirLight.position.set(180, -240, 420);
+  scene.add(dirLight);
+
+  const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.7);
+  rimLight.position.set(-220, 320, 180);
+  scene.add(rimLight);
+
+  // 논리 2D 좌표(좌상단 0,0)를 Three.js 3D 월드 좌표(중앙 0,0, 위쪽 +Y)로 변환
+  function toWorldX(lx) {
+    return lx - width * 0.5;
+  }
+  function toWorldY(ly) {
+    return height * 0.5 - ly;
+  }
+
+  function resizeCanvas() {
+    const rect = wrapper.getBoundingClientRect();
+    width = Math.max(320, rect.width || 520);
+    height = Math.max(480, rect.height || 840);
+    renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+
+    // 3인칭 백뷰 원근 시점 배치 (드론 뒤쪽 아래에서 전방 우주를 바라봄)
+    camera.position.set(0, -height * 0.68, height * 0.62);
+    camera.up.set(0, 0, 1);
+    camera.lookAt(0, height * 0.16, 25);
+    camera.updateProjectionMatrix();
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+
+  function initBackground() {
+    // 1. 3D 원근 별무리 포인트 클라우드
+    const starCount = 480;
+    const positions = new Float32Array(starCount * 3);
+    const colors = new Float32Array(starCount * 3);
+    const palette = [new THREE.Color(0xffffff), new THREE.Color(0x7dd3fc), new THREE.Color(0xfef08a), new THREE.Color(0xc4b5fd)];
+
+    for (let i = 0; i < starCount; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * 1800;
+      positions[i * 3 + 1] = (Math.random() - 0.3) * 2400;
+      positions[i * 3 + 2] = -260 + Math.random() * 480;
+      const c = palette[i % palette.length];
+      colors[i * 3] = c.r;
+      colors[i * 3 + 1] = c.g;
+      colors[i * 3 + 2] = c.b;
+    }
+
+    const starGeo = new THREE.BufferGeometry();
+    starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    starGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    const starMat = new THREE.PointsMaterial({ size: 4.5, vertexColors: true, transparent: true, opacity: 0.9 });
+    spaceStars = new THREE.Points(starGeo, starMat);
+    scene.add(spaceStars);
+
+    // 2. 입체 홀로그램 우주 그리드 (깊이감 극대화)
+    spaceGrid = new THREE.GridHelper(1800, 28, 0x0284c7, 0x0f172a);
+    spaceGrid.rotation.x = Math.PI * 0.5;
+    spaceGrid.position.set(0, 200, -70);
+    scene.add(spaceGrid);
+
+    // 3. 원거리 3D 행성 & 성운 구체
+    const planet1 = new THREE.Mesh(
+      new THREE.SphereGeometry(68, 24, 24),
+      new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.6, metalness: 0.2 })
+    );
+    const ring1 = new THREE.Mesh(
+      new THREE.RingGeometry(86, 118, 32),
+      new THREE.MeshBasicMaterial({ color: 0x93c5fd, side: THREE.DoubleSide, transparent: true, opacity: 0.45 })
+    );
+    ring1.rotation.x = 0.9;
+    ring1.rotation.y = 0.3;
+    planet1.add(ring1);
+    planet1.position.set(-290, 620, -140);
+    scene.add(planet1);
+
+    const planet2 = new THREE.Mesh(
+      new THREE.SphereGeometry(48, 20, 20),
+      new THREE.MeshStandardMaterial({ color: 0xa855f7, roughness: 0.7 })
+    );
+    planet2.position.set(310, 880, -160);
+    scene.add(planet2);
+
+    spacePlanets = [planet1, planet2];
+  }
+
+  function updateBackground(dt) {
+    if (spaceStars) {
+      const pos = spaceStars.geometry.attributes.position.array;
+      for (let i = 0; i < pos.length; i += 3) {
+        pos[i + 1] -= 190 * dt;
+        if (pos[i + 1] < -700) {
+          pos[i + 1] = 1700;
+        }
+      }
+      spaceStars.geometry.attributes.position.needsUpdate = true;
+    }
+    if (spaceGrid) {
+      spaceGrid.position.y -= 140 * dt;
+      if (spaceGrid.position.y < -120) spaceGrid.position.y += 128.5;
+    }
+    spacePlanets.forEach((p, idx) => {
+      p.rotation.z += dt * (idx === 0 ? 0.15 : -0.22);
+    });
+  }
+
+  // ============================================================================
+  // 3D 펭펭이·파랑새·아기공룡 쿼드콥터 슈퍼 드론 모델링 (실제 4축 드론 디자인)
+  // ============================================================================
+  function createPororoDrone3D() {
+    const group = new THREE.Group();
+    const rotors = [];
+
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3, metalness: 0.35 });
+    const accentBlueMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.35, metalness: 0.25 });
+    const carbonMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5, metalness: 0.6 });
+    const guardMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.3, metalness: 0.4 });
+    const bladeMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
+
+    // 1. 중앙 드론 섀시 바디 & 전방 듀얼 기관포
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(36, 48, 12), bodyMat);
+    chassis.position.set(0, 0, 2);
+    const noseCap = new THREE.Mesh(new THREE.CylinderGeometry(10, 16, 16, 14), accentBlueMat);
+    noseCap.position.set(0, 26, 2);
+    group.add(chassis, noseCap);
+
+    [-12, 12].forEach(gx => {
+      const gunBarrel = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.8, 22, 10), carbonMat);
+      gunBarrel.position.set(gx, 32, 2);
+      const gunMuzzle = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 4, 10), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+      gunMuzzle.position.set(gx, 43, 2);
+      group.add(gunBarrel, gunMuzzle);
+    });
+
+    // 2. 하단 착륙용 랜딩 스키드
+    [-16, 16].forEach(sx => {
+      const skid = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 42, 8), carbonMat);
+      skid.position.set(sx, 0, -10);
+      const strut1 = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 11, 8), carbonMat);
+      strut1.rotation.x = Math.PI * 0.5;
+      strut1.position.set(sx, 12, -5);
+      const strut2 = strut1.clone();
+      strut2.position.set(sx, -12, -5);
+      group.add(skid, strut1, strut2);
+    });
+
+    // 3. X자형 4축 프로펠러 암 + 보호 덕트 가드 + 고속 회전 로터
+    const armConfigs = [
+      { x: -38, y: 34, angle: Math.PI * 0.25, led: 0x22c55e },
+      { x: 38, y: 34, angle: -Math.PI * 0.25, led: 0x22c55e },
+      { x: -38, y: -34, angle: -Math.PI * 0.25, led: 0xef4444 },
+      { x: 38, y: -34, angle: Math.PI * 0.25, led: 0xef4444 }
+    ];
+
+    armConfigs.forEach(cfg => {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(5.5, 48, 4.5), carbonMat);
+      arm.position.set(cfg.x * 0.52, cfg.y * 0.52, 3);
+      arm.rotation.z = cfg.angle;
+      group.add(arm);
+
+      const motorHub = new THREE.Mesh(new THREE.CylinderGeometry(5.5, 6.5, 8, 12), accentBlueMat);
+      motorHub.rotation.x = Math.PI * 0.5;
+      motorHub.position.set(cfg.x, cfg.y, 4);
+      group.add(motorHub);
+
+      const guardRing = new THREE.Mesh(new THREE.TorusGeometry(20, 1.8, 10, 26), guardMat);
+      guardRing.position.set(cfg.x, cfg.y, 6);
+      group.add(guardRing);
+
+      const led = new THREE.Mesh(new THREE.SphereGeometry(2.2, 8, 8), new THREE.MeshBasicMaterial({ color: cfg.led }));
+      led.position.set(cfg.x, cfg.y, -1);
+      group.add(led);
+
+      const rotorGroup = new THREE.Group();
+      rotorGroup.position.set(cfg.x, cfg.y, 8.5);
+      const blade1 = new THREE.Mesh(new THREE.BoxGeometry(35, 4.2, 0.6), bladeMat);
+      const blade2 = new THREE.Mesh(new THREE.BoxGeometry(4.2, 35, 0.6), bladeMat);
+      const spinner = new THREE.Mesh(new THREE.ConeGeometry(3.2, 5, 10), new THREE.MeshStandardMaterial({ color: 0xfacc15 }));
+      spinner.rotation.x = Math.PI * 0.5;
+      spinner.position.z = 2;
+      rotorGroup.add(blade1, blade2, spinner);
+      group.add(rotorGroup);
+      rotors.push(rotorGroup);
+    });
+
+    // 4. 탑승한 펭펭이·아기공룡·파랑새 3인방 (고디테일 입체 조종사 모델링)
+    // ------------------------------------------------------------------------
+    // [중앙 메인 파일럿 : 펭펭이]
+    const pororo = new THREE.Group();
+    const helmetMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.42, metalness: 0.15 });
+    const helmetTrimMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.55 });
+    const skinWhiteMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35 });
+    const goggleFrameMat = new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.25, metalness: 0.3 });
+    const goggleGlassMat = new THREE.MeshPhongMaterial({ color: 0xbae6fd, emissive: 0x0284c7, emissiveIntensity: 0.25, shininess: 140, transparent: true, opacity: 0.85 });
+    const beakMat = new THREE.MeshStandardMaterial({ color: 0xfb923c, roughness: 0.3 });
+    const blushMat = new THREE.MeshBasicMaterial({ color: 0xfda4af, transparent: true, opacity: 0.7 });
+
+    // 파일럿 조종복 상체 & 파란 머플러 스카프
+    const pBody = new THREE.Mesh(new THREE.CylinderGeometry(8.5, 10.5, 11, 16), helmetMat);
+    pBody.rotation.x = Math.PI * 0.5;
+    pBody.position.set(0, 5, -5);
+    const pBelly = new THREE.Mesh(new THREE.SphereGeometry(8.2, 14, 14), skinWhiteMat);
+    pBelly.position.set(0, 7.5, -4);
+    const pScarf = new THREE.Mesh(new THREE.TorusGeometry(8.2, 2.2, 10, 20), new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.4 }));
+    pScarf.position.set(0, 7, 1);
+    pororo.add(pBody, pBelly, pScarf);
+
+    // 펭귄 두상 & 가죽 비행사 헬멧 (귀덮개 포함)
+    const pHeadBase = new THREE.Mesh(new THREE.SphereGeometry(11.2, 20, 20), helmetMat);
+    pHeadBase.scale.set(1.04, 1.0, 1.06);
+    const pFacePatch = new THREE.Mesh(new THREE.SphereGeometry(9.6, 18, 18), skinWhiteMat);
+    pFacePatch.position.set(0, 2.6, 1.2);
+    pFacePatch.scale.set(0.96, 0.92, 0.94);
+
+    // 헬멧 좌우 귀덮개(Earflaps) & 하단 턱끈
+    [-10.8, 10.8].forEach(ex => {
+      const earFlap = new THREE.Mesh(new THREE.SphereGeometry(4.4, 12, 12), helmetTrimMat);
+      earFlap.scale.set(0.55, 1.15, 1.35);
+      earFlap.position.set(ex, 0.5, -0.5);
+      const earButton = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 1.2, 10), goggleFrameMat);
+      earButton.rotation.z = Math.PI * 0.5;
+      earButton.position.set(ex + (ex > 0 ? 1.8 : -1.8), 0.5, -0.5);
+      pororo.add(earFlap, earButton);
+    });
+
+    // 입체 원형 비행 고글 (좌우 주황 테두리 + 반사 유리 렌즈 + 중앙 브릿지)
+    const goggleBridge = new THREE.Mesh(new THREE.BoxGeometry(4.2, 2.2, 2.6), goggleFrameMat);
+    goggleBridge.position.set(0, 9.2, 5.2);
+    pororo.add(goggleBridge);
+
+    [-4.3, 4.3].forEach(gx => {
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(3.6, 1.05, 12, 22), goggleFrameMat);
+      rim.rotation.x = Math.PI * 0.42;
+      rim.position.set(gx, 9.4, 5.4);
+
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(3.3, 18), goggleGlassMat);
+      lens.rotation.x = -Math.PI * 0.08;
+      lens.position.set(gx, 9.7, 5.6);
+
+      // 고글 아래 또렷한 눈동자 & 하이라이트
+      const eyeBall = new THREE.Mesh(new THREE.SphereGeometry(1.35, 10, 10), new THREE.MeshBasicMaterial({ color: 0x0f172a }));
+      eyeBall.position.set(gx * 0.85, 10.6, 2.5);
+      const eyeShine = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      eyeShine.position.set(gx * 0.85 + 0.4, 11.4, 3.1);
+
+      // 발그레한 볼터치
+      const cheek = new THREE.Mesh(new THREE.SphereGeometry(1.7, 10, 10), blushMat);
+      cheek.scale.set(1.2, 0.6, 0.7);
+      cheek.position.set(gx * 1.45, 9.6, -0.4);
+
+      pororo.add(rim, lens, eyeBall, eyeShine, cheek);
+    });
+
+    // 입체 펭귄 부리 (윗부리 + 아랫부리)
+    const upperBeak = new THREE.Mesh(new THREE.ConeGeometry(3.5, 6.2, 14), beakMat);
+    upperBeak.scale.set(1.25, 1.0, 0.72);
+    upperBeak.position.set(0, 11.8, 0.8);
+    const lowerBeak = new THREE.Mesh(new THREE.ConeGeometry(2.7, 4.8, 12), new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.35 }));
+    lowerBeak.scale.set(1.15, 1.0, 0.65);
+    lowerBeak.position.set(0, 11.2, -0.6);
+
+    pororo.add(pHeadBase, pFacePatch, upperBeak, lowerBeak);
+    pororo.position.set(0, 11, 13.5);
+    group.add(pororo);
+
+    // [좌측 부조종사 : 아기공룡]
+    const crong = new THREE.Group();
+    const crongGreenMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.4 });
+    const crongLightMat = new THREE.MeshStandardMaterial({ color: 0x86efac, roughness: 0.35 });
+    const cHead = new THREE.Mesh(new THREE.SphereGeometry(8.6, 16, 16), crongGreenMat);
+    const cSnout = new THREE.Mesh(new THREE.SphereGeometry(5.6, 14, 14), crongLightMat);
+    cSnout.scale.set(1.15, 1.1, 0.85);
+    cSnout.position.set(0, 5.2, -0.5);
+    // 아기공룡 두 눈 & 콧구멍 & 머리 볏
+    [-3.1, 3.1].forEach(cx => {
+      const cEyeWhite = new THREE.Mesh(new THREE.SphereGeometry(2.1, 10, 10), skinWhiteMat);
+      cEyeWhite.position.set(cx, 5.2, 4.2);
+      const cPupil = new THREE.Mesh(new THREE.SphereGeometry(1.1, 8, 8), new THREE.MeshBasicMaterial({ color: 0x0f172a }));
+      cPupil.position.set(cx, 6.8, 4.7);
+      const nostril = new THREE.Mesh(new THREE.SphereGeometry(0.65, 8, 8), new THREE.MeshBasicMaterial({ color: 0x15803d }));
+      nostril.position.set(cx * 0.55, 9.8, 0.6);
+      crong.add(cEyeWhite, cPupil, nostril);
+    });
+    const cCrest = new THREE.Mesh(new THREE.ConeGeometry(2.2, 5.5, 8), new THREE.MeshStandardMaterial({ color: 0xf97316 }));
+    cCrest.rotation.x = Math.PI * 0.5;
+    cCrest.position.set(0, -1, 9.5);
+    crong.add(cHead, cSnout, cCrest);
+    crong.position.set(-14, -6, 12.5);
+    group.add(crong);
+
+    // [우측 부조종사 : 파랑새]
+    const petty = new THREE.Group();
+    const ptHead = new THREE.Mesh(new THREE.SphereGeometry(8.6, 16, 16), new THREE.MeshStandardMaterial({ color: 0xede9fe, roughness: 0.38 }));
+    const ptFace = new THREE.Mesh(new THREE.SphereGeometry(7.2, 14, 14), skinWhiteMat);
+    ptFace.position.set(0, 2.2, 0.5);
+    const ptHat = new THREE.Mesh(new THREE.SphereGeometry(9.2, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.56), new THREE.MeshStandardMaterial({ color: 0x7c3aed, roughness: 0.45 }));
+    ptHat.rotation.x = Math.PI * 0.42;
+    ptHat.position.set(0, -1.2, 1.5);
+    const ptPom = new THREE.Mesh(new THREE.SphereGeometry(2.4, 10, 10), new THREE.MeshStandardMaterial({ color: 0xf472b6 }));
+    ptPom.position.set(0, -5.5, 8.2);
+    [-2.8, 2.8].forEach(px => {
+      const pEye = new THREE.Mesh(new THREE.SphereGeometry(1.1, 8, 8), new THREE.MeshBasicMaterial({ color: 0x0f172a }));
+      pEye.position.set(px, 8.4, 1.8);
+      petty.add(pEye);
+    });
+    const ptBeak = new THREE.Mesh(new THREE.ConeGeometry(2.4, 4.5, 10), beakMat);
+    ptBeak.position.set(0, 9.4, -0.4);
+    petty.add(ptHead, ptFace, ptHat, ptPom, ptBeak);
+    petty.position.set(14, -6, 12.5);
+    group.add(petty);
+
+    // 5. 투명 조종석 콕핏 캐노피 (펭펭이가 선명히 보이도록 맑은 유리 질감)
+    const canopy = new THREE.Mesh(
+      new THREE.SphereGeometry(26, 22, 18, 0, Math.PI * 2, 0, Math.PI * 0.5),
+      new THREE.MeshPhongMaterial({
+        color: 0xe0f2fe,
+        transparent: true,
+        opacity: 0.22,
+        shininess: 150,
+        specular: 0xffffff
+      })
+    );
+    canopy.rotation.x = Math.PI * 0.5;
+    canopy.scale.set(0.98, 1.22, 0.9);
+    canopy.position.set(0, 1, 8);
+    group.add(canopy);
+
+    // 6. 후방 보조 이온 스러스터 불꽃
+    const flames = [];
+    [-11, 11].forEach(fx => {
+      const flame = new THREE.Mesh(
+        new THREE.ConeGeometry(4.5, 18, 10),
+        new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.85 })
+      );
+      flame.rotation.x = Math.PI;
+      flame.position.set(fx, -34, 0);
+      group.add(flame);
+      flames.push(flame);
+    });
+
+    scene.add(group);
+    player.mesh = group;
+    player.rotors = rotors;
+    player.flames = flames;
+  }
+
+  // ============================================================================
+  // 3D 사실주의 실버백 고릴라 / 킹콩 / 큰 고릴라 빌더 (항상 밑(-Y)을 정면으로 주시)
+  // ============================================================================
+  function createGorillaMesh3D(type) {
+    const root = new THREE.Group();
+    const model = new THREE.Group();
+
+    const isKingKong = type === 'kingkong';
+    const isBoss = type === 'boss';
+    const scale = isBoss ? 2.45 : (isKingKong ? 1.48 : 1.0);
+
+    const furColor = isBoss ? 0x18181b : (isKingKong ? 0x29221e : 0x272a30);
+    const silverColor = isBoss ? 0xcbd5e1 : (isKingKong ? 0x94a3b8 : 0x717885);
+    const skinColor = isBoss ? 0x27272a : 0x3f3a36;
+    const eyeHex = isBoss ? 0xff2a2a : (isKingKong ? 0xf59e0b : 0xef4444);
+
+    const furMat = new THREE.MeshStandardMaterial({ color: furColor, roughness: 0.85, metalness: 0.08 });
+    const silverMat = new THREE.MeshStandardMaterial({ color: silverColor, roughness: 0.75, metalness: 0.15 });
+    const skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.65, metalness: 0.1 });
+
+    // 1. 거대한 상체 & 은빛등(Silverback) 어깨 근육
+    const torso = new THREE.Mesh(new THREE.SphereGeometry(26, 20, 20), furMat);
+    torso.scale.set(1.18, 1.25, 0.95);
+    model.add(torso);
+
+    const silverBack = new THREE.Mesh(new THREE.SphereGeometry(24, 18, 18), silverMat);
+    silverBack.position.set(0, 6, -6);
+    silverBack.scale.set(1.16, 1.1, 0.85);
+    model.add(silverBack);
+
+    // 2. 전면(+Z, 이후 회전하여 밑 -Y를 향함) 대흉근 & 복근
+    [-9.5, 9.5].forEach(cx => {
+      const pec = new THREE.Mesh(new THREE.SphereGeometry(10.5, 14, 14), skinMat);
+      pec.position.set(cx, 7, 17);
+      pec.scale.set(1.05, 0.85, 0.55);
+      model.add(pec);
+    });
+
+    for (let r = 0; r < 3; r++) {
+      [-5.5, 5.5].forEach(ax => {
+        const abs = new THREE.Mesh(new THREE.SphereGeometry(4.5, 10, 10), skinMat);
+        abs.position.set(ax, -4 - r * 6.5, 19);
+        abs.scale.set(1.0, 0.65, 0.45);
+        model.add(abs);
+      });
+    }
+
+    // 킹콩 가슴 흉터 / 보스 용암 균열
+    if (isKingKong) {
+      const scar1 = new THREE.Mesh(new THREE.BoxGeometry(14, 2, 1.5), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+      scar1.position.set(0, 7, 23);
+      scar1.rotation.z = 0.6;
+      const scar2 = scar1.clone();
+      scar2.rotation.z = -0.6;
+      model.add(scar1, scar2);
+    } else if (isBoss) {
+      const core = new THREE.Mesh(
+        new THREE.OctahedronGeometry(7, 0),
+        new THREE.MeshBasicMaterial({ color: 0xf97316 })
+      );
+      core.position.set(0, 4, 23);
+      model.add(core);
+    }
+
+    // 3. 고릴라 두상 (정면에서 밑을 노려보는 입체 얼굴)
+    const headGroup = new THREE.Group();
+    headGroup.position.set(0, 27, 8);
+
+    // 솟은 정수리 시상능선(Sagittal Crest)
+    const cranium = new THREE.Mesh(new THREE.SphereGeometry(15.5, 18, 18), furMat);
+    cranium.scale.set(0.95, 1.22, 1.0);
+    headGroup.add(cranium);
+
+    // 안면 마스크
+    const faceMask = new THREE.Mesh(new THREE.SphereGeometry(12.5, 16, 16), skinMat);
+    faceMask.position.set(0, -1.5, 6.5);
+    faceMask.scale.set(0.92, 1.05, 0.78);
+    headGroup.add(faceMask);
+
+    // 돌출된 눈썹뼈 (안와상융기)
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(20, 4.2, 7), skinMat);
+    brow.position.set(0, 4.5, 13.5);
+    headGroup.add(brow);
+
+    // 강렬하게 빛나는 두 눈 (밑을 똑바로 노려봄)
+    const eyeMat = new THREE.MeshBasicMaterial({ color: eyeHex });
+    [-4.8, 4.8].forEach(ex => {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(2.1, 10, 10), eyeMat);
+      eye.position.set(ex, 1.8, 15.6);
+      headGroup.add(eye);
+    });
+
+    // 넓적한 코 & 콧구멍
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(5.2, 12, 12), skinMat);
+    nose.position.set(0, -2.2, 15.8);
+    nose.scale.set(1.25, 0.85, 0.65);
+    headGroup.add(nose);
+
+    // 포효하는 입과 송곳니
+    const mouth = new THREE.Mesh(
+      new THREE.BoxGeometry(11, 5.5, 4),
+      new THREE.MeshBasicMaterial({ color: 0x450a0a })
+    );
+    mouth.position.set(0, -8.2, 14.5);
+    headGroup.add(mouth);
+
+    const fangMat = new THREE.MeshBasicMaterial({ color: 0xfefce8 });
+    [-3.6, 3.6].forEach(fx => {
+      const topFang = new THREE.Mesh(new THREE.ConeGeometry(1.3, 3.4, 8), fangMat);
+      topFang.rotation.x = Math.PI;
+      topFang.position.set(fx, -6.5, 16.2);
+      const botFang = new THREE.Mesh(new THREE.ConeGeometry(1.2, 3.0, 8), fangMat);
+      botFang.position.set(fx, -9.8, 16.2);
+      headGroup.add(topFang, botFang);
+    });
+
+    // 킹콩 황금 왕관 / 보스 전투 쌍뿔
+    if (isKingKong) {
+      const crown = new THREE.Mesh(
+        new THREE.CylinderGeometry(11, 9, 8, 7, 1, true),
+        new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.75, roughness: 0.2, side: THREE.DoubleSide })
+      );
+      crown.position.set(0, 18, 0);
+      headGroup.add(crown);
+    } else if (isBoss) {
+      [-12, 12].forEach(hx => {
+        const horn = new THREE.Mesh(
+          new THREE.ConeGeometry(3.5, 18, 10),
+          new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.6 })
+        );
+        horn.position.set(hx, 15, 2);
+        horn.rotation.z = hx > 0 ? -0.45 : 0.45;
+        headGroup.add(horn);
+      });
+    }
+
+    model.add(headGroup);
+
+    // 4. 거대한 좌우 팔 & 너클 주먹
+    const leftArm = new THREE.Group();
+    const rightArm = new THREE.Group();
+    [
+      { grp: leftArm, sign: -1 },
+      { grp: rightArm, sign: 1 }
+    ].forEach(({ grp, sign }) => {
+      const shoulder = new THREE.Mesh(new THREE.SphereGeometry(11.5, 14, 14), silverMat);
+      const forearm = new THREE.Mesh(new THREE.CylinderGeometry(8.5, 10.5, 28, 14), furMat);
+      forearm.position.set(sign * 4, -15, 6);
+      forearm.rotation.x = -0.35;
+      const fist = new THREE.Mesh(new THREE.SphereGeometry(10.5, 14, 14), skinMat);
+      fist.position.set(sign * 5, -29, 12);
+      grp.add(shoulder, forearm, fist);
+      grp.position.set(sign * 27, 10, 4);
+      model.add(grp);
+    });
+
+    // 5. 하체 두 다리
+    [-13, 13].forEach(lx => {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(9.5, 8.5, 22, 12), furMat);
+      leg.position.set(lx, -28, 0);
+      model.add(leg);
+    });
+
+    // 6. 우주 제트 추진기 불꽃 (등 뒤쪽)
+    const jetFlame = new THREE.Mesh(
+      new THREE.ConeGeometry(9, 24, 12),
+      new THREE.MeshBasicMaterial({ color: isBoss ? 0xef4444 : 0x38bdf8, transparent: true, opacity: 0.85 })
+    );
+    jetFlame.position.set(0, 26, -16);
+    model.add(jetFlame);
+
+    // ★ 핵심 방향 설정:
+    // 3인칭 백뷰 카메라에서 고릴라가 밑(-Y)을 똑바로 바라보며 정면으로 다가오는 입체 각도!
+    model.rotation.x = Math.PI * 0.54;
+    model.scale.set(scale, scale, scale);
+
+    root.add(model);
+    scene.add(root);
+
+    return {
+      root,
+      model,
+      leftArm,
+      rightArm,
+      jetFlame,
+      materials: [furMat, silverMat, skinMat]
+    };
+  }
+
+  // ============================================================================
+  // 3D 투사체 및 폭발 파티클 생성 헬퍼
+  // ============================================================================
+  function createBulletMesh(colorHex, radius, length = 26) {
+    const group = new THREE.Group();
+    const core = new THREE.Mesh(
+      new THREE.CylinderGeometry(radius * 0.65, radius * 0.65, length, 10),
+      new THREE.MeshBasicMaterial({ color: 0xffffff })
+    );
+    const glow = new THREE.Mesh(
+      new THREE.CylinderGeometry(radius * 1.25, radius * 1.25, length * 1.2, 10),
+      new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.55 })
+    );
+    group.add(glow, core);
+    scene.add(group);
+    return group;
+  }
+
+  function createEnemyBulletMesh(kind, radius) {
+    let color = 0xfacc15;
+    if (kind === 'rock') color = 0xea580c;
+    if (kind === 'bossOrb') color = 0xdc2626;
+
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(radius, 12, 12),
+      new THREE.MeshStandardMaterial({
+        color,
+        emissive: color,
+        emissiveIntensity: 0.65,
+        roughness: 0.25
+      })
+    );
+    scene.add(mesh);
+    return mesh;
+  }
+
+  // ============================================================================
+  // 웨이브 설계 및 적 스폰 로직 (세로 종스크롤: 상단에서 밑을 보며 출현)
+  // ============================================================================
+  function showWaveBanner(sub, title) {
+    waveBannerSub.textContent = sub;
+    waveBannerTitle.textContent = title;
+    waveBanner.classList.remove('hidden');
+    setTimeout(() => {
+      waveBanner.classList.add('hidden');
+    }, 2200);
+  }
+
+  function setupWave(waveNum) {
+    currentWave = waveNum;
+    waveQueue = [];
+    spawnTimer = 0.6;
+
+    if (waveNum === 1) {
+      waveLabel.textContent = 'WAVE 1 / 3 · 고릴라 부대';
+      showWaveBanner('WAVE 1', '고릴라 부대가 밑을 보며 내려와요! (체력 1000 / 공격 30)');
+      for (let i = 0; i < 5; i++) {
+        waveQueue.push({ type: 'gorilla', delay: i === 0 ? 0.5 : 2.1 });
+      }
+    } else if (waveNum === 2) {
+      waveLabel.textContent = 'WAVE 2 / 3 · 킹콩 출격';
+      showWaveBanner('WAVE 2', '강력한 킹콩 등장! (체력 4000 / 공격 50)');
+      waveQueue.push({ type: 'gorilla', delay: 0.6 });
+      waveQueue.push({ type: 'kingkong', delay: 1.8 });
+      waveQueue.push({ type: 'gorilla', delay: 2.8 });
+      waveQueue.push({ type: 'kingkong', delay: 3.2 });
+    } else if (waveNum === 3) {
+      waveLabel.textContent = 'FINAL WAVE · 거대 큰 고릴라';
+      showWaveBanner('FINAL BOSS', '최종 보스 큰 고릴라 출현! (체력 10000 / 공격 100)');
+      waveQueue.push({ type: 'boss', delay: 1.2 });
+    }
+  }
+
+  function spawnEnemy(type) {
+    const marginX = 68;
+    const spawnX = marginX + Math.random() * Math.max(40, width - marginX * 2);
+    const mesh3D = createGorillaMesh3D(type);
+
+    if (type === 'gorilla') {
+      enemies.push({
+        type: 'gorilla',
+        name: '고릴라',
+        x: spawnX,
+        y: -55,
+        vx: (Math.random() - 0.5) * 44,
+        vy: 56 + Math.random() * 18,
+        radius: 34,
+        hp: 1000,
+        maxHp: 1000,
+        atk: 30,
+        shootTimer: 1.5 + Math.random() * 1.3,
+        shootInterval: 2.7,
+        hitFlash: 0,
+        scoreValue: 500,
+        mesh3D
+      });
+    } else if (type === 'kingkong') {
+      enemies.push({
+        type: 'kingkong',
+        name: '킹콩',
+        x: spawnX,
+        y: -75,
+        vx: (Math.random() > 0.5 ? 1 : -1) * 38,
+        vy: 42,
+        radius: 50,
+        hp: 4000,
+        maxHp: 4000,
+        atk: 50,
+        shootTimer: 1.4,
+        shootInterval: 2.2,
+        hitFlash: 0,
+        scoreValue: 2000,
+        mesh3D
+      });
+    } else if (type === 'boss') {
+      enemies.push({
+        type: 'boss',
+        name: '큰 고릴라',
+        x: width * 0.5,
+        y: -120,
+        targetY: Math.min(205, height * 0.25),
+        vx: 48,
+        vy: 46,
+        radius: 88,
+        hp: 10000,
+        maxHp: 10000,
+        atk: 100,
+        shootTimer: 1.8,
+        shootInterval: 1.95,
+        patternIdx: 0,
+        hitFlash: 0,
+        scoreValue: 10000,
+        mesh3D
+      });
+      bossHud.classList.remove('hidden');
+      updateBossHud(10000, 10000);
+    }
+  }
+
+  // ============================================================================
+  // 이펙트 & HUD 갱신
+  // ============================================================================
+  function spawnExplosion(lx, ly, colorHex, count = 16, speedScale = 1) {
+    const wx = toWorldX(lx);
+    const wy = toWorldY(ly);
+    for (let i = 0; i < count; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const phi = (Math.random() - 0.5) * Math.PI;
+      const speed = (65 + Math.random() * 185) * speedScale;
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(3.2 + Math.random() * 4.5, 8, 8),
+        new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? colorHex : 0xfef08a, transparent: true, opacity: 1 })
+      );
+      mesh.position.set(wx, wy, 10);
+      scene.add(mesh);
+      particles.push({
+        mesh,
+        vx: Math.cos(theta) * Math.cos(phi) * speed,
+        vy: Math.sin(theta) * Math.cos(phi) * speed,
+        vz: Math.sin(phi) * speed * 0.7,
+        life: 0.4 + Math.random() * 0.35,
+        maxLife: 0.75
+      });
+    }
+  }
+
+  function updatePlayerHud() {
+    const currentHp = Math.max(0, Math.round(player.hp));
+    playerHpText.textContent = `${currentHp} / ${player.maxHp}`;
+    const pct = (currentHp / player.maxHp) * 100;
+    playerHpBar.style.width = `${pct}%`;
+
+    if (pct <= 30) {
+      playerHpBar.className = 'h-full bg-gradient-to-r from-red-600 to-orange-500 rounded-full transition-all duration-150';
+    } else if (pct <= 60) {
+      playerHpBar.className = 'h-full bg-gradient-to-r from-amber-400 to-yellow-300 rounded-full transition-all duration-150';
+    } else {
+      playerHpBar.className = 'h-full bg-gradient-to-r from-emerald-400 to-lime-400 rounded-full transition-all duration-150';
+    }
+  }
+
+  function updateBossHud(hp, maxHp) {
+    const cur = Math.max(0, Math.round(hp));
+    bossHpText.textContent = `${cur} / ${maxHp}`;
+    bossHpBar.style.width = `${(cur / maxHp) * 100}%`;
+  }
+
+  function addScore(pts) {
+    score += pts;
+    scoreText.textContent = score.toLocaleString();
+  }
+
+  // ============================================================================
+  // 게임 시작 / 종료 제어
+  // ============================================================================
+  function clearAllEntities() {
+    playerBullets.forEach(b => scene.remove(b.mesh));
+    enemyBullets.forEach(eb => scene.remove(eb.mesh));
+    enemies.forEach(e => scene.remove(e.mesh3D.root));
+    particles.forEach(pt => scene.remove(pt.mesh));
+
+    playerBullets = [];
+    enemyBullets = [];
+    enemies = [];
+    particles = [];
+    damagePopups = [];
+  }
+
+  function startGame() {
+    state = GAME_STATE.PLAYING;
+    score = 0;
+    kills = 0;
+    scoreText.textContent = '0';
+
+    player.x = width * 0.5;
+    player.y = height - Math.min(115, height * 0.14);
+    player.hp = 1000;
+    player.maxHp = 1000;
+    player.atk = 100;
+    player.fireCooldown = 0;
+    player.invulnTimer = 0;
+    player.tilt = 0;
+    if (player.mesh) player.mesh.visible = true;
+
+    clearAllEntities();
+
+    bossHud.classList.add('hidden');
+    startScreen.classList.add('hidden');
+    endScreen.classList.add('hidden');
+    hudEl.classList.remove('hidden');
+
+    updatePlayerHud();
+    setupWave(1);
+  }
+
+  function finishGame(isVictory) {
+    state = isVictory ? GAME_STATE.VICTORY : GAME_STATE.GAMEOVER;
+    hudEl.classList.add('hidden');
+    bossHud.classList.add('hidden');
+    endScreen.classList.remove('hidden');
+
+    finalScoreEl.textContent = `${score.toLocaleString()}점`;
+    finalKillsEl.textContent = `${kills}마리`;
+
+    if (isVictory) {
+      sfx.playVictory();
+      endEmoji.textContent = '🏆';
+      endTitle.textContent = '대승리! 임무 완수!';
+      endTitle.className = 'text-3xl sm:text-4xl text-sky-400 mb-2';
+      endDesc.textContent = '펭펭이, 파랑새, 아기공룡이 거대 큰 고릴라를 물리치고 은하계의 평화를 지켜냈어요!';
+    } else {
+      sfx.playExplosion(true);
+      endEmoji.textContent = '💥';
+      endTitle.textContent = '드론 에너지 소진...';
+      endTitle.className = 'text-3xl sm:text-4xl text-red-400 mb-2';
+      endDesc.textContent = '아쉽지만 드론이 고장났어요. 다시 출격해서 고릴라들을 물리쳐볼까요?';
+    }
+  }
+
+  // ============================================================================
+  // 메인 업데이트 루프 (3D 위치·회전 동기화 및 충돌 판정)
+  // ============================================================================
+  function firePlayerBullet() {
+    // 실제 드론의 좌우 듀얼 기관포에서 동시 발사
+    [-12, 12].forEach(offsetX => {
+      const bx = player.x + offsetX;
+      const by = player.y - 44;
+      const mesh = createBulletMesh(0x38bdf8, 5.2, 28);
+      mesh.position.set(toWorldX(bx), toWorldY(by), 6);
+
+      playerBullets.push({
+        x: bx,
+        y: by,
+        vx: 0,
+        vy: -780,
+        radius: 7.5,
+        damage: player.atk * 0.5,
+        mesh
+      });
+    });
+    sfx.playShoot();
+  }
+
+  function damagePlayer(amount) {
+    if (player.invulnTimer > 0 || state !== GAME_STATE.PLAYING) return;
+    player.hp = Math.max(0, player.hp - amount);
+    player.invulnTimer = 0.65;
+    screenShake = 10;
+    sfx.playPlayerHurt();
+    spawnExplosion(player.x, player.y, 0xef4444, 14, 0.85);
+    updatePlayerHud();
+
+    if (player.hp <= 0) {
+      finishGame(false);
+    }
+  }
+
+  function update(dt) {
+    animPropeller += dt * 28;
+    if (screenShake > 0) screenShake = Math.max(0, screenShake - dt * 35);
+
+    updateBackground(dt);
+
+    // 플레이어 3D 드론 위치 및 프로펠러 애니메이션 갱신
+    if (player.mesh) {
+      player.mesh.position.set(toWorldX(player.x), toWorldY(player.y), 12);
+      player.mesh.rotation.y = player.tilt * 1.4;
+      player.mesh.rotation.z = -player.tilt * 0.5;
+      player.rotors.forEach(r => { r.rotation.z += dt * 36; });
+      player.flames.forEach(f => {
+        const s = 0.85 + Math.sin(animPropeller * 2.5) * 0.25;
+        f.scale.set(1, s, 1);
+      });
+      if (player.invulnTimer > 0) {
+        player.mesh.visible = Math.floor(player.invulnTimer * 18) % 2 === 0;
+      } else {
+        player.mesh.visible = true;
+      }
+    }
+
+    if (state !== GAME_STATE.PLAYING) return;
+
+    // 1. 플레이어 이동 처리
+    let moveX = 0;
+    let moveY = 0;
+    if (keys['ArrowLeft'] || keys['KeyA']) moveX -= 1;
+    if (keys['ArrowRight'] || keys['KeyD']) moveX += 1;
+    if (keys['ArrowUp'] || keys['KeyW']) moveY -= 1;
+    if (keys['ArrowDown'] || keys['KeyS']) moveY += 1;
+
+    if (moveX !== 0 || moveY !== 0) {
+      const len = Math.hypot(moveX, moveY);
+      player.x += (moveX / len) * player.speed * dt;
+      player.y += (moveY / len) * player.speed * dt;
+      player.tilt = (moveX / len) * 0.24;
+    } else if (pointerActive) {
+      const dx = pointerTarget.x - player.x;
+      const dy = pointerTarget.y - player.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 4) {
+        const step = Math.min(dist, player.speed * 1.45 * dt);
+        player.x += (dx / dist) * step;
+        player.y += (dy / dist) * step;
+        player.tilt = Math.max(-0.26, Math.min(0.26, dx * 0.004));
+      } else {
+        player.tilt *= 0.85;
+      }
+    } else {
+      player.tilt *= 0.85;
+    }
+
+    const padX = 56;
+    const padTop = 115;
+    const padBottom = 46;
+    player.x = Math.max(padX, Math.min(width - padX, player.x));
+    player.y = Math.max(padTop, Math.min(height - padBottom, player.y));
+
+    if (player.invulnTimer > 0) {
+      player.invulnTimer = Math.max(0, player.invulnTimer - dt);
+    }
+
+    // 2. 플레이어 사격
+    player.fireCooldown -= dt;
+    const wantsFire = autoFire || keys['Space'] || pointerActive;
+    if (wantsFire && player.fireCooldown <= 0) {
+      firePlayerBullet();
+      player.fireCooldown = player.fireInterval;
+    }
+
+    // 3. 웨이브 스폰 큐
+    if (waveQueue.length > 0) {
+      spawnTimer -= dt;
+      if (spawnTimer <= 0) {
+        const nextSpawn = waveQueue.shift();
+        spawnEnemy(nextSpawn.type);
+        spawnTimer = waveQueue.length > 0 ? waveQueue[0].delay : 0;
+      }
+    } else if (enemies.length === 0) {
+      waveClearedDelay += dt;
+      if (waveClearedDelay >= 1.4) {
+        waveClearedDelay = 0;
+        if (currentWave < 3) {
+          setupWave(currentWave + 1);
+        } else {
+          finishGame(true);
+          return;
+        }
+      }
+    }
+
+    // 4. 플레이어 투사체 업데이트
+    for (let i = playerBullets.length - 1; i >= 0; i--) {
+      const b = playerBullets[i];
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.mesh.position.set(toWorldX(b.x), toWorldY(b.y), 6);
+
+      if (b.y < -40) {
+        scene.remove(b.mesh);
+        playerBullets.splice(i, 1);
+        continue;
+      }
+
+      for (let j = enemies.length - 1; j >= 0; j--) {
+        const e = enemies[j];
+        const dist = Math.hypot(b.x - e.x, b.y - e.y);
+        if (dist < b.radius + e.radius) {
+          e.hp -= b.damage;
+          e.hitFlash = 0.09;
+          sfx.playHit();
+          spawnExplosion(b.x, b.y, 0x38bdf8, 6, 0.5);
+          scene.remove(b.mesh);
+          playerBullets.splice(i, 1);
+
+          if (e.type === 'boss') {
+            updateBossHud(e.hp, e.maxHp);
+          }
+
+          if (e.hp <= 0) {
+            kills++;
+            addScore(e.scoreValue);
+            const isBig = e.type === 'boss' || e.type === 'kingkong';
+            sfx.playExplosion(isBig);
+            screenShake = e.type === 'boss' ? 22 : (e.type === 'kingkong' ? 12 : 6);
+            spawnExplosion(e.x, e.y, e.type === 'boss' ? 0xef4444 : 0xf97316, isBig ? 36 : 20, isBig ? 1.5 : 1);
+            scene.remove(e.mesh3D.root);
+            enemies.splice(j, 1);
+          }
+          break;
+        }
+      }
+    }
+
+    // 5. 적 3D 고릴라 업데이트 (항상 밑 -Y 방향을 바라보며 하강)
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      const e = enemies[i];
+      if (e.hitFlash > 0) {
+        e.hitFlash = Math.max(0, e.hitFlash - dt);
+        e.mesh3D.materials.forEach(m => m.emissive.setHex(0x666666));
+      } else {
+        e.mesh3D.materials.forEach(m => m.emissive.setHex(0x000000));
+      }
+
+      if (e.type === 'boss') {
+        if (e.y < e.targetY) {
+          e.y += e.vy * dt;
+        } else {
+          e.x += e.vx * dt;
+          const bossMarginX = Math.min(115, width * 0.22);
+          if (e.x < bossMarginX) {
+            e.x = bossMarginX;
+            e.vx = Math.abs(e.vx);
+          } else if (e.x > width - bossMarginX) {
+            e.x = width - bossMarginX;
+            e.vx = -Math.abs(e.vx);
+          }
+        }
+      } else {
+        e.x += e.vx * dt;
+        e.y += e.vy * dt;
+
+        const sideMargin = e.radius + 16;
+        if (e.x < sideMargin) {
+          e.x = sideMargin;
+          e.vx = Math.abs(e.vx);
+        } else if (e.x > width - sideMargin) {
+          e.x = width - sideMargin;
+          e.vx = -Math.abs(e.vx);
+        }
+
+        if (e.y > height + 80) {
+          e.y = -70;
+          e.x = sideMargin + Math.random() * Math.max(40, width - sideMargin * 2);
+        }
+      }
+
+      // 3D 고릴라 위치·팔 휘두르기·밑을 노려보는 시선 미세 각도 동기화
+      e.mesh3D.root.position.set(toWorldX(e.x), toWorldY(e.y), 14);
+      const armSwing = Math.sin(animPropeller * 0.28 + i) * 0.28;
+      e.mesh3D.leftArm.rotation.x = armSwing;
+      e.mesh3D.rightArm.rotation.x = -armSwing;
+      // 플레이어 드론 방향(밑쪽)을 향해 고개를 살짝 기울여 주시
+      const aimOffsetX = (player.x - e.x) / Math.max(200, width);
+      e.mesh3D.model.rotation.z = Math.max(-0.28, Math.min(0.28, aimOffsetX * 0.45));
+
+      // 적 공격 패턴 발사 (밑쪽 드론 방향)
+      e.shootTimer -= dt;
+      if (e.shootTimer <= 0 && e.y > 20) {
+        e.shootTimer = e.shootInterval;
+
+        if (e.type === 'gorilla') {
+          const angle = Math.atan2(player.y - e.y, player.x - e.x);
+          const mesh = createEnemyBulletMesh('banana', 9);
+          enemyBullets.push({
+            x: e.x,
+            y: e.y + 30,
+            vx: Math.cos(angle) * 185,
+            vy: Math.sin(angle) * 185,
+            radius: 10,
+            damage: e.atk,
+            mesh
+          });
+        } else if (e.type === 'kingkong') {
+          const baseAngle = Math.atan2(player.y - e.y, player.x - e.x);
+          [-0.16, 0.16].forEach(offset => {
+            const mesh = createEnemyBulletMesh('rock', 12);
+            enemyBullets.push({
+              x: e.x,
+              y: e.y + 42,
+              vx: Math.cos(baseAngle + offset) * 210,
+              vy: Math.sin(baseAngle + offset) * 210,
+              radius: 13,
+              damage: e.atk,
+              mesh
+            });
+          });
+        } else if (e.type === 'boss') {
+          e.patternIdx = (e.patternIdx + 1) % 2;
+          const baseAngle = Math.atan2(player.y - e.y, player.x - e.x);
+          if (e.patternIdx === 0) {
+            [-0.26, 0, 0.26].forEach(offset => {
+              const mesh = createEnemyBulletMesh('bossOrb', 14);
+              enemyBullets.push({
+                x: e.x,
+                y: e.y + 72,
+                vx: Math.cos(baseAngle + offset) * 220,
+                vy: Math.sin(baseAngle + offset) * 220,
+                radius: 15,
+                damage: e.atk,
+                mesh
+              });
+            });
+          } else {
+            [-45, 45].forEach(dx => {
+              const mesh = createEnemyBulletMesh('bossOrb', 15);
+              enemyBullets.push({
+                x: e.x + dx,
+                y: e.y + 72,
+                vx: 0,
+                vy: 245,
+                radius: 16,
+                damage: e.atk,
+                mesh
+              });
+            });
+          }
+        }
+      }
+
+      // 드론 본체와 적 직접 충돌 판정
+      const playerHitRadius = 34;
+      if (Math.hypot(player.x - e.x, player.y - e.y) < playerHitRadius + e.radius * 0.85) {
+        damagePlayer(e.atk);
+      }
+    }
+
+    // 6. 적 투사체 이동 및 드론 피격 판정
+    for (let i = enemyBullets.length - 1; i >= 0; i--) {
+      const eb = enemyBullets[i];
+      eb.x += eb.vx * dt;
+      eb.y += eb.vy * dt;
+      eb.mesh.position.set(toWorldX(eb.x), toWorldY(eb.y), 10);
+      eb.mesh.rotation.x += dt * 6;
+      eb.mesh.rotation.y += dt * 6;
+
+      if (eb.x < -50 || eb.x > width + 50 || eb.y < -50 || eb.y > height + 50) {
+        scene.remove(eb.mesh);
+        enemyBullets.splice(i, 1);
+        continue;
+      }
+
+      if (Math.hypot(eb.x - player.x, eb.y - player.y) < eb.radius + 28) {
+        damagePlayer(eb.damage);
+        scene.remove(eb.mesh);
+        enemyBullets.splice(i, 1);
+      }
+    }
+
+    // 7. 3D 폭발 파티클 업데이트
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const pt = particles[i];
+      pt.mesh.position.x += pt.vx * dt;
+      pt.mesh.position.y += pt.vy * dt;
+      pt.mesh.position.z += pt.vz * dt;
+      pt.life -= dt;
+      const ratio = Math.max(0, pt.life / pt.maxLife);
+      pt.mesh.scale.setScalar(ratio);
+      pt.mesh.material.opacity = ratio;
+      if (pt.life <= 0) {
+        scene.remove(pt.mesh);
+        particles.splice(i, 1);
+      }
+    }
+  }
+
+  // ============================================================================
+  // 메인 Three.js 렌더링 루프
+  // ============================================================================
+  function render() {
+    // 플레이어 드론 좌우 이동에 따라 3D 카메라도 부드럽게 패닝되어 생생한 3D 공간감 제공
+    const targetCamX = toWorldX(player.x) * 0.28;
+    camera.position.x += (targetCamX - camera.position.x) * 0.12;
+    if (screenShake > 0) {
+      camera.position.x += (Math.random() - 0.5) * screenShake;
+    }
+    camera.lookAt(toWorldX(player.x) * 0.18, height * 0.16, 25);
+    renderer.render(scene, camera);
+  }
+
+  function gameLoop(timestamp) {
+    if (!lastTime) lastTime = timestamp;
+    const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+    lastTime = timestamp;
+
+    update(dt);
+    render();
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  // ============================================================================
+  // 버튼 클릭 및 키보드 / 마우스 / 터치 입력 이벤트 바인딩
+  // ============================================================================
+  function handleStartAction() {
+    sfx.init();
+    startGame();
+  }
+
+  startBtn.addEventListener('click', handleStartAction);
+  restartBtn.addEventListener('click', handleStartAction);
+
+  toggleAutofireBtn.addEventListener('click', () => {
+    sfx.init();
+    autoFire = !autoFire;
+    autoFireBadge.textContent = autoFire ? '자동사격 ON' : '자동사격 OFF';
+    autoFireBadge.className = autoFire
+      ? 'bg-amber-500/80 text-white px-1.5 py-0.2 rounded text-[10px]'
+      : 'bg-slate-600/80 text-slate-200 px-1.5 py-0.2 rounded text-[10px]';
+  });
+
+  muteBtn.addEventListener('click', () => {
+    sfx.init();
+    sfx.muted = !sfx.muted;
+    muteBtn.textContent = sfx.muted ? '🔇' : '🔊';
+  });
+
+  window.addEventListener('keydown', (e) => {
+    keys[e.code] = true;
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+      e.preventDefault();
+    }
+    if (state === GAME_STATE.PLAYING && e.code === 'Space') {
+      sfx.init();
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    keys[e.code] = false;
+  });
+
+  function updatePointerPos(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    pointerTarget.x = clientX - rect.left;
+    pointerTarget.y = clientY - rect.top;
+  }
+
+  canvas.addEventListener('mousedown', (e) => {
+    if (state !== GAME_STATE.PLAYING) return;
+    sfx.init();
+    pointerActive = true;
+    updatePointerPos(e.clientX, e.clientY);
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!pointerActive) return;
+    updatePointerPos(e.clientX, e.clientY);
+  });
+
+  window.addEventListener('mouseup', () => {
+    pointerActive = false;
+  });
+
+  canvas.addEventListener('touchstart', (e) => {
+    if (state !== GAME_STATE.PLAYING) return;
+    sfx.init();
+    pointerActive = true;
+    if (e.touches.length > 0) {
+      updatePointerPos(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', (e) => {
+    if (!pointerActive || state !== GAME_STATE.PLAYING) return;
+    e.preventDefault();
+    if (e.touches.length > 0) {
+      updatePointerPos(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }, { passive: false });
+
+  window.addEventListener('touchend', () => {
+    pointerActive = false;
+  });
+
+  // 시작 화면 배경 애니메이션 초기화 및 루프 개시
+  window.onload = function () {
+    resizeCanvas();
+    initBackground();
+    createPororoDrone3D();
+    player.x = width * 0.5;
+    player.y = height - Math.min(115, height * 0.14);
+    requestAnimationFrame(gameLoop);
+  };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1668 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>네온 스카이 드론 레이서 (Neon Sky Drone Racer)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js & Tone.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050510;
+            font-family: 'Noto Sans KR', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        .font-cyber {
+            font-family: 'Orbitron', sans-serif;
+        }
+        #game-canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        /* 터보 부스터 시 화면 외곽 스피드 비네트 효과 */
+        #speed-vignette {
+            pointer-events: none;
+            background: radial-gradient(circle, transparent 50%, rgba(0, 243, 255, 0.3) 85%, rgba(255, 0, 170, 0.55) 100%);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        /* 워프 스피드 라인 캔버스 오버레이 */
+        #warp-canvas {
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        /* 유리질감(Glassmorphism) UI 패널 */
+        .hud-panel {
+            background: rgba(10, 15, 30, 0.65);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.15);
+        }
+        /* 가상 조이스틱 스타일 */
+        .joystick-zone {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(0, 243, 255, 0.4);
+            position: relative;
+            touch-action: none;
+        }
+        .joystick-knob {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #00f3ff 0%, #0066ff 100%);
+            box-shadow: 0 0 12px #00f3ff;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+        /* 배터리 게이지 애니메이션 */
+        @keyframes pulse-red {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        .low-battery {
+            animation: pulse-red 0.8s infinite;
+        }
+        /* 타겟 락온 조준경 펄스 애니메이션 */
+        @keyframes reticle-spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        .reticle-ring {
+            animation: reticle-spin 8s linear infinite;
+        }
+    </style>
+</head>
+<body>
+    <!-- 3D 렌더링 캔버스 -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- 워프 스피드 라인 오버레이 -->
+    <canvas id="warp-canvas" class="fixed inset-0 z-10 w-full h-full"></canvas>
+
+    <!-- 부스터 스피드 비네트 오버레이 -->
+    <div id="speed-vignette" class="fixed inset-0 z-10"></div>
+
+    <!-- 전투 HUD 크로스헤어 & 타겟 락온 마커 -->
+    <div id="combat-hud" class="hidden fixed inset-0 pointer-events-none z-10">
+        <!-- 중앙 조준 십자선 -->
+        <div class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center opacity-75">
+            <div class="w-8 h-8 rounded-full border border-cyan-400/60 reticle-ring border-dashed"></div>
+            <div class="w-1.5 h-1.5 rounded-full bg-cyan-300 shadow-[0_0_8px_#00f3ff]"></div>
+        </div>
+        <!-- 3D 투영 타겟 락온 박스 -->
+        <div id="lockon-box" class="hidden fixed w-14 h-14 border-2 border-pink-500 rounded-lg shadow-[0_0_15px_#ff00aa] -translate-x-1/2 -translate-y-1/2 transition-transform duration-75">
+            <span class="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] font-cyber font-bold text-pink-400 tracking-wider whitespace-nowrap bg-black/60 px-1 rounded">LOCKED</span>
+        </div>
+    </div>
+
+    <!-- 상단 HUD (점수, 타이머, 배터리, 카메라 시점) -->
+    <div id="hud" class="hidden fixed top-0 left-0 w-full p-4 flex justify-between items-start pointer-events-none z-10">
+        <!-- 좌측: 점수, 콤보 및 링 카운트 -->
+        <div class="hud-panel rounded-xl p-3 sm:p-4 flex flex-col gap-1">
+            <div class="flex items-center gap-2">
+                <span class="text-xs text-cyan-400 font-bold tracking-wider">SCORE</span>
+                <span id="combo-badge" class="hidden px-2 py-0.5 rounded bg-pink-500 text-white font-cyber text-[10px] font-black animate-bounce">x2 COMBO</span>
+            </div>
+            <div id="score-display" class="font-cyber text-2xl sm:text-3xl font-black text-white">0</div>
+            <div class="text-xs text-gray-300 mt-1 flex gap-3">
+                <span>링: <span id="ring-count" class="text-cyan-400 font-bold">0</span></span>
+                <span>타겟 격파: <span id="target-count" class="text-pink-400 font-bold">0</span></span>
+            </div>
+        </div>
+
+        <!-- 중앙: 배터리 및 속도계 -->
+        <div class="hud-panel rounded-xl p-3 sm:p-4 flex flex-col items-center min-w-[140px] sm:min-w-[200px]">
+            <div class="flex justify-between w-full text-xs mb-1">
+                <span class="text-cyan-300 font-bold">BATTERY</span>
+                <span id="battery-text" class="font-cyber font-bold">100%</span>
+            </div>
+            <div class="w-full h-3 bg-gray-800 rounded-full overflow-hidden border border-gray-600">
+                <div id="battery-bar" class="h-full bg-gradient-to-r from-green-400 to-cyan-400 transition-all duration-150" style="width: 100%;"></div>
+            </div>
+            <div class="mt-2 flex gap-4 text-xs text-gray-300 font-cyber">
+                <span>ALT: <span id="alt-display" class="text-white">0</span>m</span>
+                <span>SPD: <span id="spd-display" class="text-white">0</span>km/h</span>
+            </div>
+        </div>
+
+        <!-- 우측: 컨트롤 버튼 (시점 전환, 사운드, 일시정지) -->
+        <div class="flex flex-col sm:flex-row gap-2 pointer-events-auto">
+            <button id="btn-fire-hud" class="hud-panel hover:bg-pink-900/50 active:scale-95 transition rounded-lg px-3 py-2 text-xs sm:text-sm font-bold text-pink-300 border border-pink-500/50">
+                ⚡ 발사 (F)
+            </button>
+            <button id="btn-camera" class="hud-panel hover:bg-cyan-900/50 active:scale-95 transition rounded-lg px-3 py-2 text-xs sm:text-sm font-bold text-cyan-300 border border-cyan-500/50">
+                🎥 3인칭 (C)
+            </button>
+            <button id="btn-sound" class="hud-panel hover:bg-cyan-900/50 active:scale-95 transition rounded-lg px-3 py-2 text-xs sm:text-sm font-bold text-cyan-300 border border-cyan-500/50">
+                🔊 소리 켜짐
+            </button>
+        </div>
+    </div>
+
+    <!-- 좌측 하단 실시간 전술 미니맵 레이더 -->
+    <div id="radar-container" class="hidden md:flex fixed bottom-4 left-4 hud-panel rounded-full p-2 flex-col items-center justify-center z-10 pointer-events-none">
+        <canvas id="radar-canvas" width="120" height="120" class="rounded-full"></canvas>
+        <span class="text-[9px] font-cyber text-cyan-400/80 tracking-widest mt-1">TACTICAL RADAR</span>
+    </div>
+
+    <!-- 조종 가이드 (PC 데스크탑 하단 중앙) -->
+    <div id="pc-controls-hint" class="hidden md:flex fixed bottom-4 left-1/2 -translate-x-1/2 hud-panel rounded-full px-6 py-2 gap-4 text-xs text-gray-300 pointer-events-none z-10 whitespace-nowrap">
+        <span><strong class="text-cyan-400">W/S</strong> : 상승/하강</span>
+        <span><strong class="text-cyan-400">A/D</strong> : 회전</span>
+        <span><strong class="text-pink-400">↑↓←→</strong> : 이동</span>
+        <span><strong class="text-purple-400">Q/E</strong> : 배럴 롤</span>
+        <span><strong class="text-yellow-400">Space</strong> : 부스터</span>
+        <span><strong class="text-red-400">F/클릭</strong> : 레이저</span>
+        <span><strong class="text-green-400">C</strong> : 시점</span>
+    </div>
+
+    <!-- 모바일 터치 컨트롤러 (듀얼 가상 조이스틱) -->
+    <div id="mobile-controls" class="hidden md:hidden fixed bottom-6 left-0 w-full px-6 flex justify-between items-end z-20 pointer-events-none">
+        <!-- 왼쪽 조이스틱: 고도(상하) 및 회전(좌우) -->
+        <div class="flex flex-col items-center gap-2 pointer-events-auto">
+            <span class="text-[10px] text-cyan-300 bg-black/50 px-2 py-0.5 rounded">고도 / 회전</span>
+            <div id="joy-left" class="joystick-zone">
+                <div id="knob-left" class="joystick-knob"></div>
+            </div>
+        </div>
+
+        <!-- 중앙 액션 버튼 (부스터 & 펄스 사격) -->
+        <div class="flex gap-3 mb-4 pointer-events-auto">
+            <button id="btn-mobile-fire" class="w-14 h-14 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-500 border-2 border-white/80 shadow-[0_0_20px_rgba(0,243,255,0.8)] font-cyber font-bold text-xs active:scale-90 transition">
+                FIRE
+            </button>
+            <button id="btn-mobile-boost" class="w-16 h-16 rounded-full bg-gradient-to-tr from-pink-600 to-yellow-500 border-2 border-white/80 shadow-[0_0_20px_rgba(236,72,153,0.8)] font-cyber font-bold text-xs active:scale-90 transition">
+                BOOST
+            </button>
+        </div>
+
+        <!-- 오른쪽 조이스틱: 전후좌우 이동 (Pitch/Roll) -->
+        <div class="flex flex-col items-center gap-2 pointer-events-auto">
+            <span class="text-[10px] text-pink-300 bg-black/50 px-2 py-0.5 rounded">전후 / 좌우 이동</span>
+            <div id="joy-right" class="joystick-zone" style="border-color: rgba(236, 72, 153, 0.5);">
+                <div id="knob-right" class="joystick-knob" style="background: radial-gradient(circle, #ff4dff 0%, #9900ff 100%); box-shadow: 0 0 12px #ff4dff;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 시작 화면 오버레이 -->
+    <div id="start-screen" class="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-30">
+        <div class="hud-panel max-w-lg w-full rounded-2xl p-6 sm:p-8 text-center border-2 border-cyan-400/50">
+            <div class="inline-block px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 text-xs font-cyber tracking-widest mb-3">
+                HYPER COMBAT & FLIGHT SIMULATOR
+            </div>
+            <h1 class="font-cyber text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-pink-500 mb-3">
+                NEON SKY DRONE
+            </h1>
+            <p class="text-gray-300 text-xs sm:text-sm mb-4 leading-relaxed">
+                네온 에너지 링을 연속 통과해 <span class="text-cyan-400 font-bold">콤보 배율</span>을 높이고,<br>
+                상공의 <span class="text-pink-400 font-bold">보안 드론 타겟</span>을 펄스 레이저로 격파하세요!
+            </p>
+
+            <!-- 기체 네온 스킨 커스터마이징 -->
+            <div class="mb-4">
+                <div class="text-xs text-gray-400 mb-2 font-bold">🎨 기체 네온 코어 컬러 선택</div>
+                <div class="flex justify-center gap-3">
+                    <button data-color="0x00f3ff" class="skin-btn w-8 h-8 rounded-full bg-cyan-400 ring-2 ring-white scale-110 transition" title="사이버 시안"></button>
+                    <button data-color="0xff00aa" class="skin-btn w-8 h-8 rounded-full bg-pink-500 opacity-70 hover:opacity-100 transition" title="네온 마젠타"></button>
+                    <button data-color="0x00ff66" class="skin-btn w-8 h-8 rounded-full bg-emerald-400 opacity-70 hover:opacity-100 transition" title="매트릭스 그린"></button>
+                    <button data-color="0xffaa00" class="skin-btn w-8 h-8 rounded-full bg-amber-400 opacity-70 hover:opacity-100 transition" title="솔라 골드"></button>
+                </div>
+            </div>
+
+            <!-- 게임 모드 선택 -->
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <button id="mode-race" class="mode-btn p-3 rounded-xl border-2 border-cyan-400 bg-cyan-500/20 text-left transition">
+                    <div class="font-bold text-cyan-300 text-sm sm:text-base">⚡ 링 챌린지 모드</div>
+                    <div class="text-xs text-gray-300 mt-1">배터리 방전 전까지 최대한 많은 링을 통과하세요.</div>
+                </button>
+                <button id="mode-free" class="mode-btn p-3 rounded-xl border border-gray-600 bg-gray-800/40 hover:border-pink-400 text-left transition">
+                    <div class="font-bold text-pink-300 text-sm sm:text-base">🛸 자유 비행 모드</div>
+                    <div class="text-xs text-gray-300 mt-1">배터리 제한 없이 도시를 자유롭게 탐험합니다.</div>
+                </button>
+            </div>
+
+            <!-- 조작법 요약 -->
+            <div class="bg-black/40 rounded-xl p-3.5 mb-5 text-left text-xs text-gray-300 space-y-1 border border-gray-700">
+                <div class="font-bold text-white mb-1">🎮 조종 방법 (모드 2 표준 드론 조종)</div>
+                <div>• <span class="text-cyan-400 font-bold">W / S</span> : 상승 / 하강 | <span class="text-cyan-400 font-bold">A / D</span> : 좌 / 우 회전</div>
+                <div>• <span class="text-pink-400 font-bold">방향키 (↑↓←→)</span> : 전진 / 후진 / 좌우 수평 이동</div>
+                <div>• <span class="text-purple-400 font-bold">Q / E</span> : 초고속 배럴 롤 회피 기동 | <span class="text-yellow-400 font-bold">Space</span> : 부스터</div>
+                <div>• <span class="text-red-400 font-bold">F / 클릭</span> : 펄스 레이저 사격 | <span class="text-green-400 font-bold">C</span> : 1인칭 FPV 전환</div>
+            </div>
+
+            <button id="btn-start" class="w-full py-4 rounded-xl font-cyber font-bold text-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-[0_0_25px_rgba(0,243,255,0.5)] active:scale-95 transition">
+                비행 시작 (LAUNCH)
+            </button>
+        </div>
+    </div>
+
+    <!-- 게임 오버 화면 오버레이 -->
+    <div id="gameover-screen" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-30">
+        <div class="hud-panel max-w-md w-full rounded-2xl p-6 sm:p-8 text-center border-2 border-pink-500/60">
+            <h2 id="gameover-title" class="font-cyber text-3xl sm:text-4xl font-black text-pink-500 mb-2">BATTERY DEPLETED</h2>
+            <p id="gameover-reason" class="text-gray-300 text-sm mb-6">배터리가 모두 소모되어 비상 착륙했습니다.</p>
+            
+            <div class="bg-black/50 rounded-xl p-4 mb-6 border border-gray-700 flex justify-around">
+                <div>
+                    <div class="text-xs text-gray-400">최종 점수</div>
+                    <div id="final-score" class="font-cyber text-2xl sm:text-3xl font-bold text-cyan-400">0</div>
+                </div>
+                <div class="w-px bg-gray-700"></div>
+                <div>
+                    <div class="text-xs text-gray-400">통과한 링</div>
+                    <div id="final-rings" class="font-cyber text-2xl sm:text-3xl font-bold text-emerald-400">0</div>
+                </div>
+                <div class="w-px bg-gray-700"></div>
+                <div>
+                    <div class="text-xs text-gray-400">격파 타겟</div>
+                    <div id="final-targets" class="font-cyber text-2xl sm:text-3xl font-bold text-pink-400">0</div>
+                </div>
+            </div>
+
+            <button id="btn-restart" class="w-full py-3.5 rounded-xl font-cyber font-bold text-base bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white shadow-[0_0_20px_rgba(236,72,153,0.5)] active:scale-95 transition">
+                다시 비행하기 (RETRY)
+            </button>
+        </div>
+    </div>
+
+    <!-- 알림 메시지 토스트 -->
+    <div id="toast-msg" class="fixed top-24 left-1/2 -translate-x-1/2 bg-cyan-500/90 text-black font-bold px-5 py-2 rounded-full text-sm shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none z-20">
+        체크포인트 통과! +100점
+    </div>
+
+    <script>
+        /**
+         * 네온 스카이 드론 레이서 (3D Drone Flight Game)
+         * Three.js 기반 물리 비행 시뮬레이션 및 사운드 이펙트(Tone.js) 통합
+         */
+
+        // ==========================================
+        // 1. 게임 전역 상태 관리
+        // ==========================================
+        const state = {
+            isPlaying: false,
+            mode: 'race', // 'race' | 'free'
+            cameraMode: 'third', // 'third' | 'fpv'
+            soundEnabled: true,
+            score: 0,
+            ringsPassed: 0,
+            targetsDestroyed: 0,
+            combo: 1,
+            comboTimer: 0,
+            droneColor: 0x00f3ff,
+            battery: 100,
+            isBoosting: false,
+            pos: new THREE.Vector3(0, 18, 0),
+            vel: new THREE.Vector3(0, 0, 0),
+            yaw: 0,
+            pitch: 0,
+            roll: 0,
+            barrelRollAngle: 0,
+            barrelRollDir: 0,
+            keys: {},
+            joyLeft: { x: 0, y: 0 },
+            joyRight: { x: 0, y: 0 },
+            isDragging: false,
+            prevMouse: { x: 0, y: 0 },
+            camYawOffset: 0,
+            camPitchOffset: 0.25,
+            screenShake: 0
+        };
+
+        // ==========================================
+        // 2. 사운드 시스템 (Tone.js 합성 사운드 & 사이버 BGM)
+        // ==========================================
+        let droneOsc, droneSubOsc, droneGain, turboNoise, turboGain, synthEffect, laserSynth, bassSynth, bgmLoop, audioInitialized = false;
+
+        function initAudio() {
+            if (audioInitialized) return;
+            try {
+                Tone.start();
+                // 1) 듀얼 드론 프로펠러 모터 사운드 (메인 + 서브 하모닉)
+                droneGain = new Tone.Gain(0.04).toDestination();
+                const filter = new Tone.Filter(240, "lowpass").connect(droneGain);
+                droneOsc = new Tone.Oscillator(65, "sawtooth").connect(filter);
+                droneSubOsc = new Tone.Oscillator(32.5, "triangle").connect(filter);
+                droneOsc.start();
+                droneSubOsc.start();
+
+                // 1-2) 터보 애프터버너 바람/제트 사운드
+                turboGain = new Tone.Gain(0).toDestination();
+                const turboFilter = new Tone.Filter(600, "bandpass").connect(turboGain);
+                turboNoise = new Tone.Noise("pink").connect(turboFilter);
+                turboNoise.start();
+
+                // 2) 효과음용 신디사이저 (리버브 포함)
+                const reverb = new Tone.Reverb({ decay: 1.5, wet: 0.3 }).toDestination();
+                synthEffect = new Tone.PolySynth(Tone.Synth).connect(reverb);
+                synthEffect.volume.value = -5;
+
+                // 2-2) 펄스 레이저 사격 사운드
+                laserSynth = new Tone.MembraneSynth({
+                    pitchDecay: 0.08,
+                    octaves: 4,
+                    oscillator: { type: "sine" },
+                    envelope: { attack: 0.001, decay: 0.15, sustain: 0, release: 0.05 }
+                }).toDestination();
+                laserSynth.volume.value = -8;
+
+                // 3) 사이버펑크 아르페지오 베이스 BGM
+                bassSynth = new Tone.MonoSynth({
+                    oscillator: { type: "sawtooth" },
+                    envelope: { attack: 0.02, decay: 0.2, sustain: 0.2, release: 0.3 },
+                    filterEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.2, baseFrequency: 120, octaves: 2.5 }
+                }).toDestination();
+                bassSynth.volume.value = -15;
+
+                const notes = ["C2", "C2", "G2", "C2", "D#2", "D#2", "F2", "G2"];
+                let step = 0;
+                bgmLoop = new Tone.Loop((time) => {
+                    if (state.isPlaying && state.soundEnabled) {
+                        bassSynth.triggerAttackRelease(notes[step % notes.length], "16n", time);
+                        step++;
+                    }
+                }, "8n").start(0);
+                Tone.Transport.bpm.value = 132;
+                Tone.Transport.start();
+
+                audioInitialized = true;
+            } catch (e) {
+                console.warn("Audio init failed:", e);
+            }
+        }
+
+        function updateMotorSound(speedRatio, isBoosting) {
+            if (!audioInitialized || !state.soundEnabled || !state.isPlaying) {
+                if (droneGain) droneGain.gain.rampTo(0, 0.1);
+                if (turboGain) turboGain.gain.rampTo(0, 0.1);
+                return;
+            }
+            const baseFreq = isBoosting ? 125 : 68;
+            const targetFreq = baseFreq + speedRatio * 95;
+            droneOsc.frequency.rampTo(targetFreq, 0.08);
+            droneSubOsc.frequency.rampTo(targetFreq * 0.5, 0.08);
+            droneGain.gain.rampTo(isBoosting ? 0.09 : 0.045, 0.08);
+            turboGain.gain.rampTo(isBoosting ? 0.06 : speedRatio * 0.015, 0.1);
+        }
+
+        function playBoostSound() {
+            if (!audioInitialized || !state.soundEnabled) return;
+            synthEffect.triggerAttackRelease(["C3", "G3", "C4", "E4"], "8n");
+        }
+
+        function playRingSound() {
+            if (!audioInitialized || !state.soundEnabled) return;
+            const now = Tone.now();
+            synthEffect.triggerAttackRelease(["C5", "E5", "G5", "B5", "D6"], "16n", now);
+        }
+
+        function playCrashSound() {
+            if (!audioInitialized || !state.soundEnabled) return;
+            synthEffect.triggerAttackRelease(["C2", "F#2", "A#1"], "8n");
+        }
+
+        function playLaserSound() {
+            if (!audioInitialized || !state.soundEnabled) return;
+            laserSynth.triggerAttackRelease("G5", "32n");
+        }
+
+        function playExplosionSound() {
+            if (!audioInitialized || !state.soundEnabled) return;
+            const now = Tone.now();
+            synthEffect.triggerAttackRelease(["C3", "D#3", "G3", "C4"], "16n", now);
+        }
+
+        // ==========================================
+        // 3. Three.js 씬, 카메라, 렌더러 및 조명 초기화
+        // ==========================================
+        const canvas = document.getElementById('game-canvas');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050814);
+        scene.fog = new THREE.FogExp2(0x050814, 0.0032);
+
+        const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        // 환경광 및 네온 방향광 설정
+        const ambientLight = new THREE.AmbientLight(0x405080, 1.4);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0x00f3ff, 1.2);
+        dirLight.position.set(80, 160, 60);
+        scene.add(dirLight);
+
+        const pinkLight = new THREE.DirectionalLight(0xff00aa, 0.8);
+        pinkLight.position.set(-80, 100, -60);
+        scene.add(pinkLight);
+
+        // ==========================================
+        // 4. 3D 드론 모델 제작 (하이테크 스텔스 레이싱 드론)
+        // ==========================================
+        const droneGroup = new THREE.Group();
+        const propellers = [];
+        const propGuards = [];
+        const neonMaterials = []; // 스킨 컬러 변경용 머티리얼 배열
+        let droneSpotLight;
+
+        function buildDrone() {
+            // 1) 유선형 카본 스텔스 메인 동체
+            const bodyGeo = new THREE.BoxGeometry(1.1, 0.35, 2.3);
+            const bodyMat = new THREE.MeshStandardMaterial({ 
+                color: 0x0f1422, 
+                metalness: 0.9, 
+                roughness: 0.15 
+            });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.castShadow = true;
+            droneGroup.add(body);
+
+            // 상단 에어로다이나믹 캐노피 & 네온 척추 라인
+            const canopyGeo = new THREE.BoxGeometry(0.75, 0.22, 1.5);
+            const canopyMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.85, roughness: 0.1 });
+            const canopy = new THREE.Mesh(canopyGeo, canopyMat);
+            canopy.position.set(0, 0.24, -0.1);
+            droneGroup.add(canopy);
+
+            const primaryNeonMat = new THREE.MeshBasicMaterial({ color: state.droneColor });
+            neonMaterials.push(primaryNeonMat);
+
+            const spineNeon = new THREE.Mesh(
+                new THREE.BoxGeometry(0.12, 0.06, 1.6),
+                primaryNeonMat
+            );
+            spineNeon.position.set(0, 0.36, -0.1);
+            droneGroup.add(spineNeon);
+
+            // 2) 전면 듀얼 AI 옵틱 센서 & 레이저 포드
+            [-0.22, 0.22].forEach(offsetX => {
+                const eye = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.1, 12, 12),
+                    primaryNeonMat
+                );
+                eye.position.set(offsetX, 0.14, -1.14);
+                droneGroup.add(eye);
+            });
+
+            // 3) 후방 트윈 제트 부스터 노즐 (마젠타 네온 코어 + 동적 에프터버너 불꽃 콘)
+            const thrusterCones = [];
+            [-0.32, 0.32].forEach(offsetX => {
+                const nozzle = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.16, 0.2, 0.3, 16).rotateX(Math.PI / 2),
+                    new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.9 })
+                );
+                nozzle.position.set(offsetX, 0.04, 1.18);
+                droneGroup.add(nozzle);
+
+                const flameCore = new THREE.Mesh(
+                    new THREE.CircleGeometry(0.14, 16),
+                    new THREE.MeshBasicMaterial({ color: 0xff00aa })
+                );
+                flameCore.position.set(offsetX, 0.04, 1.34);
+                droneGroup.add(flameCore);
+
+                // 동적 제트 화염 콘
+                const coneGeo = new THREE.ConeGeometry(0.16, 1.2, 12).rotateX(Math.PI / 2);
+                const coneMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.85 });
+                const cone = new THREE.Mesh(coneGeo, coneMat);
+                cone.position.set(offsetX, 0.04, 1.9);
+                droneGroup.add(cone);
+                thrusterCones.push(cone);
+            });
+            droneGroup.userData.thrusterCones = thrusterCones;
+
+            // 4) 전방 고출력 서치라이트
+            droneSpotLight = new THREE.SpotLight(state.droneColor, 3.0, 110, Math.PI / 4.5, 0.4, 1);
+            droneSpotLight.position.set(0, -0.05, -1.2);
+            const spotTarget = new THREE.Object3D();
+            spotTarget.position.set(0, -3, -25);
+            droneGroup.add(droneSpotLight);
+            droneGroup.add(spotTarget);
+            droneSpotLight.target = spotTarget;
+
+            // 5) X-프레임 카본 암 + 네온 덕트 가드(프로펠러 보호링) + 3엽 프로펠러
+            const armPositions = [
+                { x: -1.45, z: -1.15, isFront: true }, // 전방 좌
+                { x:  1.45, z: -1.15, isFront: true }, // 전방 우
+                { x: -1.45, z:  1.15, isFront: false }, // 후방 좌
+                { x:  1.45, z:  1.15, isFront: false }  // 후방 우
+            ];
+
+            const armMat = new THREE.MeshStandardMaterial({ color: 0x1e2433, metalness: 0.8, roughness: 0.25 });
+            const propGeo = new THREE.BoxGeometry(1.5, 0.025, 0.13);
+            const propMat = new THREE.MeshBasicMaterial({ color: 0xe0f7ff, transparent: true, opacity: 0.85 });
+
+            armPositions.forEach((pos, idx) => {
+                // 대각선 카본 암
+                const armLen = Math.hypot(pos.x, pos.z);
+                const armGeo = new THREE.BoxGeometry(0.22, 0.12, armLen);
+                const arm = new THREE.Mesh(armGeo, armMat);
+                arm.position.set(pos.x * 0.5, 0, pos.z * 0.5);
+                arm.lookAt(pos.x, 0, pos.z);
+                droneGroup.add(arm);
+
+                // 암 위 네온 스트립
+                const stripMat = pos.isFront ? primaryNeonMat : new THREE.MeshBasicMaterial({ color: 0xff00aa });
+                const armStrip = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.06, 0.03, armLen * 0.75),
+                    stripMat
+                );
+                armStrip.position.set(pos.x * 0.5, 0.075, pos.z * 0.5);
+                armStrip.lookAt(pos.x, 0.075, pos.z);
+                droneGroup.add(armStrip);
+
+                // 브러시리스 모터 하우징
+                const motorGeo = new THREE.CylinderGeometry(0.24, 0.26, 0.32, 16);
+                const motorMat = new THREE.MeshStandardMaterial({ color: 0x0a0d14, metalness: 0.9, roughness: 0.2 });
+                const motor = new THREE.Mesh(motorGeo, motorMat);
+                motor.position.set(pos.x, 0.1, pos.z);
+                droneGroup.add(motor);
+
+                // 네온 덕트 프로펠러 가드 (간지나는 홀로그램 링 슈라우드)
+                const shroudGeo = new THREE.TorusGeometry(0.88, 0.045, 10, 32);
+                shroudGeo.rotateX(Math.PI / 2);
+                const shroudMat = pos.isFront ? primaryNeonMat : new THREE.MeshBasicMaterial({ color: 0xff00aa, transparent: true, opacity: 0.8 });
+                const shroud = new THREE.Mesh(shroudGeo, shroudMat);
+                shroud.position.set(pos.x, 0.22, pos.z);
+                droneGroup.add(shroud);
+                propGuards.push(shroud);
+
+                // 3엽 고속 회전 프로펠러 블레이드
+                const propGroup = new THREE.Group();
+                propGroup.position.set(pos.x, 0.27, pos.z);
+                for (let b = 0; b < 3; b++) {
+                    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.02, 0.12), propMat);
+                    blade.position.x = 0.38;
+                    const pivot = new THREE.Group();
+                    pivot.rotation.y = (b * Math.PI * 2) / 3;
+                    pivot.add(blade);
+                    propGroup.add(pivot);
+                }
+                droneGroup.add(propGroup);
+                propellers.push({ mesh: propGroup, dir: idx % 2 === 0 ? 1 : -1 });
+            });
+
+            scene.add(droneGroup);
+        }
+        buildDrone();
+
+        function applyDroneSkin(hexColor) {
+            state.droneColor = hexColor;
+            neonMaterials.forEach(mat => mat.color.setHex(hexColor));
+            if (droneSpotLight) droneSpotLight.color.setHex(hexColor);
+        }
+
+        // ==========================================
+        // 4.5 부스터 파티클 트레일 & 펄스 레이저 / 보안 타겟 시스템
+        // ==========================================
+        const trailParticles = [];
+        const trailGeo = new THREE.SphereGeometry(0.22, 6, 6);
+
+        function spawnTrailParticle(pos, isBoosting) {
+            const mat = new THREE.MeshBasicMaterial({
+                color: isBoosting ? 0xff00aa : state.droneColor,
+                transparent: true,
+                opacity: isBoosting ? 0.9 : 0.5
+            });
+            const mesh = new THREE.Mesh(trailGeo, mat);
+            mesh.position.copy(pos);
+            // 약간의 랜덤 분산
+            mesh.position.x += (Math.random() - 0.5) * 0.6;
+            mesh.position.y += (Math.random() - 0.5) * 0.3;
+            mesh.position.z += (Math.random() - 0.5) * 0.6;
+            scene.add(mesh);
+            trailParticles.push({ mesh, life: 1.0, decay: isBoosting ? 2.8 : 4.0 });
+        }
+
+        function updateTrailParticles(dt) {
+            for (let i = trailParticles.length - 1; i >= 0; i--) {
+                const p = trailParticles[i];
+                p.life -= p.decay * dt;
+                if (p.life <= 0) {
+                    scene.remove(p.mesh);
+                    p.mesh.material.dispose();
+                    trailParticles.splice(i, 1);
+                } else {
+                    p.mesh.scale.setScalar(p.life * 1.2);
+                    p.mesh.material.opacity = p.life * 0.7;
+                }
+            }
+        }
+
+        // 펄스 레이저 & 공중 보안 드론 타겟
+        const lasers = [];
+        const enemyTargets = [];
+        let lastFireTime = 0;
+
+        function firePulseLaser() {
+            if (!state.isPlaying) return;
+            const now = performance.now();
+            if (now - lastFireTime < 180) return; // 연사 쿨타임
+            lastFireTime = now;
+
+            playLaserSound();
+            const forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(droneGroup.quaternion).normalize();
+            
+            // 스마트 락온 보정: 전방 시야각 내 가장 가까운 적 타겟 자동 유도
+            let lockedTarget = null;
+            let bestDot = 0.92; // 약 23도 이내 시야각
+            enemyTargets.forEach(t => {
+                const toTarget = t.group.position.clone().sub(state.pos);
+                const dist = toTarget.length();
+                if (dist < 180) {
+                    toTarget.normalize();
+                    const dot = forwardDir.dot(toTarget);
+                    if (dot > bestDot) {
+                        bestDot = dot;
+                        lockedTarget = t;
+                    }
+                }
+            });
+
+            // 양쪽 날개에서 트윈 레이저 발사
+            [-0.8, 0.8].forEach(sideOffset => {
+                const laserMesh = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.12, 0.12, 3.8, 8).rotateX(Math.PI / 2),
+                    new THREE.MeshBasicMaterial({ color: state.droneColor })
+                );
+                const offsetVec = new THREE.Vector3(sideOffset, 0, -1.2).applyQuaternion(droneGroup.quaternion);
+                const spawnPos = state.pos.clone().add(offsetVec);
+                laserMesh.position.copy(spawnPos);
+
+                let aimDir = forwardDir.clone();
+                if (lockedTarget) {
+                    aimDir = lockedTarget.group.position.clone().sub(spawnPos).normalize();
+                    laserMesh.lookAt(lockedTarget.group.position);
+                } else {
+                    laserMesh.quaternion.copy(droneGroup.quaternion);
+                }
+
+                scene.add(laserMesh);
+                lasers.push({ mesh: laserMesh, dir: aimDir, life: 1.5 });
+            });
+        }
+
+        function spawnEnemyTargets() {
+            enemyTargets.forEach(t => scene.remove(t.group));
+            enemyTargets.length = 0;
+
+            for (let i = 0; i < 18; i++) {
+                const group = new THREE.Group();
+                const core = new THREE.Mesh(
+                    new THREE.OctahedronGeometry(2.4, 0),
+                    new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xaa0033, metalness: 0.8, roughness: 0.2 })
+                );
+                const ring = new THREE.Mesh(
+                    new THREE.TorusGeometry(3.4, 0.15, 8, 24),
+                    new THREE.MeshBasicMaterial({ color: 0xffaa00 })
+                );
+                group.add(core);
+                group.add(ring);
+
+                const pos = getValidRingPosition(new THREE.Vector3(0, 35, 0));
+                group.position.copy(pos);
+                scene.add(group);
+                enemyTargets.push({ group, ring, basePos: pos.clone(), phase: Math.random() * Math.PI * 2 });
+            }
+        }
+
+        function spawnExplosion(pos) {
+            playExplosionSound();
+            state.screenShake = 0.35;
+            for (let i = 0; i < 16; i++) {
+                const mat = new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0xff0055 : 0xffaa00, transparent: true, opacity: 1 });
+                const p = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), mat);
+                p.position.copy(pos);
+                scene.add(p);
+                const vel = new THREE.Vector3((Math.random() - 0.5) * 28, (Math.random() - 0.5) * 28, (Math.random() - 0.5) * 28);
+                trailParticles.push({ mesh: p, life: 1.0, decay: 1.8, vel });
+            }
+        }
+
+        function updateCombat(dt) {
+            // 적 보안 드론 부유 애니메이션
+            const t = clock.getElapsedTime();
+            enemyTargets.forEach(target => {
+                target.group.rotation.y += 1.5 * dt;
+                target.ring.rotation.x += 2.2 * dt;
+                target.group.position.y = target.basePos.y + Math.sin(t * 2 + target.phase) * 2.5;
+            });
+
+            // 레이저 이동 및 명중 판정
+            for (let i = lasers.length - 1; i >= 0; i--) {
+                const l = lasers[i];
+                l.life -= dt;
+                l.mesh.position.addScaledVector(l.dir, 180 * dt);
+
+                let hit = false;
+                for (let j = enemyTargets.length - 1; j >= 0; j--) {
+                    const target = enemyTargets[j];
+                    if (l.mesh.position.distanceTo(target.group.position) < 4.5) {
+                        hit = true;
+                        spawnExplosion(target.group.position);
+                        state.targetsDestroyed += 1;
+                        const pts = 250 * state.combo;
+                        state.score += pts;
+                        state.battery = Math.min(100, state.battery + 15);
+                        showToast(`💥 보안 드론 격파! +${pts}점 (배터리 +15%)`);
+
+                        // 타겟 재배치
+                        const newPos = getValidRingPosition(state.pos);
+                        target.basePos.copy(newPos);
+                        target.group.position.copy(newPos);
+                        break;
+                    }
+                }
+
+                if (hit || l.life <= 0) {
+                    scene.remove(l.mesh);
+                    lasers.splice(i, 1);
+                }
+            }
+        }
+
+        // 워프 스피드 라인 2D 캔버스 효과
+        const warpCanvas = document.getElementById('warp-canvas');
+        const warpCtx = warpCanvas ? warpCanvas.getContext('2d') : null;
+        function renderWarpLines(active) {
+            if (!warpCanvas || !warpCtx) return;
+            warpCanvas.style.opacity = active ? '1' : '0';
+            if (!active) return;
+
+            if (warpCanvas.width !== window.innerWidth || warpCanvas.height !== window.innerHeight) {
+                warpCanvas.width = window.innerWidth;
+                warpCanvas.height = window.innerHeight;
+            }
+            const w = warpCanvas.width;
+            const h = warpCanvas.height;
+            const cx = w / 2;
+            const cy = h / 2;
+
+            warpCtx.clearRect(0, 0, w, h);
+            warpCtx.lineWidth = 2;
+            for (let i = 0; i < 28; i++) {
+                const angle = (Math.PI * 2 * i) / 28 + (Math.random() - 0.5) * 0.1;
+                const innerR = Math.min(w, h) * (0.28 + Math.random() * 0.15);
+                const outerR = Math.max(w, h) * 0.75;
+                warpCtx.strokeStyle = i % 2 === 0 ? 'rgba(0, 243, 255, 0.35)' : 'rgba(255, 0, 170, 0.35)';
+                warpCtx.beginPath();
+                warpCtx.moveTo(cx + Math.cos(angle) * innerR, cy + Math.sin(angle) * innerR);
+                warpCtx.lineTo(cx + Math.cos(angle) * outerR, cy + Math.sin(angle) * outerR);
+                warpCtx.stroke();
+            }
+        }
+
+        // ==========================================
+        // 5. 네온 도시 환경 및 빌딩 생성
+        // ==========================================
+        const buildings = []; // 충돌 검사용 AABB 배열
+
+        function buildCity() {
+            // 바닥 그리드
+            const gridHelper = new THREE.GridHelper(1200, 120, 0x00f3ff, 0x151e38);
+            scene.add(gridHelper);
+
+            const groundGeo = new THREE.PlaneGeometry(1200, 1200);
+            groundGeo.rotateX(-Math.PI / 2);
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0x070b19, roughness: 0.8 });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.position.y = -0.1;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // 사이버펑크 고층 빌딩 배치
+            const bldgMatDark = new THREE.MeshStandardMaterial({ color: 0x0d1326, metalness: 0.7, roughness: 0.3 });
+            const edgeMatCyan = new THREE.LineBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.45 });
+            const edgeMatPink = new THREE.LineBasicMaterial({ color: 0xff00aa, transparent: true, opacity: 0.45 });
+
+            for (let i = 0; i < 140; i++) {
+                const w = 12 + Math.random() * 18;
+                const d = 12 + Math.random() * 18;
+                const h = 20 + Math.random() * 95;
+
+                // 시작 지점(0,0) 반경 45m 이내에는 빌딩 생성 제외
+                let x = (Math.random() - 0.5) * 700;
+                let z = (Math.random() - 0.5) * 700;
+                if (Math.hypot(x, z) < 45) continue;
+
+                const geo = new THREE.BoxGeometry(w, h, d);
+                const mesh = new THREE.Mesh(geo, bldgMatDark);
+                mesh.position.set(x, h / 2, z);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+
+                // 빌딩 네온 테두리 라인
+                const edges = new THREE.EdgesGeometry(geo);
+                const line = new THREE.LineSegments(edges, Math.random() > 0.4 ? edgeMatCyan : edgeMatPink);
+                mesh.add(line);
+
+                // 일부 고층 빌딩 옥상에 홀로그램 안테나 첨탑 추가
+                if (h > 85 && Math.random() > 0.4) {
+                    const spire = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.2, 0.6, 18, 8),
+                        new THREE.MeshBasicMaterial({ color: Math.random() > 0.5 ? 0x00f3ff : 0xff00aa })
+                    );
+                    spire.position.y = h / 2 + 9;
+                    mesh.add(spire);
+                }
+
+                scene.add(mesh);
+
+                // 충돌 박스 데이터 저장
+                buildings.push({
+                    minX: x - w / 2 - 1.2,
+                    maxX: x + w / 2 + 1.2,
+                    minZ: z - d / 2 - 1.2,
+                    maxZ: z + d / 2 + 1.2,
+                    maxY: h + 0.5
+                });
+            }
+
+            // 상공을 순회하는 거대 사이버펑크 스카이 비행선(Airship) 랜드마크 추가
+            const airshipGroup = new THREE.Group();
+            const hull = new THREE.Mesh(
+                new THREE.CylinderGeometry(6, 6, 48, 16).rotateZ(Math.PI / 2),
+                new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.85, roughness: 0.2 })
+            );
+            const neonRing1 = new THREE.Mesh(
+                new THREE.TorusGeometry(6.3, 0.25, 8, 32).rotateY(Math.PI / 2),
+                new THREE.MeshBasicMaterial({ color: 0x00f3ff })
+            );
+            neonRing1.position.x = -12;
+            const neonRing2 = neonRing1.clone();
+            neonRing2.position.x = 12;
+            airshipGroup.add(hull, neonRing1, neonRing2);
+            airshipGroup.position.set(0, 125, -120);
+            scene.add(airshipGroup);
+            scene.userData.airship = airshipGroup;
+
+            // 하늘의 별/네온 파티클
+            const starGeo = new THREE.BufferGeometry();
+            const starCount = 800;
+            const starPos = new Float32Array(starCount * 3);
+            for (let i = 0; i < starCount * 3; i += 3) {
+                starPos[i] = (Math.random() - 0.5) * 900;
+                starPos[i + 1] = 30 + Math.random() * 250;
+                starPos[i + 2] = (Math.random() - 0.5) * 900;
+            }
+            starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+            const starMat = new THREE.PointsMaterial({ color: 0x88ccff, size: 1.2 });
+            scene.add(new THREE.Points(starGeo, starMat));
+        }
+        buildCity();
+
+        // ==========================================
+        // 6. 체크포인트 링(Ring) 생성 및 안내 화살표
+        // ==========================================
+        let targetRing = null;
+        let nextRing = null;
+
+        // 드론 위에서 다음 링 방향을 가리키는 3D 네비게이션 화살표
+        const arrowGroup = new THREE.Group();
+        const arrowCone = new THREE.Mesh(
+            new THREE.ConeGeometry(0.35, 0.9, 8).rotateX(Math.PI / 2),
+            new THREE.MeshBasicMaterial({ color: 0x00ff88 })
+        );
+        arrowGroup.add(arrowCone);
+        scene.add(arrowGroup);
+
+        function createRingMesh(isPrimary) {
+            const group = new THREE.Group();
+            const radius = 7.5;
+            const torusGeo = new THREE.TorusGeometry(radius, 0.45, 16, 48);
+            const torusMat = new THREE.MeshBasicMaterial({ 
+                color: isPrimary ? 0x00ffaa : 0x556688,
+                transparent: true,
+                opacity: isPrimary ? 0.95 : 0.4
+            });
+            const torus = new THREE.Mesh(torusGeo, torusMat);
+            group.add(torus);
+
+            if (isPrimary) {
+                // 내부 홀로그램 에너지 필드
+                const innerGeo = new THREE.CircleGeometry(radius - 0.3, 32);
+                const innerMat = new THREE.MeshBasicMaterial({
+                    color: 0x00ffaa,
+                    transparent: true,
+                    opacity: 0.15,
+                    side: THREE.DoubleSide
+                });
+                const inner = new THREE.Mesh(innerGeo, innerMat);
+                group.add(inner);
+            }
+            scene.add(group);
+            return group;
+        }
+
+        function getValidRingPosition(originPos) {
+            for (let attempt = 0; attempt < 30; attempt++) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 65 + Math.random() * 55;
+                const x = THREE.MathUtils.clamp(originPos.x + Math.sin(angle) * dist, -280, 280);
+                const z = THREE.MathUtils.clamp(originPos.z + Math.cos(angle) * dist, -280, 280);
+                const y = 15 + Math.random() * 55;
+
+                // 빌딩 내부와 겹치지 않는지 확인
+                let insideBuilding = false;
+                for (const b of buildings) {
+                    if (x > b.minX - 8 && x < b.maxX + 8 && z > b.minZ - 8 && z < b.maxZ + 8 && y < b.maxY + 8) {
+                        insideBuilding = true;
+                        break;
+                    }
+                }
+                if (!insideBuilding) {
+                    return new THREE.Vector3(x, y, z);
+                }
+            }
+            return new THREE.Vector3(0, 45, -80);
+        }
+
+        function initRings() {
+            if (targetRing) scene.remove(targetRing);
+            if (nextRing) scene.remove(nextRing);
+
+            targetRing = createRingMesh(true);
+            targetRing.position.set(0, 20, -65);
+
+            nextRing = createRingMesh(false);
+            const nextPos = getValidRingPosition(targetRing.position);
+            nextRing.position.copy(nextPos);
+            nextRing.lookAt(targetRing.position);
+        }
+
+        function advanceRing() {
+            playRingSound();
+            state.ringsPassed += 1;
+            state.combo = Math.min(8, state.combo + 1);
+            state.comboTimer = 8.0; // 8초 내 다음 링 통과 시 콤보 유지
+
+            const baseBonus = state.isBoosting ? 150 : 100;
+            const bonus = baseBonus * state.combo;
+            state.score += bonus;
+            state.battery = Math.min(100, state.battery + 22); // 배터리 충전
+
+            showToast(`⚡ ${state.combo}x 콤보 통과! +${bonus}점 (배터리 충전)`);
+
+            // 기존 타겟 링을 다음 링 위치로 이동
+            targetRing.position.copy(nextRing.position);
+            targetRing.lookAt(state.pos);
+
+            // 새로운 다음 링 위치 설정
+            const newNextPos = getValidRingPosition(targetRing.position);
+            nextRing.position.copy(newNextPos);
+            nextRing.lookAt(targetRing.position);
+        }
+
+        // ==========================================
+        // 7. 입력 이벤트 처리 (키보드, 마우스, 터치 조이스틱)
+        // ==========================================
+        window.addEventListener('keydown', (e) => {
+            state.keys[e.code] = true;
+            if (e.code === 'KeyC' && state.isPlaying) {
+                toggleCameraMode();
+            }
+            if (e.code === 'KeyF' && state.isPlaying) {
+                firePulseLaser();
+            }
+            if ((e.code === 'KeyQ' || e.code === 'KeyE') && state.isPlaying && state.barrelRollDir === 0) {
+                state.barrelRollDir = e.code === 'KeyQ' ? 1 : -1;
+                state.barrelRollAngle = 0;
+                playBoostSound();
+                // 배럴 롤 시 순간 측면 회피 추진력 부여
+                const sideVec = new THREE.Vector3(Math.cos(state.yaw), 0, -Math.sin(state.yaw));
+                state.vel.addScaledVector(sideVec, -state.barrelRollDir * 28);
+            }
+            if (e.code === 'Space') {
+                if (!state.isBoosting && state.isPlaying) playBoostSound();
+                state.isBoosting = true;
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            state.keys[e.code] = false;
+            if (e.code === 'Space') {
+                state.isBoosting = false;
+            }
+        });
+
+        // 마우스 드래그로 3인칭 시점 각도 조절 및 클릭 사격
+        let mouseDownPos = { x: 0, y: 0 };
+        canvas.addEventListener('mousedown', (e) => {
+            state.isDragging = true;
+            state.prevMouse = { x: e.clientX, y: e.clientY };
+            mouseDownPos = { x: e.clientX, y: e.clientY };
+        });
+        window.addEventListener('mouseup', (e) => {
+            if (state.isDragging && state.isPlaying) {
+                const moveDist = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
+                if (moveDist < 6) firePulseLaser();
+            }
+            state.isDragging = false;
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!state.isDragging || state.cameraMode !== 'third') return;
+            const dx = e.clientX - state.prevMouse.x;
+            const dy = e.clientY - state.prevMouse.y;
+            state.camYawOffset -= dx * 0.006;
+            state.camPitchOffset = THREE.MathUtils.clamp(state.camPitchOffset + dy * 0.006, -0.2, 1.0);
+            state.prevMouse = { x: e.clientX, y: e.clientY };
+        });
+
+        // 모바일 가상 조이스틱 설정 함수
+        function setupJoystick(zoneId, knobId, targetObj) {
+            const zone = document.getElementById(zoneId);
+            const knob = document.getElementById(knobId);
+            let activeTouchId = null;
+
+            const handleMove = (clientX, clientY) => {
+                const rect = zone.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                const maxRadius = rect.width / 2 - 20;
+
+                let dx = clientX - centerX;
+                let dy = clientY - centerY;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist > maxRadius) {
+                    dx = (dx / dist) * maxRadius;
+                    dy = (dy / dist) * maxRadius;
+                }
+
+                knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+                targetObj.x = dx / maxRadius;
+                targetObj.y = -dy / maxRadius; // 위쪽이 +1
+            };
+
+            zone.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const touch = e.changedTouches[0];
+                activeTouchId = touch.identifier;
+                handleMove(touch.clientX, touch.clientY);
+            }, { passive: false });
+
+            zone.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === activeTouchId) {
+                        handleMove(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+                        break;
+                    }
+                }
+            }, { passive: false });
+
+            const resetKnob = (e) => {
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === activeTouchId) {
+                        activeTouchId = null;
+                        knob.style.transform = 'translate(-50%, -50%)';
+                        targetObj.x = 0;
+                        targetObj.y = 0;
+                        break;
+                    }
+                }
+            };
+
+            zone.addEventListener('touchend', resetKnob);
+            zone.addEventListener('touchcancel', resetKnob);
+        }
+
+        setupJoystick('joy-left', 'knob-left', state.joyLeft);
+        setupJoystick('joy-right', 'knob-right', state.joyRight);
+
+        // 모바일 부스터 & 사격 버튼
+        const btnMobileBoost = document.getElementById('btn-mobile-boost');
+        btnMobileBoost.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (!state.isBoosting && state.isPlaying) playBoostSound();
+            state.isBoosting = true;
+        });
+        btnMobileBoost.addEventListener('touchend', () => {
+            state.isBoosting = false;
+        });
+
+        const btnMobileFire = document.getElementById('btn-mobile-fire');
+        if (btnMobileFire) {
+            btnMobileFire.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                firePulseLaser();
+            });
+        }
+        document.getElementById('btn-fire-hud').addEventListener('click', firePulseLaser);
+
+        // ==========================================
+        // 8. UI 컨트롤 및 게임 흐름 제어
+        // ==========================================
+        const startScreen = document.getElementById('start-screen');
+        const gameoverScreen = document.getElementById('gameover-screen');
+        const hud = document.getElementById('hud');
+        const combatHud = document.getElementById('combat-hud');
+        const radarContainer = document.getElementById('radar-container');
+        const mobileControls = document.getElementById('mobile-controls');
+
+        // 기체 네온 컬러 스킨 선택
+        document.querySelectorAll('.skin-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.skin-btn').forEach(b => {
+                    b.classList.remove('ring-2', 'ring-white', 'scale-110');
+                    b.classList.add('opacity-70');
+                });
+                btn.classList.add('ring-2', 'ring-white', 'scale-110');
+                btn.classList.remove('opacity-70');
+                applyDroneSkin(parseInt(btn.dataset.color, 16));
+            });
+        });
+
+        // 모드 선택 버튼
+        document.getElementById('mode-race').addEventListener('click', () => {
+            state.mode = 'race';
+            document.getElementById('mode-race').className = 'mode-btn p-3 rounded-xl border-2 border-cyan-400 bg-cyan-500/20 text-left transition';
+            document.getElementById('mode-free').className = 'mode-btn p-3 rounded-xl border border-gray-600 bg-gray-800/40 hover:border-pink-400 text-left transition';
+        });
+
+        document.getElementById('mode-free').addEventListener('click', () => {
+            state.mode = 'free';
+            document.getElementById('mode-free').className = 'mode-btn p-3 rounded-xl border-2 border-pink-400 bg-pink-500/20 text-left transition';
+            document.getElementById('mode-race').className = 'mode-btn p-3 rounded-xl border border-gray-600 bg-gray-800/40 hover:border-cyan-400 text-left transition';
+        });
+
+        // 카메라 시점 전환
+        function toggleCameraMode() {
+            state.cameraMode = state.cameraMode === 'third' ? 'fpv' : 'third';
+            const btn = document.getElementById('btn-camera');
+            btn.textContent = state.cameraMode === 'third' ? '🎥 3인칭 (C)' : '🕶️ 1인칭 FPV (C)';
+            // FPV 모드에서는 드론 본체가 시야를 가리지 않도록 숨김
+            droneGroup.visible = (state.cameraMode === 'third');
+            showToast(state.cameraMode === 'fpv' ? '1인칭 FPV 레이싱 시점' : '3인칭 추적 시점');
+        }
+        document.getElementById('btn-camera').addEventListener('click', toggleCameraMode);
+
+        // 사운드 토글
+        document.getElementById('btn-sound').addEventListener('click', () => {
+            state.soundEnabled = !state.soundEnabled;
+            document.getElementById('btn-sound').textContent = state.soundEnabled ? '🔊 소리 켜짐' : '🔇 음소거';
+        });
+
+        // 토스트 알림 메시지
+        let toastTimeout;
+        function showToast(msg) {
+            const el = document.getElementById('toast-msg');
+            el.textContent = msg;
+            el.style.opacity = '1';
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                el.style.opacity = '0';
+            }, 1800);
+        }
+
+        // 게임 시작 / 재시작
+        function startGame() {
+            initAudio();
+            state.isPlaying = true;
+            state.score = 0;
+            state.ringsPassed = 0;
+            state.targetsDestroyed = 0;
+            state.combo = 1;
+            state.comboTimer = 0;
+            state.battery = 100;
+            state.pos.set(0, 18, 0);
+            state.vel.set(0, 0, 0);
+            state.yaw = 0;
+            state.pitch = 0;
+            state.roll = 0;
+            state.barrelRollAngle = 0;
+            state.barrelRollDir = 0;
+            state.camYawOffset = 0;
+
+            initRings();
+            spawnEnemyTargets();
+
+            startScreen.classList.add('hidden');
+            gameoverScreen.classList.add('hidden');
+            hud.classList.remove('hidden');
+            combatHud.classList.remove('hidden');
+            radarContainer.classList.remove('hidden');
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                mobileControls.classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('btn-start').addEventListener('click', startGame);
+        document.getElementById('btn-restart').addEventListener('click', startGame);
+
+        function endGame(title, reason) {
+            state.isPlaying = false;
+            playCrashSound();
+            document.getElementById('gameover-title').textContent = title;
+            document.getElementById('gameover-reason').textContent = reason;
+            document.getElementById('final-score').textContent = state.score;
+            document.getElementById('final-rings').textContent = state.ringsPassed;
+            document.getElementById('final-targets').textContent = state.targetsDestroyed;
+
+            hud.classList.add('hidden');
+            combatHud.classList.add('hidden');
+            radarContainer.classList.add('hidden');
+            mobileControls.classList.add('hidden');
+            gameoverScreen.classList.remove('hidden');
+        }
+
+        // ==========================================
+        // 9. 드론 비행 물리 및 충돌 계산 루프
+        // ==========================================
+        const clock = new THREE.Clock();
+
+        function updatePhysics(dt) {
+            // 콤보 타이머 감소
+            if (state.combo > 1) {
+                state.comboTimer -= dt;
+                if (state.comboTimer <= 0) {
+                    state.combo = 1;
+                }
+            }
+
+            // 입력값 통합 (키보드 + 가상 조이스틱)
+            let throttleInput = state.joyLeft.y;
+            if (state.keys['KeyW']) throttleInput += 1;
+            if (state.keys['KeyS']) throttleInput -= 1;
+
+            let yawInput = -state.joyLeft.x;
+            if (state.keys['KeyA']) yawInput += 1;
+            if (state.keys['KeyD']) yawInput -= 1;
+
+            let pitchInput = state.joyRight.y;
+            if (state.keys['ArrowUp']) pitchInput += 1;
+            if (state.keys['ArrowDown']) pitchInput -= 1;
+
+            let rollInput = -state.joyRight.x;
+            if (state.keys['ArrowLeft']) rollInput += 1;
+            if (state.keys['ArrowRight']) rollInput -= 1;
+
+            // 값 범위 제한 (-1 ~ 1)
+            throttleInput = THREE.MathUtils.clamp(throttleInput, -1, 1);
+            yawInput = THREE.MathUtils.clamp(yawInput, -1, 1);
+            pitchInput = THREE.MathUtils.clamp(pitchInput, -1, 1);
+            rollInput = THREE.MathUtils.clamp(rollInput, -1, 1);
+
+            // 부스터 처리 및 시각/음향 연출
+            const boostActive = state.isBoosting && (state.mode === 'free' || state.battery > 5);
+            const speedMultiplier = boostActive ? 1.85 : 1.0;
+            const vignette = document.getElementById('speed-vignette');
+            if (vignette) vignette.style.opacity = boostActive ? '1' : '0';
+            renderWarpLines(boostActive);
+
+            // 회전(Yaw) 및 기울기(Pitch/Roll) 업데이트
+            const yawSpeed = 2.2;
+            state.yaw += yawInput * yawSpeed * dt;
+
+            // 부드러운 기체 기울기 보간 (시각적 피드백)
+            const targetPitch = -pitchInput * 0.35 * (boostActive ? 1.3 : 1.0);
+            const targetRoll = rollInput * 0.4;
+            state.pitch = THREE.MathUtils.lerp(state.pitch, targetPitch, 8 * dt);
+            state.roll = THREE.MathUtils.lerp(state.roll, targetRoll, 8 * dt);
+
+            // 360도 에일러론 배럴 롤 스턴트 회전 처리
+            if (state.barrelRollDir !== 0) {
+                state.barrelRollAngle += state.barrelRollDir * 11.5 * dt;
+                if (Math.abs(state.barrelRollAngle) >= Math.PI * 2) {
+                    state.barrelRollAngle = 0;
+                    state.barrelRollDir = 0;
+                }
+            }
+
+            // 드론의 로컬 전방/우측 벡터 계산
+            const forward = new THREE.Vector3(-Math.sin(state.yaw), 0, -Math.cos(state.yaw));
+            const right = new THREE.Vector3(Math.cos(state.yaw), 0, -Math.sin(state.yaw));
+
+            // 가속도 적용
+            const accel = 48 * speedMultiplier;
+            const verticalAccel = 36;
+
+            state.vel.addScaledVector(forward, pitchInput * accel * dt);
+            state.vel.addScaledVector(right, -rollInput * accel * dt);
+            state.vel.y += throttleInput * verticalAccel * dt;
+
+            // 공기 저항 (관성 감쇠)
+            const damping = Math.pow(0.18, dt);
+            state.vel.x *= damping;
+            state.vel.z *= damping;
+            state.vel.y *= Math.pow(0.12, dt);
+
+            // 위치 업데이트
+            state.pos.addScaledVector(state.vel, dt);
+
+            // 고도 제한 (바닥 충돌 방지 및 최고 고도 제한)
+            if (state.pos.y < 1.0) {
+                state.pos.y = 1.0;
+                state.vel.y = Math.max(0, state.vel.y);
+            }
+            if (state.pos.y > 180) {
+                state.pos.y = 180;
+                state.vel.y = Math.min(0, state.vel.y);
+            }
+
+            // 도시 외곽 경계 복귀 처리
+            state.pos.x = THREE.MathUtils.clamp(state.pos.x, -360, 360);
+            state.pos.z = THREE.MathUtils.clamp(state.pos.z, -360, 360);
+
+            // 빌딩 충돌 검사
+            for (const b of buildings) {
+                if (
+                    state.pos.x > b.minX && state.pos.x < b.maxX &&
+                    state.pos.z > b.minZ && state.pos.z < b.maxZ &&
+                    state.pos.y < b.maxY
+                ) {
+                    // 충돌 시 튕겨나감 및 배터리 패널티
+                    playCrashSound();
+                    state.screenShake = 0.4;
+                    state.combo = 1;
+                    state.vel.multiplyScalar(-0.8);
+                    state.pos.addScaledVector(state.vel, dt * 3);
+                    if (state.mode === 'race') {
+                        state.battery = Math.max(0, state.battery - 5);
+                        showToast("⚠️ 빌딩 충돌! 배터리 -5%");
+                    }
+                    break;
+                }
+            }
+
+            // 드론 메쉬 트랜스폼 적용 (배럴 롤 회전 합산)
+            droneGroup.position.copy(state.pos);
+            const euler = new THREE.Euler(state.pitch, state.yaw, state.roll + state.barrelRollAngle, 'YXZ');
+            droneGroup.quaternion.setFromEuler(euler);
+
+            // 후방 제트 애프터버너 불꽃 스케일 동적 변화
+            const speedMag = state.vel.length();
+            if (droneGroup.userData.thrusterCones) {
+                const flameScale = boostActive ? (1.8 + Math.random() * 0.5) : (0.4 + (speedMag / 50) * 0.8);
+                droneGroup.userData.thrusterCones.forEach(cone => {
+                    cone.scale.set(1, 1, flameScale);
+                    cone.material.color.setHex(boostActive ? 0xff00aa : state.droneColor);
+                });
+            }
+
+            // 프로펠러 회전 애니메이션
+            const propSpin = (25 + speedMag * 1.5) * dt;
+            propellers.forEach(p => {
+                p.mesh.rotation.y += propSpin * p.dir;
+            });
+
+            // 후방 네온 파티클 트레일 생성
+            if (speedMag > 4 || boostActive) {
+                const tailOffset = new THREE.Vector3(0, 0, 1.1).applyQuaternion(droneGroup.quaternion);
+                spawnTrailParticle(state.pos.clone().add(tailOffset), boostActive);
+            }
+            // 폭발 파편 속도 적용
+            trailParticles.forEach(p => {
+                if (p.vel) p.mesh.position.addScaledVector(p.vel, dt);
+            });
+            updateTrailParticles(dt);
+            updateCombat(dt);
+
+            // 체크포인트 링 통과 검사
+            if (targetRing) {
+                targetRing.rotation.z += 1.2 * dt;
+                const distToRing = state.pos.distanceTo(targetRing.position);
+                if (distToRing < 8.2) {
+                    advanceRing();
+                }
+
+                // 내비게이션 화살표 위치 및 방향 갱신
+                arrowGroup.position.copy(state.pos).add(new THREE.Vector3(0, 1.8, 0));
+                arrowGroup.lookAt(targetRing.position);
+                arrowGroup.visible = (state.cameraMode === 'third');
+            }
+
+            // 배터리 소모 (레이스 모드)
+            if (state.mode === 'race') {
+                const drainRate = boostActive ? 4.8 : 2.2;
+                state.battery = Math.max(0, state.battery - drainRate * dt);
+                if (state.battery <= 0) {
+                    endGame("BATTERY DEPLETED", "배터리가 모두 소모되어 비상 착륙했습니다.");
+                }
+            }
+
+            // 사운드 및 HUD 업데이트
+            updateMotorSound(Math.min(1, speedMag / 50), boostActive);
+            updateHUD(speedMag);
+            updateTacticalHUD();
+        }
+
+        // 전술 미니맵 레이더 & 3D 스마트 락온 UI 갱신
+        const radarCanvas = document.getElementById('radar-canvas');
+        const radarCtx = radarCanvas ? radarCanvas.getContext('2d') : null;
+        const lockonBox = document.getElementById('lockon-box');
+
+        function updateTacticalHUD() {
+            // 1) 스마트 타겟 락온 박스 3D -> 2D 화면 투영
+            if (lockonBox) {
+                const forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(droneGroup.quaternion).normalize();
+                let bestTarget = null;
+                let bestDot = 0.92;
+
+                enemyTargets.forEach(t => {
+                    const toTarget = t.group.position.clone().sub(state.pos);
+                    if (toTarget.length() < 180) {
+                        toTarget.normalize();
+                        const dot = forwardDir.dot(toTarget);
+                        if (dot > bestDot) {
+                            bestDot = dot;
+                            bestTarget = t;
+                        }
+                    }
+                });
+
+                if (bestTarget) {
+                    const proj = bestTarget.group.position.clone().project(camera);
+                    if (proj.z < 1) {
+                        const sx = (proj.x * 0.5 + 0.5) * window.innerWidth;
+                        const sy = (-proj.y * 0.5 + 0.5) * window.innerHeight;
+                        lockonBox.style.left = `${sx}px`;
+                        lockonBox.style.top = `${sy}px`;
+                        lockonBox.classList.remove('hidden');
+                    } else {
+                        lockonBox.classList.add('hidden');
+                    }
+                } else {
+                    lockonBox.classList.add('hidden');
+                }
+            }
+
+            // 2) 전술 미니맵 레이더 렌더링
+            if (!radarCtx) return;
+            const r = 60;
+            const range = 220; // 레이더 탐지 반경(m)
+            radarCtx.clearRect(0, 0, 120, 120);
+
+            // 레이더 배경 동심원 & 십자선
+            radarCtx.fillStyle = 'rgba(5, 15, 30, 0.75)';
+            radarCtx.beginPath();
+            radarCtx.arc(r, r, r - 2, 0, Math.PI * 2);
+            radarCtx.fill();
+
+            radarCtx.strokeStyle = 'rgba(0, 243, 255, 0.25)';
+            radarCtx.lineWidth = 1;
+            [25, 48].forEach(rad => {
+                radarCtx.beginPath();
+                radarCtx.arc(r, r, rad, 0, Math.PI * 2);
+                radarCtx.stroke();
+            });
+
+            // 드론 방향 기준 상대 좌표 변환 헬퍼
+            const cosY = Math.cos(state.yaw);
+            const sinY = Math.sin(state.yaw);
+            const toRadar = (worldPos) => {
+                const dx = worldPos.x - state.pos.x;
+                const dz = worldPos.z - state.pos.z;
+                const rx = dx * cosY - dz * sinY;
+                const rz = dx * sinY + dz * cosY;
+                const dist = Math.hypot(rx, rz);
+                const clampedDist = Math.min(dist, range);
+                const angle = Math.atan2(rz, rx);
+                return {
+                    x: r + (Math.cos(angle) * clampedDist / range) * (r - 8),
+                    y: r + (Math.sin(angle) * clampedDist / range) * (r - 8)
+                };
+            };
+
+            // 목표 체크포인트 링 표시 (초록색 점)
+            if (targetRing) {
+                const rp = toRadar(targetRing.position);
+                radarCtx.fillStyle = '#00ffaa';
+                radarCtx.beginPath();
+                radarCtx.arc(rp.x, rp.y, 4.5, 0, Math.PI * 2);
+                radarCtx.fill();
+            }
+
+            // 적 보안 드론 표시 (핑크색 점)
+            radarCtx.fillStyle = '#ff0077';
+            enemyTargets.forEach(t => {
+                const ep = toRadar(t.group.position);
+                radarCtx.beginPath();
+                radarCtx.arc(ep.x, ep.y, 2.5, 0, Math.PI * 2);
+                radarCtx.fill();
+            });
+
+            // 중앙 플레이어 드론 삼각형 마커
+            radarCtx.fillStyle = '#00f3ff';
+            radarCtx.beginPath();
+            radarCtx.moveTo(r, r - 6);
+            radarCtx.lineTo(r - 4.5, r + 5);
+            radarCtx.lineTo(r + 4.5, r + 5);
+            radarCtx.closePath();
+            radarCtx.fill();
+        }
+
+        function updateCamera(dt) {
+            // 부스터 사용 시 다이나믹 FOV (시야각 확장으로 속도감 극대화)
+            const boostActive = state.isBoosting && (state.mode === 'free' || state.battery > 5);
+            const targetFov = boostActive ? 82 : 65;
+            if (Math.abs(camera.fov - targetFov) > 0.1) {
+                camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, 8 * dt);
+                camera.updateProjectionMatrix();
+            }
+
+            if (state.cameraMode === 'fpv') {
+                // 1인칭 FPV 시점: 드론 전방 카메라 위치
+                const camOffset = new THREE.Vector3(0, 0.2, -1.1);
+                camOffset.applyQuaternion(droneGroup.quaternion);
+                camera.position.copy(state.pos).add(camOffset);
+                camera.quaternion.copy(droneGroup.quaternion);
+            } else {
+                // 3인칭 추적 시점
+                const totalYaw = state.yaw + state.camYawOffset;
+                const dist = 7.5;
+                const height = 2.6 + Math.sin(state.camPitchOffset) * 3.5;
+
+                const idealPos = new THREE.Vector3(
+                    state.pos.x + Math.sin(totalYaw) * dist,
+                    state.pos.y + height,
+                    state.pos.z + Math.cos(totalYaw) * dist
+                );
+
+                camera.position.lerp(idealPos, 10 * dt);
+                const lookTarget = new THREE.Vector3(
+                    state.pos.x - Math.sin(totalYaw) * 6,
+                    state.pos.y + 0.8,
+                    state.pos.z - Math.cos(totalYaw) * 6
+                );
+                camera.lookAt(lookTarget);
+            }
+
+            // 충격/폭발 시 카메라 쉐이크 효과
+            if (state.screenShake > 0) {
+                camera.position.x += (Math.random() - 0.5) * state.screenShake;
+                camera.position.y += (Math.random() - 0.5) * state.screenShake;
+                state.screenShake = Math.max(0, state.screenShake - dt * 1.5);
+            }
+        }
+
+        function updateHUD(speedMag) {
+            document.getElementById('score-display').textContent = state.score;
+            document.getElementById('ring-count').textContent = state.ringsPassed;
+            document.getElementById('target-count').textContent = state.targetsDestroyed;
+            document.getElementById('alt-display').textContent = Math.round(state.pos.y);
+            document.getElementById('spd-display').textContent = Math.round(speedMag * 2.5);
+
+            const comboBadge = document.getElementById('combo-badge');
+            if (state.combo > 1) {
+                comboBadge.textContent = `x${state.combo} COMBO`;
+                comboBadge.classList.remove('hidden');
+            } else {
+                comboBadge.classList.add('hidden');
+            }
+
+            const batPercent = state.mode === 'free' ? 100 : Math.ceil(state.battery);
+            const batBar = document.getElementById('battery-bar');
+            const batText = document.getElementById('battery-text');
+
+            batText.textContent = state.mode === 'free' ? '∞ (FREE)' : `${batPercent}%`;
+            batBar.style.width = `${batPercent}%`;
+
+            if (batPercent <= 25 && state.mode === 'race') {
+                batBar.className = 'h-full bg-red-500 low-battery';
+                batText.classList.add('text-red-400');
+            } else {
+                batBar.className = 'h-full bg-gradient-to-r from-green-400 to-cyan-400 transition-all duration-150';
+                batText.classList.remove('text-red-400');
+            }
+        }
+
+        // ==========================================
+        // 10. 메인 애니메이션 루프 및 리사이즈 대응
+        // ==========================================
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = Math.min(clock.getDelta(), 0.05);
+
+            if (state.isPlaying) {
+                updatePhysics(dt);
+                updateCamera(dt);
+            } else {
+                // 대기 화면에서는 도시 상공을 천천히 선회하는 카메라 연출
+                const t = clock.getElapsedTime() * 0.25;
+                camera.position.set(Math.sin(t) * 65, 45, Math.cos(t) * 65);
+                camera.lookAt(0, 18, 0);
+            }
+
+            // 상공 거대 사이버 비행선 순회 애니메이션
+            if (scene.userData.airship) {
+                const at = clock.getElapsedTime() * 0.12;
+                scene.userData.airship.position.x = Math.cos(at) * 160;
+                scene.userData.airship.position.z = Math.sin(at) * 160;
+                scene.userData.airship.rotation.y = -at;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        window.onload = function () {
+            animate();
+        };
+    </script>
+</body>
+</html>

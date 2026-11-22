@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D 네온 드론 레이스 대결 (9인 대전)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Tone.js (사운드 효과) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@400;700&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #dbeafe;
+            font-family: 'Noto Sans KR', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        .font-cyber {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* HUD 네온 글로우 효과 */
+        .neon-text-blue {
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.8), 0 0 20px rgba(0, 243, 255, 0.4);
+        }
+        .neon-text-pink {
+            text-shadow: 0 0 10px rgba(255, 0, 128, 0.8), 0 0 20px rgba(255, 0, 128, 0.4);
+        }
+        .neon-border {
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3), inset 0 0 15px rgba(0, 243, 255, 0.2);
+            border: 1px solid rgba(0, 243, 255, 0.5);
+        }
+
+        /* 가상 조이스틱 스타일 (모바일/태블릿용) */
+        .joystick-zone {
+            position: absolute;
+            bottom: 30px;
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            background: rgba(15, 23, 42, 0.5);
+            border: 2px solid rgba(0, 243, 255, 0.4);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+        }
+        #joy-left { left: 30px; }
+        #joy-right { right: 30px; }
+
+        .joystick-knob {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #00f3ff 0%, #0284c7 100%);
+            box-shadow: 0 0 15px #00f3ff;
+            position: absolute;
+            pointer-events: none;
+            transition: transform 0.05s ease-out;
+        }
+
+        /* 크로스헤어 (조준선) */
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            pointer-events: none;
+            z-index: 10;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- 3D 캔버스 -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- 중앙 조준선 -->
+    <div id="crosshair">
+        <svg viewBox="0 0 100 100" class="w-full h-full stroke-cyan-400 fill-none" stroke-width="2">
+            <circle cx="50" cy="50" r="35" stroke-dasharray="10 5" />
+            <line x1="50" y1="5" x2="50" y2="20" />
+            <line x1="50" y1="80" x2="50" y2="95" />
+            <line x1="5" y1="50" x2="20" y2="50" />
+            <line x1="80" y1="50" x2="95" y2="50" />
+            <circle cx="50" cy="50" r="2" class="fill-pink-500 stroke-none" />
+        </svg>
+    </div>
+
+    <!-- 상단 HUD (계기판) -->
+    <div id="hud" class="absolute top-0 left-0 w-full p-4 md:p-6 flex justify-between items-start pointer-events-none z-20">
+        <!-- 좌측: 실시간 순위 및 체크포인트 진행도 -->
+        <div class="bg-slate-900/80 backdrop-blur-md p-3 md:p-4 rounded-2xl neon-border text-white min-w-[175px]">
+            <div class="text-xs text-cyan-400 font-bold tracking-wider uppercase mb-1">실시간 순위 (RANK)</div>
+            <div class="flex items-baseline gap-2">
+                <span id="rank-display" class="text-3xl md:text-4xl font-cyber font-black text-yellow-400 neon-text-blue">1위</span>
+                <span class="text-slate-400 font-cyber text-sm">/ 9대</span>
+            </div>
+            <div class="mt-2 text-xs font-bold text-pink-400">
+                체크포인트: <span id="cp-display" class="text-white font-cyber">0 / 12</span>
+            </div>
+            <div class="mt-1 flex items-center gap-2 text-xs text-slate-300">
+                <span class="inline-block w-2 h-2 rounded-full bg-yellow-400 animate-ping"></span>
+                <span id="distance-indicator">다음 게이트: 0m</span>
+            </div>
+        </div>
+
+        <!-- 중앙: 레이스 경과 시간 & 속도 -->
+        <div class="flex flex-col items-center">
+            <div class="bg-slate-900/80 backdrop-blur-md px-5 py-2 rounded-full neon-border text-center">
+                <div class="text-[10px] text-pink-400 font-bold tracking-widest">레이스 시간 (RACE TIME)</div>
+                <div id="timer-display" class="text-2xl md:text-3xl font-cyber font-black text-cyan-300">00.00초</div>
+            </div>
+            <div class="mt-2 flex gap-4 text-xs font-cyber bg-slate-900/60 px-4 py-1.5 rounded-xl border border-slate-700/50 text-cyan-300">
+                <div>ALT: <span id="alt-display" class="text-white font-bold">15</span>m</div>
+                <div>SPD: <span id="spd-display" class="text-white font-bold">0</span>km/h</div>
+            </div>
+        </div>
+
+        <!-- 우측: 컨트롤 버튼 -->
+        <div class="flex flex-col md:flex-row gap-2 pointer-events-auto">
+            <button id="btn-monkey" class="bg-yellow-600/80 hover:bg-yellow-500/80 text-white border border-yellow-400/50 px-3 py-2 rounded-xl text-xs font-bold transition shadow-lg backdrop-blur-sm">
+                🐒 원숭이 소리 (M)
+            </button>
+            <button id="btn-camera" class="bg-slate-800/80 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-500/40 px-3 py-2 rounded-xl text-xs font-bold transition shadow-lg backdrop-blur-sm">
+                🎥 시점 변경 (C)
+            </button>
+            <button id="btn-sound" class="bg-slate-800/80 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-500/40 px-3 py-2 rounded-xl text-xs font-bold transition shadow-lg backdrop-blur-sm">
+                🔊 소리 켜짐
+            </button>
+            <button id="btn-reset" class="bg-slate-800/80 hover:bg-pink-900/80 text-pink-300 border border-pink-500/40 px-3 py-2 rounded-xl text-xs font-bold transition shadow-lg backdrop-blur-sm">
+                🔄 재시작 (R)
+            </button>
+        </div>
+    </div>
+
+    <!-- 우측 하단 실시간 순위 미니 리더보드 (1~9위) -->
+    <div id="mini-leaderboard" class="hidden sm:block absolute bottom-20 right-6 bg-slate-900/75 backdrop-blur-md p-3 rounded-2xl border border-cyan-500/30 text-xs text-white z-20 w-52 pointer-events-none">
+        <div class="text-[10px] text-cyan-400 font-bold tracking-wider mb-1.5 border-b border-slate-700 pb-1">실시간 레이스 순위 (1~9)</div>
+        <div id="live-rank-list" class="space-y-1 font-mono text-[11px]"></div>
+    </div>
+
+    <!-- 하단 키보드 가이드 (데스크톱용) -->
+    <div id="controls-guide" class="hidden md:flex absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-900/60 backdrop-blur-sm px-6 py-2 rounded-full border border-slate-700/60 text-xs text-slate-300 gap-6 pointer-events-none z-20">
+        <div><span class="text-cyan-400 font-bold">[W/S]</span> 상승 / 하강</div>
+        <div><span class="text-cyan-400 font-bold">[A/D]</span> 좌/우 회전</div>
+        <div><span class="text-pink-400 font-bold">[방향키 ↑↓←→]</span> 전진 / 후진 / 좌우 이동</div>
+        <div><span class="text-yellow-400 font-bold">[Shift]</span> 부스터</div>
+    </div>
+
+    <!-- 모바일 터치 조이스틱 영역 -->
+    <div id="mobile-controls" class="md:hidden">
+        <div id="joy-left" class="joystick-zone">
+            <div id="knob-left" class="joystick-knob"></div>
+            <span class="text-[10px] text-cyan-300/60 font-bold pointer-events-none mt-16">고도 / 회전</span>
+        </div>
+        <div id="joy-right" class="joystick-zone">
+            <div id="knob-right" class="joystick-knob" style="background: radial-gradient(circle, #ff0080 0%, #9d174d 100%); box-shadow: 0 0 15px #ff0080;"></div>
+            <span class="text-[10px] text-pink-300/60 font-bold pointer-events-none mt-16">전진 / 이동</span>
+        </div>
+    <!-- 완주 / 결과 화면 오버레이 (1~9등 순위표) -->
+    <div id="finish-screen" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 z-30 text-center">
+        <div class="max-w-lg w-full bg-slate-900/95 p-6 md:p-8 rounded-3xl neon-border shadow-2xl">
+            <div class="text-4xl mb-2">🏁🏆</div>
+            <h2 class="text-2xl md:text-3xl font-cyber font-black text-white mb-1 neon-text-pink">RACE FINISH!</h2>
+            <p id="final-rank-summary" class="text-yellow-400 font-bold text-base mb-4">최종 순위: 1위 (00.00초)</p>
+
+            <!-- 1~9등 도착 순서 리스트 -->
+            <div class="bg-slate-950/90 p-3 md:p-4 rounded-2xl border border-slate-800 mb-5 text-left max-h-72 overflow-y-auto">
+                <div class="text-xs text-cyan-400 font-bold uppercase tracking-wider mb-2 px-2 flex justify-between">
+                    <span>도착 순위 (1 ~ 9)</span>
+                    <span>기록 / 상태</span>
+                </div>
+                <div id="podium-list" class="space-y-1.5">
+                    <!-- JS로 1~9위 순위표 동적 생성 -->
+                </div>
+            </div>
+
+            <button id="btn-play-again" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white font-cyber font-bold text-lg tracking-wider shadow-[0_0_25px_rgba(255,0,128,0.5)] transition transform hover:scale-[1.02] active:scale-95">
+                다시 레이스 대결하기
+            </button>
+        </div>
+    </div>
+
+    <!-- 알림 메시지 토스트 -->
+    <div id="toast-msg" class="hidden fixed top-24 left-1/2 -translate-x-1/2 bg-cyan-500/90 text-slate-950 font-bold px-6 py-2 rounded-full shadow-lg z-40 text-sm transition-opacity">
+        목표 통과!
+    </div>
+</div>
+
+<script>
+// --- 전역 상태 및 설정 ---
+const CONFIG = {
+    totalRacers: 9,
+    totalCheckpoints: 12,
+    maxSpeed: 64,
+    boostMultiplier: 1.65,
+    drag: 0.96,
+    angularDrag: 0.88,
+    tiltAngle: 0.38
+};
+
+let scene, camera, renderer;
+let droneGroup, propellers = [], droneLight, trailPoints = [], trailLine;
+let checkpoints = [];
+let aiRacers = [];
+let allRacers = [];
+let finishOrder = [];
+let directionArrow;
+let buildings = [];
+
+// 레이스 진행 상태
+let isGameRunning = true;
+let isGameFinished = false;
+let raceTime = 0;
+let countdownTimer = 3.0; // 출발 전 3초 카운트다운
+
+// 카메라 시점 모드
+let cameraMode = 'chase';
+let cameraYawOffset = 0;
+let cameraPitchOffset = 0.25;
+let isDraggingMouse = false;
+let prevMouseX = 0, prevMouseY = 0;
+
+// 드론 물리 상태 벡터
+const droneState = {
+    id: 0,
+    name: '나 (PLAYER)',
+    isPlayer: true,
+    colorHex: '#00f3ff',
+    position: new THREE.Vector3(0, 15, 0),
+    velocity: new THREE.Vector3(0, 0, 0),
+    yaw: 0,
+    yawVelocity: 0,
+    pitch: 0,
+    roll: 0,
+    currentCp: 0,
+    finished: false,
+    finishTime: null
+};
+
+// AI 라이벌 드론 프로필 (8대 - 속도 하향 조정)
+const AI_PROFILES = [
+    { name: 'AI-01 제트윙', color: 0xff0080, hex: '#ff0080', speed: 38, agility: 3.5 },
+    { name: 'AI-02 썬더볼트', color: 0xfacc15, hex: '#facc15', speed: 36, agility: 3.4 },
+    { name: 'AI-03 바이퍼', color: 0x22c55e, hex: '#22c55e', speed: 34, agility: 3.2 },
+    { name: 'AI-04 팬텀', color: 0xa855f7, hex: '#a855f7', speed: 33, agility: 3.2 },
+    { name: 'AI-05 블레이즈', color: 0xf97316, hex: '#f97316', speed: 31, agility: 3.0 },
+    { name: 'AI-06 스톰', color: 0x38bdf8, hex: '#38bdf8', speed: 30, agility: 2.9 },
+    { name: 'AI-07 코브라', color: 0xf43f5e, hex: '#f43f5e', speed: 28, agility: 2.8 },
+    { name: 'AI-08 루키봇', color: 0x94a3b8, hex: '#94a3b8', speed: 26, agility: 2.6 }
+];
+
+// 입력 상태
+const keys = {};
+const joyInput = {
+    leftX: 0, leftY: 0,
+    rightX: 0, rightY: 0
+};
+
+// 오디오 상태 (Tone.js)
+let soundEnabled = true;
+let droneOsc, droneFilter, droneGain, isAudioInitialized = false;
+
+// --- 오디오 초기화 및 사운드 효과 ---
+async function initAudio() {
+    if (isAudioInitialized) return;
+    try {
+        await Tone.start();
+        droneGain = new Tone.Gain(0.05).toDestination();
+        droneFilter = new Tone.Filter(220, "lowpass").connect(droneGain);
+        droneOsc = new Tone.Oscillator(95, "sawtooth").connect(droneFilter);
+        droneOsc.start();
+        isAudioInitialized = true;
+    } catch (e) {
+        console.warn("Audio init deferred:", e);
+    }
+}
+
+function updateDroneSound(speedRatio, throttleRatio) {
+    if (!isAudioInitialized || !soundEnabled || !isGameRunning || isGameFinished) {
+        if (droneGain) droneGain.gain.rampTo(0, 0.1);
+        return;
+    }
+    const targetFreq = 85 + speedRatio * 90 + Math.abs(throttleRatio) * 45;
+    const targetFilter = 200 + speedRatio * 400;
+    droneOsc.frequency.rampTo(targetFreq, 0.1);
+    droneFilter.frequency.rampTo(targetFilter, 0.1);
+    droneGain.gain.rampTo(0.05, 0.1);
+}
+
+// 🐒 리얼한 원숭이 울음소리("우-끼-끼-끼!") 합성 함수
+function playMonkeySound(isExcited = false) {
+    if (!isAudioInitialized || !soundEnabled) return;
+
+    const now = Tone.now();
+    const oohSynth = new Tone.Synth({
+        oscillator: { type: "triangle" },
+        envelope: { attack: 0.04, decay: 0.12, sustain: 0.1, release: 0.1 }
+    }).toDestination();
+    oohSynth.volume.value = -6;
+    oohSynth.triggerAttack(340, now);
+    oohSynth.frequency.rampTo(520, 0.14, now);
+    oohSynth.triggerRelease(now + 0.16);
+
+    const count = isExcited ? 5 : 3;
+    for (let i = 0; i < count; i++) {
+        const startTime = now + 0.18 + i * 0.11;
+        const chirpSynth = new Tone.Synth({
+            oscillator: { type: "sine" },
+            envelope: { attack: 0.015, decay: 0.07, sustain: 0.0, release: 0.04 }
+        }).toDestination();
+        chirpSynth.volume.value = -4;
+
+        const basePitch = isExcited ? 780 + i * 60 : 680 + i * 40;
+        chirpSynth.triggerAttack(basePitch, startTime);
+        chirpSynth.frequency.exponentialRampToValueAtTime(basePitch * 1.45, startTime + 0.035);
+        chirpSynth.frequency.exponentialRampToValueAtTime(basePitch * 0.85, startTime + 0.085);
+        chirpSynth.triggerRelease(startTime + 0.09);
+    }
+}
+
+function playCrashSound() {
+    if (!isAudioInitialized || !soundEnabled) return;
+    const noise = new Tone.NoiseSynth({
+        noise: { type: 'brown' },
+        envelope: { attack: 0.01, decay: 0.2, sustain: 0 }
+    }).toDestination();
+    noise.volume.value = -10;
+    noise.triggerAttackRelease("8n");
+}
+
+// --- 3D 씬 초기화 ---
+function initScene() {
+    const canvas = document.getElementById('game-canvas');
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xbae6fd);
+    scene.fog = new THREE.FogExp2(0xbae6fd, 0.0012);
+
+    camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+
+    // 밝은 낮 하늘 조명 설정
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x94a3b8, 1.8);
+    hemiLight.position.set(0, 300, 0);
+    scene.add(hemiLight);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.6);
+    dirLight.position.set(120, 250, 120);
+    scene.add(dirLight);
+
+    const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.8);
+    fillLight.position.set(-120, 180, -120);
+    scene.add(fillLight);
+
+    createEnvironment();
+    createDrone();
+    createNavigationArrow();
+    createRaceCourse();
+    createAIRacers();
+    resetRacePositions();
+
+    window.addEventListener('resize', onWindowResize);
+}
+
+// --- 사이버펑크 도시 환경 및 바닥 그리드 생성 ---
+function createEnvironment() {
+    // 밝은 바닥 평면 + 선명한 그리드
+    const gridHelper = new THREE.GridHelper(1400, 140, 0x0284c7, 0x94a3b8);
+    gridHelper.position.y = 0;
+    scene.add(gridHelper);
+
+    const floorGeo = new THREE.PlaneGeometry(1400, 1400);
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.8 });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.1;
+    scene.add(floor);
+
+    // 빌딩 생성 (밝은 화이트/실버 톤 스카이라인)
+    const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+    const buildingColors = [0xf8fafc, 0xe0f2fe, 0xf1f5f9];
+    const edgeColors = [0x0284c7, 0xec4899, 0x6366f1];
+
+    for (let i = 0; i < 90; i++) {
+        const x = (Math.random() - 0.5) * 900;
+        const z = (Math.random() - 0.5) * 900;
+        if (Math.hypot(x, z) < 90) continue;
+
+        const w = 14 + Math.random() * 20;
+        const d = 14 + Math.random() * 20;
+        const h = 25 + Math.random() * 90;
+
+        const mat = new THREE.MeshStandardMaterial({
+            color: buildingColors[i % buildingColors.length],
+            roughness: 0.3,
+            metalness: 0.2
+        });
+        const building = new THREE.Mesh(boxGeo, mat);
+        building.position.set(x, h / 2, z);
+        building.scale.set(w, h, d);
+        scene.add(building);
+
+        const edges = new THREE.EdgesGeometry(boxGeo);
+        const lineMat = new THREE.LineBasicMaterial({ color: edgeColors[i % edgeColors.length], transparent: true, opacity: 0.55 });
+        const wireframe = new THREE.LineSegments(edges, lineMat);
+        building.add(wireframe);
+
+        buildings.push({ x, z, w: w / 2 + 1.5, d: d / 2 + 1.5, h });
+    }
+}
+
+// --- 3D 쿼드콥터 드론 모델 생성 (플레이어 & AI 공용 빌더) ---
+function buildDroneMesh(accentColor) {
+    const group = new THREE.Group();
+    const props = [];
+
+    const bodyGeo = new THREE.BoxGeometry(1.4, 0.35, 1.8);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.2 });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    group.add(body);
+
+    const camGeo = new THREE.CylinderGeometry(0.18, 0.22, 0.3, 16);
+    const camMat = new THREE.MeshBasicMaterial({ color: accentColor });
+    const camMesh = new THREE.Mesh(camGeo, camMat);
+    camMesh.rotation.x = Math.PI / 2;
+    camMesh.position.set(0, 0, -0.95);
+    group.add(camMesh);
+
+    const armPositions = [
+        { x: -1.1, z: -1.1 },
+        { x: 1.1, z: -1.1 },
+        { x: -1.1, z: 1.1 },
+        { x: 1.1, z: 1.1 }
+    ];
+
+    const armGeo = new THREE.CylinderGeometry(0.08, 0.08, 1.6);
+    const armMat = new THREE.MeshStandardMaterial({ color: 0x475569 });
+    const propGeo = new THREE.BoxGeometry(1.3, 0.04, 0.14);
+
+    armPositions.forEach((pos) => {
+        const arm = new THREE.Mesh(armGeo, armMat);
+        arm.position.set(pos.x * 0.5, 0, pos.z * 0.5);
+        arm.rotation.z = Math.PI / 2;
+        arm.rotation.y = Math.atan2(pos.x, pos.z);
+        group.add(arm);
+
+        const ledGeo = new THREE.SphereGeometry(0.16, 8, 8);
+        const ledMat = new THREE.MeshBasicMaterial({ color: accentColor });
+        const led = new THREE.Mesh(ledGeo, ledMat);
+        led.position.set(pos.x, 0.12, pos.z);
+        group.add(led);
+
+        const propMat = new THREE.MeshBasicMaterial({ color: 0xe2e8f0, transparent: true, opacity: 0.75 });
+        const prop = new THREE.Mesh(propGeo, propMat);
+        prop.position.set(pos.x, 0.25, pos.z);
+        group.add(prop);
+        props.push(prop);
+    });
+
+    return { group, props };
+}
+
+function createDrone() {
+    const built = buildDroneMesh(0x00f3ff);
+    droneGroup = built.group;
+    propellers = built.props;
+    droneGroup.position.copy(droneState.position);
+
+    droneLight = new THREE.PointLight(0x00f3ff, 1.5, 25);
+    droneLight.position.set(0, -0.5, 0);
+    droneGroup.add(droneLight);
+
+    scene.add(droneGroup);
+
+    const trailGeo = new THREE.BufferGeometry();
+    const trailMat = new THREE.LineBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.5 });
+    trailLine = new THREE.Line(trailGeo, trailMat);
+    scene.add(trailLine);
+}
+
+// --- 12개 체크포인트 레이스 코스 생성 ---
+function createRaceCourse() {
+    checkpoints.forEach(cp => scene.remove(cp.mesh));
+    checkpoints = [];
+
+    // 12개의 역동적인 S자 및 고도 변화 레이스 웨이포인트 좌표
+    const courseCoords = [
+        new THREE.Vector3(0, 18, -90),
+        new THREE.Vector3(45, 26, -185),
+        new THREE.Vector3(115, 35, -260),
+        new THREE.Vector3(195, 28, -220),
+        new THREE.Vector3(240, 42, -115),
+        new THREE.Vector3(210, 50, 0),
+        new THREE.Vector3(145, 36, 95),
+        new THREE.Vector3(55, 24, 155),
+        new THREE.Vector3(-45, 32, 165),
+        new THREE.Vector3(-125, 45, 95),
+        new THREE.Vector3(-110, 30, -10),
+        new THREE.Vector3(-45, 20, -55) // 12번 결승선 게이트!
+    ];
+
+    courseCoords.forEach((pos, idx) => {
+        const isFinish = idx === courseCoords.length - 1;
+        const radius = isFinish ? 11.5 : 9.5;
+        const torusGeo = new THREE.TorusGeometry(radius, 0.55, 12, 36);
+        const torusMat = new THREE.MeshBasicMaterial({
+            color: isFinish ? 0xfacc15 : 0x334155
+        });
+        const mesh = new THREE.Mesh(torusGeo, torusMat);
+        mesh.position.copy(pos);
+
+        // 다음 게이트를 향하도록 회전
+        const nextPos = idx < courseCoords.length - 1 ? courseCoords[idx + 1] : pos.clone().add(new THREE.Vector3(1, 0, -1));
+        mesh.lookAt(nextPos);
+
+        // 결승선 체크무늬 코어 링
+        if (isFinish) {
+            const innerGeo = new THREE.TorusGeometry(radius - 1.5, 0.3, 8, 32);
+            const innerMat = new THREE.MeshBasicMaterial({ color: 0xff0080 });
+            mesh.add(new THREE.Mesh(innerGeo, innerMat));
+        }
+
+        scene.add(mesh);
+        checkpoints.push({
+            index: idx,
+            mesh,
+            position: pos,
+            radius: radius + 2.5,
+            isFinish
+        });
+    });
+
+    // 코스 경로 안내 네온 라인
+    const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 15, 0), ...courseCoords]);
+    const lineMat = new THREE.LineBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.25 });
+    scene.add(new THREE.Line(lineGeo, lineMat));
+}
+
+// --- 8대의 AI 라이벌 드론 생성 ---
+function createAIRacers() {
+    aiRacers.forEach(ai => scene.remove(ai.group));
+    aiRacers = [];
+
+    AI_PROFILES.forEach((prof, i) => {
+        const built = buildDroneMesh(prof.color);
+        scene.add(built.group);
+
+        aiRacers.push({
+            id: i + 1,
+            name: prof.name,
+            isPlayer: false,
+            colorHex: prof.hex,
+            group: built.group,
+            props: built.props,
+            position: new THREE.Vector3(),
+            velocity: new THREE.Vector3(),
+            yaw: 0,
+            baseSpeed: prof.speed,
+            agility: prof.agility,
+            currentCp: 0,
+            finished: false,
+            finishTime: null,
+            wobbleOffset: Math.random() * Math.PI * 2
+        });
+    });
+}
+
+// --- 출발선 9대 그리드 정렬 및 초기화 ---
+function resetRacePositions() {
+    isGameRunning = true;
+    isGameFinished = false;
+    raceTime = 0;
+    countdownTimer = 3.0;
+    finishOrder = [];
+
+    // 3x3 출발 그리드 배치
+    const all = [droneState, ...aiRacers];
+    allRacers = all;
+
+    all.forEach((racer, idx) => {
+        const col = (idx % 3) - 1; // -1, 0, 1
+        const row = Math.floor(idx / 3); // 0, 1, 2
+        racer.position.set(col * 5.5, 15, row * 6.5);
+        racer.velocity.set(0, 0, 0);
+        racer.yaw = 0;
+        racer.currentCp = 0;
+        racer.finished = false;
+        racer.finishTime = null;
+
+        if (racer.isPlayer) {
+            racer.yawVelocity = 0;
+            racer.pitch = 0;
+            racer.roll = 0;
+            droneGroup.position.copy(racer.position);
+            droneGroup.rotation.set(0, 0, 0);
+        } else {
+            racer.group.position.copy(racer.position);
+            racer.group.rotation.set(0, 0, 0);
+        }
+    });
+
+    updateCheckpointVisuals();
+}
+
+function updateCheckpointVisuals() {
+    checkpoints.forEach((cp, idx) => {
+        if (idx === droneState.currentCp && !droneState.finished) {
+            cp.mesh.material.color.setHex(cp.isFinish ? 0xfacc15 : 0x00f3ff);
+            cp.mesh.scale.setScalar(1.12);
+        } else if (idx < droneState.currentCp) {
+            cp.mesh.material.color.setHex(0x22c55e);
+            cp.mesh.scale.setScalar(0.95);
+        } else {
+            cp.mesh.material.color.setHex(cp.isFinish ? 0xfacc15 : 0x334155);
+            cp.mesh.scale.setScalar(1.0);
+        }
+    });
+}
+
+// --- 가장 가까운 목표물을 가리키는 3D 화살표 ---
+function createNavigationArrow() {
+    const arrowGeo = new THREE.ConeGeometry(0.35, 1.1, 8);
+    arrowGeo.rotateX(Math.PI / 2);
+    const arrowMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+    directionArrow = new THREE.Mesh(arrowGeo, arrowMat);
+    scene.add(directionArrow);
+}
+
+// --- 이벤트 리스너 및 가상 조이스틱 바인딩 ---
+function bindEvents() {
+    window.addEventListener('keydown', (e) => {
+        initAudio();
+        keys[e.code] = true;
+
+        if (e.code === 'KeyC') toggleCameraMode();
+        if (e.code === 'KeyR') resetGame();
+        if (e.code === 'KeyM') {
+            playMonkeySound(true);
+            showToast('🐒 우끼끼끼!!');
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        keys[e.code] = false;
+    });
+
+    // 마우스 드래그 시점 조절 및 첫 클릭 오디오 활성화
+    const canvas = document.getElementById('game-canvas');
+    canvas.addEventListener('mousedown', (e) => {
+        initAudio();
+        isDraggingMouse = true;
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isDraggingMouse) return;
+        const dx = e.clientX - prevMouseX;
+        const dy = e.clientY - prevMouseY;
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
+
+        cameraYawOffset -= dx * 0.005;
+        cameraPitchOffset = Math.max(-0.4, Math.min(1.1, cameraPitchOffset + dy * 0.005));
+    });
+
+    window.addEventListener('mouseup', () => {
+        isDraggingMouse = false;
+    });
+
+    // UI 버튼 이벤트
+    document.getElementById('btn-monkey').addEventListener('click', () => {
+        initAudio();
+        playMonkeySound(true);
+        showToast('🐒 우-끼-끼-끼!');
+    });
+
+    document.getElementById('btn-camera').addEventListener('click', toggleCameraMode);
+
+    document.getElementById('btn-sound').addEventListener('click', () => {
+        initAudio();
+        soundEnabled = !soundEnabled;
+        document.getElementById('btn-sound').textContent = soundEnabled ? '🔊 소리 켜짐' : '🔇 음소거';
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', resetGame);
+    document.getElementById('btn-play-again').addEventListener('click', resetGame);
+
+    // 모바일 듀얼 조이스틱 바인딩
+    bindJoystick('joy-left', 'knob-left', (x, y) => {
+        joyInput.leftX = x;
+        joyInput.leftY = y;
+    });
+    bindJoystick('joy-right', 'knob-right', (x, y) => {
+        joyInput.rightX = x;
+        joyInput.rightY = y;
+    });
+}
+
+function bindJoystick(zoneId, knobId, callback) {
+    const zone = document.getElementById(zoneId);
+    const knob = document.getElementById(knobId);
+    let activeTouchId = null;
+
+    const handleMove = (clientX, clientY) => {
+        const rect = zone.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const maxDist = rect.width / 2 - 20;
+
+        let dx = clientX - centerX;
+        let dy = clientY - centerY;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > maxDist) {
+            dx = (dx / dist) * maxDist;
+            dy = (dy / dist) * maxDist;
+        }
+
+        knob.style.transform = `translate(${dx}px, ${dy}px)`;
+        callback(dx / maxDist, dy / maxDist);
+    };
+
+    const resetStick = () => {
+        activeTouchId = null;
+        knob.style.transform = 'translate(0px, 0px)';
+        callback(0, 0);
+    };
+
+    zone.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        initAudio();
+        const touch = e.changedTouches[0];
+        activeTouchId = touch.identifier;
+        handleMove(touch.clientX, touch.clientY);
+    }, { passive: false });
+
+    zone.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === activeTouchId) {
+                handleMove(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+                break;
+            }
+        }
+    }, { passive: false });
+
+    zone.addEventListener('touchend', (e) => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === activeTouchId) {
+                resetStick();
+                break;
+            }
+        }
+    });
+    zone.addEventListener('touchcancel', resetStick);
+}
+
+function toggleCameraMode() {
+    cameraMode = cameraMode === 'chase' ? 'fpv' : 'chase';
+    showToast(cameraMode === 'chase' ? '🎥 3인칭 추적 시점' : '👓 1인칭 FPV 시점');
+}
+
+function resetGame() {
+    initAudio();
+    trailPoints = [];
+    document.getElementById('finish-screen').classList.add('hidden');
+    resetRacePositions();
+    showToast('🏁 9대 드론 레이스 준비! 3초 후 출발!');
+}
+
+let toastTimeout;
+function showToast(msg) {
+    const toast = document.getElementById('toast-msg');
+    toast.textContent = msg;
+    toast.classList.remove('hidden');
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => {
+        toast.classList.add('hidden');
+    }, 1800);
+}
+
+function onWindowResize() {
+    if (!camera || !renderer) return;
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// --- 레이스 완주 기록 및 순위 산정 ---
+function recordRacerFinish(racer) {
+    if (racer.finished) return;
+    racer.finished = true;
+    racer.finishTime = raceTime;
+    finishOrder.push(racer);
+
+    const rankNum = finishOrder.length;
+    if (racer.isPlayer) {
+        playMonkeySound(rankNum <= 3);
+        showToast(`🏁 결승선 통과! 최종 ${rankNum}위로 도착했습니다!`);
+        setTimeout(() => showFinishLeaderboard(), 1000);
+    }
+}
+
+function getSortedRacers() {
+    return [...allRacers].sort((a, b) => {
+        // 1순위: 이미 결승선을 통과한 드론 (도착 시간 오름차순)
+        if (a.finished && b.finished) return a.finishTime - b.finishTime;
+        if (a.finished) return -1;
+        if (b.finished) return 1;
+
+        // 2순위: 통과한 체크포인트 수 (내림차순)
+        if (b.currentCp !== a.currentCp) return b.currentCp - a.currentCp;
+
+        // 3순위: 다음 체크포인트까지의 남은 거리 (오름차순)
+        const targetCp = checkpoints[a.currentCp];
+        if (!targetCp) return 0;
+        const distA = a.position.distanceTo(targetCp.position);
+        const distB = b.position.distanceTo(targetCp.position);
+        return distA - distB;
+    });
+}
+
+// --- 물리 연산 및 9대 레이스 진행 ---
+function updatePhysics(dt) {
+    if (!isGameRunning || isGameFinished) return;
+
+    // 출발 카운트다운 (3초)
+    if (countdownTimer > 0) {
+        const prevSec = Math.ceil(countdownTimer);
+        countdownTimer -= dt;
+        const currSec = Math.ceil(countdownTimer);
+        if (currSec !== prevSec && currSec > 0) {
+            showToast(`🚦 출발 ${currSec}초 전...`);
+        } else if (countdownTimer <= 0) {
+            showToast('🚀 GO!! 레이스 시작!');
+            playMonkeySound(false);
+        }
+        updateRankHUD();
+        return;
+    }
+
+    raceTime += dt;
+
+    // 1. 플레이어 드론 조작 및 물리
+    let throttle = 0, yawInput = 0, forward = 0, strafe = 0;
+
+    if (!droneState.finished) {
+        if (keys['KeyW']) throttle += 1;
+        if (keys['KeyS']) throttle -= 1;
+        if (keys['KeyA']) yawInput += 1;
+        if (keys['KeyD']) yawInput -= 1;
+
+        if (keys['ArrowUp']) forward += 1;
+        if (keys['ArrowDown']) forward -= 1;
+        if (keys['ArrowLeft']) strafe -= 1;
+        if (keys['ArrowRight']) strafe += 1;
+
+        throttle -= joyInput.leftY;
+        yawInput -= joyInput.leftX;
+        forward -= joyInput.rightY;
+        strafe += joyInput.rightX;
+    } else {
+        // 완주 후 자동 호버링 감속
+        droneState.velocity.multiplyScalar(0.95);
+    }
+
+    const isBoosting = keys['ShiftLeft'] || keys['ShiftRight'];
+    const speedMult = isBoosting ? CONFIG.boostMultiplier : 1.0;
+
+    droneState.yawVelocity += yawInput * 3.8 * dt;
+    droneState.yawVelocity *= Math.pow(CONFIG.angularDrag, dt * 60);
+    droneState.yaw += droneState.yawVelocity * dt;
+
+    const forwardVec = new THREE.Vector3(-Math.sin(droneState.yaw), 0, -Math.cos(droneState.yaw));
+    const rightVec = new THREE.Vector3(Math.cos(droneState.yaw), 0, -Math.sin(droneState.yaw));
+
+    const accel = 68 * speedMult;
+    droneState.velocity.addScaledVector(forwardVec, forward * accel * dt);
+    droneState.velocity.addScaledVector(rightVec, strafe * accel * dt);
+    droneState.velocity.y += throttle * 54 * dt;
+
+    droneState.velocity.multiplyScalar(Math.pow(CONFIG.drag, dt * 60));
+
+    const maxSpd = CONFIG.maxSpeed * speedMult;
+    if (droneState.velocity.length() > maxSpd) {
+        droneState.velocity.setLength(maxSpd);
+    }
+
+    droneState.position.addScaledVector(droneState.velocity, dt);
+
+    if (droneState.position.y < 1.2) {
+        droneState.position.y = 1.2;
+        if (droneState.velocity.y < -5) playCrashSound();
+        droneState.velocity.y = Math.max(0, droneState.velocity.y);
+    } else if (droneState.position.y > 180) {
+        droneState.position.y = 180;
+        droneState.velocity.y = Math.min(0, droneState.velocity.y);
+    }
+
+    // 빌딩 충돌 체크
+    for (const b of buildings) {
+        if (droneState.position.y < b.h) {
+            const dx = droneState.position.x - b.x;
+            const dz = droneState.position.z - b.z;
+            if (Math.abs(dx) < b.w && Math.abs(dz) < b.d) {
+                playCrashSound();
+                const overlapX = b.w - Math.abs(dx);
+                const overlapZ = b.d - Math.abs(dz);
+                if (overlapX < overlapZ) {
+                    droneState.position.x += dx > 0 ? overlapX : -overlapX;
+                    droneState.velocity.x *= -0.5;
+                } else {
+                    droneState.position.z += dz > 0 ? overlapZ : -overlapZ;
+                    droneState.velocity.z *= -0.5;
+                }
+            }
+        }
+    }
+
+    // 플레이어 기체 기울기 및 회전
+    const targetPitch = -forward * CONFIG.tiltAngle;
+    const targetRoll = -strafe * CONFIG.tiltAngle;
+    droneState.pitch += (targetPitch - droneState.pitch) * 10 * dt;
+    droneState.roll += (targetRoll - droneState.roll) * 10 * dt;
+
+    droneGroup.position.copy(droneState.position);
+    droneGroup.rotation.order = 'YXZ';
+    droneGroup.rotation.y = droneState.yaw;
+    droneGroup.rotation.x = droneState.pitch;
+    droneGroup.rotation.z = droneState.roll;
+
+    const propSpeed = 35 + droneState.velocity.length() * 1.2;
+    propellers.forEach((prop, idx) => {
+        prop.rotation.y += (idx % 2 === 0 ? 1 : -1) * propSpeed * dt;
+    });
+
+    trailPoints.push(droneState.position.clone());
+    if (trailPoints.length > 35) trailPoints.shift();
+    trailLine.geometry.setFromPoints(trailPoints);
+
+    // 플레이어 체크포인트 통과 판정
+    if (!droneState.finished && droneState.currentCp < checkpoints.length) {
+        const targetCp = checkpoints[droneState.currentCp];
+        const dist = droneState.position.distanceTo(targetCp.position);
+
+        if (directionArrow) {
+            directionArrow.position.copy(droneState.position).add(new THREE.Vector3(0, 1.8, 0));
+            directionArrow.lookAt(targetCp.position);
+            document.getElementById('distance-indicator').textContent = `다음 게이트: ${Math.round(dist)}m`;
+        }
+
+        if (dist < targetCp.radius) {
+            droneState.currentCp++;
+            updateCheckpointVisuals();
+
+            if (droneState.currentCp >= checkpoints.length) {
+                recordRacerFinish(droneState);
+            } else {
+                playMonkeySound(false);
+                showToast(`✅ 체크포인트 ${droneState.currentCp} / ${CONFIG.totalCheckpoints} 통과!`);
+            }
+        }
+    }
+
+    // 2. AI 라이벌 드론 8대 자율 비행 업데이트
+    aiRacers.forEach((ai) => {
+        ai.props.forEach((p, idx) => {
+            p.rotation.y += (idx % 2 === 0 ? 1 : -1) * 45 * dt;
+        });
+
+        if (ai.finished) {
+            // 완주 후 결승선 너머에서 선회 대기
+            ai.velocity.multiplyScalar(0.95);
+            ai.position.addScaledVector(ai.velocity, dt);
+            ai.group.position.copy(ai.position);
+            return;
+        }
+
+        const targetCp = checkpoints[ai.currentCp];
+        if (!targetCp) return;
+
+        // 약간의 개성 있는 비행 궤적 편차 부여
+        const wobble = new THREE.Vector3(
+            Math.sin(raceTime * 1.8 + ai.wobbleOffset) * 2.5,
+            Math.cos(raceTime * 2.1 + ai.wobbleOffset) * 1.5,
+            0
+        );
+        const desiredPos = targetCp.position.clone().add(wobble);
+        const toTarget = desiredPos.sub(ai.position);
+        const dist = toTarget.length();
+
+        if (dist < targetCp.radius) {
+            ai.currentCp++;
+            if (ai.currentCp >= checkpoints.length) {
+                recordRacerFinish(ai);
+            }
+            return;
+        }
+
+        toTarget.normalize();
+        // 플레이어와 격차가 너무 벌어지지 않도록 살짝 고무줄(Rubber-banding) 보정 (추격 강도 완화)
+        const cpDiff = droneState.currentCp - ai.currentCp;
+        const dynamicSpeed = ai.baseSpeed + Math.max(-3, Math.min(3, cpDiff * 1.0));
+
+        const desiredVel = toTarget.multiplyScalar(dynamicSpeed);
+        ai.velocity.lerp(desiredVel, ai.agility * dt);
+        ai.position.addScaledVector(ai.velocity, dt);
+
+        ai.group.position.copy(ai.position);
+        const lookPt = ai.position.clone().add(ai.velocity);
+        ai.group.lookAt(lookPt);
+        ai.group.rotateY(Math.PI); // 모델 전방(-Z) 정렬
+    });
+
+    // 오디오 및 HUD 업데이트
+    const speedRatio = Math.min(1, droneState.velocity.length() / CONFIG.maxSpeed);
+    updateDroneSound(speedRatio, throttle);
+
+    document.getElementById('timer-display').textContent = `${raceTime.toFixed(2)}초`;
+    document.getElementById('alt-display').textContent = Math.round(droneState.position.y);
+    document.getElementById('spd-display').textContent = Math.round(droneState.velocity.length() * 2.5);
+    document.getElementById('cp-display').textContent = `${droneState.currentCp} / ${CONFIG.totalCheckpoints}`;
+
+    updateRankHUD();
+}
+
+// --- 실시간 순위(1~9위) HUD 갱신 ---
+function updateRankHUD() {
+    const sorted = getSortedRacers();
+    const myRank = sorted.findIndex(r => r.isPlayer) + 1;
+
+    const rankEl = document.getElementById('rank-display');
+    rankEl.textContent = `${myRank}위`;
+    rankEl.className = myRank === 1
+        ? 'text-3xl md:text-4xl font-cyber font-black text-yellow-400 neon-text-blue'
+        : myRank <= 3
+            ? 'text-3xl md:text-4xl font-cyber font-black text-cyan-300'
+            : 'text-3xl md:text-4xl font-cyber font-black text-pink-400';
+
+    const listEl = document.getElementById('live-rank-list');
+    if (listEl) {
+        listEl.innerHTML = sorted.map((r, idx) => {
+            const rank = idx + 1;
+            const statusText = r.finished ? `${r.finishTime.toFixed(1)}s` : `CP ${r.currentCp}`;
+            const highlight = r.isPlayer ? 'bg-cyan-500/30 text-yellow-300 font-bold px-1.5 py-0.5 rounded' : 'text-slate-300 px-1.5';
+            return `<div class="flex justify-between items-center ${highlight}">
+                <span><b style="color:${r.colorHex}">${rank}.</b> ${r.name}</span>
+                <span class="text-[10px] opacity-80">${statusText}</span>
+            </div>`;
+        }).join('');
+    }
+}
+
+// --- 카메라 위치 업데이트 ---
+function updateCamera() {
+    if (cameraMode === 'fpv') {
+        droneGroup.visible = false;
+        directionArrow.visible = true;
+        camera.position.copy(droneState.position);
+        camera.rotation.order = 'YXZ';
+        camera.rotation.y = droneState.yaw;
+        camera.rotation.x = droneState.pitch * 0.5;
+        camera.rotation.z = droneState.roll * 0.5;
+    } else {
+        droneGroup.visible = true;
+        directionArrow.visible = true;
+        const totalYaw = droneState.yaw + cameraYawOffset;
+        const dist = 7.5;
+        const height = 2.6 + Math.sin(cameraPitchOffset) * 4;
+
+        const targetCamPos = new THREE.Vector3(
+            droneState.position.x + Math.sin(totalYaw) * dist,
+            droneState.position.y + height,
+            droneState.position.z + Math.cos(totalYaw) * dist
+        );
+        camera.position.lerp(targetCamPos, 0.15);
+
+        const lookTarget = new THREE.Vector3(
+            droneState.position.x - Math.sin(totalYaw) * 10,
+            droneState.position.y + 0.5,
+            droneState.position.z - Math.cos(totalYaw) * 10
+        );
+        camera.lookAt(lookTarget);
+    }
+}
+
+// --- 레이스 완주 결과창 (도착 순서 123456789 표기) ---
+function showFinishLeaderboard() {
+    isGameFinished = true;
+    isGameRunning = false;
+    updateDroneSound(0, 0);
+
+    // 아직 완주하지 못한 AI들의 예상 도착 기록을 현재 진행도 기반으로 순서대로 채워 1~9위 완성
+    const remaining = getSortedRacers().filter(r => !r.finished);
+    let projectedTime = raceTime;
+    remaining.forEach((r) => {
+        const distLeft = (CONFIG.totalCheckpoints - r.currentCp) * 95;
+        projectedTime += Math.max(0.8, distLeft / r.baseSpeed);
+        r.finished = true;
+        r.finishTime = projectedTime;
+        finishOrder.push(r);
+    });
+
+    const myFinalRank = finishOrder.findIndex(r => r.isPlayer) + 1;
+    document.getElementById('final-rank-summary').textContent =
+        `최종 도착 순위: ${myFinalRank}위 / 9대 (${droneState.finishTime.toFixed(2)}초)`;
+
+    const podiumEl = document.getElementById('podium-list');
+    podiumEl.innerHTML = finishOrder.map((r, idx) => {
+        const rankNumber = idx + 1; // 1, 2, 3, 4, 5, 6, 7, 8, 9
+        const medal = rankNumber === 1 ? '🥇' : rankNumber === 2 ? '🥈' : rankNumber === 3 ? '🥉' : '🔹';
+        const rowStyle = r.isPlayer
+            ? 'bg-cyan-500/25 border border-cyan-400 text-white font-bold shadow-md'
+            : 'bg-slate-900/70 border border-slate-800/80 text-slate-300';
+
+        return `<div class="flex items-center justify-between px-3 py-2 rounded-xl text-xs md:text-sm ${rowStyle}">
+            <div class="flex items-center gap-2.5">
+                <span class="font-cyber font-black text-base w-6 text-yellow-400">${rankNumber}</span>
+                <span>${medal}</span>
+                <span style="color:${r.colorHex}" class="font-bold">${r.name}</span>
+            </div>
+            <div class="font-cyber text-xs text-cyan-300">
+                ${r.finishTime.toFixed(2)}초
+            </div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('finish-screen').classList.remove('hidden');
+}
+
+// --- 메인 애니메이션 루프 ---
+let lastFrameTime = performance.now();
+function animate() {
+    requestAnimationFrame(animate);
+
+    const now = performance.now();
+    const dt = Math.min((now - lastFrameTime) / 1000, 0.05);
+    lastFrameTime = now;
+
+    updatePhysics(dt);
+    updateCamera();
+    renderer.render(scene, camera);
+}
+
+// --- 초기화 및 시작 ---
+window.onload = function () {
+    initScene();
+    bindEvents();
+    animate();
+};
+</script>
+</body>
+</html>

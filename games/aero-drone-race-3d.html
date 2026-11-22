@@ -1,0 +1,1574 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AeroDrone Race 3D - 드론 레이싱</title>
+    <!-- Tailwind CSS 로드 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js (3D 렌더링) 및 Tone.js (사운드 합성) 로드 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Google Fonts: Noto Sans KR & Orbitron -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #0f172a;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .font-tech {
+            font-family: 'Orbitron', sans-serif;
+        }
+        #game-canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        /* 커스텀 스크롤바 (상점용) */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #38bdf8;
+            border-radius: 3px;
+        }
+        /* 버튼 입체감 및 애니메이션 */
+        .btn-game {
+            transition: all 0.15s ease;
+            box-shadow: 0 4px 0 rgba(0, 0, 0, 0.4);
+        }
+        .btn-game:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+        }
+        /* 모바일 가상 컨트롤러 스타일 */
+        .touch-zone {
+            touch-action: none;
+        }
+    </style>
+<script>var SLS={getItem:function(k){try{return localStorage.getItem(k)}catch(e){return null}},setItem:function(k,v){try{localStorage.setItem(k,v)}catch(e){}},removeItem:function(k){try{localStorage.removeItem(k)}catch(e){}}};</script>
+</head>
+<body class="text-white">
+
+    <!-- 3D 캔버스 -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- 인게임 HUD (헤드업 디스플레이) -->
+    <div id="hud" class="hidden fixed inset-0 pointer-events-none p-4 sm:p-6 flex flex-col justify-between z-10">
+        <!-- 상단 HUD: 순위, 링 진행도, 시간, 사운드/일시정지 -->
+        <div class="flex justify-between items-start gap-2">
+            <!-- 좌상단: 순위 및 링 카운트 -->
+            <div class="bg-slate-900/80 backdrop-blur-md border border-slate-700/80 rounded-2xl p-3 sm:p-4 flex items-center gap-4 sm:gap-6 shadow-xl">
+                <div>
+                    <div class="text-xs text-slate-400 font-bold">현재 순위</div>
+                    <div class="font-tech text-2xl sm:text-4xl font-extrabold text-amber-400">
+                        <span id="hud-rank">1</span><span class="text-sm sm:text-lg text-slate-300">/4</span>
+                    </div>
+                </div>
+                <div class="h-10 w-[1px] bg-slate-700"></div>
+                <div>
+                    <div class="text-xs text-slate-400 font-bold">체크포인트</div>
+                    <div class="font-tech text-xl sm:text-3xl font-bold text-sky-400">
+                        <span id="hud-ring">0</span><span class="text-sm sm:text-lg text-slate-400">/<span id="hud-total-rings">12</span></span>
+                    </div>
+                </div>
+                <div class="h-10 w-[1px] bg-slate-700 hidden sm:block"></div>
+                <div class="hidden sm:block">
+                    <div class="text-xs text-slate-400 font-bold">주행 시간</div>
+                    <div id="hud-time" class="font-tech text-2xl font-bold text-white">00:00.0</div>
+                </div>
+            </div>
+
+            <!-- 중앙 상단: 다음 링 방향 가이드 -->
+            <div id="hud-guide" class="hidden md:flex flex-col items-center bg-slate-900/70 backdrop-blur-sm border border-sky-500/30 rounded-full px-5 py-2">
+                <span class="text-[11px] text-sky-300 font-bold tracking-wider">NEXT GATE DISTANCE</span>
+                <span id="hud-distance" class="font-tech text-lg font-bold text-white">0m</span>
+            </div>
+
+            <!-- 우상단: 컨트롤 버튼 (사운드, 메뉴 복귀) -->
+            <div class="flex gap-2 pointer-events-auto">
+                <button id="btn-mute-hud" onclick="toggleMute()" class="btn-game bg-slate-800/90 hover:bg-slate-700 border border-slate-600 p-3 rounded-xl text-slate-200" title="사운드 켜기/끄기">
+                    🔊
+                </button>
+                <button onclick="abortRace()" class="btn-game bg-rose-600/90 hover:bg-rose-500 border border-rose-400 px-4 py-2.5 rounded-xl text-sm font-bold shadow-lg">
+                    포기하기
+                </button>
+            </div>
+        </div>
+
+        <!-- 카운트다운 오버레이 -->
+        <div id="countdown-overlay" class="hidden fixed inset-0 flex items-center justify-center pointer-events-none">
+            <div id="countdown-text" class="font-tech text-7xl sm:text-9xl font-black text-amber-400 drop-shadow-[0_5px_25px_rgba(251,191,36,0.8)] animate-bounce">
+                3
+            </div>
+        </div>
+
+        <!-- 하단 HUD: 속도계, 고도계 & 조작 안내 -->
+        <div class="flex justify-between items-end">
+            <!-- 조작법 힌트 (데스크톱) -->
+            <div class="hidden lg:block bg-slate-900/75 backdrop-blur-md border border-slate-700/70 rounded-xl p-3 text-xs text-slate-300 space-y-1">
+                <div class="font-bold text-sky-400 mb-1">🎮 조종 가이드</div>
+                <div><span class="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">W A S D</span> 전진 / 좌우 이동 / 후진</div>
+                <div><span class="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">↑ / ↓</span> 상승 / 하강 (고도 조절)</div>
+                <div><span class="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">← / → 또는 드래그</span> 시점 좌우 회전 (각도 유지)</div>
+            </div>
+
+            <!-- 속도 & 고도 게이지 -->
+            <div class="mx-auto lg:mx-0 bg-slate-900/80 backdrop-blur-md border border-slate-700/80 rounded-2xl px-5 py-3 flex items-center gap-6 shadow-xl">
+                <div class="text-center">
+                    <div class="text-[11px] text-slate-400 font-bold">SPEED</div>
+                    <div class="font-tech text-2xl font-extrabold text-emerald-400"><span id="hud-speed">0</span> <span class="text-xs font-normal text-slate-400">km/h</span></div>
+                </div>
+                <div class="h-8 w-[1px] bg-slate-700"></div>
+                <div class="text-center">
+                    <div class="text-[11px] text-slate-400 font-bold">ALTITUDE</div>
+                    <div class="font-tech text-2xl font-extrabold text-sky-400"><span id="hud-alt">0</span> <span class="text-xs font-normal text-slate-400">m</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 모바일/태블릿 터치 컨트롤러 (화면이 작을 때 자동 표시) -->
+        <div class="md:hidden fixed bottom-20 inset-x-4 flex justify-between items-end pointer-events-auto">
+            <!-- 좌측: WASD 방향 패드 -->
+            <div class="grid grid-cols-3 gap-1.5 w-36 h-36 touch-zone">
+                <div></div>
+                <button data-key="KeyW" class="touch-btn bg-slate-800/80 active:bg-sky-500 border border-slate-600 rounded-xl flex items-center justify-center text-xl font-bold">W</button>
+                <div></div>
+                <button data-key="KeyA" class="touch-btn bg-slate-800/80 active:bg-sky-500 border border-slate-600 rounded-xl flex items-center justify-center text-xl font-bold">A</button>
+                <button data-key="KeyS" class="touch-btn bg-slate-800/80 active:bg-sky-500 border border-slate-600 rounded-xl flex items-center justify-center text-xl font-bold">S</button>
+                <button data-key="KeyD" class="touch-btn bg-slate-800/80 active:bg-sky-500 border border-slate-600 rounded-xl flex items-center justify-center text-xl font-bold">D</button>
+            </div>
+            <!-- 우측: 고도 상/하 버튼 -->
+            <div class="flex flex-col gap-2 w-20 h-36 touch-zone">
+                <button data-key="ArrowUp" class="touch-btn flex-1 bg-slate-800/80 active:bg-emerald-500 border border-slate-600 rounded-xl flex items-center justify-center text-xl font-bold">▲</button>
+                <button data-key="ArrowDown" class="touch-btn flex-1 bg-slate-800/80 active:bg-emerald-500 border border-slate-600 rounded-xl flex items-center justify-center text-xl font-bold">▼</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 메인 메뉴 & 상점 모달 오버레이 -->
+    <div id="main-menu" class="fixed inset-0 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-4 z-20 overflow-y-auto">
+        <div class="bg-slate-900/95 border border-slate-700/90 rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl my-auto">
+            
+            <!-- 상단 헤더: 타이틀 & 보유 상금 -->
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-4 border-b border-slate-800 pb-5 mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center shadow-lg shadow-sky-500/30">
+                        <!-- 드론 SVG 아이콘 -->
+                        <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="5" cy="5" r="3"/><circle cx="19" cy="5" r="3"/>
+                            <circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/>
+                            <path d="M7.5 7.5L16.5 16.5M16.5 7.5L7.5 16.5"/>
+                            <rect x="10" y="10" width="4" height="4" rx="1" fill="currentColor"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="font-tech text-2xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-sky-200 to-sky-400 bg-clip-text text-transparent">
+                            AERODRONE RACE 3D
+                        </h1>
+                        <p class="text-xs sm:text-sm text-slate-400">스카이 게이트를 통과하고 상금을 모아 최고의 드론을 소유하세요!</p>
+                    </div>
+                </div>
+
+                <!-- 보유 상금 및 사운드 토글 -->
+                <div class="flex items-center gap-3">
+                    <div class="bg-slate-800 border border-amber-500/40 rounded-2xl px-4 py-2 flex items-center gap-2 shadow-inner">
+                        <span class="text-xl">🪙</span>
+                        <div>
+                            <div class="text-[10px] text-slate-400 font-bold uppercase">보유 상금</div>
+                            <div id="menu-money" class="font-tech text-lg sm:text-xl font-bold text-amber-400">0 G</div>
+                        </div>
+                    </div>
+                    <button id="btn-mute-menu" onclick="toggleMute()" class="btn-game bg-slate-800 hover:bg-slate-700 border border-slate-600 p-3 rounded-2xl text-lg" title="사운드 켜기/끄기">
+                        🔊
+                    </button>
+                </div>
+            </div>
+
+            <!-- 탭 메뉴: 레이스 설정 vs 드론 격납고(상점) -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- 왼쪽 패널 (5칸): 난이도 선택 & 레이스 시작 -->
+                <div class="lg:col-span-5 flex flex-col justify-between bg-slate-800/50 border border-slate-700/70 rounded-2xl p-5">
+                    <div>
+                        <h2 class="text-lg font-bold text-white mb-1 flex items-center gap-2">
+                            <span>🏁</span> 레이스 난이도 선택
+                        </h2>
+                        <p class="text-xs text-slate-400 mb-4">상대 드론은 플레이어보다 속도가 느리며, 난이도에 따라 AI 조종 지능이 달라집니다.</p>
+
+                        <!-- 난이도 버튼 그룹 -->
+                        <div class="space-y-2.5" id="difficulty-list">
+                            <!-- JS에서 동적 렌더링 -->
+                        </div>
+
+                        <!-- 조작법 요약 박스 -->
+                        <div class="mt-5 bg-slate-900/80 border border-slate-700/60 rounded-xl p-3.5 text-xs space-y-1.5 text-slate-300">
+                            <div class="font-bold text-sky-400">⌨️ 기본 조작법 (표준 드론 모드)</div>
+                            <div class="flex justify-between"><span>전진 / 후진 / 좌우 이동</span><span class="font-mono text-white bg-slate-800 px-1.5 rounded">W A S D</span></div>
+                            <div class="flex justify-between"><span>고도 상승 / 하강</span><span class="font-mono text-white bg-slate-800 px-1.5 rounded">위(↑) / 아래(↓) 키</span></div>
+                            <div class="flex justify-between"><span>카메라 시점 좌우 회전</span><span class="font-mono text-white bg-slate-800 px-1.5 rounded">좌(←) / 우(→) 키</span></div>
+                        </div>
+                    </div>
+
+                    <button onclick="startRace()" class="btn-game mt-6 w-full py-4 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-extrabold text-lg tracking-wide shadow-lg shadow-sky-500/30 flex items-center justify-center gap-2">
+                        <span>🚀 레이스 출발하기</span>
+                    </button>
+                </div>
+
+                <!-- 오른쪽 패널 (7칸): 드론 격납고 & 상점 -->
+                <div class="lg:col-span-7 bg-slate-800/50 border border-slate-700/70 rounded-2xl p-5 flex flex-col">
+                    <div class="flex justify-between items-center mb-3">
+                        <div>
+                            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                                <span>🛸</span> 드론 격납고 & 상점
+                            </h2>
+                            <p class="text-xs text-slate-400">상금으로 더 빠르고 민첩한 드론을 구매하여 장착하세요.</p>
+                        </div>
+                        <span id="equipped-badge" class="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-1 rounded-full font-bold">
+                            장착됨: 스탠다드 호버
+                        </span>
+                    </div>
+
+                    <!-- 드론 카드 리스트 -->
+                    <div id="drone-shop-list" class="space-y-3 max-h-[340px] overflow-y-auto pr-1">
+                        <!-- JS에서 동적 렌더링 -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- 레이스 결과 모달 오버레이 -->
+    <div id="result-modal" class="hidden fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4 z-30">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-md w-full p-7 text-center shadow-2xl transform transition-all">
+            <div id="result-trophy" class="text-6xl mb-3 animate-bounce">🏆</div>
+            <h2 id="result-title" class="text-3xl font-black text-white mb-1">1위 완주!</h2>
+            <p id="result-subtitle" class="text-sm text-slate-400 mb-6">환상적인 비행 실력입니다!</p>
+
+            <div class="bg-slate-800/80 border border-slate-700 rounded-2xl p-4 mb-6 space-y-3">
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400">선택 난이도</span>
+                    <span id="res-diff" class="font-bold text-sky-400">보통</span>
+                </div>
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400">완주 기록</span>
+                    <span id="res-time" class="font-tech font-bold text-white">00:42.5</span>
+                </div>
+                <div class="h-[1px] bg-slate-700"></div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-300 font-bold">획득 상금</span>
+                    <span id="res-prize" class="font-tech text-2xl font-extrabold text-amber-400">+500 G</span>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="returnToMenu()" class="btn-game flex-1 py-3.5 rounded-xl bg-slate-700 hover:bg-slate-600 font-bold text-white">
+                    격납고 / 메뉴
+                </button>
+                <button onclick="startRace()" class="btn-game flex-1 py-3.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 font-bold text-white shadow-lg shadow-sky-500/25">
+                    다시 레이스
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 커스텀 알림 토스트 (alert 대체) -->
+    <div id="toast-msg" class="fixed top-6 left-1/2 -translate-x-1/2 bg-slate-800 border border-sky-400 text-white px-5 py-3 rounded-2xl shadow-2xl font-bold text-sm z-50 transition-all duration-300 opacity-0 pointer-events-none translate-y-[-20px]">
+        알림 메시지
+    </div>
+
+    <script>
+        /**
+         * ============================================================================
+         * 1. 게임 데이터 & 상태 정의 (드론 목록, 난이도 설정, 로컬 저장소 연동)
+         * ============================================================================
+         */
+        const DRONES = [
+            {
+                id: 'starter',
+                name: '스탠다드 호버 X1',
+                desc: '입문자용 기본 쿼드콥터. 안정적인 호버링과 균형 잡힌 조작감을 제공합니다.',
+                price: 0,
+                speed: 42,       // 최고 속도 (m/s)
+                accel: 55,       // 가속력
+                vertical: 32,    // 상승/하강 속도
+                handling: 0.92,  // 감속 및 선회 민첩성
+                color: 0x38bdf8, // 스카이 블루
+                accent: 0x0284c7,
+                stats: { speed: 40, accel: 45, handling: 50 }
+            },
+            {
+                id: 'swift',
+                name: '스위프트 에어로 S2',
+                desc: '경량 카본 프레임을 적용해 가속력과 상승 반응 속도가 향상된 모델입니다.',
+                price: 600,
+                speed: 54,
+                accel: 75,
+                vertical: 42,
+                handling: 0.90,
+                color: 0x10b981, // 에메랄드 그린
+                accent: 0x047857,
+                stats: { speed: 62, accel: 68, handling: 65 }
+            },
+            {
+                id: 'interceptor',
+                name: '바이퍼 인터셉터 V8',
+                desc: '고출력 브러시리스 모터를 탑재하여 직선 코스와 급상승 구간에서 압도적입니다.',
+                price: 1500,
+                speed: 68,
+                accel: 95,
+                vertical: 52,
+                handling: 0.88,
+                color: 0xf59e0b, // 앰버 골드
+                accent: 0xb45309,
+                stats: { speed: 82, accel: 85, handling: 78 }
+            },
+            {
+                id: 'phantom',
+                name: '팬텀 프로 레이서 Z',
+                desc: '최첨단 공기역학 설계가 적용된 프로 레이싱 드론. 한계를 초월한 속도를 자랑합니다.',
+                price: 3200,
+                speed: 84,
+                accel: 125,
+                vertical: 65,
+                handling: 0.85,
+                color: 0xf43f5e, // 크림슨 로즈
+                accent: 0x9f1239,
+                stats: { speed: 98, accel: 96, handling: 95 }
+            }
+        ];
+
+        const DIFFICULTIES = [
+            {
+                id: 'easy',
+                name: '쉬움 (초보 AI)',
+                desc: '조준 오차가 크고 코너링 반응이 느린 초보 파일럿 AI입니다.',
+                aiIntelligence: {
+                    turnResponse: 1.5,   // 선회 반응 속도 (느려서 링을 크게 돌아나감)
+                    aimWobble: 5.5,      // 목표 조준 흔들림 오차 (m)
+                    lookAhead: 0.0,      // 다음 링 미리 예측 비율 (0 = 예측 안 함)
+                    throttleEfficiency: 0.88 // 코너 감속 후 재가속 판단력
+                },
+                prizes: [300, 180, 100, 50], // 1등, 2등, 3등, 4등 상금
+                badgeColor: 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10'
+            },
+            {
+                id: 'normal',
+                name: '보통 (표준 AI)',
+                desc: '준수한 코너링과 안정적인 라인을 타는 중급 AI입니다.',
+                aiIntelligence: {
+                    turnResponse: 3.4,
+                    aimWobble: 2.2,
+                    lookAhead: 0.35,
+                    throttleEfficiency: 0.96
+                },
+                prizes: [700, 400, 200, 100],
+                badgeColor: 'text-sky-400 border-sky-500/40 bg-sky-500/10'
+            },
+            {
+                id: 'hard',
+                name: '어려움 (프로 AI)',
+                desc: '다음 게이트까지 미리 계산해 최단 경로로 비행하는 고지능 AI입니다!',
+                aiIntelligence: {
+                    turnResponse: 7.5,   // 즉각적인 선회 및 감속 제어
+                    aimWobble: 0.35,     // 정밀한 링 중앙 조준
+                    lookAhead: 0.85,     // 다음 체크포인트 방향 선행 예측 주행
+                    throttleEfficiency: 1.0
+                },
+                prizes: [1600, 900, 450, 200],
+                badgeColor: 'text-rose-400 border-rose-500/40 bg-rose-500/10'
+            }
+        ];
+
+        // 사용자 저장 데이터 불러오기
+        let playerData = {
+            money: 0,
+            ownedDrones: ['starter'],
+            equippedDrone: 'starter',
+            selectedDifficulty: 'normal'
+        };
+
+        function loadPlayerData() {
+            try {
+                const saved = SLS.getItem('aerodrone_save_v1');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    playerData = { ...playerData, ...parsed };
+                }
+            } catch (e) {
+                console.warn('저장 데이터 로드 실패:', e);
+            }
+        }
+
+        function savePlayerData() {
+            try {
+                SLS.setItem('aerodrone_save_v1', JSON.stringify(playerData));
+            } catch (e) {
+                console.warn('저장 데이터 기록 실패:', e);
+            }
+        }
+
+        /**
+         * ============================================================================
+         * 2. Web Audio / Tone.js 기반 실시간 드론 사운드 합성 엔진
+         * ============================================================================
+         */
+        let audioInitialized = false;
+        let isMuted = false;
+        let rotorOsc = null;
+        let rotorSubOsc = null;
+        let rotorGain = null;
+        let rotorFilter = null;
+        let sfxSynth = null;
+
+        async function initAudio() {
+            if (audioInitialized) {
+                if (Tone.context.state !== 'running') {
+                    await Tone.start();
+                }
+                return;
+            }
+            try {
+                await Tone.start();
+
+                // 드론 프로펠러 윙~ 소리 합성 (톱니파 + 로우패스 필터로 실제 모터 회전음 모사)
+                rotorFilter = new Tone.Filter({
+                    type: 'lowpass',
+                    frequency: 260,
+                    rolloff: -24
+                }).toDestination();
+
+                rotorGain = new Tone.Gain(0).connect(rotorFilter);
+
+                rotorOsc = new Tone.Oscillator({
+                    type: 'sawtooth',
+                    frequency: 85
+                }).connect(rotorGain);
+
+                rotorSubOsc = new Tone.Oscillator({
+                    type: 'triangle',
+                    frequency: 170
+                }).connect(rotorGain);
+
+                rotorOsc.start();
+                rotorSubOsc.start();
+
+                // 효과음용 폴리 신디사이저 (링 통과, 카운트다운, 구매, 우승)
+                sfxSynth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: 'triangle' },
+                    envelope: { attack: 0.01, decay: 0.15, sustain: 0.1, release: 0.3 }
+                }).toDestination();
+                sfxSynth.volume.value = -6;
+
+                audioInitialized = true;
+            } catch (err) {
+                console.warn('오디오 초기화 대기 중:', err);
+            }
+        }
+
+        // 드론 속도와 상승 여부에 따라 프로펠러 소리 피치(주파수)와 볼륨 실시간 조절
+        function updateDroneSound(speedRatio, isAscending, active) {
+            if (!audioInitialized || !rotorGain) return;
+            if (isMuted || !active) {
+                rotorGain.gain.rampTo(0, 0.1);
+                return;
+            }
+
+            // 기본 호버링 주파수(90Hz) + 속도에 따른 증가 + 상승 시 부하음 추가
+            const targetFreq = 90 + (speedRatio * 115) + (isAscending ? 32 : 0);
+            const targetFilter = 240 + (speedRatio * 650) + (isAscending ? 200 : 0);
+            const targetVol = 0.06 + (speedRatio * 0.07) + (isAscending ? 0.03 : 0);
+
+            rotorOsc.frequency.rampTo(targetFreq, 0.08);
+            rotorSubOsc.frequency.rampTo(targetFreq * 2.02, 0.08);
+            rotorFilter.frequency.rampTo(targetFilter, 0.08);
+            rotorGain.gain.rampTo(targetVol, 0.08);
+        }
+
+        function playSfx(type) {
+            if (!audioInitialized || isMuted || !sfxSynth) return;
+            const now = Tone.now();
+            if (type === 'ring') {
+                // 체크포인트 통과 시 경쾌한 상승 화음
+                sfxSynth.triggerAttackRelease(['C5', 'E5', 'G5'], '16n', now);
+                sfxSynth.triggerAttackRelease(['C6'], '8n', now + 0.07);
+            } else if (type === 'countdown') {
+                sfxSynth.triggerAttackRelease('A4', '16n', now);
+            } else if (type === 'go') {
+                sfxSynth.triggerAttackRelease(['A4', 'C#5', 'E5', 'A5'], '8n', now);
+            } else if (type === 'buy') {
+                sfxSynth.triggerAttackRelease(['E5', 'G#5', 'B5'], '16n', now);
+            } else if (type === 'win') {
+                sfxSynth.triggerAttackRelease(['C5', 'E5', 'G5', 'C6'], '4n', now);
+            }
+        }
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            const icon = isMuted ? '🔇' : '🔊';
+            document.getElementById('btn-mute-hud').innerText = icon;
+            document.getElementById('btn-mute-menu').innerText = icon;
+            if (isMuted && rotorGain) {
+                rotorGain.gain.rampTo(0, 0.05);
+            }
+            showToast(isMuted ? '사운드가 음소거되었습니다.' : '사운드가 켜졌습니다.');
+        }
+
+        /**
+         * ============================================================================
+         * 3. Three.js 3D 월드, 환경, 드론 모델 및 레이싱 코스 구성
+         * ============================================================================
+         */
+        let scene, camera, renderer;
+        let playerDroneObj = null;
+        let aiDrones = [];
+        let checkpoints = [];
+        let cloudMeshes = [];
+
+        // 게임 상태 변수
+        let gameState = 'MENU'; // 'MENU', 'COUNTDOWN', 'RACING', 'FINISHED'
+        let raceStartTime = 0;
+        let elapsedRaceTime = 0;
+
+        // 플레이어 물리 상태
+        const playerPhysics = {
+            pos: new THREE.Vector3(0, 8, 0),
+            vel: new THREE.Vector3(0, 0, 0),
+            tiltX: 0, // 앞뒤 기울기 (Pitch)
+            tiltZ: 0, // 좌우 기울기 (Roll)
+            currentCheckpoint: 0,
+            finished: false,
+            finishTime: 0
+        };
+
+        // 키보드 입력 상태
+        const keys = {
+            KeyW: false,
+            KeyA: false,
+            KeyS: false,
+            KeyD: false,
+            ArrowUp: false,
+            ArrowDown: false,
+            ArrowLeft: false,
+            ArrowRight: false
+        };
+
+        // 마우스 시점 회전 오프셋
+        let isDraggingMouse = false;
+        let prevMouseX = 0;
+        let prevMouseY = 0;
+        let camYawOffset = 0;
+        let camPitchOffset = 0;
+
+        function initThreeJS() {
+            const canvas = document.getElementById('game-canvas');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0ea5e9);
+            scene.fog = new THREE.FogExp2(0x38bdf8, 0.0014);
+
+            camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 2000);
+            camera.position.set(0, 15, 25);
+
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+            // 조명 설정 (태양광 + 반구광)
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x334155, 0.85);
+            hemiLight.position.set(0, 300, 0);
+            scene.add(hemiLight);
+
+            const dirLight = new THREE.DirectionalLight(0xfffbeb, 1.1);
+            dirLight.position.set(120, 220, 100);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            dirLight.shadow.camera.near = 10;
+            dirLight.shadow.camera.far = 800;
+            const d = 250;
+            dirLight.shadow.camera.left = -d;
+            dirLight.shadow.camera.right = d;
+            dirLight.shadow.camera.top = d;
+            dirLight.shadow.camera.bottom = -d;
+            scene.add(dirLight);
+
+            buildEnvironment();
+            createCourseCheckpoints();
+            spawnDrones();
+
+            window.addEventListener('resize', onWindowResize);
+            setupInputListeners();
+        }
+
+        // 3D 지형, 도시 빌딩 장애물, 구름 생성
+        function buildEnvironment() {
+            // 잔디/트랙 바닥
+            const groundGeo = new THREE.PlaneGeometry(3000, 3000);
+            const groundMat = new THREE.MeshLambertMaterial({ color: 0x15803d });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // 비행 구역 그리드 가이드
+            const gridHelper = new THREE.GridHelper(1600, 80, 0xffffff, 0xffffff);
+            gridHelper.position.y = 0.05;
+            gridHelper.material.opacity = 0.15;
+            gridHelper.material.transparent = true;
+            scene.add(gridHelper);
+
+            // 출발선 패드
+            const startPadGeo = new THREE.BoxGeometry(36, 0.3, 18);
+            const startPadMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
+            const startPad = new THREE.Mesh(startPadGeo, startPadMat);
+            startPad.position.set(0, 0.15, 0);
+            startPad.receiveShadow = true;
+            scene.add(startPad);
+
+            // 장식용 타워 & 빌딩 (코스 바깥쪽 풍경)
+            const buildingMat1 = new THREE.MeshLambertMaterial({ color: 0x475569 });
+            const buildingMat2 = new THREE.MeshLambertMaterial({ color: 0x64748b });
+            const seededCoords = [
+                [-75, -80, 55], [80, -110, 70], [-95, -240, 85], [90, -280, 60],
+                [-140, -400, 95], [60, -450, 75], [-60, -580, 90], [130, -560, 110],
+                [-190, -320, 65], [-210, -150, 80], [160, -200, 50], [-40, 65, 45], [55, 70, 55]
+            ];
+
+            seededCoords.forEach(([bx, bz, bh], idx) => {
+                const geo = new THREE.BoxGeometry(24, bh, 24);
+                const mesh = new THREE.Mesh(geo, idx % 2 === 0 ? buildingMat1 : buildingMat2);
+                mesh.position.set(bx, bh / 2, bz);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                scene.add(mesh);
+            });
+
+            // 하늘 구름 생성
+            const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 });
+            for (let i = 0; i < 28; i++) {
+                const cloudGroup = new THREE.Group();
+                const puffCount = 3 + (i % 3);
+                for (let j = 0; j < puffCount; j++) {
+                    const puff = new THREE.Mesh(new THREE.DodecahedronGeometry(8 + (j * 2), 1), cloudMat);
+                    puff.position.set(j * 9 - 10, (j % 2) * 3, (j * 4) - 5);
+                    cloudGroup.add(puff);
+                }
+                cloudGroup.position.set(
+                    (Math.sin(i * 1.7) * 450),
+                    95 + (i % 5) * 18,
+                    -i * 35 + 120
+                );
+                scene.add(cloudGroup);
+                cloudMeshes.push(cloudGroup);
+            }
+        }
+
+        // 평범하지만 디테일이 살아있는 쿼드콥터 드론 3D 메시 생성 함수
+        function createDroneMesh(mainColorHex, accentColorHex, isPlayer = false) {
+            const droneGroup = new THREE.Group();
+
+            // 1. 중앙 바디 (직관적인 평범한 드론 디자인)
+            const bodyGeo = new THREE.BoxGeometry(1.5, 0.45, 2.1);
+            const bodyMat = new THREE.MeshStandardMaterial({
+                color: mainColorHex,
+                roughness: 0.35,
+                metalness: 0.4
+            });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.castShadow = true;
+            droneGroup.add(body);
+
+            // 상단 배터리 팩 / 캐노피
+            const topGeo = new THREE.BoxGeometry(1.0, 0.25, 1.3);
+            const topMat = new THREE.MeshStandardMaterial({ color: accentColorHex, roughness: 0.4 });
+            const topCap = new THREE.Mesh(topGeo, topMat);
+            topCap.position.y = 0.32;
+            droneGroup.add(topCap);
+
+            // 전방 카메라 렌즈 & LED (앞쪽 방향 구분용)
+            const camGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.25, 12);
+            const camMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+            const cam = new THREE.Mesh(camGeo, camMat);
+            cam.rotation.x = Math.PI / 2;
+            cam.position.set(0, -0.05, -1.08);
+            droneGroup.add(cam);
+
+            const frontLedGeo = new THREE.BoxGeometry(0.9, 0.1, 0.08);
+            const frontLedMat = new THREE.MeshBasicMaterial({ color: isPlayer ? 0x38bdf8 : 0xf43f5e });
+            const frontLed = new THREE.Mesh(frontLedGeo, frontLedMat);
+            frontLed.position.set(0, 0.1, -1.06);
+            droneGroup.add(frontLed);
+
+            // 하단 착륙 스키드 (다리 2개)
+            const legMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
+            [-0.55, 0.55].forEach(lx => {
+                const skid = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 1.8), legMat);
+                skid.position.set(lx, -0.45, 0);
+                droneGroup.add(skid);
+
+                const strutF = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.35, 0.08), legMat);
+                strutF.position.set(lx, -0.28, -0.5);
+                droneGroup.add(strutF);
+
+                const strutB = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.35, 0.08), legMat);
+                strutB.position.set(lx, -0.28, 0.5);
+                droneGroup.add(strutB);
+            });
+
+            // 2. X자 4개 암(Arm) & 모터 & 회전 프로펠러
+            const armPositions = [
+                { x: -1.15, z: -1.15, dir: 1 },  // 전방 좌
+                { x: 1.15, z: -1.15, dir: -1 },  // 전방 우
+                { x: -1.15, z: 1.15, dir: -1 },  // 후방 좌
+                { x: 1.15, z: 1.15, dir: 1 }     // 후방 우
+            ];
+
+            const propellers = [];
+            const armMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 });
+            const motorMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.7 });
+            const bladeMat = new THREE.MeshBasicMaterial({
+                color: 0xe2e8f0,
+                transparent: true,
+                opacity: 0.75,
+                side: THREE.DoubleSide
+            });
+
+            armPositions.forEach((pos) => {
+                // 대각선 암
+                const armGeo = new THREE.BoxGeometry(0.16, 0.14, 1.65);
+                const arm = new THREE.Mesh(armGeo, armMat);
+                arm.position.set(pos.x * 0.55, 0.05, pos.z * 0.55);
+                arm.rotation.y = Math.atan2(pos.x, pos.z);
+                arm.castShadow = true;
+                droneGroup.add(arm);
+
+                // 모터 하우징
+                const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.28, 12), motorMat);
+                motor.position.set(pos.x, 0.18, pos.z);
+                droneGroup.add(motor);
+
+                // 프로펠러 날개
+                const propGroup = new THREE.Group();
+                propGroup.position.set(pos.x, 0.35, pos.z);
+
+                const blade = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.02, 0.16), bladeMat);
+                propGroup.add(blade);
+
+                // 프로펠러 회전 잔상 원판
+                const discGeo = new THREE.RingGeometry(0.2, 0.78, 16);
+                const discMat = new THREE.MeshBasicMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.18,
+                    side: THREE.DoubleSide
+                });
+                const disc = new THREE.Mesh(discGeo, discMat);
+                disc.rotation.x = Math.PI / 2;
+                propGroup.add(disc);
+
+                droneGroup.add(propGroup);
+                propellers.push({ mesh: propGroup, dir: pos.dir });
+            });
+
+            droneGroup.userData.propellers = propellers;
+            return droneGroup;
+        }
+
+        // 12개의 직선 레이싱 체크포인트(링) 생성
+        function createCourseCheckpoints() {
+            // 기존 체크포인트 정리
+            checkpoints.forEach(cp => scene.remove(cp.mesh));
+            checkpoints = [];
+
+            // 일직선(X = 0)으로 뻗어나가는 12개 게이트 좌표 (고도 변화 포함)
+            const gateCoords = [
+                new THREE.Vector3(0, 10, -55),
+                new THREE.Vector3(0, 15, -120),
+                new THREE.Vector3(0, 22, -185),
+                new THREE.Vector3(0, 14, -250),
+                new THREE.Vector3(0, 9, -315),
+                new THREE.Vector3(0, 18, -380),
+                new THREE.Vector3(0, 28, -445),
+                new THREE.Vector3(0, 20, -510),
+                new THREE.Vector3(0, 12, -575),
+                new THREE.Vector3(0, 24, -640),
+                new THREE.Vector3(0, 16, -705),
+                new THREE.Vector3(0, 12, -770) // 결승선 게이트
+            ];
+
+            gateCoords.forEach((pos, idx) => {
+                const isFinal = (idx === gateCoords.length - 1);
+                const ringGeo = new THREE.TorusGeometry(8.5, 0.65, 16, 48);
+                const ringMat = new THREE.MeshStandardMaterial({
+                    color: isFinal ? 0xf59e0b : 0x38bdf8,
+                    emissive: isFinal ? 0xd97706 : 0x0284c7,
+                    emissiveIntensity: 0.45,
+                    roughness: 0.25
+                });
+                const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+                ringMesh.position.copy(pos);
+
+                // 다음 게이트 방향을 바라보도록 회전
+                if (idx < gateCoords.length - 1) {
+                    ringMesh.lookAt(gateCoords[idx + 1]);
+                } else {
+                    ringMesh.lookAt(gateCoords[idx - 1]);
+                }
+
+                // 결승선 체크 깃발 장식
+                if (isFinal) {
+                    const innerGeo = new THREE.RingGeometry(7.2, 8.2, 24);
+                    const innerMat = new THREE.MeshBasicMaterial({
+                        color: 0xfbbf24,
+                        side: THREE.DoubleSide,
+                        transparent: true,
+                        opacity: 0.35
+                    });
+                    const innerDisc = new THREE.Mesh(innerGeo, innerMat);
+                    ringMesh.add(innerDisc);
+                }
+
+                scene.add(ringMesh);
+                checkpoints.push({
+                    pos: pos.clone(),
+                    mesh: ringMesh,
+                    radius: 9.8, // 통과 판정 반경 (넉넉하게 설정하여 쾌적한 플레이 보장)
+                    isFinal: isFinal
+                });
+            });
+
+            document.getElementById('hud-total-rings').innerText = checkpoints.length;
+        }
+
+        // 플레이어 드론 및 AI 경쟁 드론 3대 배치
+        function spawnDrones() {
+            if (playerDroneObj) scene.remove(playerDroneObj);
+            aiDrones.forEach(ai => scene.remove(ai.mesh));
+            aiDrones = [];
+
+            const equippedData = DRONES.find(d => d.id === playerData.equippedDrone) || DRONES[0];
+            playerDroneObj = createDroneMesh(equippedData.color, equippedData.accent, true);
+            playerDroneObj.position.set(-6, 5, 0);
+            scene.add(playerDroneObj);
+
+            // AI 경쟁 드론 3대 생성 (플레이어와 동일한 기본 속도 사용)
+            const aiConfigs = [
+                { name: 'AI 알파', color: 0xef4444, accent: 0x991b1b, startX: -2, skillVariance: 0.96 },
+                { name: 'AI 브라보', color: 0xa855f7, accent: 0x6b21a8, startX: 2, skillVariance: 1.00 },
+                { name: 'AI 델타', color: 0xeab308, accent: 0x854d0e, startX: 6, skillVariance: 1.04 }
+            ];
+
+            aiConfigs.forEach((cfg) => {
+                const mesh = createDroneMesh(cfg.color, cfg.accent, false);
+                mesh.position.set(cfg.startX, 5, 0);
+                scene.add(mesh);
+
+                aiDrones.push({
+                    name: cfg.name,
+                    mesh: mesh,
+                    pos: new THREE.Vector3(cfg.startX, 5, 0),
+                    vel: new THREE.Vector3(0, 0, 0),
+                    startX: cfg.startX,
+                    skillVariance: cfg.skillVariance,
+                    currentCheckpoint: 0,
+                    finished: false,
+                    finishTime: 0,
+                    wobbleOffset: Math.random() * 100
+                });
+            });
+        }
+
+        /**
+         * ============================================================================
+         * 4. 입력 처리 (WASD, 위/아래 화살표 키, 마우스 카메라, 모바일 터치)
+         * ============================================================================
+         */
+        function setupInputListeners() {
+            window.addEventListener('keydown', (e) => {
+                if (keys.hasOwnProperty(e.code)) {
+                    keys[e.code] = true;
+                    // 방향키 스크롤 방지
+                    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+                        e.preventDefault();
+                    }
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                if (keys.hasOwnProperty(e.code)) {
+                    keys[e.code] = false;
+                }
+            });
+
+            // 마우스 드래그 시점 둘러보기
+            const canvas = document.getElementById('game-canvas');
+            canvas.addEventListener('mousedown', (e) => {
+                isDraggingMouse = true;
+                prevMouseX = e.clientX;
+                prevMouseY = e.clientY;
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDraggingMouse) return;
+                const dx = e.clientX - prevMouseX;
+                const dy = e.clientY - prevMouseY;
+                prevMouseX = e.clientX;
+                prevMouseY = e.clientY;
+
+                camYawOffset += dx * 0.006;
+                camPitchOffset = Math.max(-0.5, Math.min(0.8, camPitchOffset + dy * 0.005));
+            });
+
+            window.addEventListener('mouseup', () => {
+                isDraggingMouse = false;
+            });
+
+            // 모바일/터치 가상 버튼 바인딩
+            document.querySelectorAll('.touch-btn').forEach(btn => {
+                const keyCode = btn.getAttribute('data-key');
+                btn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    keys[keyCode] = true;
+                }, { passive: false });
+                btn.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    keys[keyCode] = false;
+                }, { passive: false });
+            });
+        }
+
+        /**
+         * ============================================================================
+         * 5. 레이스 진행 흐름 (시작, 카운트다운, 물리 연산, AI, 순위, 종료)
+         * ============================================================================
+         */
+        async function startRace() {
+            await initAudio();
+
+            // UI 전환
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('result-modal').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+
+            // 드론 및 상태 초기화
+            spawnDrones();
+            playerPhysics.pos.set(-6, 5, 0);
+            playerPhysics.vel.set(0, 0, 0);
+            playerPhysics.tiltX = 0;
+            playerPhysics.tiltZ = 0;
+            playerPhysics.currentCheckpoint = 0;
+            playerPhysics.finished = false;
+            playerPhysics.finishTime = 0;
+
+            camYawOffset = 0;
+            camPitchOffset = 0;
+
+            // 체크포인트 하이라이트 초기화
+            updateCheckpointVisuals(0);
+
+            // 카운트다운 시작 (3 -> 2 -> 1 -> GO!)
+            gameState = 'COUNTDOWN';
+            const cdOverlay = document.getElementById('countdown-overlay');
+            const cdText = document.getElementById('countdown-text');
+            cdOverlay.classList.remove('hidden');
+
+            let count = 3;
+            cdText.innerText = count;
+            cdText.className = 'font-tech text-7xl sm:text-9xl font-black text-amber-400 drop-shadow-[0_5px_25px_rgba(251,191,36,0.8)] animate-bounce';
+            playSfx('countdown');
+
+            const timer = setInterval(() => {
+                if (gameState !== 'COUNTDOWN') {
+                    clearInterval(timer);
+                    cdOverlay.classList.add('hidden');
+                    return;
+                }
+                count--;
+                if (count > 0) {
+                    cdText.innerText = count;
+                    playSfx('countdown');
+                } else if (count === 0) {
+                    cdText.innerText = 'GO!';
+                    cdText.className = 'font-tech text-7xl sm:text-9xl font-black text-emerald-400 drop-shadow-[0_5px_25px_rgba(16,185,129,0.9)] scale-125 transition-transform';
+                    playSfx('go');
+                    gameState = 'RACING';
+                    raceStartTime = performance.now();
+                } else {
+                    clearInterval(timer);
+                    cdOverlay.classList.add('hidden');
+                }
+            }, 850);
+        }
+
+        function abortRace() {
+            gameState = 'MENU';
+            updateDroneSound(0, false, false);
+            document.getElementById('hud').classList.add('hidden');
+            document.getElementById('countdown-overlay').classList.add('hidden');
+            document.getElementById('main-menu').classList.remove('hidden');
+            renderMenuUI();
+        }
+
+        function returnToMenu() {
+            gameState = 'MENU';
+            updateDroneSound(0, false, false);
+            document.getElementById('result-modal').classList.add('hidden');
+            document.getElementById('hud').classList.add('hidden');
+            document.getElementById('main-menu').classList.remove('hidden');
+            renderMenuUI();
+        }
+
+        // 다음 목표 체크포인트 색상 강조
+        function updateCheckpointVisuals(targetIdx) {
+            checkpoints.forEach((cp, idx) => {
+                if (idx === targetIdx) {
+                    cp.mesh.material.color.setHex(0x10b981); // 현재 목표: 밝은 에메랄드
+                    cp.mesh.material.emissive.setHex(0x059669);
+                    cp.mesh.scale.set(1.08, 1.08, 1.08);
+                } else if (idx < targetIdx) {
+                    cp.mesh.material.color.setHex(0x64748b); // 이미 통과한 링: 회색
+                    cp.mesh.material.emissive.setHex(0x1e293b);
+                    cp.mesh.scale.set(1, 1, 1);
+                } else {
+                    cp.mesh.material.color.setHex(cp.isFinal ? 0xf59e0b : 0x38bdf8);
+                    cp.mesh.material.emissive.setHex(cp.isFinal ? 0xd97706 : 0x0284c7);
+                    cp.mesh.scale.set(1, 1, 1);
+                }
+            });
+        }
+
+        // 플레이어 드론 물리 업데이트 (WASD 이동 + 위/아래키 고도)
+        function updatePlayerPhysics(dt) {
+            const droneSpec = DRONES.find(d => d.id === playerData.equippedDrone) || DRONES[0];
+
+            // 입력 방향 벡터 계산
+            let moveX = 0; // A(-1), D(+1)
+            let moveZ = 0; // W(-1 전진), S(+1 후진)
+            let moveY = 0; // ArrowUp(+1 상승), ArrowDown(-1 하강)
+
+            if (keys.KeyW) moveZ -= 1;
+            if (keys.KeyS) moveZ += 1;
+            if (keys.KeyA) moveX -= 1;
+            if (keys.KeyD) moveX += 1;
+            if (keys.ArrowUp) moveY += 1;
+            if (keys.ArrowDown) moveY -= 1;
+
+            // 대각선 이동 시 속도 정규화
+            const horizLen = Math.hypot(moveX, moveZ);
+            if (horizLen > 1) {
+                moveX /= horizLen;
+                moveZ /= horizLen;
+            }
+
+            // 가속도 적용
+            playerPhysics.vel.x += moveX * droneSpec.accel * dt;
+            playerPhysics.vel.z += moveZ * droneSpec.accel * dt;
+            playerPhysics.vel.y += moveY * (droneSpec.vertical * 2.4) * dt;
+
+            // 공기 저항 (호버링 시 자연스럽게 정지하도록 감속)
+            const drag = Math.pow(0.18, dt);
+            playerPhysics.vel.x *= drag;
+            playerPhysics.vel.z *= drag;
+            playerPhysics.vel.y *= Math.pow(0.12, dt);
+
+            // 최고 속도 제한
+            const horizSpeed = Math.hypot(playerPhysics.vel.x, playerPhysics.vel.z);
+            if (horizSpeed > droneSpec.speed) {
+                const scale = droneSpec.speed / horizSpeed;
+                playerPhysics.vel.x *= scale;
+                playerPhysics.vel.z *= scale;
+            }
+            playerPhysics.vel.y = Math.max(-droneSpec.vertical, Math.min(droneSpec.vertical, playerPhysics.vel.y));
+
+            // 위치 갱신
+            playerPhysics.pos.addScaledVector(playerPhysics.vel, dt);
+
+            // 바닥 및 최대 고도 제한
+            if (playerPhysics.pos.y < 1.2) {
+                playerPhysics.pos.y = 1.2;
+                if (playerPhysics.vel.y < 0) playerPhysics.vel.y = 0;
+            }
+            if (playerPhysics.pos.y > 160) {
+                playerPhysics.pos.y = 160;
+                if (playerPhysics.vel.y > 0) playerPhysics.vel.y = 0;
+            }
+
+            // 드론 기체 기울기(Pitch & Roll) 애니메이션: 이동 방향에 따라 자연스럽게 기울어짐
+            const targetTiltX = (playerPhysics.vel.z / droneSpec.speed) * 0.42;
+            const targetTiltZ = -(playerPhysics.vel.x / droneSpec.speed) * 0.42;
+            playerPhysics.tiltX += (targetTiltX - playerPhysics.tiltX) * 10 * dt;
+            playerPhysics.tiltZ += (targetTiltZ - playerPhysics.tiltZ) * 10 * dt;
+
+            playerDroneObj.position.copy(playerPhysics.pos);
+            playerDroneObj.rotation.set(playerPhysics.tiltX, 0, playerPhysics.tiltZ);
+
+            // 사운드 피드백 갱신
+            const speedRatio = Math.min(1, playerPhysics.vel.length() / droneSpec.speed);
+            updateDroneSound(speedRatio, moveY > 0, true);
+
+            // 체크포인트 통과 판정
+            if (playerPhysics.currentCheckpoint < checkpoints.length) {
+                const targetCp = checkpoints[playerPhysics.currentCheckpoint];
+                const dist = playerPhysics.pos.distanceTo(targetCp.pos);
+                document.getElementById('hud-distance').innerText = `${Math.max(0, Math.round(dist - targetCp.radius))}m`;
+
+                if (dist <= targetCp.radius) {
+                    playSfx('ring');
+                    playerPhysics.currentCheckpoint++;
+
+                    if (playerPhysics.currentCheckpoint >= checkpoints.length) {
+                        playerPhysics.finished = true;
+                        playerPhysics.finishTime = elapsedRaceTime;
+                        finishRace();
+                    } else {
+                        updateCheckpointVisuals(playerPhysics.currentCheckpoint);
+                    }
+                }
+            }
+        }
+
+        // AI 드론 비행 인공지능 업데이트 (플레이어보다 느린 속도 + 난이도별 지능 차이)
+        function updateAIDrones(dt, timeSec) {
+            const diffObj = DIFFICULTIES.find(d => d.id === playerData.selectedDifficulty) || DIFFICULTIES[1];
+            const intel = diffObj.aiIntelligence;
+            const playerSpec = DRONES.find(d => d.id === playerData.equippedDrone) || DRONES[0];
+
+            // 모든 AI 드론의 최고 속도를 플레이어 드론의 50% 수준으로 설정
+            const sharedMaxSpeed = playerSpec.speed * 0.50;
+
+            aiDrones.forEach((ai) => {
+                // 프로펠러 회전
+                animatePropellers(ai.mesh, 38 * dt);
+
+                if (gameState !== 'RACING') return;
+
+                if (ai.finished) {
+                    // 완주 후 결승선 부근에서 부드럽게 호버링
+                    ai.pos.y += Math.sin(timeSec * 3 + ai.wobbleOffset) * 0.02;
+                    ai.mesh.position.copy(ai.pos);
+                    ai.mesh.rotation.set(0, 0, 0);
+                    return;
+                }
+
+                const targetCp = checkpoints[ai.currentCheckpoint];
+                if (!targetCp) return;
+
+                // 1. 목표 지점 계산 (지능이 높을수록 조준 흔들림 오차가 줄어듦)
+                const targetPos = targetCp.pos.clone();
+                targetPos.x += Math.sin(timeSec * 1.6 + ai.wobbleOffset) * intel.aimWobble;
+                targetPos.y += Math.cos(timeSec * 2.0 + ai.wobbleOffset) * (intel.aimWobble * 0.65);
+
+                const toCurrent = targetPos.clone().sub(ai.pos);
+                const distToCurrent = toCurrent.length();
+
+                // 2. 선행 예측 비행 (Look-ahead): 고지능 AI는 현재 링에 가까워지면 다음 링 방향을 미리 계산해 인코스를 공략
+                let desiredDir = toCurrent.clone().normalize();
+                const nextCp = checkpoints[ai.currentCheckpoint + 1];
+                if (nextCp && intel.lookAhead > 0 && distToCurrent < 32) {
+                    const toNext = nextCp.pos.clone().sub(targetCp.pos).normalize();
+                    const blendFactor = (1 - distToCurrent / 32) * intel.lookAhead * 0.55;
+                    desiredDir.lerp(toNext, blendFactor).normalize();
+                }
+
+                // 3. 코너링 속도 제어 지능: 급커브 시 고지능 AI는 최적의 코너링 효율을 유지
+                const currentSpeed = ai.vel.length();
+                let cornerEfficiency = intel.throttleEfficiency;
+                if (currentSpeed > 1) {
+                    const alignment = ai.vel.clone().normalize().dot(desiredDir);
+                    // 진행 방향과 목표 방향이 어긋날 때(급커브) 지능에 따른 감속/유지 판단
+                    if (alignment < 0.7) {
+                        cornerEfficiency *= (0.75 + 0.25 * intel.throttleEfficiency);
+                    }
+                }
+
+                const targetSpeed = sharedMaxSpeed * cornerEfficiency;
+                const desiredVel = desiredDir.multiplyScalar(targetSpeed);
+
+                // 4. 난이도별 선회 반응 속도(turnResponse) 적용
+                const responseRate = intel.turnResponse * ai.skillVariance;
+                ai.vel.lerp(desiredVel, Math.min(1, responseRate * dt));
+                ai.pos.addScaledVector(ai.vel, dt);
+
+                // AI 드론 기체 기울기 적용
+                ai.mesh.position.copy(ai.pos);
+                ai.mesh.rotation.x = (ai.vel.z / Math.max(40, sharedMaxSpeed)) * 0.38;
+                ai.mesh.rotation.z = -(ai.vel.x / Math.max(40, sharedMaxSpeed)) * 0.38;
+
+                // AI 체크포인트 통과 판정
+                if (distToCurrent <= targetCp.radius) {
+                    ai.currentCheckpoint++;
+                    if (ai.currentCheckpoint >= checkpoints.length) {
+                        ai.finished = true;
+                        ai.finishTime = elapsedRaceTime;
+                    }
+                }
+            });
+        }
+
+        // 프로펠러 날개 회전 애니메이션
+        function animatePropellers(droneMesh, spinAmount) {
+            if (!droneMesh || !droneMesh.userData.propellers) return;
+            droneMesh.userData.propellers.forEach(p => {
+                p.mesh.rotation.y += spinAmount * p.dir;
+            });
+        }
+
+        // 실시간 순위 계산 (통과한 체크포인트 수 -> 다음 체크포인트까지 남은 거리 순)
+        function calculateCurrentRank() {
+            const racers = [
+                {
+                    isPlayer: true,
+                    finished: playerPhysics.finished,
+                    finishTime: playerPhysics.finishTime,
+                    cp: playerPhysics.currentCheckpoint,
+                    distToNext: playerPhysics.currentCheckpoint < checkpoints.length
+                        ? playerPhysics.pos.distanceTo(checkpoints[playerPhysics.currentCheckpoint].pos)
+                        : 0
+                },
+                ...aiDrones.map(ai => ({
+                    isPlayer: false,
+                    finished: ai.finished,
+                    finishTime: ai.finishTime,
+                    cp: ai.currentCheckpoint,
+                    distToNext: ai.currentCheckpoint < checkpoints.length
+                        ? ai.pos.distanceTo(checkpoints[ai.currentCheckpoint].pos)
+                        : 0
+                }))
+            ];
+
+            racers.sort((a, b) => {
+                if (a.finished && b.finished) return a.finishTime - b.finishTime;
+                if (a.finished) return -1;
+                if (b.finished) return 1;
+                if (b.cp !== a.cp) return b.cp - a.cp;
+                return a.distToNext - b.distToNext;
+            });
+
+            return racers.findIndex(r => r.isPlayer) + 1;
+        }
+
+        // 레이스 종료 및 상금 정산
+        function finishRace() {
+            gameState = 'FINISHED';
+            updateDroneSound(0, false, false);
+
+            const finalRank = calculateCurrentRank();
+            const diffObj = DIFFICULTIES.find(d => d.id === playerData.selectedDifficulty) || DIFFICULTIES[1];
+            const earnedPrize = diffObj.prizes[finalRank - 1] || 50;
+
+            playerData.money += earnedPrize;
+            savePlayerData();
+
+            if (finalRank === 1) playSfx('win');
+
+            // 결과 모달 데이터 채우기
+            const trophies = ['🏆', '🥈', '🥉', '🎖️'];
+            const titles = ['1위 우승!', '2위 준우승!', '3위 입상!', '4위 완주!'];
+            const subtitles = [
+                '압도적인 비행 컨트롤로 1위를 차지했습니다!',
+                '아깝게 1위를 놓쳤지만 훌륭한 레이스였습니다!',
+                '안정적인 비행으로 포디움에 올랐습니다!',
+                '더 빠른 드론을 구매해 우승에 도전해보세요!'
+            ];
+
+            document.getElementById('result-trophy').innerText = trophies[finalRank - 1];
+            document.getElementById('result-title').innerText = titles[finalRank - 1];
+            document.getElementById('result-subtitle').innerText = subtitles[finalRank - 1];
+            document.getElementById('res-diff').innerText = diffObj.name;
+            document.getElementById('res-time').innerText = formatTime(playerPhysics.finishTime);
+            document.getElementById('res-prize').innerText = `+${earnedPrize.toLocaleString()} G`;
+
+            document.getElementById('hud').classList.add('hidden');
+            document.getElementById('result-modal').classList.remove('hidden');
+        }
+
+        function formatTime(sec) {
+            const mins = Math.floor(sec / 60);
+            const secs = Math.floor(sec % 60);
+            const tenths = Math.floor((sec * 10) % 10);
+            return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${tenths}`;
+        }
+
+        /**
+         * ============================================================================
+         * 6. 메인 애니메이션 루프 & 카메라 추적
+         * ============================================================================
+         */
+        let lastFrameTime = performance.now();
+
+        function animate(now) {
+            requestAnimationFrame(animate);
+
+            const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
+            lastFrameTime = now;
+            const timeSec = now / 1000;
+
+            // 구름 천천히 이동
+            cloudMeshes.forEach((c, idx) => {
+                c.position.x += Math.sin(timeSec * 0.2 + idx) * 0.02;
+            });
+
+            // 현재 목표 체크포인트 링 부드러운 회전
+            if (playerPhysics.currentCheckpoint < checkpoints.length) {
+                const activeRing = checkpoints[playerPhysics.currentCheckpoint].mesh;
+                activeRing.rotation.z += 1.2 * dt;
+            }
+
+            if (gameState === 'RACING') {
+                elapsedRaceTime = (now - raceStartTime) / 1000;
+                updatePlayerPhysics(dt);
+                updateAIDrones(dt, timeSec);
+                animatePropellers(playerDroneObj, 48 * dt);
+
+                // HUD 업데이트
+                document.getElementById('hud-rank').innerText = calculateCurrentRank();
+                document.getElementById('hud-ring').innerText = playerPhysics.currentCheckpoint;
+                document.getElementById('hud-time').innerText = formatTime(elapsedRaceTime);
+
+                const kmh = Math.round(playerPhysics.vel.length() * 3.6);
+                document.getElementById('hud-speed').innerText = kmh;
+                document.getElementById('hud-alt').innerText = Math.round(playerPhysics.pos.y);
+
+                // 좌우 방향키(← / →)로 카메라 시점 회전 제어 (방향 반전 및 탄성 복귀 제거)
+                if (keys.ArrowLeft) camYawOffset += 2.2 * dt;
+                if (keys.ArrowRight) camYawOffset -= 2.2 * dt;
+
+                // 3인칭 추적 카메라 위치 계산 (회전한 시점 각도를 그대로 유지)
+                const camDist = 11.5;
+                const camHeight = 4.2 + (camPitchOffset * 7);
+                const camX = playerPhysics.pos.x + Math.sin(camYawOffset) * camDist;
+                const camZ = playerPhysics.pos.z + Math.cos(camYawOffset) * camDist;
+                const desiredCamPos = new THREE.Vector3(camX, playerPhysics.pos.y + camHeight, camZ);
+
+                camera.position.lerp(desiredCamPos, 10 * dt);
+                const lookTarget = new THREE.Vector3(
+                    playerPhysics.pos.x - Math.sin(camYawOffset) * 8,
+                    playerPhysics.pos.y + 1.2,
+                    playerPhysics.pos.z - Math.cos(camYawOffset) * 8
+                );
+                camera.lookAt(lookTarget);
+
+            } else if (gameState === 'COUNTDOWN') {
+                animatePropellers(playerDroneObj, 35 * dt);
+                updateAIDrones(dt, timeSec);
+
+                const desiredCamPos = new THREE.Vector3(playerPhysics.pos.x, playerPhysics.pos.y + 4.2, playerPhysics.pos.z + 11.5);
+                camera.position.lerp(desiredCamPos, 8 * dt);
+                camera.lookAt(playerPhysics.pos.x, playerPhysics.pos.y + 1.2, playerPhysics.pos.z - 8);
+
+            } else {
+                // 메뉴 화면 배경: 드론 주위를 궤도 회전하며 쇼케이스 연출
+                animatePropellers(playerDroneObj, 25 * dt);
+                if (playerDroneObj) {
+                    playerDroneObj.position.y = 5 + Math.sin(timeSec * 2.5) * 0.35;
+                    const orbitAngle = timeSec * 0.45;
+                    camera.position.set(
+                        playerDroneObj.position.x + Math.sin(orbitAngle) * 10,
+                        playerDroneObj.position.y + 3.5,
+                        playerDroneObj.position.z + Math.cos(orbitAngle) * 10
+                    );
+                    camera.lookAt(playerDroneObj.position);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        /**
+         * ============================================================================
+         * 7. 메인 메뉴, 난이도 선택, 드론 상점 UI 렌더링 & 상호작용
+         * ============================================================================
+         */
+        function renderMenuUI() {
+            // 보유 상금 표시
+            document.getElementById('menu-money').innerText = `${playerData.money.toLocaleString()} G`;
+
+            // 장착 드론 배지 표시
+            const equipped = DRONES.find(d => d.id === playerData.equippedDrone) || DRONES[0];
+            document.getElementById('equipped-badge').innerText = `장착됨: ${equipped.name}`;
+
+            // 1. 난이도 선택 목록 렌더링
+            const diffContainer = document.getElementById('difficulty-list');
+            diffContainer.innerHTML = '';
+
+            DIFFICULTIES.forEach(diff => {
+                const isSelected = playerData.selectedDifficulty === diff.id;
+                const card = document.createElement('div');
+                card.onclick = () => {
+                    playerData.selectedDifficulty = diff.id;
+                    savePlayerData();
+                    renderMenuUI();
+                };
+                card.className = `cursor-pointer rounded-xl p-3 border transition-all flex justify-between items-center ${
+                    isSelected
+                        ? 'bg-sky-500/20 border-sky-400 shadow-md shadow-sky-500/10'
+                        : 'bg-slate-900/60 border-slate-700/70 hover:border-slate-500'
+                }`;
+
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-sm text-white">${diff.name}</span>
+                            ${isSelected ? '<span class="text-[10px] bg-sky-500 text-white px-2 py-0.5 rounded-full font-bold">선택됨</span>' : ''}
+                        </div>
+                        <p class="text-xs text-slate-400 mt-0.5">${diff.desc}</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-[10px] text-slate-400">1위 상금</div>
+                        <div class="font-tech text-sm font-bold text-amber-400">${diff.prizes[0].toLocaleString()} G</div>
+                    </div>
+                `;
+                diffContainer.appendChild(card);
+            });
+
+            // 2. 드론 상점 목록 렌더링
+            const shopContainer = document.getElementById('drone-shop-list');
+            shopContainer.innerHTML = '';
+
+            DRONES.forEach(drone => {
+                const isOwned = playerData.ownedDrones.includes(drone.id);
+                const isEquipped = playerData.equippedDrone === drone.id;
+                const canAfford = playerData.money >= drone.price;
+
+                const hexColorStr = '#' + drone.color.toString(16).padStart(6, '0');
+
+                let actionBtnHTML = '';
+                if (isEquipped) {
+                    actionBtnHTML = `<button disabled class="px-4 py-2 rounded-xl bg-emerald-600/30 border border-emerald-500/50 text-emerald-300 text-xs font-bold cursor-default">✔ 장착 중</button>`;
+                } else if (isOwned) {
+                    actionBtnHTML = `<button onclick="equipDrone('${drone.id}')" class="btn-game px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold">장착하기</button>`;
+                } else {
+                    actionBtnHTML = `<button onclick="buyDrone('${drone.id}')" class="btn-game px-4 py-2 rounded-xl ${
+                        canAfford
+                            ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold'
+                            : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                    } text-xs font-bold">🪙 ${drone.price.toLocaleString()} G 구매</button>`;
+                }
+
+                const card = document.createElement('div');
+                card.className = `rounded-2xl p-4 border transition-all ${
+                    isEquipped
+                        ? 'bg-slate-800/95 border-emerald-500/60 shadow-lg'
+                        : 'bg-slate-900/75 border-slate-700/80'
+                }`;
+
+                card.innerHTML = `
+                    <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl flex items-center justify-center border border-white/20 shadow-inner" style="background-color: ${hexColorStr}33">
+                                <div class="w-4 h-4 rounded-full shadow" style="background-color: ${hexColorStr}"></div>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-sm sm:text-base text-white">${drone.name}</h3>
+                                <p class="text-xs text-slate-400">${drone.desc}</p>
+                            </div>
+                        </div>
+                        <div class="self-end sm:self-center shrink-0">
+                            ${actionBtnHTML}
+                        </div>
+                    </div>
+
+                    <!-- 능력치 게이지 바 -->
+                    <div class="grid grid-cols-3 gap-3 bg-slate-950/60 rounded-xl p-2.5 text-[11px]">
+                        <div>
+                            <div class="flex justify-between text-slate-400 mb-1"><span>최고 속도</span><span class="text-white font-tech">${drone.stats.speed}</span></div>
+                            <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                <div class="h-full bg-sky-400 rounded-full" style="width: ${drone.stats.speed}%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-slate-400 mb-1"><span>가속/상승력</span><span class="text-white font-tech">${drone.stats.accel}</span></div>
+                            <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                <div class="h-full bg-emerald-400 rounded-full" style="width: ${drone.stats.accel}%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-slate-400 mb-1"><span>기동 민첩성</span><span class="text-white font-tech">${drone.stats.handling}</span></div>
+                            <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                <div class="h-full bg-amber-400 rounded-full" style="width: ${drone.stats.handling}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                shopContainer.appendChild(card);
+            });
+        }
+
+        async function buyDrone(droneId) {
+            await initAudio();
+            const drone = DRONES.find(d => d.id === droneId);
+            if (!drone) return;
+
+            if (playerData.ownedDrones.includes(droneId)) {
+                equipDrone(droneId);
+                return;
+            }
+
+            if (playerData.money < drone.price) {
+                showToast('상금이 부족합니다! 레이스에서 입상해 상금을 모아보세요.');
+                return;
+            }
+
+            playerData.money -= drone.price;
+            playerData.ownedDrones.push(droneId);
+            playerData.equippedDrone = droneId;
+            savePlayerData();
+
+            playSfx('buy');
+            spawnDrones();
+            renderMenuUI();
+            showToast(`🎉 [${drone.name}] 구매 및 장착 완료!`);
+        }
+
+        function equipDrone(droneId) {
+            if (!playerData.ownedDrones.includes(droneId)) return;
+            playerData.equippedDrone = droneId;
+            savePlayerData();
+            spawnDrones();
+            renderMenuUI();
+            const drone = DRONES.find(d => d.id === droneId);
+            showToast(`[${drone.name}] 드론을 장착했습니다.`);
+        }
+
+        // 토스트 알림 메시지 표시 (alert 대체)
+        let toastTimeout = null;
+        function showToast(msg) {
+            const toast = document.getElementById('toast-msg');
+            toast.innerText = msg;
+            toast.classList.remove('opacity-0', 'translate-y-[-20px]');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'translate-y-[-20px]');
+            }, 2500);
+        }
+
+        // 페이지 로드 완료 후 초기화 및 애니메이션 루프 시작
+        window.onload = function () {
+            loadPlayerData();
+            initThreeJS();
+            renderMenuUI();
+            animate(performance.now());
+        };
+    </script>
+</body>
+</html>

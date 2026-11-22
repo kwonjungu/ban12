@@ -1,0 +1,2050 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>에코 로봇: 숲의 수호자</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap');
+        
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #0f172a;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        .game-font {
+            font-family: 'Jua', sans-serif;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 커스텀 애니메이션 */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 15px rgba(74, 222, 128, 0.5); }
+            50% { box-shadow: 0 0 30px rgba(74, 222, 128, 0.9); }
+        }
+        .glow-green {
+            animation: pulse-glow 2s infinite;
+        }
+
+        /* 대화창 타이핑 커서 */
+        .typing-cursor::after {
+            content: '▼';
+            display: inline-block;
+            margin-left: 6px;
+            animation: bounce 0.8s infinite;
+            color: #4ade80;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(4px); }
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden bg-slate-900 text-white">
+
+    <!-- 게임 캔버스 -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- 상단 HUD (게임 플레이 중 표시) -->
+    <div id="hud" class="hidden absolute top-0 left-0 w-full p-4 flex justify-between items-start pointer-events-none z-10">
+        <!-- 체력 및 상태 -->
+        <div class="bg-slate-900/80 backdrop-blur-md border border-slate-700 rounded-2xl p-3 shadow-lg flex flex-col gap-2 min-w-[160px] sm:min-w-[200px]">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-cyan-400 tracking-wider">UNIT: ECO-01</span>
+                <span id="hpText" class="text-xs font-bold text-white">100 / 100</span>
+            </div>
+            <div class="w-full h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-600">
+                <div id="hpBar" class="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-200" style="width: 100%;"></div>
+            </div>
+            <div class="flex items-center justify-between text-xs text-slate-300 mt-1">
+                <span>처치한 오염체:</span>
+                <span id="scoreText" class="font-bold text-amber-400 text-sm">0</span>
+            </div>
+        </div>
+
+        <!-- 진행도 게이지 (초록색 오브까지의 거리) -->
+        <div class="bg-slate-900/80 backdrop-blur-md border border-slate-700 rounded-2xl p-3 shadow-lg flex flex-col items-center gap-1 w-1/3 max-w-[260px]">
+            <span id="progressLabel" class="text-xs font-bold text-emerald-400">생명의 오브까지 거리</span>
+            <div class="w-full h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-600 relative">
+                <div id="progressBar" class="h-full bg-gradient-to-r from-purple-500 via-amber-400 to-emerald-400 transition-all duration-100" style="width: 0%;"></div>
+            </div>
+            <span id="distanceText" class="text-[11px] text-slate-400">1000m 남음</span>
+        </div>
+
+        <!-- 사운드 토글 버튼 -->
+        <button id="soundToggleBtn" class="pointer-events-auto bg-slate-900/80 hover:bg-slate-800 border border-slate-700 rounded-xl p-2.5 shadow-lg transition active:scale-95" title="소리 켜기/끄기">
+            <svg id="soundOnIcon" class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+            <svg id="soundOffIcon" class="w-6 h-6 text-slate-500 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>
+        </button>
+    </div>
+
+    <!-- 모바일 터치 컨트롤 안내 (플레이 초반 잠깐 표시) -->
+    <div id="controlHint" class="hidden absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-900/70 backdrop-blur-sm border border-slate-700/80 px-4 py-2 rounded-full text-xs sm:text-sm text-slate-200 pointer-events-none z-10 text-center whitespace-nowrap">
+        이동: 방향키 / WASD / 화면 드래그 &nbsp;|&nbsp; 발사: 스페이스바 (자동 발사 지원)
+    </div>
+
+    <!-- 1. 타이틀 화면 -->
+    <div id="titleScreen" class="absolute inset-0 bg-gradient-to-b from-slate-900/90 via-purple-950/85 to-slate-900/95 flex flex-col items-center justify-center p-6 z-30 text-center">
+        <div class="mb-4 inline-block px-4 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs sm:text-sm font-bold tracking-widest uppercase">
+            Project: Green Revival
+        </div>
+        <h1 class="game-font text-4xl sm:text-6xl md:text-7xl text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-emerald-300 to-lime-300 drop-shadow-lg mb-4">
+            에코 로봇: 숲의 수호자
+        </h1>
+        <p class="text-slate-300 max-w-md text-sm sm:text-base mb-8 leading-relaxed">
+            오염된 대지를 가로질러 오염 몬스터들을 정화하고,<br>전설의 <span class="text-emerald-400 font-bold">초록색 생명의 오브</span>를 되찾아 숲을 부활시키세요!
+        </p>
+
+        <!-- 메카닉 로봇 일러스트 (SVG) -->
+        <div class="w-36 h-36 sm:w-44 sm:h-44 mb-8 animate-float flex items-center justify-center">
+            <svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-[0_10px_20px_rgba(34,211,238,0.4)]">
+                <!-- 백팩 제트 부스터 불꽃 -->
+                <path d="M55 115 L35 140 L65 130 Z" fill="#38bdf8" opacity="0.8"/>
+                <path d="M145 115 L165 140 L135 130 Z" fill="#38bdf8" opacity="0.8"/>
+                <!-- 다리 (메카닉 부츠) -->
+                <rect x="74" y="135" width="18" height="36" rx="6" fill="#475569" stroke="#1e293b" stroke-width="3"/>
+                <rect x="108" y="135" width="18" height="36" rx="6" fill="#475569" stroke="#1e293b" stroke-width="3"/>
+                <rect x="70" y="160" width="24" height="14" rx="5" fill="#0284c7"/>
+                <rect x="106" y="160" width="24" height="14" rx="5" fill="#0284c7"/>
+                <!-- 팔 (왼팔 & 오른팔 레이저 캐논) -->
+                <rect x="44" y="88" width="18" height="42" rx="8" fill="#cbd5e1" stroke="#334155" stroke-width="3"/>
+                <rect x="138" y="88" width="22" height="38" rx="8" fill="#0284c7" stroke="#334155" stroke-width="3"/>
+                <circle cx="149" cy="128" r="6" fill="#4ade80"/>
+                <!-- 몸통 (흉부 아머) -->
+                <rect x="64" y="82" width="72" height="58" rx="14" fill="#f8fafc" stroke="#334155" stroke-width="4"/>
+                <path d="M72 95 L128 95 L120 122 L80 122 Z" fill="#0284c7"/>
+                <circle cx="100" cy="108" r="8" fill="#22d3ee"/>
+                <!-- 머리 (로봇 헬멧 & 바이저) -->
+                <rect x="72" y="34" width="56" height="44" rx="14" fill="#f8fafc" stroke="#334155" stroke-width="4"/>
+                <!-- 안테나 -->
+                <line x1="100" y1="34" x2="100" y2="18" stroke="#64748b" stroke-width="5" stroke-linecap="round"/>
+                <circle cx="100" cy="16" r="5" fill="#4ade80"/>
+                <!-- 바이저 & 눈 -->
+                <rect x="78" y="46" width="44" height="18" rx="8" fill="#0f172a"/>
+                <circle cx="90" cy="55" r="4.5" fill="#22d3ee"/>
+                <circle cx="110" cy="55" r="4.5" fill="#22d3ee"/>
+            </svg>
+        </div>
+
+        <button id="startIntroBtn" class="game-font text-xl sm:text-2xl px-8 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-bold shadow-[0_0_25px_rgba(16,185,129,0.5)] transform transition hover:scale-105 active:scale-95 cursor-pointer">
+            미션 브리핑 듣기 ▶
+        </button>
+    </div>
+
+    <!-- 2. 미션 브리핑 대화창 (인트로 스토리) -->
+    <div id="introScreen" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col justify-end sm:justify-center items-center p-4 sm:p-8 z-30">
+        <div class="max-w-3xl w-full bg-slate-900 border-2 border-emerald-500/50 rounded-3xl p-5 sm:p-8 shadow-2xl flex flex-col sm:flex-row items-center gap-6 relative overflow-hidden">
+            <!-- 배경 장식 -->
+            <div class="absolute -right-10 -top-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+            <!-- 캐릭터 초상화 영역 -->
+            <div id="speakerAvatar" class="w-28 h-28 sm:w-36 sm:h-36 rounded-2xl bg-slate-800 border-2 border-emerald-400/60 flex-shrink-0 flex items-center justify-center p-2 shadow-inner relative">
+                <!-- 숲의 요정/레인저 캐릭터 SVG -->
+                <svg id="rangerSvg" viewBox="0 0 120 120" class="w-full h-full">
+                    <circle cx="60" cy="60" r="52" fill="#064e3b"/>
+                    <!-- 망토/후드 -->
+                    <path d="M25 105 C25 70, 95 70, 95 105 Z" fill="#10b981"/>
+                    <path d="M30 55 C30 20, 90 20, 90 55 C90 75, 80 80, 60 80 C40 80, 30 75, 30 55 Z" fill="#059669"/>
+                    <!-- 얼굴 -->
+                    <circle cx="60" cy="58" r="22" fill="#fde68a"/>
+                    <!-- 머리카락 -->
+                    <path d="M38 52 Q60 35 82 52 Q75 35 60 35 Q45 35 38 52 Z" fill="#d97706"/>
+                    <!-- 눈 -->
+                    <circle cx="52" cy="58" r="3" fill="#1e293b"/>
+                    <circle cx="68" cy="58" r="3" fill="#1e293b"/>
+                    <!-- 걱정스러운 눈썹 -->
+                    <path d="M47 52 L55 54 M73 52 L65 54" stroke="#78350f" stroke-width="2" stroke-linecap="round"/>
+                    <!-- 입 -->
+                    <path d="M56 68 Q60 65 64 68" stroke="#92400e" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <!-- 나뭇잎 브로치 -->
+                    <path d="M60 82 Q68 78 65 88 Q57 86 60 82 Z" fill="#a7f3d0"/>
+                </svg>
+
+                <!-- 드론 조종수(파일럿) 캐릭터 SVG -->
+                <svg id="pilotSvg" viewBox="0 0 120 120" class="w-full h-full hidden">
+                    <circle cx="60" cy="60" r="52" fill="#0c4a6e"/>
+                    <!-- 슈트 -->
+                    <path d="M25 105 C25 72, 95 72, 95 105 Z" fill="#0284c7"/>
+                    <path d="M45 78 L60 95 L75 78" fill="#38bdf8"/>
+                    <!-- 헬멧 & 얼굴 -->
+                    <circle cx="60" cy="55" r="24" fill="#e2e8f0"/>
+                    <circle cx="60" cy="57" r="19" fill="#fed7aa"/>
+                    <!-- 고글 -->
+                    <rect x="40" y="38" width="40" height="12" rx="6" fill="#0f172a"/>
+                    <rect x="44" y="40" width="14" height="8" rx="3" fill="#22d3ee"/>
+                    <rect x="62" y="40" width="14" height="8" rx="3" fill="#22d3ee"/>
+                    <!-- 눈 & 자신감 있는 표정 -->
+                    <circle cx="52" cy="58" r="2.5" fill="#0f172a"/>
+                    <circle cx="68" cy="58" r="2.5" fill="#0f172a"/>
+                    <path d="M54 67 Q60 72 66 67" stroke="#0f172a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                </svg>
+            </div>
+
+            <!-- 대사 텍스트 영역 -->
+            <div class="flex-1 flex flex-col justify-between w-full">
+                <div>
+                    <div class="flex items-center gap-2 mb-2">
+                        <span id="speakerName" class="px-3 py-0.5 rounded-full text-xs sm:text-sm font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                            숲의 레인저 아린
+                        </span>
+                    </div>
+                    <p id="dialogueText" class="text-base sm:text-lg text-slate-100 leading-relaxed min-h-[84px] sm:min-h-[96px] typing-cursor">
+                        <!-- 자바스크립트로 대사 출력 -->
+                    </p>
+                </div>
+
+                <div class="flex justify-end items-center gap-3 mt-4 pt-3 border-t border-slate-800">
+                    <button id="skipIntroBtn" class="text-xs sm:text-sm text-slate-400 hover:text-white px-3 py-2 transition cursor-pointer">
+                        건너뛰기
+                    </button>
+                    <button id="nextDialogueBtn" class="game-font text-base sm:text-lg px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold shadow-lg transition transform active:scale-95 cursor-pointer">
+                        다음 ▶
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 게임 오버 화면 -->
+    <div id="gameOverScreen" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 z-30 text-center">
+        <div class="w-20 h-20 rounded-full bg-rose-500/20 border-2 border-rose-500 flex items-center justify-center mb-4">
+            <span class="text-4xl">⚠️</span>
+        </div>
+        <h2 class="game-font text-4xl sm:text-5xl text-rose-400 mb-3">로봇 장갑 파손!</h2>
+        <p class="text-slate-300 max-w-md text-sm sm:text-base mb-6">
+            오염 몬스터들의 공격으로 에코 로봇이 작동을 멈췄습니다.<br>재정비 후 다시 숲을 구하러 출동할까요?
+        </p>
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-8 w-full max-w-xs">
+            <div class="flex justify-between text-sm text-slate-400 mb-1">
+                <span>정화한 오염체:</span>
+                <span id="failScore" class="text-white font-bold">0 마리</span>
+            </div>
+            <div class="flex justify-between text-sm text-slate-400">
+                <span>진행률:</span>
+                <span id="failProgress" class="text-cyan-400 font-bold">0%</span>
+            </div>
+        </div>
+        <button id="retryBtn" class="game-font text-xl px-8 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-bold shadow-lg transition transform hover:scale-105 active:scale-95 cursor-pointer">
+            로봇 재출격하기 ↻
+        </button>
+    </div>
+
+    <!-- 4. 엔딩 화면 (오염된 곳이 푸른 숲으로 변화!) -->
+    <div id="endingScreen" class="hidden absolute inset-0 flex flex-col items-center justify-between p-6 sm:p-10 z-30 pointer-events-none">
+        <!-- 상단 축하 배너 -->
+        <div class="mt-4 sm:mt-8 bg-slate-900/80 backdrop-blur-md border-2 border-emerald-400 rounded-3xl px-6 py-4 sm:px-10 sm:py-6 text-center shadow-[0_0_40px_rgba(52,211,153,0.5)] pointer-events-auto transform transition-all duration-700">
+            <div class="inline-block px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold mb-2">
+                MISSION COMPLETE!
+            </div>
+            <h2 class="game-font text-3xl sm:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-lime-200 to-cyan-300 mb-2">
+                생명의 용과 숲이 깨어났습니다!
+            </h2>
+            <p class="text-slate-200 text-sm sm:text-base max-w-lg mx-auto">
+                에코 로봇이 회수한 <span class="text-emerald-400 font-bold">초록색 생명의 오브</span>로 수호신을 치유하자,<br>찬란히 부활한 <span class="text-lime-300 font-bold">생명의 용</span>이 하늘을 날며 숲을 되살렸습니다!
+            </p>
+        </div>
+
+        <!-- 하단 결과 및 다시하기 버튼 -->
+        <div class="mb-4 sm:mb-8 bg-slate-900/85 backdrop-blur-md border border-slate-700 rounded-2xl p-5 flex flex-col sm:flex-row items-center gap-6 shadow-2xl pointer-events-auto">
+            <div class="text-center sm:text-left">
+                <div class="text-xs text-slate-400">최종 정화 점수</div>
+                <div id="endingScore" class="game-font text-2xl sm:text-3xl text-amber-400">0 PTS</div>
+            </div>
+            <button id="playAgainBtn" class="game-font text-lg sm:text-xl px-7 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold shadow-lg transition transform hover:scale-105 active:scale-95 cursor-pointer">
+                새로운 임무 시작하기 ↺
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 에코 드론: 숲의 수호자 (Eco-Drone: Forest Restorer)
+         * 로봇 드론 조종 슈팅 및 정화 어드벤처 게임
+         */
+
+        // --- Web Audio API 사운드 효과 시스템 (외부 파일 없이 깔끔한 신디사이저 효과음) ---
+        class SoundManager {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            toggle() {
+                this.enabled = !this.enabled;
+                return this.enabled;
+            }
+
+            playLaser() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(220, this.ctx.currentTime + 0.12);
+
+                gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.12);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.12);
+            }
+
+            playExplosion() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(160, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.25);
+
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+
+            playHit() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(60, this.ctx.currentTime + 0.2);
+
+                gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.2);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.2);
+            }
+
+            playPowerup() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+                osc.frequency.setValueAtTime(660, this.ctx.currentTime + 0.08);
+                osc.frequency.setValueAtTime(880, this.ctx.currentTime + 0.16);
+
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+
+            playPurifyEnding() {
+                if (!this.enabled || !this.ctx) return;
+                const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51]; // C5, E5, G5, C6, E6
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    const startTime = this.ctx.currentTime + i * 0.14;
+                    osc.frequency.setValueAtTime(freq, startTime);
+
+                    gain.gain.setValueAtTime(0.15, startTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.8);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(startTime);
+                    osc.stop(startTime + 0.8);
+                });
+            }
+        }
+
+        const sound = new SoundManager();
+
+        // --- 게임 상태 및 전역 변수 ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+
+        const STATE = {
+            TITLE: 'TITLE',
+            INTRO: 'INTRO',
+            PLAYING: 'PLAYING',
+            BOSS_FIGHT: 'BOSS_FIGHT',
+            ORB_APPROACH: 'ORB_APPROACH',
+            PURIFYING: 'PURIFYING',
+            ENDING: 'ENDING',
+            GAMEOVER: 'GAMEOVER'
+        };
+
+        let currentState = STATE.TITLE;
+
+        // 인트로 대화 스크립트
+        const dialogues = [
+            {
+                speaker: '숲의 레인저 아린',
+                role: 'ranger',
+                text: '숲을 지키는 [생명의 용]마저 어둠의 독기에 잠식되어 폭주하고 있어요! 오직 오염 지대 깊숙한 곳의 [초록색 생명의 오브]만이 용을 치유하고 숲을 되살릴 수 있어요!'
+            },
+            {
+                speaker: '로봇 파일럿 (나)',
+                role: 'pilot',
+                text: '걱정 마세요! 제가 정화 전투 로봇 [ECO-01]을 타고 오염 몬스터들을 돌파해 반드시 초록색 오브를 가져와 생명의 용을 치유하겠습니다!'
+            },
+            {
+                speaker: '숲의 레인저 아린',
+                role: 'ranger',
+                text: '정말 고마워요! 로봇의 팔 캐논 레이저로 몬스터들을 물리치며 끝까지 나아가 주세요. 숲과 생명의 용의 운명이 달려 있어요!'
+            }
+        ];
+        let dialogueIndex = 0;
+        let typingTimer = null;
+        let isTyping = false;
+
+        // 게임 플레이 변수
+        let score = 0;
+        let distance = 0;
+        const TARGET_DISTANCE = 3500; // 목표 거리를 1000m -> 3500m로 대폭 연장
+        let purificationProgress = 0; // 0.0 (오염) ~ 1.0 (완전한 숲)
+
+        // 드론 (플레이어) 객체
+        const drone = {
+            x: 150,
+            y: height / 2,
+            targetX: 150,
+            targetY: height / 2,
+            radius: 26,
+            hp: 120,
+            maxHp: 120,
+            speed: 7.5,
+            rotorAngle: 0,
+            tilt: 0,
+            fireCooldown: 0,
+            fireRate: 8, // 연사 속도 향상
+            weaponLevel: 1, // 최대 5단계까지 강화 가능
+            invincibleTimer: 0
+        };
+
+        // 생명의 오브 (목표물)
+        const greenOrb = {
+            x: width + 200,
+            y: height / 2,
+            radius: 36,
+            pulse: 0,
+            collected: false
+        };
+
+        // 생명의 용 (오염된 수호신 -> 오브로 치유되어 부활)
+        const lifeDragon = {
+            active: false,
+            x: width * 0.72,
+            y: height * 0.45,
+            healProgress: 0, // 0: 오염에 잠식된 용 -> 1: 찬란히 치유된 생명의 용
+            wingPhase: 0,
+            bodyPhase: 0
+        };
+
+        // 최종 보스 객체 (거대해진 여정에 맞춰 체력과 패턴 강화)
+        const boss = {
+            active: false,
+            x: width + 180,
+            y: height / 2,
+            radius: 68,
+            hp: 1200,
+            maxHp: 1200,
+            phase: 0,
+            attackTimer: 0,
+            hitFlash: 0
+        };
+
+        // 배열들
+        let bullets = [];
+        let enemyBullets = [];
+        let enemies = [];
+        let particles = [];
+        let items = [];
+        let bgTrees = [];
+        let bgClouds = [];
+        let forestAnimals = [];
+
+        // 입력 상태
+        const keys = {};
+        let isPointerDown = false;
+        let pointerOffset = { x: 0, y: 0 };
+
+        // --- 초기화 및 리사이즈 ---
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+
+            if (currentState === STATE.TITLE || currentState === STATE.INTRO) {
+                drone.x = width * 0.2;
+                drone.y = height * 0.5;
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // 배경 나무/지형 초기화
+        function initBackground() {
+            bgTrees = [];
+            const treeCount = Math.ceil(width / 90) + 4;
+            for (let i = 0; i < treeCount; i++) {
+                bgTrees.push({
+                    x: i * 95 + Math.random() * 30,
+                    scale: 0.7 + Math.random() * 0.6,
+                    type: Math.floor(Math.random() * 3),
+                    layer: i % 2 // 0: 원경, 1: 근경
+                });
+            }
+
+            bgClouds = [];
+            for (let i = 0; i < 6; i++) {
+                bgClouds.push({
+                    x: Math.random() * width,
+                    y: 40 + Math.random() * (height * 0.35),
+                    size: 40 + Math.random() * 50,
+                    speed: 0.3 + Math.random() * 0.4
+                });
+            }
+        }
+        initBackground();
+
+        // --- UI 요소 참조 ---
+        const titleScreen = document.getElementById('titleScreen');
+        const introScreen = document.getElementById('introScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const endingScreen = document.getElementById('endingScreen');
+        const hud = document.getElementById('hud');
+        const controlHint = document.getElementById('controlHint');
+
+        const speakerNameEl = document.getElementById('speakerName');
+        const dialogueTextEl = document.getElementById('dialogueText');
+        const rangerSvg = document.getElementById('rangerSvg');
+        const pilotSvg = document.getElementById('pilotSvg');
+
+        // --- 이벤트 리스너 등록 ---
+        document.getElementById('startIntroBtn').addEventListener('click', () => {
+            sound.init();
+            sound.playPowerup();
+            titleScreen.classList.add('hidden');
+            startIntro();
+        });
+
+        document.getElementById('nextDialogueBtn').addEventListener('click', () => {
+            sound.init();
+            if (isTyping) {
+                // 타이핑 중이면 즉시 전체 문장 표시
+                clearInterval(typingTimer);
+                dialogueTextEl.textContent = dialogues[dialogueIndex].text;
+                isTyping = false;
+            } else {
+                dialogueIndex++;
+                if (dialogueIndex < dialogues.length) {
+                    showDialogue(dialogueIndex);
+                } else {
+                    startGame();
+                }
+            }
+        });
+
+        document.getElementById('skipIntroBtn').addEventListener('click', () => {
+            sound.init();
+            clearInterval(typingTimer);
+            startGame();
+        });
+
+        document.getElementById('retryBtn').addEventListener('click', () => {
+            sound.init();
+            gameOverScreen.classList.add('hidden');
+            startGame();
+        });
+
+        document.getElementById('playAgainBtn').addEventListener('click', () => {
+            sound.init();
+            endingScreen.classList.add('hidden');
+            startGame();
+        });
+
+        document.getElementById('soundToggleBtn').addEventListener('click', () => {
+            sound.init();
+            const isOn = sound.toggle();
+            document.getElementById('soundOnIcon').classList.toggle('hidden', !isOn);
+            document.getElementById('soundOffIcon').classList.toggle('hidden', isOn);
+        });
+
+        // 키보드 조작
+        window.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            if (e.code === 'Space' && currentState === STATE.INTRO) {
+                document.getElementById('nextDialogueBtn').click();
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
+
+        // 터치 및 마우스 드래그 조작 (모바일/태블릿/데스크탑 호환)
+        canvas.addEventListener('pointerdown', (e) => {
+            if (currentState !== STATE.PLAYING && currentState !== STATE.BOSS_FIGHT && currentState !== STATE.ORB_APPROACH) return;
+            sound.init();
+            isPointerDown = true;
+            pointerOffset.x = drone.x - e.clientX;
+            pointerOffset.y = drone.y - e.clientY;
+        });
+
+        window.addEventListener('pointermove', (e) => {
+            if (!isPointerDown) return;
+            if (currentState !== STATE.PLAYING && currentState !== STATE.BOSS_FIGHT && currentState !== STATE.ORB_APPROACH) return;
+            drone.x = Math.max(40, Math.min(width - 40, e.clientX + pointerOffset.x));
+            drone.y = Math.max(60, Math.min(height - 70, e.clientY + pointerOffset.y));
+        });
+
+        window.addEventListener('pointerup', () => {
+            isPointerDown = false;
+        });
+
+        // --- 인트로 대화 진행 ---
+        function startIntro() {
+            currentState = STATE.INTRO;
+            introScreen.classList.remove('hidden');
+            dialogueIndex = 0;
+            showDialogue(0);
+        }
+
+        function showDialogue(idx) {
+            const data = dialogues[idx];
+            speakerNameEl.textContent = data.speaker;
+
+            if (data.role === 'ranger') {
+                rangerSvg.classList.remove('hidden');
+                pilotSvg.classList.add('hidden');
+                speakerNameEl.className = 'px-3 py-0.5 rounded-full text-xs sm:text-sm font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+            } else {
+                rangerSvg.classList.add('hidden');
+                pilotSvg.classList.remove('hidden');
+                speakerNameEl.className = 'px-3 py-0.5 rounded-full text-xs sm:text-sm font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40';
+            }
+
+            const nextBtn = document.getElementById('nextDialogueBtn');
+            nextBtn.textContent = (idx === dialogues.length - 1) ? '로봇 출동! 🚀' : '다음 ▶';
+
+            // 타이핑 효과
+            clearInterval(typingTimer);
+            dialogueTextEl.textContent = '';
+            isTyping = true;
+            let charIdx = 0;
+            typingTimer = setInterval(() => {
+                dialogueTextEl.textContent += data.text[charIdx];
+                charIdx++;
+                if (charIdx >= data.text.length) {
+                    clearInterval(typingTimer);
+                    isTyping = false;
+                }
+            }, 28);
+        }
+
+        // --- 게임 시작 ---
+        function startGame() {
+            introScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            endingScreen.classList.add('hidden');
+            hud.classList.remove('hidden');
+            controlHint.classList.remove('hidden');
+
+            setTimeout(() => {
+                controlHint.classList.add('hidden');
+            }, 5000);
+
+            currentState = STATE.PLAYING;
+            score = 0;
+            distance = 0;
+            purificationProgress = 0;
+
+            drone.x = Math.min(160, width * 0.2);
+            drone.y = height * 0.5;
+            drone.hp = 120;
+            drone.maxHp = 120;
+            drone.weaponLevel = 1;
+            drone.invincibleTimer = 0;
+            drone.fireCooldown = 0;
+
+            boss.active = false;
+            boss.hp = boss.maxHp;
+            boss.x = width + 180;
+            boss.y = height * 0.5;
+            boss.attackTimer = 60;
+
+            greenOrb.collected = false;
+            greenOrb.x = width + 200;
+            greenOrb.y = height * 0.5;
+
+            lifeDragon.active = false;
+            lifeDragon.healProgress = 0;
+            lifeDragon.x = width * 0.72;
+            lifeDragon.y = height * 0.45;
+
+            bullets = [];
+            enemyBullets = [];
+            enemies = [];
+            particles = [];
+            items = [];
+            forestAnimals = [];
+
+            updateHUD();
+        }
+
+        function spawnSingleEnemy(xOffset = 0, customY = null, customType = null) {
+            let type = customType || 'slime';
+            if (!customType) {
+                const rand = Math.random();
+                if (distance > 1200 && rand < 0.28) type = 'golem';
+                else if (distance > 400 && rand < 0.65) type = 'bat';
+            }
+
+            const yPos = customY !== null ? Math.max(80, Math.min(height - 90, customY)) : (80 + Math.random() * (height - 170));
+            const spawnX = width + 50 + xOffset;
+
+            // 거리가 멀어질수록 적 체력과 속도가 소폭 상승하여 긴장감 유지
+            const difficultyScale = 1 + (distance / TARGET_DISTANCE) * 0.6;
+
+            if (type === 'slime') {
+                const hp = Math.round(10 * difficultyScale);
+                enemies.push({
+                    type: 'slime',
+                    x: spawnX,
+                    y: yPos,
+                    vx: -(3.8 + Math.random() * 2.2),
+                    vy: 0,
+                    radius: 20,
+                    hp: hp,
+                    maxHp: hp,
+                    phase: Math.random() * Math.PI * 2
+                });
+            } else if (type === 'bat') {
+                const hp = Math.round(18 * difficultyScale);
+                enemies.push({
+                    type: 'bat',
+                    x: spawnX,
+                    y: yPos,
+                    vx: -(5.0 + Math.random() * 2.5),
+                    vy: 0,
+                    radius: 18,
+                    hp: hp,
+                    maxHp: hp,
+                    phase: Math.random() * Math.PI * 2
+                });
+            } else {
+                const hp = Math.round(42 * difficultyScale);
+                enemies.push({
+                    type: 'golem',
+                    x: spawnX,
+                    y: yPos,
+                    vx: -(2.4 + Math.random() * 1.2),
+                    vy: 0,
+                    radius: 32,
+                    hp: hp,
+                    maxHp: hp,
+                    phase: 0
+                });
+            }
+        }
+
+        function spawnEnemy() {
+            // 기본 스폰 + 추가 동시 스폰(웨이브/무리)으로 몬스터 수 대폭 증가
+            const roll = Math.random();
+            if (roll < 0.4) {
+                // 3~5마리 편대(무리) 출현
+                const packSize = 3 + (distance > 1500 ? 2 : (distance > 700 ? 1 : 0));
+                const baseY = 100 + Math.random() * (height - 240);
+                const packType = distance > 500 && Math.random() < 0.5 ? 'bat' : 'slime';
+                for (let i = 0; i < packSize; i++) {
+                    spawnSingleEnemy(i * 42, baseY + (i - (packSize - 1) / 2) * 38, packType);
+                }
+            } else if (roll < 0.8) {
+                // 2~3마리 동시 출현
+                spawnSingleEnemy(0);
+                spawnSingleEnemy(35);
+                if (distance > 1800) spawnSingleEnemy(70);
+            } else {
+                // 단기 출현
+                spawnSingleEnemy(0);
+            }
+        }
+
+        function spawnItem(x, y) {
+            if (Math.random() > 0.24) return; // 24% 확률로 아이템 드롭
+            const isHeal = Math.random() < 0.48;
+            items.push({
+                x: x,
+                y: y,
+                type: isHeal ? 'heal' : 'upgrade',
+                radius: 16,
+                vx: -2.2,
+                pulse: 0
+            });
+        }
+
+        function createParticles(x, y, color, count = 12, speedScale = 1) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = (1 + Math.random() * 4) * speedScale;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: 2 + Math.random() * 4,
+                    color: color,
+                    alpha: 1,
+                    decay: 0.02 + Math.random() * 0.02
+                });
+            }
+        }
+
+        // --- 색상 보간 유틸리티 (오염된 색 -> 푸른 숲의 색 전환용) ---
+        function lerp(a, b, t) {
+            return a + (b - a) * t;
+        }
+
+        function lerpColor(hex1, hex2, t) {
+            const c1 = parseInt(hex1.slice(1), 16);
+            const c2 = parseInt(hex2.slice(1), 16);
+            const r1 = (c1 >> 16) & 255, g1 = (c1 >> 8) & 255, b1 = c1 & 255;
+            const r2 = (c2 >> 16) & 255, g2 = (c2 >> 8) & 255, b2 = c2 & 255;
+            const r = Math.round(lerp(r1, r2, t));
+            const g = Math.round(lerp(g1, g2, t));
+            const b = Math.round(lerp(b1, b2, t));
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        // --- 메인 업데이트 루프 ---
+        let frameCount = 0;
+        let spawnTimer = 0;
+
+        function update() {
+            frameCount++;
+            drone.rotorAngle += 0.6;
+
+            // 엔딩 및 정화 연출 상태 (생명의 오브가 날아가 생명의 용을 치유하고 숲을 되살림)
+            if (currentState === STATE.PURIFYING || currentState === STATE.ENDING) {
+                if (purificationProgress < 1) {
+                    purificationProgress = Math.min(1, purificationProgress + 0.006);
+                    lifeDragon.healProgress = Math.min(1, purificationProgress * 1.25);
+
+                    // 초록색 생명의 오브가 생명의 용의 심장부로 날아가 치유 에너지 방출
+                    greenOrb.pulse += 0.15;
+                    greenOrb.x += (lifeDragon.x - greenOrb.x) * 0.06;
+                    greenOrb.y += (lifeDragon.y - greenOrb.y) * 0.06;
+
+                    if (frameCount % 2 === 0) {
+                        createParticles(
+                            lifeDragon.x + (Math.random() - 0.5) * 140,
+                            lifeDragon.y + (Math.random() - 0.5) * 110,
+                            Math.random() > 0.4 ? '#4ade80' : '#fef08a',
+                            4,
+                            0.9
+                        );
+                    }
+                    if (purificationProgress >= 1 && currentState === STATE.PURIFYING) {
+                        currentState = STATE.ENDING;
+                        hud.classList.add('hidden');
+                        endingScreen.classList.remove('hidden');
+                        document.getElementById('endingScore').textContent = `${score} PTS`;
+                        spawnForestAnimals();
+                    }
+                }
+                // 엔딩에서 로봇과 치유된 생명의 용이 하늘을 평화롭게 비행
+                drone.x += (width * 0.28 - drone.x) * 0.03;
+                drone.y += (height * 0.46 + Math.sin(frameCount * 0.05) * 15 - drone.y) * 0.05;
+                drone.tilt = 0;
+
+                if (lifeDragon.active) {
+                    lifeDragon.wingPhase += 0.12;
+                    lifeDragon.bodyPhase += 0.05;
+                    lifeDragon.x += (width * 0.68 - lifeDragon.x) * 0.03;
+                    lifeDragon.y = height * 0.42 + Math.sin(lifeDragon.bodyPhase) * 24;
+                }
+
+                updateBackground(1.5);
+                updateParticles();
+                updateForestAnimals();
+                return;
+            }
+
+            // 거리 증가 -> 목표 도달 시 최종 보스 출현!
+            if (currentState === STATE.PLAYING) {
+                distance += 1.5;
+                if (distance >= TARGET_DISTANCE) {
+                    distance = TARGET_DISTANCE;
+                    currentState = STATE.BOSS_FIGHT;
+                    boss.active = true;
+                    boss.x = width + 150;
+                    boss.y = height * 0.5;
+                    sound.playHit();
+                }
+            }
+
+            // 드론 키보드 이동 처리
+            let moveX = 0;
+            let moveY = 0;
+            if (keys['ArrowLeft'] || keys['KeyA']) moveX -= 1;
+            if (keys['ArrowRight'] || keys['KeyD']) moveX += 1;
+            if (keys['ArrowUp'] || keys['KeyW']) moveY -= 1;
+            if (keys['ArrowDown'] || keys['KeyS']) moveY += 1;
+
+            if (moveX !== 0 || moveY !== 0) {
+                const len = Math.hypot(moveX, moveY);
+                drone.x += (moveX / len) * drone.speed;
+                drone.y += (moveY / len) * drone.speed;
+                drone.tilt = moveX * 0.22;
+            } else {
+                drone.tilt *= 0.85;
+            }
+
+            // 화면 경계 제한
+            drone.x = Math.max(40, Math.min(width - 40, drone.x));
+            drone.y = Math.max(65, Math.min(height - 70, drone.y));
+
+            if (drone.invincibleTimer > 0) drone.invincibleTimer--;
+
+            // 레이저 자동/수동 발사 (플레이 및 보스전 중 자동 사격 지원)
+            if (drone.fireCooldown > 0) drone.fireCooldown--;
+            if (drone.fireCooldown <= 0 && (currentState === STATE.PLAYING || currentState === STATE.BOSS_FIGHT || keys['Space'])) {
+                fireDroneLaser();
+                drone.fireCooldown = drone.fireRate;
+            }
+
+            // 배경 스크롤 업데이트
+            updateBackground(currentState === STATE.PLAYING ? 3.5 : 1.5);
+
+            // 몬스터 스폰 (일반 진행 구간)
+            if (currentState === STATE.PLAYING) {
+                spawnTimer--;
+                if (spawnTimer <= 0) {
+                    spawnEnemy();
+                    const progressRatio = Math.min(1, distance / TARGET_DISTANCE);
+                    spawnTimer = Math.max(14, Math.floor(32 - progressRatio * 18));
+                }
+            }
+
+            // 레이저 탄환 업데이트
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const b = bullets[i];
+                b.x += b.vx;
+                b.y += b.vy;
+                if (b.x > width + 50 || b.y < -50 || b.y > height + 50) {
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // 일반 몬스터 업데이트 및 충돌 처리
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const en = enemies[i];
+                en.phase += 0.08;
+                en.x += en.vx;
+                if (en.type === 'bat') {
+                    en.y += Math.sin(en.phase) * 2.8;
+                } else if (en.type === 'slime') {
+                    en.y += Math.sin(en.phase * 0.7) * 0.8;
+                }
+
+                // 화면 왼쪽 밖으로 벗어나면 제거
+                if (en.x < -60) {
+                    enemies.splice(i, 1);
+                    continue;
+                }
+
+                // 레이저와 몬스터 충돌 체크
+                let destroyed = false;
+                for (let j = bullets.length - 1; j >= 0; j--) {
+                    const b = bullets[j];
+                    const dist = Math.hypot(en.x - b.x, en.y - b.y);
+                    if (dist < en.radius + b.radius) {
+                        en.hp -= b.damage;
+                        createParticles(b.x, b.y, '#38bdf8', 5, 0.7);
+                        bullets.splice(j, 1);
+
+                        if (en.hp <= 0) {
+                            sound.playExplosion();
+                            score += en.type === 'golem' ? 300 : (en.type === 'bat' ? 150 : 100);
+                            createParticles(en.x, en.y, '#c084fc', 16, 1.2);
+                            spawnItem(en.x, en.y);
+                            enemies.splice(i, 1);
+                            destroyed = true;
+                        }
+                        break;
+                    }
+                }
+                if (destroyed) continue;
+
+                // 로봇과 몬스터 충돌 체크
+                const playerDist = Math.hypot(en.x - drone.x, en.y - drone.y);
+                if (playerDist < en.radius + drone.radius - 6) {
+                    if (drone.invincibleTimer <= 0) {
+                        sound.playHit();
+                        drone.hp -= en.type === 'golem' ? 25 : 15;
+                        drone.invincibleTimer = 45;
+                        createParticles(drone.x, drone.y, '#f43f5e', 14);
+                        if (drone.hp <= 0) {
+                            triggerGameOver();
+                            return;
+                        }
+                    }
+                    enemies.splice(i, 1);
+                }
+            }
+
+            // 아이템 업데이트 및 획득 처리
+            for (let i = items.length - 1; i >= 0; i--) {
+                const it = items[i];
+                it.x += it.vx;
+                it.pulse += 0.1;
+                if (it.x < -40) {
+                    items.splice(i, 1);
+                    continue;
+                }
+                const dist = Math.hypot(it.x - drone.x, it.y - drone.y);
+                if (dist < it.radius + drone.radius) {
+                    sound.playPowerup();
+                    if (it.type === 'heal') {
+                        drone.hp = Math.min(drone.maxHp, drone.hp + 30);
+                        createParticles(drone.x, drone.y, '#34d399', 14);
+                    } else {
+                        drone.weaponLevel = Math.min(5, drone.weaponLevel + 1);
+                        score += 250;
+                        createParticles(drone.x, drone.y, '#38bdf8', 14);
+                    }
+                    items.splice(i, 1);
+                }
+            }
+
+            // 보스전 업데이트
+            if (currentState === STATE.BOSS_FIGHT && boss.active) {
+                boss.phase += 0.04;
+                if (boss.hitFlash > 0) boss.hitFlash--;
+
+                // 보스 위치 이동 (오른쪽 진영에서 상하로 부유)
+                const targetBossX = Math.max(width * 0.65, width - 170);
+                boss.x += (targetBossX - boss.x) * 0.04;
+                boss.y = height * 0.48 + Math.sin(boss.phase) * (height * 0.26);
+
+                // 보스 공격 패턴 (부채꼴 독성 탄환 및 소환)
+                boss.attackTimer--;
+                if (boss.attackTimer <= 0) {
+                    const isEnraged = boss.hp < boss.maxHp * 0.5;
+                    const isCritical = boss.hp < boss.maxHp * 0.25;
+                    const spreadCount = isCritical ? 7 : (isEnraged ? 5 : 3);
+                    const baseAngle = Math.atan2(drone.y - boss.y, drone.x - boss.x);
+                    for (let k = 0; k < spreadCount; k++) {
+                        const offset = (k - (spreadCount - 1) / 2) * 0.18;
+                        const angle = baseAngle + offset;
+                        const speed = isCritical ? 6.5 : 5.6;
+                        enemyBullets.push({
+                            x: boss.x - 45,
+                            y: boss.y,
+                            vx: Math.cos(angle) * speed,
+                            vy: Math.sin(angle) * speed,
+                            radius: 9
+                        });
+                    }
+                    // 체력이 절반 이하일 때 오염 몬스터 추가 소환
+                    if (isEnraged && Math.random() < 0.55) {
+                        spawnSingleEnemy(0, boss.y, isCritical ? 'bat' : 'slime');
+                    }
+                    boss.attackTimer = isCritical ? 42 : (isEnraged ? 52 : 68);
+                }
+
+                // 레이저와 보스 충돌 체크
+                for (let j = bullets.length - 1; j >= 0; j--) {
+                    const b = bullets[j];
+                    const dist = Math.hypot(boss.x - b.x, boss.y - b.y);
+                    if (dist < boss.radius + b.radius) {
+                        boss.hp -= b.damage;
+                        boss.hitFlash = 4;
+                        createParticles(b.x, b.y, '#e879f9', 6, 0.8);
+                        bullets.splice(j, 1);
+
+                        if (boss.hp <= 0) {
+                            // 보스 격파! 잠식되어 쓰러진 생명의 용과 초록색 생명의 오브 등장
+                            boss.active = false;
+                            score += 2000;
+                            enemyBullets = [];
+                            enemies = [];
+                            sound.playExplosion();
+                            createParticles(boss.x, boss.y, '#c084fc', 45, 1.8);
+                            createParticles(boss.x, boss.y, '#4ade80', 35, 1.5);
+
+                            lifeDragon.active = true;
+                            lifeDragon.healProgress = 0;
+                            lifeDragon.x = Math.min(width - 160, boss.x + 30);
+                            lifeDragon.y = height * 0.45;
+
+                            greenOrb.x = boss.x - 90;
+                            greenOrb.y = boss.y;
+                            currentState = STATE.ORB_APPROACH;
+                            break;
+                        }
+                    }
+                }
+
+                // 로봇과 보스 본체 충돌 체크
+                if (boss.active) {
+                    const playerBossDist = Math.hypot(boss.x - drone.x, boss.y - drone.y);
+                    if (playerBossDist < boss.radius + drone.radius - 8 && drone.invincibleTimer <= 0) {
+                        sound.playHit();
+                        drone.hp -= 25;
+                        drone.invincibleTimer = 50;
+                        createParticles(drone.x, drone.y, '#f43f5e', 16);
+                        if (drone.hp <= 0) {
+                            triggerGameOver();
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // 보스 독성 탄환 업데이트
+            for (let i = enemyBullets.length - 1; i >= 0; i--) {
+                const eb = enemyBullets[i];
+                eb.x += eb.vx;
+                eb.y += eb.vy;
+                if (eb.x < -30 || eb.x > width + 30 || eb.y < -30 || eb.y > height + 30) {
+                    enemyBullets.splice(i, 1);
+                    continue;
+                }
+                const dist = Math.hypot(eb.x - drone.x, eb.y - drone.y);
+                if (dist < eb.radius + drone.radius - 6) {
+                    if (drone.invincibleTimer <= 0) {
+                        sound.playHit();
+                        drone.hp -= 15;
+                        drone.invincibleTimer = 40;
+                        createParticles(drone.x, drone.y, '#f43f5e', 12);
+                        if (drone.hp <= 0) {
+                            triggerGameOver();
+                            return;
+                        }
+                    }
+                    enemyBullets.splice(i, 1);
+                }
+            }
+
+            // 생명의 오브 접근 연출 (오브를 회수해 옆에 쓰러진 생명의 용을 치유)
+            if (currentState === STATE.ORB_APPROACH) {
+                greenOrb.pulse += 0.08;
+                lifeDragon.wingPhase += 0.04;
+                lifeDragon.bodyPhase += 0.03;
+                lifeDragon.y = height * 0.46 + Math.sin(lifeDragon.bodyPhase) * 10;
+
+                const targetOrbX = width * 0.54;
+                greenOrb.x += (targetOrbX - greenOrb.x) * 0.03;
+                greenOrb.y = height * 0.52 + Math.sin(greenOrb.pulse * 0.7) * 22;
+
+                // 로봇이 초록색 오브와 접촉 시 오브가 생명의 용에게 날아가 치유 시작!
+                const distToOrb = Math.hypot(greenOrb.x - drone.x, greenOrb.y - drone.y);
+                if (distToOrb < greenOrb.radius + drone.radius + 15) {
+                    triggerEnding();
+                }
+            }
+
+            updateParticles();
+            updateHUD();
+        }
+
+        function updateHUD() {
+            const hpPct = Math.max(0, Math.min(100, (drone.hp / drone.maxHp) * 100));
+            document.getElementById('hpBar').style.width = `${hpPct}%`;
+            document.getElementById('hpText').textContent = `${Math.max(0, Math.ceil(drone.hp))} / ${drone.maxHp}`;
+            document.getElementById('scoreText').textContent = `${score} (Lv.${drone.weaponLevel})`;
+
+            const progressLabel = document.getElementById('progressLabel');
+            const progressBar = document.getElementById('progressBar');
+            const distanceText = document.getElementById('distanceText');
+
+            if (currentState === STATE.BOSS_FIGHT && boss.active) {
+                const bossHpPct = Math.max(0, (boss.hp / boss.maxHp) * 100);
+                progressLabel.textContent = '⚠️ 오염 군주 베노믹스';
+                progressLabel.className = 'text-xs font-bold text-rose-400 animate-pulse';
+                progressBar.className = 'h-full bg-gradient-to-r from-rose-600 via-fuchsia-500 to-purple-500 transition-all duration-100';
+                progressBar.style.width = `${bossHpPct}%`;
+                distanceText.textContent = `BOSS HP: ${Math.max(0, Math.ceil(boss.hp))} / ${boss.maxHp}`;
+            } else if (currentState === STATE.ORB_APPROACH) {
+                progressLabel.textContent = '✨ 오브로 생명의 용을 치유하세요!';
+                progressLabel.className = 'text-xs font-bold text-emerald-300 animate-pulse';
+                progressBar.style.width = '100%';
+                distanceText.textContent = '초록색 오브에 다가가세요!';
+            } else {
+                const distPct = Math.min(100, (distance / TARGET_DISTANCE) * 100);
+                const remain = Math.max(0, Math.ceil(TARGET_DISTANCE - distance));
+                let zoneName = '오염된 외곽 숲';
+                if (distance >= 2200) zoneName = '심연의 오염 지대';
+                else if (distance >= 1000) zoneName = '독성 안개 늪지대';
+
+                progressLabel.textContent = `${zoneName} (${Math.floor(distPct)}%)`;
+                progressLabel.className = 'text-xs font-bold text-emerald-400';
+                progressBar.className = 'h-full bg-gradient-to-r from-purple-500 via-amber-400 to-emerald-400 transition-all duration-100';
+                progressBar.style.width = `${distPct}%`;
+                distanceText.textContent = `목표까지 ${remain}m 남음`;
+            }
+        }
+
+        function fireDroneLaser() {
+            sound.playLaser();
+            const startX = drone.x + 28;
+            const startY = drone.y + 4;
+
+            if (drone.weaponLevel === 1) {
+                bullets.push({ x: startX, y: startY, vx: 13.5, vy: 0, radius: 5, damage: 11 });
+            } else if (drone.weaponLevel === 2) {
+                bullets.push({ x: startX, y: startY - 8, vx: 14, vy: 0, radius: 5, damage: 11 });
+                bullets.push({ x: startX, y: startY + 8, vx: 14, vy: 0, radius: 5, damage: 11 });
+            } else if (drone.weaponLevel === 3) {
+                bullets.push({ x: startX, y: startY, vx: 14.5, vy: 0, radius: 6, damage: 13 });
+                bullets.push({ x: startX, y: startY - 10, vx: 14, vy: -1.4, radius: 5, damage: 10 });
+                bullets.push({ x: startX, y: startY + 10, vx: 14, vy: 1.4, radius: 5, damage: 10 });
+            } else if (drone.weaponLevel === 4) {
+                bullets.push({ x: startX, y: startY - 6, vx: 15, vy: 0, radius: 6, damage: 13 });
+                bullets.push({ x: startX, y: startY + 6, vx: 15, vy: 0, radius: 6, damage: 13 });
+                bullets.push({ x: startX, y: startY - 12, vx: 14.5, vy: -2.0, radius: 5, damage: 11 });
+                bullets.push({ x: startX, y: startY + 12, vx: 14.5, vy: 2.0, radius: 5, damage: 11 });
+            } else {
+                // 최대 5단계: 5발 초강력 확산 레이저
+                bullets.push({ x: startX, y: startY, vx: 15.5, vy: 0, radius: 7, damage: 15 });
+                bullets.push({ x: startX, y: startY - 9, vx: 15, vy: -1.1, radius: 6, damage: 12 });
+                bullets.push({ x: startX, y: startY + 9, vx: 15, vy: 1.1, radius: 6, damage: 12 });
+                bullets.push({ x: startX, y: startY - 15, vx: 14.5, vy: -2.4, radius: 5, damage: 11 });
+                bullets.push({ x: startX, y: startY + 15, vx: 14.5, vy: 2.4, radius: 5, damage: 11 });
+            }
+        }
+
+        function updateBackground(speed) {
+            bgClouds.forEach(c => {
+                c.x -= c.speed * (speed * 0.4);
+                if (c.x < -c.size * 2) c.x = width + c.size * 2;
+            });
+
+            bgTrees.forEach(t => {
+                const layerSpeed = t.layer === 0 ? speed * 0.45 : speed * 0.9;
+                t.x -= layerSpeed;
+                if (t.x < -100) {
+                    t.x = width + 80 + Math.random() * 40;
+                }
+            });
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.decay;
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function triggerGameOver() {
+            currentState = STATE.GAMEOVER;
+            hud.classList.add('hidden');
+            gameOverScreen.classList.remove('hidden');
+            document.getElementById('failScore').textContent = `${score} PTS`;
+            document.getElementById('failProgress').textContent = `${Math.floor((distance / TARGET_DISTANCE) * 100)}%`;
+        }
+
+        function triggerEnding() {
+            currentState = STATE.PURIFYING;
+            greenOrb.collected = true;
+            score += 1500;
+            sound.playPurifyEnding();
+            createParticles(greenOrb.x, greenOrb.y, '#4ade80', 50, 1.8);
+            createParticles(lifeDragon.x, lifeDragon.y, '#fef08a', 40, 1.6);
+        }
+
+        function spawnForestAnimals() {
+            forestAnimals = [
+                { type: 'deer', x: width * 0.25, y: height - 58, phase: 0 },
+                { type: 'rabbit', x: width * 0.65, y: height - 48, phase: 1.5 },
+                { type: 'bird', x: width * 0.55, y: height * 0.28, phase: 0.7 }
+            ];
+        }
+
+        function updateForestAnimals() {
+            forestAnimals.forEach(a => {
+                a.phase += 0.08;
+                if (a.type === 'bird') {
+                    a.x += Math.cos(a.phase * 0.5) * 1.5;
+                    a.y += Math.sin(a.phase) * 0.8;
+                }
+            });
+        }
+
+        // --- 렌더링 (그리기) 루프 ---
+        function draw() {
+            const p = purificationProgress; // 0: 오염된 보라/회색 숲, 1: 화창한 초록빛 숲
+
+            // 1. 하늘 그라데이션 (오염 -> 맑은 하늘)
+            const skyTop = lerpColor('#1e1b4b', '#0284c7', p);
+            const skyMid = lerpColor('#3b0764', '#38bdf8', p);
+            const skyBot = lerpColor('#4c1d95', '#bae6fd', p);
+
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
+            skyGrad.addColorStop(0, skyTop);
+            skyGrad.addColorStop(0.55, skyMid);
+            skyGrad.addColorStop(1, skyBot);
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            // 엔딩 시 햇살 효과
+            if (p > 0.2) {
+                ctx.save();
+                ctx.globalAlpha = p * 0.35;
+                const sunGrad = ctx.createRadialGradient(width * 0.82, height * 0.18, 10, width * 0.82, height * 0.18, 260);
+                sunGrad.addColorStop(0, '#fef08a');
+                sunGrad.addColorStop(1, 'rgba(254, 240, 138, 0)');
+                ctx.fillStyle = sunGrad;
+                ctx.beginPath();
+                ctx.arc(width * 0.82, height * 0.18, 260, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // 2. 구름 (독성 보라 구름 -> 하얀 뭉게구름)
+            const cloudColor = lerpColor('#581c87', '#ffffff', p);
+            bgClouds.forEach(c => {
+                ctx.save();
+                ctx.fillStyle = cloudColor;
+                ctx.globalAlpha = lerp(0.35, 0.8, p);
+                ctx.beginPath();
+                ctx.arc(c.x, c.y, c.size * 0.6, 0, Math.PI * 2);
+                ctx.arc(c.x + c.size * 0.45, c.y - c.size * 0.15, c.size * 0.5, 0, Math.PI * 2);
+                ctx.arc(c.x + c.size * 0.9, c.y, c.size * 0.45, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // 3. 원경 산맥 실루엣
+            ctx.fillStyle = lerpColor('#2e1065', '#0d9488', p);
+            ctx.beginPath();
+            ctx.moveTo(0, height);
+            for (let x = 0; x <= width + 100; x += 120) {
+                const peakY = height - 130 - Math.sin(x * 0.005 + 1) * 50;
+                ctx.lineTo(x, peakY);
+            }
+            ctx.lineTo(width, height);
+            ctx.fill();
+
+            // 4. 배경 나무들 (앙상한 고목 -> 풍성한 초록 나무 & 꽃)
+            bgTrees.forEach(t => {
+                drawTree(t.x, height - 42, t.scale, t.layer, p);
+            });
+
+            // 5. 땅(지형) (오염된 보라색 진흙 -> 싱그러운 초록 잔디)
+            const groundTop = lerpColor('#4c1d95', '#22c55e', p);
+            const groundBot = lerpColor('#1e1b4b', '#15803d', p);
+            const groundGrad = ctx.createLinearGradient(0, height - 48, 0, height);
+            groundGrad.addColorStop(0, groundTop);
+            groundGrad.addColorStop(1, groundBot);
+            ctx.fillStyle = groundGrad;
+            ctx.fillRect(0, height - 48, width, 48);
+
+            // 잔디/꽃 디테일 (정화될수록 꽃이 피어남)
+            if (p > 0.3) {
+                ctx.save();
+                ctx.globalAlpha = (p - 0.3) / 0.7;
+                for (let fx = 30; fx < width; fx += 75) {
+                    // 작은 꽃송이
+                    ctx.fillStyle = (fx % 150 === 30) ? '#f472b6' : '#facc15';
+                    ctx.beginPath();
+                    ctx.arc(fx, height - 42, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+
+            // 6. 엔딩 숲속 동물들
+            if (currentState === STATE.ENDING) {
+                drawForestAnimals();
+            }
+
+            // 7. 아이템 그리기
+            items.forEach(it => {
+                ctx.save();
+                ctx.translate(it.x, it.y + Math.sin(it.pulse) * 5);
+                // 외곽 빛무리
+                ctx.fillStyle = it.type === 'heal' ? 'rgba(52, 211, 153, 0.25)' : 'rgba(56, 189, 248, 0.25)';
+                ctx.beginPath();
+                ctx.arc(0, 0, it.radius + 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 캡슐 본체
+                ctx.fillStyle = it.type === 'heal' ? '#10b981' : '#0284c7';
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(0, 0, it.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // 아이콘 표시 (+ 또는 W)
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(it.type === 'heal' ? '+' : '⚡', 0, 1);
+                ctx.restore();
+            });
+
+            // 8. 생명의 용 및 초록색 생명의 오브 그리기
+            if (lifeDragon.active) {
+                drawLifeDragon();
+            }
+
+            if ((currentState === STATE.ORB_APPROACH || currentState === STATE.PURIFYING) && (purificationProgress < 0.85)) {
+                drawGreenOrb();
+            }
+
+            // 9. 로봇 레이저 탄환 그리기
+            bullets.forEach(b => {
+                ctx.save();
+                ctx.fillStyle = '#4ade80';
+                ctx.shadowColor = '#22d3ee';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.roundRect(b.x - 10, b.y - b.radius * 0.6, 20, b.radius * 1.2, 4);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // 10. 오염 몬스터 및 최종 보스 그리기
+            enemies.forEach(en => {
+                drawEnemy(en);
+            });
+
+            if (boss.active) {
+                drawBoss();
+            }
+
+            // 보스 독성 탄환 그리기
+            enemyBullets.forEach(eb => {
+                ctx.save();
+                ctx.fillStyle = '#d946ef';
+                ctx.shadowColor = '#d946ef';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(eb.x, eb.y, eb.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#fef08a';
+                ctx.beginPath();
+                ctx.arc(eb.x, eb.y, eb.radius * 0.45, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // 11. 로봇 드론 그리기
+            if (currentState !== STATE.GAMEOVER) {
+                drawRobotDrone();
+            }
+
+            // 12. 파티클 이펙트 그리기
+            particles.forEach(pt => {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, pt.alpha);
+                ctx.fillStyle = pt.color;
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, pt.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+        }
+
+        // 나무 그리기 함수 (오염도 p에 따라 고목에서 울창한 숲으로 변화)
+        function drawTree(x, groundY, scale, layer, p) {
+            ctx.save();
+            ctx.translate(x, groundY);
+            ctx.scale(scale, scale);
+            if (layer === 0) ctx.globalAlpha = 0.65;
+
+            // 나무 기둥
+            ctx.fillStyle = lerpColor('#2e1065', '#78350f', p);
+            ctx.fillRect(-8, -90, 16, 90);
+
+            if (p < 0.35) {
+                // 오염된 상태: 앙상하고 뾰족한 나뭇가지
+                ctx.strokeStyle = '#3b0764';
+                ctx.lineWidth = 6;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(0, -60);
+                ctx.lineTo(-28, -95);
+                ctx.moveTo(0, -75);
+                ctx.lineTo(25, -108);
+                ctx.moveTo(0, -45);
+                ctx.lineTo(22, -70);
+                ctx.stroke();
+            }
+
+            // 나뭇잎 (정화 진행도에 따라 점점 커지고 초록빛으로 물듦)
+            if (p > 0.1) {
+                const leafScale = Math.min(1, (p - 0.1) / 0.6);
+                ctx.save();
+                ctx.translate(0, -95);
+                ctx.scale(leafScale, leafScale);
+
+                ctx.fillStyle = layer === 0 ? '#15803d' : '#22c55e';
+                ctx.beginPath();
+                ctx.arc(0, -15, 36, 0, Math.PI * 2);
+                ctx.arc(-24, 5, 26, 0, Math.PI * 2);
+                ctx.arc(24, 5, 26, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 나뭇잎 하이라이트
+                ctx.fillStyle = '#4ade80';
+                ctx.beginPath();
+                ctx.arc(-8, -22, 18, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            ctx.restore();
+        }
+
+        // 초록색 생명의 오브 그리기
+        function drawGreenOrb() {
+            ctx.save();
+            ctx.translate(greenOrb.x, greenOrb.y);
+
+            const glowSize = greenOrb.radius + 18 + Math.sin(greenOrb.pulse * 2) * 8;
+            const grad = ctx.createRadialGradient(0, 0, 5, 0, 0, glowSize);
+            grad.addColorStop(0, 'rgba(74, 222, 128, 0.95)');
+            grad.addColorStop(0.5, 'rgba(16, 185, 129, 0.45)');
+            grad.addColorStop(1, 'rgba(16, 185, 129, 0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(0, 0, glowSize, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 오브 코어
+            ctx.fillStyle = '#4ade80';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(0, 0, greenOrb.radius * 0.65, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // 내부 하이라이트
+            ctx.fillStyle = '#dcfce7';
+            ctx.beginPath();
+            ctx.arc(-6, -6, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // 숲의 수호신 '생명의 용' 렌더링 (오염된 어두운 용 -> 오브로 치유되어 빛나는 에메랄드 용)
+        function drawLifeDragon() {
+            const h = lifeDragon.healProgress; // 0: 오염됨, 1: 완전 치유됨
+            ctx.save();
+            ctx.translate(lifeDragon.x, lifeDragon.y);
+
+            // 치유 빛무리 오라
+            if (h > 0.05) {
+                const auraGrad = ctx.createRadialGradient(0, 0, 15, 0, 0, 140 * h + 30);
+                auraGrad.addColorStop(0, `rgba(74, 222, 128, ${0.65 * h})`);
+                auraGrad.addColorStop(0.6, `rgba(250, 204, 21, ${0.3 * h})`);
+                auraGrad.addColorStop(1, 'rgba(74, 222, 128, 0)');
+                ctx.fillStyle = auraGrad;
+                ctx.beginPath();
+                ctx.arc(0, 0, 140 * h + 30, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            const bodyMain = lerpColor('#4c1d95', '#10b981', h);
+            const bodyBelly = lerpColor('#6b21a8', '#fef08a', h);
+            const wingColor = lerpColor('#3b0764', '#34d399', h);
+            const hornColor = lerpColor('#a855f7', '#facc15', h);
+
+            const flap = Math.sin(lifeDragon.wingPhase) * (12 + h * 18);
+
+            // 1. 뒷날개
+            ctx.fillStyle = wingColor;
+            ctx.beginPath();
+            ctx.moveTo(10, -10);
+            ctx.quadraticCurveTo(55, -85 + flap, 95, -45 + flap * 0.7);
+            ctx.quadraticCurveTo(60, -25, 35, 0);
+            ctx.fill();
+
+            // 2. 유려한 동양/판타지풍 용의 꼬리와 몸통 곡선
+            ctx.strokeStyle = bodyMain;
+            ctx.lineWidth = 22;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-25, 5);
+            ctx.bezierCurveTo(10, 35, 45, -15, 85, 15 + Math.sin(lifeDragon.bodyPhase * 1.5) * 14);
+            ctx.stroke();
+
+            // 배 비늘 하이라이트
+            ctx.strokeStyle = bodyBelly;
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.moveTo(-20, 10);
+            ctx.bezierCurveTo(10, 38, 45, -10, 78, 17 + Math.sin(lifeDragon.bodyPhase * 1.5) * 14);
+            ctx.stroke();
+
+            // 3. 앞날개 (치유될수록 힘차게 날갯짓)
+            ctx.fillStyle = lerpColor('#581c87', '#6ee7b7', h);
+            ctx.strokeStyle = hornColor;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, -5);
+            ctx.quadraticCurveTo(40, -95 - flap, 85, -55 - flap * 0.8);
+            ctx.quadraticCurveTo(50, -30, 22, 5);
+            ctx.fill();
+            ctx.stroke();
+
+            // 4. 용의 머리 & 황금 뿔
+            ctx.save();
+            ctx.translate(-32, -8);
+            // 뿔
+            ctx.strokeStyle = hornColor;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(6, -12);
+            ctx.lineTo(26, -34);
+            ctx.moveTo(0, -10);
+            ctx.lineTo(16, -30);
+            ctx.stroke();
+
+            // 머리 본체
+            ctx.fillStyle = bodyMain;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 22, 15, -0.15, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 주둥이
+            ctx.beginPath();
+            ctx.ellipse(-18, 2, 12, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 용의 수염 (치유되면 우아하게 나부낌)
+            ctx.strokeStyle = hornColor;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-22, 6);
+            ctx.quadraticCurveTo(-10, 22, 14, 16 + Math.sin(lifeDragon.bodyPhase * 2) * 5);
+            ctx.stroke();
+
+            // 눈 (오염 시 감겨 있거나 흐릿한 보라색 -> 치유 시 맑고 빛나는 에메랄드/황금 눈동자)
+            if (h < 0.4) {
+                ctx.strokeStyle = '#e879f9';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(-10, -2);
+                ctx.lineTo(-2, 0);
+                ctx.stroke();
+            } else {
+                ctx.fillStyle = '#fef08a';
+                ctx.shadowColor = '#4ade80';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(-6, -3, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+            ctx.restore();
+
+            // 5. 치유 진행 게이지/안내 텍스트 (치유 중일 때 표시)
+            if (currentState === STATE.ORB_APPROACH || (currentState === STATE.PURIFYING && h < 1)) {
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 13px "Noto Sans KR", sans-serif';
+                ctx.textAlign = 'center';
+                const label = h < 0.1 ? '오염에 잠식된 생명의 용' : `생명의 용 치유 중... ${Math.floor(h * 100)}%`;
+                ctx.fillText(label, 0, -68);
+            }
+
+            ctx.restore();
+        }
+
+        // 메카닉 로봇 렌더링 (인간형 비행 로봇 스타일)
+        function drawRobotDrone() {
+            if (drone.invincibleTimer > 0 && Math.floor(drone.invincibleTimer / 4) % 2 === 0) {
+                return; // 피격 시 깜빡임
+            }
+
+            ctx.save();
+            ctx.translate(drone.x, drone.y);
+            ctx.rotate(drone.tilt * 0.8);
+
+            const hoverOffset = Math.sin(frameCount * 0.15) * 2;
+
+            // 1. 백팩 제트팩 & 추진 불꽃
+            ctx.fillStyle = '#334155';
+            ctx.beginPath();
+            ctx.roundRect(-24, -12, 10, 24, 4);
+            ctx.fill();
+
+            const flameLen = 16 + Math.random() * 12;
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath();
+            ctx.moveTo(-24, -6);
+            ctx.lineTo(-24 - flameLen, 0);
+            ctx.lineTo(-24, 6);
+            ctx.moveTo(-24, 6);
+            ctx.lineTo(-24 - flameLen * 0.8, 11);
+            ctx.lineTo(-24, 15);
+            ctx.fill();
+
+            // 2. 로봇 다리 (비행 자세로 뒤로 살짝 뻗은 메카닉 다리)
+            ctx.save();
+            ctx.translate(-4, 14);
+            ctx.rotate(0.35 + hoverOffset * 0.02);
+            // 허벅지/종아리
+            ctx.fillStyle = '#64748b';
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(-6, 0, 12, 18, 4);
+            ctx.fill();
+            ctx.stroke();
+            // 메카닉 부츠
+            ctx.fillStyle = '#0284c7';
+            ctx.beginPath();
+            ctx.roundRect(-7, 14, 16, 9, 4);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+
+            // 3. 로봇 몸통 (흉부 아머)
+            ctx.fillStyle = '#f8fafc';
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.roundRect(-14, -10, 26, 26, 8);
+            ctx.fill();
+            ctx.stroke();
+
+            // 흉부 코어 에너지
+            ctx.fillStyle = '#0284c7';
+            ctx.beginPath();
+            ctx.roundRect(-8, -5, 16, 13, 4);
+            ctx.fill();
+            ctx.fillStyle = '#22d3ee';
+            ctx.beginPath();
+            ctx.arc(2, 1.5, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 4. 로봇 머리 (헬멧, 안테나, 사이버 바이저)
+            ctx.fillStyle = '#f8fafc';
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.roundRect(-11, -28, 22, 18, 7);
+            ctx.fill();
+            ctx.stroke();
+
+            // 머리 안테나
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(-2, -28);
+            ctx.lineTo(-4, -36);
+            ctx.stroke();
+            ctx.fillStyle = '#4ade80';
+            ctx.beginPath();
+            ctx.arc(-4, -37, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 바이저 및 빛나는 로봇 눈
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.roundRect(1, -24, 11, 9, 4);
+            ctx.fill();
+            ctx.fillStyle = '#22d3ee';
+            ctx.shadowColor = '#22d3ee';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.arc(7, -19.5, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // 5. 로봇 팔 (앞으로 뻗은 레이저 암 캐논)
+            // 어깨 장갑
+            ctx.fillStyle = '#0284c7';
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(-2, -2, 7, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // 팔 본체 (암 캐논)
+            ctx.fillStyle = '#cbd5e1';
+            ctx.beginPath();
+            ctx.roundRect(-2, -2, 26, 11, 5);
+            ctx.fill();
+            ctx.stroke();
+
+            // 포구 (레이저 발사구)
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(20, -1, 7, 9);
+            ctx.fillStyle = '#4ade80';
+            ctx.beginPath();
+            ctx.arc(28, 3.5, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // 오염 몬스터 렌더링
+        function drawEnemy(en) {
+            ctx.save();
+            ctx.translate(en.x, en.y);
+
+            if (en.type === 'slime') {
+                // 독성 슬라임 몬스터
+                const squish = Math.sin(en.phase * 2) * 3;
+                ctx.fillStyle = '#9333ea';
+                ctx.strokeStyle = '#e879f9';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, en.radius + squish, en.radius - squish, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // 화난 눈
+                ctx.fillStyle = '#fef08a';
+                ctx.beginPath();
+                ctx.arc(-7, -3, 4, 0, Math.PI * 2);
+                ctx.arc(4, -3, 4, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (en.type === 'bat') {
+                // 오염 박쥐 몬스터
+                const wingY = Math.sin(en.phase * 3) * 12;
+                ctx.fillStyle = '#4c1d95';
+                // 날개
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(12, -18 + wingY);
+                ctx.lineTo(24, 0);
+                ctx.moveTo(0, 0);
+                ctx.lineTo(-8, -18 + wingY);
+                ctx.lineTo(-18, 0);
+                ctx.fill();
+
+                // 몸통
+                ctx.fillStyle = '#6b21a8';
+                ctx.beginPath();
+                ctx.arc(0, 0, 14, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 붉은 눈
+                ctx.fillStyle = '#f43f5e';
+                ctx.beginPath();
+                ctx.arc(-5, -2, 3, 0, Math.PI * 2);
+                ctx.arc(2, -2, 3, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (en.type === 'golem') {
+                // 거대 오염 골렘 몬스터
+                ctx.fillStyle = '#3b0764';
+                ctx.strokeStyle = '#a855f7';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.roundRect(-28, -28, 56, 56, 12);
+                ctx.fill();
+                ctx.stroke();
+
+                // 코어 & 체력바
+                ctx.fillStyle = '#f43f5e';
+                ctx.beginPath();
+                ctx.arc(-8, -6, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 골렘 미니 체력바
+                const hpPct = Math.max(0, en.hp / en.maxHp);
+                ctx.fillStyle = '#1e1b4b';
+                ctx.fillRect(-24, -38, 48, 5);
+                ctx.fillStyle = '#f43f5e';
+                ctx.fillRect(-24, -38, 48 * hpPct, 5);
+            }
+
+            ctx.restore();
+        }
+
+        // 최종 보스 (오염 군주 베노믹스) 렌더링
+        function drawBoss() {
+            ctx.save();
+            ctx.translate(boss.x, boss.y);
+
+            // 보스 후광 (독성 오라)
+            const auraGrad = ctx.createRadialGradient(0, 0, 20, 0, 0, 95);
+            auraGrad.addColorStop(0, 'rgba(192, 132, 252, 0.5)');
+            auraGrad.addColorStop(1, 'rgba(88, 28, 135, 0)');
+            ctx.fillStyle = auraGrad;
+            ctx.beginPath();
+            ctx.arc(0, 0, 95, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 거대 촉수/날개 장식
+            const tentacleWave = Math.sin(boss.phase * 2) * 10;
+            ctx.strokeStyle = '#6b21a8';
+            ctx.lineWidth = 10;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(15, -35);
+            ctx.quadraticCurveTo(55, -75 + tentacleWave, 75, -45);
+            ctx.moveTo(15, 35);
+            ctx.quadraticCurveTo(55, 75 - tentacleWave, 75, 45);
+            ctx.stroke();
+
+            // 보스 본체 장갑
+            ctx.fillStyle = boss.hitFlash > 0 ? '#f0abfc' : '#3b0764';
+            ctx.strokeStyle = '#d946ef';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(0, 0, boss.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // 뿔 장식
+            ctx.fillStyle = '#581c87';
+            ctx.beginPath();
+            ctx.moveTo(-25, -45);
+            ctx.lineTo(-48, -75);
+            ctx.lineTo(-5, -55);
+            ctx.moveTo(-25, 45);
+            ctx.lineTo(-48, 75);
+            ctx.lineTo(-5, 55);
+            ctx.fill();
+
+            // 거대 외눈 코어
+            ctx.fillStyle = '#1e1b4b';
+            ctx.beginPath();
+            ctx.ellipse(-16, 0, 20, 28, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#f43f5e';
+            ctx.shadowColor = '#f43f5e';
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.arc(-18, 0, 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.fillStyle = '#fef08a';
+            ctx.beginPath();
+            ctx.arc(-21, -3, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // 엔딩 숲속 동물들 렌더링
+        function drawForestAnimals() {
+            forestAnimals.forEach(a => {
+                ctx.save();
+                ctx.translate(a.x, a.y);
+                if (a.type === 'deer') {
+                    // 아기 사슴
+                    ctx.fillStyle = '#d97706';
+                    ctx.beginPath();
+                    ctx.roundRect(-16, -12, 32, 18, 8);
+                    ctx.fill();
+                    // 목과 머리
+                    ctx.fillRect(8, -26, 8, 18);
+                    ctx.beginPath();
+                    ctx.arc(14, -28, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    // 다리
+                    ctx.fillRect(-12, 4, 4, 14);
+                    ctx.fillRect(10, 4, 4, 14);
+                    // 눈
+                    ctx.fillStyle = '#0f172a';
+                    ctx.beginPath();
+                    ctx.arc(16, -29, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (a.type === 'rabbit') {
+                    // 하얀 토끼
+                    const hop = Math.abs(Math.sin(a.phase * 1.5)) * 8;
+                    ctx.translate(0, -hop);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 10, 0, Math.PI * 2);
+                    ctx.arc(-6, -8, 7, 0, Math.PI * 2);
+                    ctx.fill();
+                    // 귀
+                    ctx.beginPath();
+                    ctx.ellipse(-8, -18, 2.5, 7, -0.2, 0, Math.PI * 2);
+                    ctx.ellipse(-4, -18, 2.5, 7, 0.2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (a.type === 'bird') {
+                    // 파랑새
+                    const flap = Math.sin(a.phase * 3) * 6;
+                    ctx.fillStyle = '#38bdf8';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#0284c7';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(-4, 0);
+                    ctx.lineTo(4, -8 + flap);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            });
+        }
+
+        // --- 메인 게임 루프 ---
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.onload = function () {
+            gameLoop();
+        };
+    </script>
+</body>
+</html>
